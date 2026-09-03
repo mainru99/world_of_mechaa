@@ -1,0 +1,76 @@
+/* 전투 시뮬레이션 — 순수 함수. DOM 도 Math.random 도 쓰지 않는다.
+ *
+ * 같은 (양측 스탯 + 시드) 면 항상 같은 이벤트 목록이 나온다.
+ * 서버가 결과를 계산하고 클라이언트는 같은 시드로 애니메이션만 재생하므로,
+ * 이 파일이 조금이라도 갈리면 서버와 클라가 다른 전투를 보게 된다. */
+import { CONST } from '../data/balance.js';
+import { COMBAT_TYPES } from './units.js';
+
+const { CRIT_MULT, DEF_PEN } = CONST;
+
+/* 시드 난수 — 전투 안의 모든 판정은 이것만 쓴다 */
+export function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+export function makeUnit(name, type, st) {
+  return { name, type, maxhp: st.hp, hp: st.hp, atk: st.atk, def: st.def, spd: st.spd,
+           crit: st.crit, eva: st.eva, sp: 0 };
+}
+
+export function dmgCalc(atk, def, rnd, mult) {
+  let b = atk * 100 / (100 + Math.max(0, def));
+  b *= mult; b *= 0.9 + rnd() * 0.2;
+  return Math.max(1, Math.round(b));
+}
+
+export function doHit(A, D, side, dside, ev, rnd, o) {
+  o = o || {};
+  if (!o.noMiss && rnd() < D.eva) { ev.push({ t:'hit', side, dside, miss:true, dmg:0, crit:false, thp:D.hp }); return; }
+  const crit = o.alwaysCrit || (!o.noCrit && rnd() < A.crit);
+  const pen = o.ignoreDef ? (o.ignoreDef === true ? DEF_PEN : o.ignoreDef) : 0;  // 완전 무시가 아니라 부분 관통
+  const m = (o.mult || 1) * (crit ? CRIT_MULT : 1), def = Math.max(0, D.def) * (1 - pen);
+  const dmg = dmgCalc(A.atk, def, rnd, m); D.hp = Math.max(0, D.hp - dmg);
+  ev.push({ t:'hit', side, dside, miss:false, dmg, crit, thp:D.hp });
+  if (o.drain) {
+    const hl = Math.max(1, Math.round(dmg * o.drain));
+    A.hp = Math.min(A.maxhp, A.hp + hl);
+    ev.push({ t:'heal', side, hp:A.hp, amt:hl });
+  }
+}
+
+export function doSkill(A, D, side, dside, ev, rnd) {   // 기체와 몬스터의 고유 스킬을 같은 규칙으로 실행한다
+  const sk = (COMBAT_TYPES[A.type] || COMBAT_TYPES.mule).skill, fx = sk.fx || { mult: 1.8 };
+  ev.push({ t:'skill', side, name: sk.name });
+  const hits = fx.hits || 1;
+  for (let i = 0; i < hits; i++) { if (D.hp <= 0) break; doHit(A, D, side, dside, ev, rnd, fx); }
+}
+
+export function simulate(P, E, seed) {
+  const rnd = mulberry32(seed >>> 0), ev = [{ t:'start' }], g = { P:0, E:0 };
+  let guard = 0;
+  while (P.hp > 0 && E.hp > 0 && guard < 600) {
+    guard++;
+    const tP = (100 - g.P) / P.spd, tE = (100 - g.E) / E.spd, dt = Math.min(tP, tE);
+    g.P += P.spd * dt; g.E += E.spd * dt;
+    const actors = [];
+    if (g.P >= 99.999) actors.push('P');
+    if (g.E >= 99.999) actors.push('E');
+    actors.sort((a, b) => (b === 'P' ? P.spd : E.spd) - (a === 'P' ? P.spd : E.spd));
+    for (const side of actors) {
+      if (P.hp <= 0 || E.hp <= 0) break;
+      g[side] -= 100;
+      const A = side === 'P' ? P : E, D = side === 'P' ? E : P, dside = side === 'P' ? 'E' : 'P';
+      A.sp = Math.min(100, A.sp + 30); ev.push({ t:'turn', side, sp:A.sp });
+      if (A.sp >= 100) { A.sp = 0; doSkill(A, D, side, dside, ev, rnd); }
+      else doHit(A, D, side, dside, ev, rnd, {});
+    }
+  }
+  ev.push({ t:'end', winner: P.hp > 0 ? 'P' : (E.hp > 0 ? 'E' : 'P') });
+  return ev;
+}

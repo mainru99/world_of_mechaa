@@ -37,7 +37,8 @@
 <div id="toast" class="toast"></div>
 <div id="modal"></div>
 
-<script src="sprites.js?v=20260903-monsters1"></script>
-<script src="game.js?v=20260903-monsters1"></script>
+<!-- ES 모듈이라 file:// 로 직접 열면 동작하지 않는다. README 의 로컬 서버 안내 참고.
+     인라인 onclick="ROWAR.x()" 는 js/game.js 가 window.ROWAR 를 대입하므로 그대로 동작한다. -->
+<script type="module" src="js/game.js?v=20260904-split"></script>
 </body>
 </html>

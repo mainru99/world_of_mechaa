@@ -14,7 +14,9 @@ python -m http.server 8123
 → 브라우저에서 `http://localhost:8123` 접속. (진행상황은 브라우저 localStorage에 자동 저장)
 
 > 빌드 과정도, 외부 라이브러리도 없습니다. 파일을 받아 위 명령만 실행하면 바로 돌아갑니다.
-> 소스를 고친 뒤에는 브라우저가 `game.js` 를 캐시할 수 있으니 **Ctrl+Shift+R** 로 새로고침하세요.
+> **로컬 서버가 반드시 필요합니다.** ES 모듈(`<script type="module">`)이라 `index.html` 을
+> `file://` 로 직접 열면 브라우저가 import 를 막습니다.
+> 소스를 고친 뒤에는 브라우저가 스크립트를 캐시할 수 있으니 **Ctrl+Shift+R** 로 새로고침하세요.
 
 ## 지금 되는 것 (v0.5)
 - **SD 픽셀아트 로봇 30종 · 5등급** (`assets/*.png`, 등급마다 6기)
@@ -78,7 +80,7 @@ python -m http.server 8123
     길어진 만큼 재생 템포를 줄이고 **기본 속도를 x2**, 속도 버튼을 x1/x2/x4/x8로 바꿨습니다
     (Lv.20 한 판 = x2에서 약 32초, x8에서 8초). 더 짧게 하려면 `ATK_SCALE` 하나만 올리면 됩니다.
   - 아레나에서는 **내 기체가 오른쪽, 상대가 왼쪽을 보도록** 좌우 반전해 서로 마주보게 합니다
-    (원본 그림 30장은 전부 왼쪽 향. `sprites.js` 의 `FACE_RIGHT` 로 예외 지정 가능)
+    (원본 그림 30장은 전부 왼쪽 향. `js/sprites.js` 의 `FACE_RIGHT` 로 예외 지정 가능)
   - 재생 도중 다른 화면으로 나가면 전투는 보상 없이 조용히 취소됩니다
   - 상대는 **내가 가진 최고 등급보다 한 단계 위까지만** 매칭됩니다
 - **파밍/경제**: 승리 시 크레딧·스크랩·코어·파츠 획득 → 육성/뽑기에 재투자
@@ -167,10 +169,25 @@ Lv.1 · 파츠 없음 · 피로도 0 기준(공격은 전역 배율 0.2 적용 �
 |------|------|
 | `index.html` | 화면 골격 + 스크립트 로드 |
 | `style.css` | 다크 테마 UI, 반응형, 전투 애니메이션 |
-| `sprites.js` | 기체 30종 + 대전 전용 몬스터 10종 PNG 로더 (`window.SPRITES[id](faceRight)` → `<img>`, 방향 반전 포함) |
+| `data/balance.js` | **밸런스 원본** — 기체 30종·몬스터 10종·뽑기 확률·파츠 표·조정 상수. 순수 데이터 |
+| `js/units.js` | 데이터에서 파생한 색인 (`COMBAT_TYPES`, `BY_RARITY`, `rarOf` …) |
+| `js/stats.js` | 스탯 계산과 육성 곡선 (순수 함수) |
+| `js/sim.js` | 전투 시뮬 (순수 함수, 시드 기반 결정적) |
+| `js/sprites.js` | 스프라이트 `<img>` 생성. id 목록을 데이터에서 파생, 방향 반전 포함 |
+| `js/game.js` | 상태·저장·화면·게임 루프. **DOM 을 만지는 유일한 파일** |
 | `assets/*.png` | 기체 스프라이트 30종 (440×420 투명 PNG, 바닥 그림자 제거, 발끝 정렬) |
 | `assets/monsters/*.png` | 대전 전용 몬스터 10종 (440×420 투명 PNG, 바닥 그림자 제거) |
-| `game.js` | 데이터·상태·뽑기·육성·매칭·전투 시뮬/재생 (전체 로직) |
+| `server/schema.sql` | Cloudflare D1 스키마 |
+| `CONTRACT.md` · `AGENTS.md` | ChatGPT/Claude 협업 규칙과 진행 기록 |
+
+### 왜 이렇게 나눴나
+
+`data/balance.js` · `js/units.js` · `js/stats.js` · `js/sim.js` 는 **DOM 을 참조하지 않습니다.**
+브라우저와 Cloudflare Worker 가 같은 파일을 그대로 import 하기 위해서입니다.
+밸런스 사본을 서버에 따로 두면 반드시 어긋나고, 어긋나는 순간 서버가 정상 파츠를 위조로 판정합니다.
+
+기체를 추가할 때는 `data/balance.js` 의 `ROBOT_TYPES` 에 항목을, `assets/` 에 `<id>.png` 를
+넣으면 끝입니다. 스프라이트 목록·등급별 뽑기 풀·화면의 "N종" 표기까지 전부 데이터에서 파생됩니다.
 
 ## 핵심 설계 메모
 - 전투는 **시드 기반 결정적 시뮬레이션 → 이벤트 목록 → 재생** 구조입니다.
@@ -183,11 +200,17 @@ Lv.1 · 파츠 없음 · 피로도 0 기준(공격은 전역 배율 0.2 적용 �
 - **Phase 3 · 콘텐츠/밸런스**: 로봇·파츠·스킬 추가, 랭크/리그, 일일 미션, 밸런스 튜닝, 세트 효과.
 - **정리**: 데이터(로봇/파츠) 외부 JSON 분리, 사운드, 연출 강화.
 
-## 밸런스 상수 (game.js 상단에서 조절)
-`ROBOT_TYPES`(로봇 스탯/성장/스킬), `ROBOT_RARITY`(로봇 등급 확률), `ROBOT_APPEAR`(로봇 등장률),
-`DUPE_GAIN`(중복 분해), `RARITY`(파츠 등급), `PULL_COST`, `battleRewards`(보상),
-`CRIT_MULT`/`DEF_PEN`(한 방 폭발력), `ATK_SCALE`(전투 길이), `PULL_TABLE`(뽑기 결과 확률),
-`expNeed`/`battleExp`/`lvCost`/`enhCost`(육성 속도), `FAT_MAX`/`SERVICE_RATE`(피로도 상한·정비 단가).
+## 밸런스 상수 (`data/balance.js` 에서 조절)
+`ROBOT_TYPES`(기체 스탯/성장/스킬), `MONSTER_TYPES`(대전 전용 몬스터),
+`ROBOT_RARITY`(기체 등급 확률), `PULL_TABLE`(뽑기 결과 확률), `RARITY`(파츠 등급), `STAT_ROLL`(스탯 굴림 범위),
+그리고 `CONST` 에 모아 둔 조정값 — `MAXLV` `PULL_COST` `ATK_SCALE`(전투 길이)
+`CRIT_MULT`/`DEF_PEN`(한 방 폭발력) `FAT_MAX`/`SERVICE_RATE`(피로도 상한·정비 단가)
+`MONSTER_RATE`(몬스터 조우율) `DUPE_GAIN`(중복 분해).
+
+육성 속도 곡선(`expNeed` `battleExp` `lvCost` `enhCost`)과 전투 보상(`battleRewards`)은
+계산식이라 각각 `js/stats.js` · `js/game.js` 에 있습니다.
+
+> 밸런스를 고치면 **서버도 다시 배포해야 합니다.** 서버가 같은 파일로 뽑기와 전투를 판정하기 때문입니다.
 
 등급 격차를 다시 조절하려면 `ROBOT_TYPES[].grow` 를 만지면 됩니다 — `base` 는 초반 격차,
 `grow` 는 후반 수렴 속도를 결정합니다(현재는 grow 의 '레벨당 전투력 기여'를 등급 전체에서 81~90 으로 거의 평평하게 맞춰 둠).

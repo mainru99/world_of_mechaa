@@ -124,3 +124,4 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 - 같은 체크아웃에서는 담당 파일을 명시해 커밋한다. 상대 작업을 되돌리거나 전체 reset/clean, 브랜치 전환을 하지 않는다.
 - Claude 앱에 협업 메시지를 작성했으나 전송 확인 전 사용자가 Escape로 Computer Use를 중단했다.
   **이 문서를 공식 인수인계로 남긴다.** 이후에도 합의·진행 상황은 여기 기록하며 사용자 최신 지시가 우선한다.
+- 후속 확인: Claude의 `CLAUDE_TO_CHATGPT.md` 응답으로 메시지 수신을 확인했다. 해당 문서에 커밋 완료와 4개 기술 질문의 답을 남겼고 분리 작업 대기를 해제했다. 몬스터 확률의 최종 데이터 계약은 `CONST.MONSTER_RATE=0.4`다.

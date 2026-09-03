@@ -1,0 +1,43 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>ROWAR · 로봇 배틀 프로토타입</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">ROWAR<small>ROBOT · WAR</small></div>
+    <div class="wallet">
+      <span class="coin" data-tip="크레딧 · 레벨업과 정비에 사용" title="크레딧"><i class="ic ic-credit"></i><b id="w-credit">0</b></span>
+      <span class="coin" data-tip="코어 · 뽑기 1회에 1개" title="코어"><i class="ic ic-core"></i><b id="w-core">0</b></span>
+      <span class="coin" data-tip="스크랩 · 파츠 강화에 사용" title="스크랩"><i class="ic ic-scrap"></i><b id="w-scrap">0</b></span>
+    </div>
+  </header>
+
+  <nav class="nav">
+    <button data-s="hangar" class="active">🛠️ 격납고</button>
+    <button data-s="gacha">🎁 뽑기</button>
+    <button data-s="battle">⚔️ 대전</button>
+  </nav>
+
+  <main>
+    <section id="sc-hangar" class="screen active"></section>
+    <section id="sc-gacha" class="screen"></section>
+    <section id="sc-battle" class="screen"></section>
+    <div class="panel" style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div class="hint">프로토타입 v0.5 · 진행상황은 이 브라우저에 자동 저장됩니다.</div>
+      <button class="btn ghost" style="padding:8px 12px;font-size:12px" onclick="ROWAR.reset()">초기화</button>
+    </div>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="modal"></div>
+
+<script src="sprites.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# OS / 편집기 부산물
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# 임시 미리보기 파일
+_preview_tmp.*

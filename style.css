@@ -249,3 +249,9 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .modal-card .pchip{margin-bottom:8px}
 .reveal-hero{display:flex;justify-content:center;margin:8px 0 12px}
 .reveal-hero .sprite{width:150px;height:150px}
+
+/* 대전 전용 몬스터 */
+.monster-tag{color:#ffaca5;background:#46242b;border:1px solid #95505a}
+.monster-skill{display:flex;flex-direction:column;gap:5px;margin-top:14px;padding:12px 14px;border-left:3px solid var(--bad);background:rgba(255,100,110,.06);border-radius:5px;font-size:13px;line-height:1.5}
+.monster-skill strong{color:#ffb4ae}
+.monster-skill span{color:var(--dim)}

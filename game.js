@@ -24,7 +24,7 @@ const ROBOT_APPEAR = PULL_TABLE.find(t=>t.k==='robot').w/100;   // 화면 표기
 const DUPE_GAIN = { C:{cr:200,sc:30,co:0},  UC:{cr:320,sc:45,co:0}, R:{cr:520,sc:70,co:1},
                     UQ:{cr:900,sc:120,co:2}, EP:{cr:1600,sc:200,co:4} };
 
-/* 기체 10종 · 등급마다 2종(맷집형 / 속공형) */
+/* 기체 30종 · 등급마다 6종 */
 /* 성장(grow)은 등급이 낮을수록 '기본값 대비' 크게 잡아, 레벨을 올릴수록 등급 격차가 좁혀지도록 했다.
    Lv.1 에선 인접 등급이 14~20% 차이나지만 Lv.45 에선 5~6% 로 줄어 하위 등급도 끝까지 쓸 만하다. */
 const ROBOT_TYPES = {
@@ -68,7 +68,126 @@ const ROBOT_TYPES = {
     base:{hp:820,atk:152,def:88,spd:82,crit:.22,eva:.12}, grow:{hp:44,atk:12,def:8,spd:5},
     skill:{name:'카오스 버스트', desc:'적 방어력을 60% 관통하는 1.15배 폭격을 3회.',
            fx:{mult:1.15,hits:3,ignoreDef:true}} },
+  /* ---- 세트 02: 같은 등급의 기존 기체를 기준으로 무작위 생성한 고정 스펙 ---- */
+  rust:{ id:'rust', name:'RUST', rarity:'C', role:'근접 방어형 · 센트리',
+    base:{hp:491,atk:71,def:58,spd:43,crit:0.06,eva:0.05}, grow:{hp:58,atk:9,def:7,spd:3},
+    skill:{name:'아이언 너클', desc:'1.65배 강타. 빗나가지 않음.',
+           fx:{mult:1.65,noMiss:true}} },
+  scarab:{ id:'scarab', name:'SCARAB', rarity:'C', role:'기동 타격형 · 스카우트',
+    base:{hp:445,atk:80,def:47,spd:56,crit:0.09,eva:0.07}, grow:{hp:49,atk:11,def:5,spd:5},
+    skill:{name:'트윈 임팩트', desc:'0.85배 타격을 2회. 각각 치명타·회피 판정.',
+           fx:{mult:0.85,hits:2}} },
+  bastion:{ id:'bastion', name:'BASTION', rarity:'UC', role:'지원 포격형 · 미사일러',
+    base:{hp:590,atk:86,def:59,spd:40,crit:0.08,eva:0.04}, grow:{hp:55,atk:8,def:9,spd:4},
+    skill:{name:'미사일 레인', desc:'0.95배 미사일을 2회 발사. 회피 불가.',
+           fx:{mult:0.95,hits:2,noMiss:true}} },
+  kestrel:{ id:'kestrel', name:'KESTREL', rarity:'UC', role:'관통 사격형 · 헌터',
+    base:{hp:461,atk:90,def:48,spd:63,crit:0.13,eva:0.09}, grow:{hp:46,atk:10,def:6,spd:7},
+    skill:{name:'피어싱 캐논', desc:'적 방어력을 60% 관통하는 1.8배 포격.',
+           fx:{mult:1.8,ignoreDef:true}} },
+  tempest:{ id:'tempest', name:'TEMPEST', rarity:'R', role:'고기동 사격형 · 인터셉터',
+    base:{hp:525,atk:106,def:57,spd:81,crit:0.16,eva:0.13}, grow:{hp:44,atk:11,def:6,spd:7},
+    skill:{name:'스톰 샷', desc:'0.95배 사격을 3회. 각각 치명타·회피 판정.',
+           fx:{mult:0.95,hits:3}} },
+  cobalt:{ id:'cobalt', name:'COBALT', rarity:'R', role:'중장 관통형 · 브레이커',
+    base:{hp:671,atk:104,def:78,spd:51,crit:0.09,eva:0.08}, grow:{hp:54,atk:9,def:9,spd:4},
+    skill:{name:'코발트 브레이크', desc:'적 방어력을 60% 관통하는 1.85배 포격. 빗나가지 않음.',
+           fx:{mult:1.85,ignoreDef:true,noMiss:true}} },
+  specter:{ id:'specter', name:'SPECTER', rarity:'UQ', role:'원격 제압형 · 비트 마스터',
+    base:{hp:601,atk:125,def:62,spd:86,crit:0.23,eva:0.17}, grow:{hp:40,atk:12,def:6,spd:7},
+    skill:{name:'팬텀 비트', desc:'0.65배 비트 사격 3회. 모두 확정 치명타(회피는 가능).',
+           fx:{mult:0.65,hits:3,alwaysCrit:true}} },
+  umbra:{ id:'umbra', name:'UMBRA', rarity:'UQ', role:'에너지 흡수형 · 블레이더',
+    base:{hp:709,atk:123,def:74,spd:60,crit:0.14,eva:0.1}, grow:{hp:53,atk:10,def:9,spd:4},
+    skill:{name:'보이드 엣지', desc:'2.35배 참격. 준 피해의 35%만큼 체력을 흡수한다.',
+           fx:{mult:2.35,drain:0.35}} },
+  tyrant:{ id:'tyrant', name:'TYRANT', rarity:'EP', role:'전면 포격형 · 디스트로이어',
+    base:{hp:844,atk:146,def:87,spd:78,crit:0.21,eva:0.12}, grow:{hp:44,atk:12,def:8,spd:5},
+    skill:{name:'헬파이어 살보', desc:'적 방어력을 60% 관통하는 1.1배 포격을 3회.',
+           fx:{mult:1.1,hits:3,ignoreDef:true}} },
+  atlas:{ id:'atlas', name:'ATLAS', rarity:'EP', role:'중장 돌파형 · 타이탄',
+    base:{hp:914,atk:146,def:92,spd:70,crit:0.15,eva:0.13}, grow:{hp:54,atk:10,def:9,spd:5},
+    skill:{name:'타이탄 크러시', desc:'방어력 60% 관통 2.15배 강타. 빗나가지 않고 25%를 흡수한다.',
+           fx:{mult:2.15,ignoreDef:true,noMiss:true,drain:0.25}} },
+  /* ---- 세트 03: 3rd.png의 등급별 기체, 기존 등급 기준 무작위 고정 스펙 ---- */
+  grit:{ id:'grit', name:'GRIT', rarity:'C', role:'전선 방어형 · 가드',
+    base:{hp:496,atk:71,def:57,spd:43,crit:0.05,eva:0.04}, grow:{hp:57,atk:9,def:8,spd:3},
+    skill:{name:'브레이스 펀치', desc:'1.55배 강타. 빗나가지 않음.',
+           fx:{mult:1.55,noMiss:true}} },
+  chalk:{ id:'chalk', name:'CHALK', rarity:'C', role:'기동 타격형 · 러너',
+    base:{hp:434,atk:74,def:44,spd:54,crit:0.09,eva:0.08}, grow:{hp:45,atk:11,def:5,spd:6},
+    skill:{name:'화이트 러시', desc:'0.9배 타격을 2회. 각각 치명타·회피 판정.',
+           fx:{mult:0.9,hits:2}} },
+  tracer:{ id:'tracer', name:'TRACER', rarity:'UC', role:'표적 추적형 · 트래커',
+    base:{hp:481,atk:93,def:46,spd:64,crit:0.13,eva:0.09}, grow:{hp:43,atk:10,def:7,spd:7},
+    skill:{name:'트레이스 샷', desc:'적 방어력을 60% 관통하는 1.7배 사격.',
+           fx:{mult:1.7,ignoreDef:true}} },
+  mantis:{ id:'mantis', name:'MANTIS', rarity:'UC', role:'중장 압박형 · 인포서',
+    base:{hp:590,atk:89,def:63,spd:43,crit:0.08,eva:0.04}, grow:{hp:52,atk:8,def:9,spd:4},
+    skill:{name:'프레셔 버스트', desc:'2.0배 집중 포격. 회피 불가.',
+           fx:{mult:2,noMiss:true}} },
+  howitzer:{ id:'howitzer', name:'HOWITZER', rarity:'R', role:'중장 포격형 · 시즈',
+    base:{hp:689,atk:98,def:76,spd:53,crit:0.09,eva:0.08}, grow:{hp:57,atk:9,def:9,spd:4},
+    skill:{name:'시즈 캐논', desc:'적 방어력을 60% 관통하는 1.85배 포격. 빗나가지 않음.',
+           fx:{mult:1.85,ignoreDef:true,noMiss:true}} },
+  lancer:{ id:'lancer', name:'LANCER', rarity:'R', role:'고기동 돌파형 · 랜서',
+    base:{hp:505,atk:106,def:62,spd:75,crit:0.16,eva:0.13}, grow:{hp:43,atk:11,def:7,spd:7},
+    skill:{name:'트리플 피어스', desc:'0.95배 찌르기를 3회. 각각 치명타·회피 판정.',
+           fx:{mult:0.95,hits:3}} },
+  hex:{ id:'hex', name:'HEX', rarity:'UQ', role:'전격 흡수형 · 워록',
+    base:{hp:775,atk:120,def:79,spd:53,crit:0.13,eva:0.09}, grow:{hp:54,atk:10,def:9,spd:4},
+    skill:{name:'헥스 디스차지', desc:'2.3배 전격. 준 피해의 35%만큼 체력을 흡수한다.',
+           fx:{mult:2.3,drain:0.35}} },
+  halo:{ id:'halo', name:'HALO', rarity:'UQ', role:'정밀 제압형 · 컨덕터',
+    base:{hp:621,atk:126,def:61,spd:81,crit:0.21,eva:0.16}, grow:{hp:47,atk:11,def:7,spd:7},
+    skill:{name:'오비탈 포커스', desc:'0.7배 사격 3회. 모두 확정 치명타(회피는 가능).',
+           fx:{mult:0.7,hits:3,alwaysCrit:true}} },
+  auric:{ id:'auric', name:'AURIC', rarity:'EP', role:'중장 강습형 · 골드 가디언',
+    base:{hp:894,atk:139,def:98,spd:77,crit:0.15,eva:0.15}, grow:{hp:51,atk:10,def:9,spd:5},
+    skill:{name:'골든 임팩트', desc:'방어력 60% 관통 2.15배 강타. 빗나가지 않고 25%를 흡수한다.',
+           fx:{mult:2.15,ignoreDef:true,noMiss:true,drain:0.25}} },
+  ignis:{ id:'ignis', name:'IGNIS', rarity:'EP', role:'광익 포격형 · 피닉스',
+    base:{hp:798,atk:151,def:86,spd:78,crit:0.21,eva:0.12}, grow:{hp:45,atk:12,def:8,spd:5},
+    skill:{name:'이그니스 레인', desc:'적 방어력을 60% 관통하는 1.1배 광익 사격을 3회.',
+           fx:{mult:1.1,hits:3,ignoreDef:true}} },
 };
+/* 대전 전용 몬스터: 소유/뽑기/시작 기체 목록에는 넣지 않는다. */
+const MONSTER_TYPES = {
+  enemy_razorwing:{ id:'enemy_razorwing', name:'레이저윙', rarity:'C', role:'고속 연격형 · 기계 맹금',
+    base:{"hp":418,"atk":81,"def":44,"spd":60,"crit":0.1,"eva":0.08}, grow:{"hp":44,"atk":11,"def":5,"spd":6},
+    skill:{"name":"레이저 탈론","desc":"0.9배 발톱 공격을 2회. 각각 치명타·회피 판정.","fx":{"mult":0.9,"hits":2}} },
+  enemy_angler:{ id:'enemy_angler', name:'어비스 앵글러', rarity:'UC', role:'중장 압박형 · 심해 포식자',
+    base:{"hp":601,"atk":85,"def":67,"spd":35,"crit":0.07,"eva":0.03}, grow:{"hp":57,"atk":8,"def":9,"spd":3},
+    skill:{"name":"어비스 바이트","desc":"2.0배 강철 턱 공격. 빗나가지 않음.","fx":{"mult":2,"noMiss":true}} },
+  enemy_jackal:{ id:'enemy_jackal', name:'더스트 자칼', rarity:'C', role:'근접 추적형 · 사막 사냥꾼',
+    base:{"hp":505,"atk":72,"def":58,"spd":39,"crit":0.05,"eva":0.04}, grow:{"hp":61,"atk":8,"def":8,"spd":3},
+    skill:{"name":"데저트 팽","desc":"1.65배 송곳니 공격. 빗나가지 않음.","fx":{"mult":1.65,"noMiss":true}} },
+  enemy_reaper:{ id:'enemy_reaper', name:'베놈 리퍼', rarity:'R', role:'고기동 참격형 · 사마귀',
+    base:{"hp":501,"atk":104,"def":59,"spd":83,"crit":0.18,"eva":0.14}, grow:{"hp":41,"atk":11,"def":6,"spd":8},
+    skill:{"name":"크로스 사이드","desc":"0.95배 낫 공격을 3회. 각각 치명타·회피 판정.","fx":{"mult":0.95,"hits":3}} },
+  enemy_lich:{ id:'enemy_lich', name:'보이드 리치', rarity:'UQ', role:'에너지 흡수형 · 기계 술사',
+    base:{"hp":806,"atk":120,"def":79,"spd":52,"crit":0.12,"eva":0.08}, grow:{"hp":55,"atk":10,"def":9,"spd":4},
+    skill:{"name":"소울 하베스트","desc":"2.35배 에너지 공격. 준 피해의 35%를 흡수한다.","fx":{"mult":2.35,"drain":0.35}} },
+  enemy_goliath:{ id:'enemy_goliath', name:'아이언 골리앗', rarity:'EP', role:'중장 파괴형 · 기계 거수',
+    base:{"hp":904,"atk":139,"def":93,"spd":74,"crit":0.15,"eva":0.14}, grow:{"hp":53,"atk":10,"def":9,"spd":5},
+    skill:{"name":"코어 크러셔","desc":"방어력 60% 관통 2.15배 강타. 빗나가지 않고 25%를 흡수한다.","fx":{"mult":2.15,"ignoreDef":true,"noMiss":true,"drain":0.25}} },
+  enemy_scorpio:{ id:'enemy_scorpio', name:'볼트 스콜피오', rarity:'R', role:'장갑 관통형 · 기계 전갈',
+    base:{"hp":706,"atk":96,"def":81,"spd":45,"crit":0.08,"eva":0.06}, grow:{"hp":57,"atk":9,"def":9,"spd":3},
+    skill:{"name":"스팅어 드릴","desc":"방어력 60%를 관통하는 1.85배 꼬리 공격. 빗나가지 않음.","fx":{"mult":1.85,"ignoreDef":true,"noMiss":true}} },
+  enemy_strix:{ id:'enemy_strix', name:'나이트 스트릭스', rarity:'UC', role:'정밀 저격형 · 야행성 감시자',
+    base:{"hp":446,"atk":89,"def":47,"spd":67,"crit":0.14,"eva":0.1}, grow:{"hp":42,"atk":11,"def":6,"spd":7},
+    skill:{"name":"나이트 피어서","desc":"방어력 60%를 관통하는 1.8배 저격.","fx":{"mult":1.8,"ignoreDef":true}} },
+  enemy_megalodon:{ id:'enemy_megalodon', name:'블러드 메갈로돈', rarity:'UQ', role:'급습 연격형 · 강철 상어',
+    base:{"hp":616,"atk":123,"def":60,"spd":86,"crit":0.25,"eva":0.18}, grow:{"hp":43,"atk":12,"def":6,"spd":7},
+    skill:{"name":"프레데터 러시","desc":"0.7배 급습을 3회. 모두 확정 치명타(회피는 가능).","fx":{"mult":0.7,"hits":3,"alwaysCrit":true}} },
+  enemy_kabuto:{ id:'enemy_kabuto', name:'오닉스 카부토', rarity:'EP', role:'장갑 돌파형 · 갑충 군주',
+    base:{"hp":831,"atk":153,"def":89,"spd":79,"crit":0.21,"eva":0.12}, grow:{"hp":44,"atk":12,"def":8,"spd":5},
+    skill:{"name":"모나크 브레이크","desc":"방어력 60%를 관통하는 1.1배 돌진 공격을 3회.","fx":{"mult":1.1,"hits":3,"ignoreDef":true}} }
+};
+const MONSTER_ENCOUNTER_RATE = 0.4;
+const MONSTER_BY_RARITY = {};
+for(const monster of Object.values(MONSTER_TYPES)) (MONSTER_BY_RARITY[monster.rarity] ||= []).push(monster.id);
+const COMBAT_TYPES = {...ROBOT_TYPES,...MONSTER_TYPES};
 const TYPE_KEYS = Object.keys(ROBOT_TYPES);
 const BY_RARITY = {}; for(const k in ROBOT_TYPES){ const r=ROBOT_TYPES[k].rarity; (BY_RARITY[r]=BY_RARITY[r]||[]).push(k); }
 
@@ -118,7 +237,7 @@ function weighted(list){ let t=list.reduce((s,x)=>s+x.w,0), r=R()*t; for(const x
 function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 const $ = (s,r=document)=>r.querySelector(s);
 const sprite = (type,flip)=> (window.SPRITES[type]||window.SPRITES.mule)(!!flip);
-const rarOf = type => (ROBOT_TYPES[type]||ROBOT_TYPES.mule).rarity;
+const rarOf = type => (COMBAT_TYPES[type]||ROBOT_TYPES.mule).rarity;
 function robRarTag(type){ const r=RR[rarOf(type)]; return `<span class="tag rr-${r.k}">${r.ko}</span>`; }
 
 /* 피로도 : 대전할수록 쌓이고, 쌓인 만큼 최대 체력이 줄어든다. 크레딧으로 정비해서 푼다 */
@@ -131,7 +250,7 @@ const serviceCost = rb => Math.ceil(fatOf(rb) * SERVICE_RATE[rarOf(rb.type)] * (
 const SAVE_KEY = 'rowar.save.v2';   // v1(로봇 3기 체제)은 로스터가 완전히 달라 호환되지 않는다
 let S = null;
 function emptySlots(){ return {WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}; }
-function freshState(){         // 시작: 커먼 1기, Lv.1 — 나머지 9기는 뽑기로만 얻는다
+function freshState(){         // 시작: 커먼 1기, Lv.1 — 나머지 기체는 뽑기로만 얻는다
   return { v:2, credits:600, cores:12, scrap:30,
     robots:[{uid:uid(),type:pick(BY_RARITY.C),level:1,exp:0,fat:0,slots:emptySlots()}],
     parts:[], sel:0, stat:{wins:0,losses:0,pulls:0} };
@@ -158,7 +277,7 @@ function partStat(p){ const o={}; const e=p.enh||0; for(const k in p.stats){ o[k
   return o; }
 function computeStats(robot, parts){
   parts = parts || S.parts;
-  const T=ROBOT_TYPES[robot.type], lv=robot.level, s={};
+  const T=COMBAT_TYPES[robot.type], lv=robot.level, s={};
   for(const k of ['hp','atk','def','spd']) s[k]=T.base[k]+(T.grow[k]||0)*(lv-1);
   s.atk *= ATK_SCALE;                                // 기체 공격력 배율
   s.crit=T.base.crit; s.eva=T.base.eva;
@@ -339,7 +458,7 @@ function renderGacha(){
         <button class="btn big" onclick="ROWAR.pull10()" ${S.cores<10?'disabled':''}>10회 뽑기 (코어 10)</button>
       </div>
       <div class="hint" style="margin-top:8px">코어는 대전 승리로 조금씩 얻습니다.
-        로봇은 5등급 10종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.</div>
+        로봇은 ${ROBOT_RARITY.length}등급 ${TYPE_KEYS.length}종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.</div>
     </div>`;
 }
 async function pull1(){
@@ -406,6 +525,7 @@ function renderBattleHome(){
           <div class="hint">출전 기체는 격납고에서 선택한 로봇입니다.</div>
         </div>
       </div>
+      <div class="hint" style="margin-top:10px">상대 로봇 또는 야생 몬스터와 대전합니다. 몬스터는 대전에서만 출현합니다.</div>
       <button class="btn big" style="margin-top:12px" onclick="ROWAR.findMatch()">상대 찾기</button>
       <div class="hint" style="margin-top:8px">전적 · ${S.stat.wins}승 ${S.stat.losses}패
         <span style="color:var(--dim)"> · (지금은 서버 대신 로컬에서 상대를 생성하는 임시 매칭입니다)</span></div>
@@ -414,34 +534,39 @@ function renderBattleHome(){
 function findMatch(){
   $('#sc-battle').innerHTML = `<h2 class="title">대전</h2><div class="panel"><div class="mm">
     <div class="spinner"></div><div style="font-weight:800">상대를 검색하는 중...</div>
-    <div class="hint">네트워크 서버 매칭 자리 (프로토타입: 로컬 상대 생성)</div></div></div>`;
+    <div class="hint">상대 로봇과 야생 몬스터의 신호를 탐색합니다.</div></div></div>`;
   setTimeout(()=>{ _pendingOpp=makeOpponent(); showOpponent(_pendingOpp); }, 1200);
 }
-function oppType(){                       // 내가 가진 최고 등급보다 한 단계 위까지만 만난다
+function oppType(byRarity=BY_RARITY){                       // 내가 가진 최고 등급보다 한 단계 위까지만 만난다
   const best=Math.max(...S.robots.map(r=>RIDX[rarOf(r.type)]));
   const pool=ROBOT_RARITY.filter(r=>RIDX[r.k]<=Math.min(4,best+1));
-  return pick(BY_RARITY[weighted(pool).k]);
+  return pick(byRarity[weighted(pool).k]);
 }
 function makeOpponent(){
-  const myLv=selRobot().level, type=oppType(), lv=clamp(myLv+ri(-2,2),1,MAXLV);
-  const rb={uid:'E'+uid(),type,level:lv,slots:emptySlots()}, parts=[], np=ri(0,2);
+  const monster=R()<MONSTER_ENCOUNTER_RATE;
+  const myLv=selRobot().level, type=oppType(monster?MONSTER_BY_RARITY:BY_RARITY), lv=clamp(myLv+ri(-2,2),1,MAXLV);
+  const rb={uid:'E'+uid(),type,level:lv,slots:emptySlots()}, parts=[];
+  // 몬스터는 고유 스탯/성장률로 싸우며 소유 기체나 파츠를 생성하지 않는다.
+  if(monster) return {kind:'monster',robot:rb,parts,callsign:MONSTER_TYPES[type].name};
+  const np=ri(0,2);
   for(let i=0;i<np;i++){ const p=genPart(lv); parts.push(p); rb.slots[p.slot]=p.uid; }
   const callsign=pick(['NOVA','RAZE','ORCA','KITE','VULT','ZERO','ONYX','HELM','SABLE','ARC','GEIST','ROOK'])+'-'+ri(10,99);
-  return { robot:rb, parts, callsign };
+  return {kind:'robot',robot:rb,parts,callsign};
 }
 function showOpponent(opp){
-  const T=ROBOT_TYPES[opp.robot.type];
+  const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];
   $('#sc-battle').innerHTML = `
-    <h2 class="title">상대 발견</h2>
+    <h2 class="title">${monster?'몬스터 출현':'상대 발견'}</h2>
     <div class="panel">
       <div class="oppcard">
         <div class="sprite" data-t="${T.rarity}" style="height:120px">${sprite(opp.robot.type,false)}</div>
         <div>
-          <div class="rname">${opp.callsign} ${robRarTag(opp.robot.type)}</div>
-          <div class="rrole">${T.name} · ${T.role} · Lv.${opp.robot.level}</div>
+          <div class="rname">${opp.callsign} ${monster?'<span class="tag monster-tag">몬스터</span>':robRarTag(opp.robot.type)}</div>
+          <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}</div>
           <div style="margin-top:6px;font-weight:800;color:var(--bad)">전투력 ${fmt(power(opp.robot,opp.parts))}</div>
         </div>
       </div>
+      ${monster?`<div class="monster-skill"><strong>${T.skill.name}</strong><span>${T.skill.desc}</span></div>`:''}
       <div class="row-btns" style="margin-top:12px">
         <button class="btn big gold" onclick="ROWAR.startBattle()">전투 시작</button>
         <button class="btn ghost" onclick="ROWAR.findMatch()">다시 찾기</button>
@@ -461,8 +586,8 @@ function doHit(A,D,side,dside,ev,rnd,o){ o=o||{};
   if(o.drain){ const hl=Math.max(1,Math.round(dmg*o.drain)); A.hp=Math.min(A.maxhp,A.hp+hl);
     ev.push({t:'heal',side,hp:A.hp,amt:hl}); }
 }
-function doSkill(A,D,side,dside,ev,rnd){          // 스킬 효과는 ROBOT_TYPES[].skill.fx 로 기술한다
-  const sk=(ROBOT_TYPES[A.type]||ROBOT_TYPES.mule).skill, fx=sk.fx||{mult:1.8};
+function doSkill(A,D,side,dside,ev,rnd){          // 기체와 몬스터의 고유 스킬을 같은 전투 규칙으로 실행한다
+  const sk=(COMBAT_TYPES[A.type]||ROBOT_TYPES.mule).skill, fx=sk.fx||{mult:1.8};
   ev.push({t:'skill',side,name:sk.name});
   const hits=fx.hits||1;
   for(let i=0;i<hits;i++){ if(D.hp<=0) break; doHit(A,D,side,dside,ev,rnd,fx); }
@@ -511,7 +636,7 @@ function battleRewards(win,enemyLv){
 /* ---- 대전 아레나 & 재생 ---- */
 function renderArena(pType,eType,pName,eName){
   $('#sc-battle').innerHTML = `
-    <h2 class="title">자동 대전</h2>
+    <h2 class="title">${MONSTER_TYPES[eType]?'몬스터 대전':'자동 대전'}</h2>
     <div class="arena" id="arena">
       <div class="grid"></div><div class="vs">VS</div>
       <div class="hpwrap p"><div class="nm"><span>${pName}</span><small id="hpn-p"></small></div>

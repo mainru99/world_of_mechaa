@@ -1,0 +1,33 @@
+// 리포 루트에 wrangler.jsonc 로 복사한 뒤 database_id 를 채운다.
+//   cp server/wrangler.jsonc.example wrangler.jsonc
+//   npx wrangler d1 create rowar     ← 여기서 나오는 id 를 넣는다
+//
+// wrangler.jsonc 자체는 .gitignore 에 있다. database_id 는 비밀은 아니지만
+// 계정마다 다르므로 리포에 박아 두면 클론한 사람이 헷갈린다.
+{
+  "name": "rowar",
+  "main": "server/worker.js",
+  "compatibility_date": "2026-09-04",
+
+  // 게임 파일. 리포 루트를 그대로 올리면 server/schema.sql 과 내부 문서까지
+  // 공개되므로, node server/build.mjs 로 클라이언트 파일만 dist/ 에 모아서 올린다.
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // /api/* 는 정적 파일보다 Worker 가 먼저 본다.
+    // 이게 없으면 dist 안에 같은 이름의 파일이 있을 때 API 가 가려진다.
+    "run_worker_first": ["/api/*"]
+  },
+
+  // env.DB 로 접근한다.  npx wrangler d1 create rowar 의 출력에서 id 를 복사.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rowar",
+      "database_id": "<여기에 database_id>"
+    }
+  ]
+
+  // 나중에 순위 갱신 같은 주기 작업을 붙일 때:
+  // "triggers": { "crons": ["*/30 * * * *"] }
+}

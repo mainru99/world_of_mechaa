@@ -7,3 +7,11 @@ desktop.ini
 
 # 임시 미리보기 파일
 _preview_tmp.*
+
+# Cloudflare / wrangler
+wrangler.jsonc
+wrangler.toml
+.wrangler/
+dist/
+node_modules/
+package-lock.json

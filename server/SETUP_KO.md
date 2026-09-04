@@ -57,8 +57,8 @@ npx wrangler d1 create rowar
 cp server/wrangler.jsonc.example wrangler.jsonc
 ```
 
-> `wrangler.jsonc` 는 `.gitignore` 에 넣는다. `database_id` 는 비밀은 아니지만
-> 계정마다 다르므로 리포에 박아 두면 남이 클론했을 때 헷갈린다.
+> `wrangler.jsonc` 는 **커밋한다.** `database_id` 는 비밀값이 아니고(그것만으로는 접근할 수 없다,
+> 계정 인증이 따로 필요하다), 커밋해 두어야 다른 PC 에서 클론했을 때 설정을 다시 만들지 않는다.
 
 ---
 
@@ -147,6 +147,27 @@ npx wrangler deploy
 - 진짜 천장은 **Workers 요청 10만/일**. 접속당 21요청이면 4,761 접속이 상한이다.
   더 늘리려면 요청을 합쳐야 한다 — 예: '상대 찾기'+'전투 결과'를 한 요청으로 하면 21→13,
   그러면 7,692 접속까지 간다. API 설계할 때 정할 것.
+
+---
+
+## 8-1. 회사에서 만들고 집에서 이어갈 때
+
+**서버에 남는 것 — 한 번만 하면 된다**
+
+- Cloudflare 계정
+- D1 데이터베이스와 `--remote` 로 적용한 스키마
+
+**PC 마다 다시 해야 하는 것**
+
+- `npx wrangler login` — 인증은 그 PC 사용자 폴더에 저장된다
+- `npm install` — `node_modules/` 는 커밋하지 않는다
+
+**커밋해서 들고 가는 것**
+
+- `wrangler.jsonc` (database_id 포함), `package.json`, `package-lock.json`
+
+그래서 회사에서는 4번의 `--remote` 까지 끝내고 `wrangler.jsonc` 를 커밋·푸시해 두면,
+집에서는 `git clone` → `npm install` → `npx wrangler login` 세 줄이면 이어서 작업할 수 있다.
 
 ---
 

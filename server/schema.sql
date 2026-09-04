@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS player (
   pulls       INTEGER NOT NULL DEFAULT 0,
   rating      INTEGER NOT NULL DEFAULT 1000,   -- 랭킹 기준
   rev         INTEGER NOT NULL DEFAULT 0,      -- 동기화 리비전. 저장될 때마다 1 오른다
+  pending_match TEXT,                        -- /battle/find 가 고른 상대와 시드 (서버가 정한다)
   rank_cached INTEGER,                         -- 주기 계산된 순위 (NULL = 아직 없음)
   rank_at     INTEGER,                         -- 그 순위를 계산한 시각
   sel_robot   INTEGER REFERENCES robot(id) ON DELETE SET NULL,
@@ -191,7 +192,7 @@ CREATE INDEX IF NOT EXISTS ix_battle_def ON battle(defender_id, created_at DESC)
 
 -- ── 메타 ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '3');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '4');
 
 
 -- =========================================================

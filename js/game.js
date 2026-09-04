@@ -358,17 +358,29 @@ function renderBattleHome(){
         </div>
       </div>
       <div class="hint" style="margin-top:10px">상대 로봇 또는 야생 몬스터와 대전합니다. 몬스터는 대전에서만 출현합니다.</div>
-      <button class="btn big" style="margin-top:12px" onclick="ROWAR.findMatch()">상대 찾기</button>
+      <button class="btn big" style="margin-top:12px" onclick="ROWAR.findMatch()" ${net.state.online?'':'disabled'}>상대 찾기</button>
+      ${net.state.online?'':'<div class="hint" style="margin-top:8px;color:var(--bad)">서버에 연결되지 않아 대전을 할 수 없습니다. 승패와 보상은 서버가 판정합니다.</div>'}
       <div class="hint" style="margin-top:8px">전적 · ${S.stat.wins}승 ${S.stat.losses}패
         <span style="color:var(--dim)"> · (지금은 서버 대신 로컬에서 상대를 생성하는 임시 매칭입니다)</span></div>
     </div>`;
 }
-function findMatch(){
+/* 상대는 서버가 고른다. 상대 레벨이 보상에 들어가므로 클라가 고르게 두면
+   만렙 상대만 잡아 경험치를 부풀릴 수 있다. */
+async function findMatch(){
   setScene('battle');
   $('#sc-battle').innerHTML = `<h2 class="title">대전</h2><div class="panel"><div class="mm">
     <div class="spinner"></div><div style="font-weight:800">상대를 검색하는 중...</div>
     <div class="hint">상대 로봇과 야생 몬스터의 신호를 탐색합니다.</div></div></div>`;
-  setTimeout(()=>{ _pendingOpp=makeOpponent(); showOpponent(_pendingOpp); }, 1200);
+
+  if(!net.state.online){ renderBattleHome(); toast('대전은 서버 연결이 필요합니다'); return; }
+  const [r] = await Promise.all([net.battleFind(), sleep(1000)]);   // 연출용 최소 대기
+  if(!r || r.error){ renderBattleHome(); toast('상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return; }
+
+  const o=r.opponent;
+  _pendingOpp = { kind:o.kind, callsign:o.callsign,
+    robot:{ uid:'E', type:o.type, level:o.level, fat:0, slots:o.slots },
+    parts:o.parts };
+  showOpponent(_pendingOpp);
 }
 function oppType(byRarity=BY_RARITY){                       // 내가 가진 최고 등급보다 한 단계 위까지만 만난다
   const best=Math.max(...S.robots.map(r=>RIDX[rarOf(r.type)]));
@@ -408,20 +420,44 @@ function showOpponent(opp){
 }
 
 
-function startBattle(){
+/* 승패와 보상은 서버가 확정한다. 클라는 서버가 준 시드와 스탯으로 같은 전투를
+   다시 돌려 애니메이션만 재생한다 — 결정적 시뮬이라 결과가 반드시 일치한다.
+   각자 계산하면 피로도 정산 시점 차이 등으로 어긋나므로 스탯도 서버 것을 쓴다. */
+async function startBattle(){
   const opp=_pendingOpp; if(!opp) return;
-  const my=selRobot(); _battleRobot=my;          // 전투 중 기체를 바꿔도 보상은 출전 기체에게
-  const P=makeUnit(ROBOT_TYPES[my.type].name,my.type,computeStats(my));
-  const E=makeUnit(opp.callsign,opp.robot.type,computeStats(opp.robot,opp.parts));
-  const seed=(Date.now()^Math.floor(R()*1e9))>>>0;
-  const events=simulate(P,E,seed);   // P,E 의 hp/sp 는 여기서 소진됨(재생은 maxhp/name 만 사용)
-  renderArena(my.type,opp.robot.type,P.name,E.name);
+  if(!net.state.online){ toast('대전은 서버 연결이 필요합니다'); return; }
+
+  const my=selRobot(); _battleRobot=my;
+  const r=await net.battleStart();
+  if(!r || r.error){ toast('전투를 시작하지 못했습니다'+(r&&r.error?': '+r.error:'')); return; }
+
+  const P=makeUnit(r.nameP, my.type, r.statP);
+  const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE);
+  const events=simulate(P,E,r.seed);
+  renderArena(my.type, r.opponent.type, P.name, E.name);
+
   playBattle(events,P,E).then(winner=>{
-    if(!winner) return;                          // 중간에 나갔으면 결과/보상 없이 조용히 종료
-    const rw=battleRewards(winner==='P',opp.robot.level);
-    renderResult(winner==='P',rw,P,E,opp);
+    if(!winner) return;                          // 중간에 나갔으면 화면만 접는다(보상은 이미 서버에 반영됨)
+    applyServerBattle(r, my);
+    renderResult(r.win, _lastReward, P, E, opp);
   });
 }
+
+/* 서버가 확정한 결과를 로컬 상태에 받아 적는다. 클라가 계산하지 않는다. */
+let _lastReward=null;
+function applyServerBattle(r, rb){
+  S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;
+  S.stat.wins=r.player.wins; S.stat.losses=r.player.losses;
+  rb.level=r.robot.level; rb.exp=r.robot.exp; rb.fat=r.robot.fat; rb.fatAt=r.robot.fatAt;
+  if(r.reward.part) S.parts.push(r.reward.part);
+  _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
+                lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name };
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  net.cancelSync();                              // 서버가 이미 최신이다
+  renderWallet();
+}
+/* 더 이상 쓰이지 않는다 — 보상은 서버(server/battle.js)가 확정한다.
+   오프라인 연습 모드를 붙이게 되면 이 함수를 다시 쓸 수 있어 남겨 둔다. */
 function battleRewards(win,enemyLv){
   const rb=_battleRobot||selRobot(), rname=ROBOT_TYPES[rb.type].name;
   const lv=gainExp(rb, win? battleExp(enemyLv) : Math.round(battleExp(enemyLv)*0.35));

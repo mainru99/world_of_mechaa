@@ -12,6 +12,7 @@
 import { ROBOT_TYPES } from '../data/balance.js';
 import { sanitize, loadState, saveState } from './state.js';
 import { serverPull } from './pull.js';
+import { findMatch, startBattle } from './battle.js';
 
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
@@ -209,6 +210,20 @@ async function handleApi(request, env, url) {
     if (!r.ok) return json({ ok: false, error: r.error, cores: r.cores }, r.status || 500);
     return json({ ok: true, results: r.results, rev: r.rev,
                   credits: r.credits, cores: r.cores, scrap: r.scrap, wrote: r.wrote });
+  }
+
+  /* 전투 — 상대 선택도 시드도 승패도 서버가 정한다. 클라는 재생만 한다. */
+  if (path === '/battle/find' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await findMatch(env, sess.account_id, Date.now());
+    return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 500);
+  }
+  if (path === '/battle/start' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await startBattle(env, sess.account_id, Date.now());
+    return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 500);
   }
 
   return json({ ok: false, error: 'not found', path: url.pathname, method }, 404);

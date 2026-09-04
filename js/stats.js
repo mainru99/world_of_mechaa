@@ -85,7 +85,7 @@ export const enhCost   = e => (e + 1) * 18;
 export function gainExp(rb, amt) {        // 경험치를 넣고, 차면 자동으로 레벨업
   const from = rb.level;
   if (rb.level >= MAXLV) { rb.exp = 0; return { amt: 0, from, to: from }; }
-  rb.exp = (rb.exp || 0) + amt;
+  rb.exp = Math.max(0, (rb.exp || 0) + amt);   // 음수로 내려가지 않게
   while (rb.level < MAXLV && rb.exp >= expNeed(rb.level)) { rb.exp -= expNeed(rb.level); rb.level++; }
   if (rb.level >= MAXLV) rb.exp = 0;
   return { amt, from, to: rb.level };

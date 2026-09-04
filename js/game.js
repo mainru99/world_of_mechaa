@@ -34,7 +34,9 @@ let _uid = Math.floor(R()*1e6);
 const uid = () => (_uid++).toString(36);
 function weighted(list){ let t=list.reduce((s,x)=>s+x.w,0), r=R()*t; for(const x of list){ if((r-=x.w)<=0) return x; } return list[list.length-1]; }
 const $ = (s,r=document)=>r.querySelector(s);
-function robRarTag(type){ const r=RR[rarOf(type)]; return `<span class="tag rr-${r.k}">${r.ko}</span>`; }
+function robRarTag(type){ const k=rarOf(type), r=RR[k];
+  if(!r) return `<span class="tag">${k}</span>`;   // 봉인된 BOSS 등급 등, 표에 없는 등급도 죽지 않게
+  return `<span class="tag rr-${r.k}">${r.ko}</span>`; }
 
 
 /* ------------------------------- 상태/저장 ------------------------------- */
@@ -46,13 +48,34 @@ function freshState(){         // 시작: 커먼 1기, Lv.1 — 나머지 기체
     robots:[{uid:uid(),type:pick(BY_RARITY.C),level:1,exp:0,fat:0,slots:emptySlots()}],
     parts:[], sel:0, stat:{wins:0,losses:0,pulls:0} };
 }
+/* 저장본은 언제든 망가져 들어올 수 있다(다른 탭, 손수 편집, 예전 버전, 저장 중 오류).
+   여기서 걸러내지 못하면 격납고가 통째로 렌더 실패해 '빈 화면 + 복구 불가'가 된다.
+   그래서 모양이 어긋난 값은 버리지 말고 기본값으로 메운다. */
+function num(v, dflt){ v = Number(v); return Number.isFinite(v) ? v : dflt; }
 function normalize(j){         // 저장본에 빠진 필드 보정
-  j.robots = j.robots.filter(rb=>ROBOT_TYPES[rb.type]);
+  if(!Array.isArray(j.robots)) return freshState();
+  j.robots = j.robots.filter(rb=>rb && ROBOT_TYPES[rb.type]);   // 몬스터·보스·미지의 id 는 소유 불가
   if(!j.robots.length) return freshState();
-  for(const rb of j.robots){ rb.level=clamp(rb.level|0,1,MAXLV); rb.exp=Math.max(0,rb.exp|0);
-    if(rb.fat==null && rb.dur!=null) rb.fat = clamp(100-rb.dur, 0, FAT_MAX);   // 예전 '내구도' 저장본 이관
-    delete rb.dur; rb.fat = fatOf(rb); decayFat(rb); }   // 껐던 동안의 자연 회복 정산
-  j.sel = clamp(j.sel|0, 0, j.robots.length-1); j.v = 2; return j;
+  if(!Array.isArray(j.parts)) j.parts = [];
+  j.credits = Math.max(0, Math.round(num(j.credits, 0)));
+  j.cores   = Math.max(0, Math.round(num(j.cores,   0)));
+  j.scrap   = Math.max(0, Math.round(num(j.scrap,   0)));
+  const st = j.stat && typeof j.stat==='object' ? j.stat : {};
+  j.stat = { wins:Math.max(0,num(st.wins,0)), losses:Math.max(0,num(st.losses,0)), pulls:Math.max(0,num(st.pulls,0)) };
+  const partIds = new Set(j.parts.map(p=>p && p.uid).filter(Boolean));
+  for(const rb of j.robots){
+    rb.level=clamp(Math.round(num(rb.level,1)),1,MAXLV);
+    rb.exp=Math.max(0,Math.round(num(rb.exp,0)));
+    if(rb.fat==null && rb.dur!=null) rb.fat = clamp(100-num(rb.dur,100), 0, FAT_MAX);   // 예전 '내구도' 저장본 이관
+    delete rb.dur; rb.fat = fatOf(rb); decayFat(rb);      // 껐던 동안의 자연 회복 정산
+    if(!rb.slots || typeof rb.slots!=='object') rb.slots = emptySlots();
+    for(const sl of SLOTS){
+      const u = rb.slots[sl];
+      if(u && !partIds.has(u)) rb.slots[sl] = null;       // 사라진 파츠를 물고 있으면 놓아준다
+      else if(u === undefined) rb.slots[sl] = null;
+    }
+  }
+  j.sel = clamp(Math.round(num(j.sel,0)), 0, j.robots.length-1); j.v = 2; return j;
 }
 function load(){
   try{ localStorage.removeItem('rowar.save.v1'); }catch(e){}      // 옛 저장본 정리
@@ -116,9 +139,15 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on
 function setScene(name){ document.body.dataset.scene = name; }
 function go(scr){ cur=scr; setScene(scr); document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.s===scr));
-  renderAll(); }
+  renderWallet();
+  if(scr==='hangar') renderHangar();
+  else if(scr==='gacha') renderGacha();
+  else if(scr==='battle') renderBattleHome(); }   // 대전은 여기서만 처음부터 그린다
 function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); }
-function renderAll(){ renderWallet(); if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); else if(cur==='battle')renderBattleHome(); }
+/* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
+   여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
+   그래서 renderAll 은 대전 화면을 건드리지 않는다. 대전 화면은 go() 가 그린다. */
+function renderAll(){ renderWallet(); if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); }
 function openModal(html){ const m=$('#modal'); m.innerHTML=`<div class="modal-card">${html}</div>`; m.classList.add('on'); m.onclick=e=>{ if(e.target===m) closeModal(); }; }
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal').innerHTML=''; }
 
@@ -497,7 +526,9 @@ setInterval(()=>{
   for(const rb of S.robots) changed += decayFat(rb);
   if(changed) save();
   const modalOpen = !!document.querySelector('#modal.on, .modal.on');
-  if(!modalOpen && (changed || (cur==='hangar' && S.robots.some(r=>fatOf(r)>0)))) renderAll();
+  if(modalOpen) return;                       // 모달을 보고 있으면 건드리지 않는다
+  if(changed) renderWallet();
+  if(cur==='hangar' && (changed || S.robots.some(r=>fatOf(r)>0))) renderHangar();
 }, 20000);
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);

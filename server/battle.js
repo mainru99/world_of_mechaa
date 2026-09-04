@@ -11,7 +11,7 @@
  * 시드를 서버가 정하는 이유: 결정적 시뮬이라 시드가 곧 결과다.
  */
 import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
-import { computeStats, power, gainExp, addFat, fatOf, decayFat } from '../js/stats.js';
+import { computeStats, power, gainExp, addFat, fatOf, decayFat, sortieCost } from '../js/stats.js';
 import { makeOpponent, rollBattleRewards } from '../js/rewards.js';
 import { registerArena, pickOpponentFromArena, ratingDelta } from './arena.js';
 import { makeUnit, simulate } from '../js/sim.js';
@@ -24,7 +24,7 @@ const COMBAT = { ...ROBOT_TYPES, ...MONSTER_TYPES };
 
 /* 출전 기체를 DB 에서 읽어 클라 저장본과 같은 모양으로 만든다 */
 async function loadFighter(env, accountId) {
-  const p = await env.DB.prepare('SELECT sel_robot FROM player WHERE account_id = ?1').bind(accountId).first();
+  const p = await env.DB.prepare('SELECT sel_robot, credits FROM player WHERE account_id = ?1').bind(accountId).first();
   const robots = (await env.DB.prepare(
     'SELECT id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(accountId).all()).results || [];
@@ -44,6 +44,7 @@ async function loadFighter(env, accountId) {
   }
   return {
     row,
+    credits: p ? p.credits : 0,
     robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, slots },
     parts: used,
     allRarities: robots.map(r => (COMBAT[r.type] || ROBOT_TYPES.mule).rarity),
@@ -62,24 +63,32 @@ async function loadFighter(env, accountId) {
    '다시 찾기'는 그대로 find 를 부르면 되므로 기능이 죽지 않는다.
    (find 와 start 를 한 요청으로 아예 합치면 상대를 보기 전에 승패가 확정되어
     다시 찾기가 성립하지 않는다. 그래서 합치지 않고 미리 잡는 쪽을 택했다.) */
-async function preparePending(env, accountId, me, now) {
+async function preparePending(env, accountId, me, now, credits) {
   const rnd = cryptoRnd();
   let seq = 0;
   const uid = () => 'o' + now.toString(36) + (seq++).toString(36);
 
+  /* 출격비를 낼 수 없으면 '비상 출격'으로 돌린다.
+     막힌 판을 만들지 않기 위한 구제 장치다 — 크레딧이 0이면 벌 방법도 없어지므로.
+     상대는 몬스터로 고정한다. 레이팅이 걸리면 구제가 아니라 벌이 된다. */
+  const cost = sortieCost(me.robot);
+  const rescue = (credits ?? me.credits) < cost;
+
   /* 먼저 아레나에 등록된 '진짜 사람'을 찾는다. 없으면(초기라 등록자가 적을 때)
      예전처럼 서버가 상대를 만들어 낸다 — 혼자여도 게임이 돌아가야 하므로. */
   let opp = null;
-  if (rnd() >= CONST.MONSTER_RATE) {
+  if (!rescue && rnd() >= CONST.MONSTER_RATE) {
     const found = await pickOpponentFromArena(env, accountId, power(me.robot, me.parts));
     if (found) opp = found;
   }
-  if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid);
+  if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid, rescue);
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
 
   const T = COMBAT[opp.type];
   return {
-    json: JSON.stringify({ opp, seed, at: now }),      // 클라가 보낸 상대는 받지 않는다
+    json: JSON.stringify({ opp, seed, at: now, rescue, cost: rescue ? 0 : cost }),
+    cost: rescue ? 0 : cost,
+    rescue,
     opponent: {
       kind: opp.kind, type: opp.type, level: opp.level, callsign: opp.callsign,
       rating: opp.rating ?? null,
@@ -92,10 +101,10 @@ async function preparePending(env, accountId, me, now) {
 export async function findMatch(env, accountId, now) {
   const me = await loadFighter(env, accountId);
   if (!me) return { ok: false, status: 400, error: 'no robot' };
-  const next = await preparePending(env, accountId, me, now);
+  const next = await preparePending(env, accountId, me, now, me.credits);
   await env.DB.prepare('UPDATE player SET pending_match = ?1 WHERE account_id = ?2')
     .bind(next.json, accountId).run();
-  return { ok: true, opponent: next.opponent };
+  return { ok: true, opponent: next.opponent, cost: next.cost, rescue: next.rescue };
 }
 
 const PENDING_TTL = 10 * 60 * 1000;   // 상대를 찾아 놓고 10분 넘게 방치하면 무효
@@ -115,6 +124,17 @@ export async function startBattle(env, accountId, now) {
 
   const me = await loadFighter(env, accountId);
   if (!me) return { ok: false, status: 400, error: 'no robot' };
+
+  /* 출격비. 비상 출격이면 0 이다.
+     find 이후에 정비·레벨업으로 크레딧을 써서 모자라졌을 수 있으므로 여기서 다시 본다.
+     그때는 잡아 둔 상대를 버리고 다시 찾게 한다 — 다시 찾으면 비상 출격이 잡힌다. */
+  const rescue = !!pend.rescue;
+  const cost = rescue ? 0 : sortieCost(me.robot);
+  if (!rescue && prow.credits < cost) {
+    await env.DB.prepare('UPDATE player SET pending_match = NULL WHERE account_id = ?1')
+      .bind(accountId).run();
+    return { ok: false, status: 400, error: 'not enough credits' };
+  }
 
   /* 피로도 자연 회복을 서버 시각으로 먼저 정산한다. 클라 시계는 믿지 않는다. */
   decayFat(me.robot, now);
@@ -136,12 +156,17 @@ export async function startBattle(env, accountId, now) {
   const rnd = cryptoRnd();
   let seq = 0;
   const uid = () => 'b' + now.toString(36) + (seq++).toString(36);
-  const rw = rollBattleRewards(win, opp.level, rnd, uid);
+  let rw = rollBattleRewards(win, opp.level, rnd, uid);
+  /* 비상 출격의 보상은 크레딧뿐이다. 파츠·코어·경험치가 없어 정상 출격보다 확실히 나쁘고,
+     크레딧이 회복되면 조건이 풀려 더 쓸 수 없다 — 그래서 이걸로 파밍할 수는 없다.
+     피로도는 정상으로 쌓는다. 무한히 돌릴 수 없어야 한다. */
+  if (rescue) rw = { win, sc: 0, core: 0, part: null, expGain: 0, fatAdd: rw.fatAdd,
+                     cr: win ? CONST.RESCUE.crWin : CONST.RESCUE.crLose };
 
   const lv = gainExp(me.robot, rw.expGain);
   const fatAdd = addFat(me.robot, rw.fatAdd);
 
-  const credits = prow.credits + rw.cr;
+  const credits = prow.credits - cost + rw.cr;
   const scrap = prow.scrap + rw.sc;
   const cores = prow.cores + rw.core;
   const wins = prow.wins + (win ? 1 : 0);
@@ -150,7 +175,7 @@ export async function startBattle(env, accountId, now) {
 
   /* 다음 상대를 지금 잡아 둔다. 레벨이 올랐을 수 있으니 정산 뒤에 고른다.
      pending_match 는 어차피 이 UPDATE 에서 건드리므로 쓰기가 늘지 않는다. */
-  const next = await preparePending(env, accountId, me, now);
+  const next = await preparePending(env, accountId, me, now, credits);
 
   const stmts = [];
   if (rw.part) {
@@ -196,7 +221,8 @@ export async function startBattle(env, accountId, now) {
     ratingDelta: delta,
     reward: { cr: rw.cr, sc: rw.sc, core: rw.core, part: rw.part,
               lv: { amt: lv.amt, from: lv.from, to: lv.to }, fat: { add: fatAdd, now: fatOf(me.robot) } },
-    next: { opponent: next.opponent },     // '한 판 더' 가 요청을 더 쓰지 않게 미리 실어 보낸다
+    cost, rescue,                          // 이번 판에 실제로 낸 출격비
+    next: { opponent: next.opponent, cost: next.cost, rescue: next.rescue },
     player: { credits, cores, scrap, wins, losses },
     robot: { uid: me.robot.uid, level: me.robot.level, exp: me.robot.exp, fat: me.robot.fat, fatAt: me.robot.fatAt },
     rev,

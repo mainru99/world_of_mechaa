@@ -9,7 +9,7 @@
 import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, PULL_TABLE,
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST } from '../data/balance.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
-import { isPct, fatOf, serviceCost, findPart, partStat, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs,
+import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs,
          expNeed, battleExp, lvCost, enhCost,
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
@@ -397,6 +397,11 @@ function renderBattleHome(){
         </div>
       </div>
       <div class="hint" style="margin-top:10px">상대 로봇 또는 야생 몬스터와 대전합니다. 몬스터는 대전에서만 출현합니다.</div>
+      ${net.state.online ? `<div class="hint" style="margin-top:6px">
+        출격비 <b style="color:var(--gold)">${fmt(sortieCost(rb))} 크레딧</b>
+        ${S.credits < sortieCost(rb)
+          ? ` · <b style="color:var(--bad)">크레딧이 모자라 비상 출격으로 나갑니다</b>(보상은 크레딧만)`
+          : ''}</div>` : ''}
       ${net.state.online
         ? `<button class="btn big" style="margin-top:12px" onclick="ROWAR.findMatch()">상대 찾기</button>`
         : `<button class="btn big" style="margin-top:12px" onclick="ROWAR.practiceFind()">연습 대전</button>
@@ -466,14 +471,14 @@ async function findMatch(){
   const [r] = await Promise.all([net.battleFind(), sleep(1000)]);   // 연출용 최소 대기
   if(!r || r.error){ renderBattleHome(); toast('상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return; }
 
-  setPending(r.opponent);
+  setPending(r.opponent, r.cost, r.rescue);
   showOpponent(_pendingOpp);
 }
 
-function setPending(o){
+function setPending(o, cost, rescue){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, fat:0, slots:o.slots },
-    parts:o.parts } : null;
+    parts:o.parts, cost:cost|0, rescue:!!rescue } : null;
 }
 
 /* '한 판 더' — 서버가 직전 응답에 다음 상대를 실어 보내므로 왕복이 필요 없다.
@@ -516,7 +521,11 @@ function showOpponent(opp, practice){
         </div>
       </div>
       ${monster?`<div class="monster-skill"><strong>${T.skill.name}</strong><span>${T.skill.desc}</span></div>`:''}
-      ${practice?'<div class="hint" style="margin-top:10px;color:var(--gold)">연습 대전 · 보상 없음</div>':''}
+      ${practice
+        ? '<div class="hint" style="margin-top:10px;color:var(--gold)">연습 대전 · 보상 없음</div>'
+        : opp.rescue
+          ? `<div class="hint" style="margin-top:10px;color:var(--bad)">비상 출격 · 출격비 없음 · 보상은 크레딧만</div>`
+          : `<div class="hint" style="margin-top:10px">출격비 <b style="color:var(--gold)">${fmt(opp.cost)}</b> 크레딧</div>`}
       <div class="row-btns" style="margin-top:12px">
         <button class="btn big gold" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작</button>
         <button class="btn ghost" onclick="ROWAR.${practice?'practiceFind':'findMatch'}()">다시 찾기</button>
@@ -585,10 +594,11 @@ async function startBattle(){
   if(!r || r.error){
     /* 미리 잡아 둔 상대는 10분이 지나면 서버가 무효로 돌린다.
        결과 화면에 오래 머물다 '한 판 더'를 누른 경우가 여기 걸린다 — 막다른 길로 두지 않는다. */
-    if(r && /expired|no pending/i.test(r.error||'')){ _pendingOpp=null; return findMatch(); }
+    /* 출격비가 모자라면 다시 찾는다 — 서버가 그때 비상 출격을 잡아 준다. */
+    if(r && /expired|no pending|not enough credits/i.test(r.error||'')){ _pendingOpp=null; return findMatch(); }
     toast('전투를 시작하지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
   }
-  setPending(r.next && r.next.opponent);        // 서버가 잡아 둔 다음 상대 (없으면 다음에 다시 찾는다)
+  setPending(r.next && r.next.opponent, r.next && r.next.cost, r.next && r.next.rescue);
 
   const P=makeUnit(r.nameP, my.type, r.statP);
   const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE);
@@ -611,7 +621,7 @@ function applyServerBattle(r, rb){
   if(r.reward.part) S.parts.push(r.reward.part);
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
                 lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
-                ratingDelta:r.ratingDelta||0 };
+                ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue };
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();                              // 서버가 이미 최신이다
   renderWallet();
@@ -704,9 +714,13 @@ async function playBattle(events,P,E){
 }
 function renderResult(win,rw,P,E,opp){
   setScene('battle');                   // 전투가 끝나면 야간작전으로 돌아온다
-  const rewards = [ `<div class="r">경험치 +${rw.lv.amt}</div>` ];
+  const rewards = [];
+  if(rw.rescue) rewards.push(`<div class="r" style="color:var(--bad)">비상 출격 · 크레딧만 지급</div>`);
+  else if(rw.cost) rewards.push(`<div class="r" style="color:var(--dim)">출격비 −${rw.cost}</div>`);
+  if(!rw.rescue) rewards.push(`<div class="r">경험치 +${rw.lv.amt}</div>`);
   if(rw.lv.to>rw.lv.from) rewards.push(`<div class="r" style="color:var(--good)">레벨 업!  ${rw.rname}  Lv.${rw.lv.from} → Lv.${rw.lv.to}</div>`);
-  rewards.push(`<div class="r">크레딧 +${rw.cr}</div>`, `<div class="r">스크랩 +${rw.sc}</div>`);
+  rewards.push(`<div class="r">크레딧 +${rw.cr}</div>`);
+  if(!rw.rescue) rewards.push(`<div class="r">스크랩 +${rw.sc}</div>`);
   if(rw.ratingDelta) rewards.push(`<div class="r" style="color:var(--acc2)">레이팅 ${rw.ratingDelta>0?'+':''}${rw.ratingDelta}</div>`);
   if(rw.fat.add) rewards.push(`<div class="r" style="color:var(--bad)">피로도 +${rw.fat.add}  (누적 ${rw.fat.now} / ${FAT_MAX})</div>`);
   if(rw.core) rewards.push(`<div class="r" style="color:var(--acc2)">코어 +${rw.core}</div>`);

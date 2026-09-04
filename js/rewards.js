@@ -28,8 +28,8 @@ export function pickOpponentType(ownedRarities, byRarity, rnd) {
 }
 
 /* 상대 한 명. 몬스터는 파츠를 갖지 않는다. */
-export function makeOpponent(ownedRarities, myLevel, rnd, uid) {
-  const monster = rnd() < CONST.MONSTER_RATE;
+export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster) {
+  const monster = forceMonster || rnd() < CONST.MONSTER_RATE;
   const type = pickOpponentType(ownedRarities, monster ? MONSTER_BY_RARITY : BY_RARITY, rnd);
   const level = clamp(myLevel + ri(-2, 2, rnd), 1, CONST.MAXLV);
 

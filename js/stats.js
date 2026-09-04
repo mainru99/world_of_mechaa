@@ -41,6 +41,10 @@ export function fatNextMs(rb, now){
   if(rb.fatAt == null) return fatRecoverMs(rb);
   return Math.max(0, rb.fatAt + fatRecoverMs(rb) - now);
 }
+/* 출격비. 클라는 보여 주고 서버는 실제로 깎는다 — 같은 함수를 쓴다. */
+export const sortieCost = rb =>
+  Math.ceil(CONST.SORTIE.base + (rb.level | 0) * CONST.SORTIE.perLv);
+
 export const serviceCost = rb =>
   Math.ceil(fatOf(rb) * SERVICE_RATE[rarOf(rb.type)] * (1 + rb.level * 0.03));
 

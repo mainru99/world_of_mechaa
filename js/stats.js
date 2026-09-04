@@ -13,6 +13,34 @@ export const SLOT_ORDER = ['WEAPON', 'FRAME', 'BOOSTER', 'CORE'];
 
 /* 피로도: 쌓인 만큼 최대 체력이 줄어든다 */
 export const fatOf = rb => clamp(rb.fat | 0, 0, FAT_MAX);
+
+/* ── 피로도 자연 회복 ────────────────────────────────────────
+   rb.fatAt = '마지막으로 회복을 정산한 시각'. 경과 시간을 회복 주기로 나눠
+   떨어진 만큼만 깎고, fatAt 을 그만큼만 앞당긴다(now 로 당기면 우수리가 날아간다). */
+export const fatRecoverMs = rb =>
+  (CONST.FAT_RECOVER_MIN + rb.level * CONST.FAT_RECOVER_LV) * 60000;
+
+export function decayFat(rb, now){
+  now = now || Date.now();
+  if(rb.fatAt == null){ rb.fatAt = now; return 0; }
+  if(fatOf(rb) === 0){ rb.fatAt = now; return 0; }
+  const elapsed = now - rb.fatAt;
+  if(elapsed < 0){ rb.fatAt = now; return 0; }      // 시계가 뒤로 간 경우
+  const per = fatRecoverMs(rb);
+  const pts = Math.floor(elapsed / per);
+  if(pts <= 0) return 0;
+  const before = fatOf(rb);
+  rb.fat = clamp(before - pts, 0, FAT_MAX);
+  rb.fatAt = rb.fat > 0 ? rb.fatAt + pts * per : now;
+  return before - rb.fat;
+}
+/* 다음 1 회복까지 남은 ms. 피로도가 0이면 null */
+export function fatNextMs(rb, now){
+  now = now || Date.now();
+  if(fatOf(rb) === 0) return null;
+  if(rb.fatAt == null) return fatRecoverMs(rb);
+  return Math.max(0, rb.fatAt + fatRecoverMs(rb) - now);
+}
 export const serviceCost = rb =>
   Math.ceil(fatOf(rb) * SERVICE_RATE[rarOf(rb.type)] * (1 + rb.level * 0.03));
 
@@ -64,6 +92,8 @@ export function gainExp(rb, amt) {        // 경험치를 넣고, 차면 자동�
 }
 
 export function addFat(rb, amt) {         // 대전 결과에 따라 피로도가 쌓인다
+  decayFat(rb);                            // 쌓기 전에 그동안의 자연 회복을 먼저 반영
+  if (fatOf(rb) === 0) rb.fatAt = Date.now();   // 0에서 다시 쌓이면 타이머도 지금부터
   const before = fatOf(rb);
   rb.fat = clamp(before + amt, 0, FAT_MAX);
   return rb.fat - before;

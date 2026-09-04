@@ -9,7 +9,7 @@
 import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, PULL_TABLE,
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST } from '../data/balance.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
-import { isPct, fatOf, serviceCost, findPart, partStat, gainExp, addFat,
+import { isPct, fatOf, serviceCost, findPart, partStat, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs,
          expNeed, battleExp, lvCost, enhCost,
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
@@ -51,7 +51,7 @@ function normalize(j){         // 저장본에 빠진 필드 보정
   if(!j.robots.length) return freshState();
   for(const rb of j.robots){ rb.level=clamp(rb.level|0,1,MAXLV); rb.exp=Math.max(0,rb.exp|0);
     if(rb.fat==null && rb.dur!=null) rb.fat = clamp(100-rb.dur, 0, FAT_MAX);   // 예전 '내구도' 저장본 이관
-    delete rb.dur; rb.fat = fatOf(rb); }
+    delete rb.dur; rb.fat = fatOf(rb); decayFat(rb); }   // 껐던 동안의 자연 회복 정산
   j.sel = clamp(j.sel|0, 0, j.robots.length-1); j.v = 2; return j;
 }
 function load(){
@@ -87,7 +87,7 @@ function pull(){
     else { const rb={uid:uid(),type,level:1,exp:0,fat:0,slots:emptySlots()}; S.robots.push(rb); res={kind:'robot',type}; }
   }
   else if(kind==='core'){ S.cores+=1; res={kind:'core',n:1}; }
-  else if(kind==='credit'){ const cr=140+overallLevel()*12+ri(0,90); S.credits+=cr; res={kind:'credit',cr}; }
+  else if(kind==='credit'){ const cr=47+overallLevel()*4+ri(0,30); S.credits+=cr; res={kind:'credit',cr}; }   // 예전 값의 1/3
   else if(kind==='part'){ const p=genPart(overallLevel()); S.parts.push(p); res={kind:'part',part:p}; }
   else { res={kind:'bust'}; }
   save(); return res;
@@ -102,7 +102,7 @@ function service(){               // 크레딧으로 피로도 0 복구
   const rb=selRobot(), c=serviceCost(rb);
   if(c<=0){ toast('이미 정비된 상태입니다'); return; }
   if(S.credits<c){ toast('크레딧이 부족합니다'); return; }
-  S.credits-=c; rb.fat=0; save(); renderAll(); toast(ROBOT_TYPES[rb.type].name+' 정비 완료'); }
+  S.credits-=c; rb.fat=0; rb.fatAt=Date.now(); save(); renderAll(); toast(ROBOT_TYPES[rb.type].name+' 정비 완료'); }
 function levelUp(){               // 크레딧으로 즉시 1레벨(진행 중인 경험치는 소모된다)
   const rb=selRobot(); if(rb.level>=MAXLV){toast('최대 레벨입니다');return;}
   const c=lvCost(rb.level); if(S.credits<c){toast('크레딧이 부족합니다');return;}
@@ -124,11 +124,22 @@ function closeModal(){ $('#modal').classList.remove('on'); $('#modal').innerHTML
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
 function partStatLine(p){ const ps=partStat(p); return Object.keys(ps).map(k=> `${STAT_LABEL[k]} +${isPct(k)?(ps[k]*100).toFixed(1)+'%':Math.round(ps[k])}`).join(' · '); }
+/* 12분 34초 / 1시간 20분 형태로. 회복 안내는 분 단위면 충분하다 */
+function dur(ms){
+  const s=Math.max(0,Math.round(ms/1000));
+  if(s<60) return s+'초';
+  const m=Math.round(s/60);
+  if(m<60) return m+'분';
+  return Math.floor(m/60)+'시간 '+(m%60?m%60+'분':'');
+}
 function statBar(k,v,full){       // full 을 주면 깎여나간 만큼을 붉게 겹쳐 보여준다
-  const pct=clamp(v/STAT_MAX[k]*100,0,100), val=isPct(k)?(v*100).toFixed(0)+'%':fmt(v);
   const dmg = full!=null && full>v;
+  /* 깎였을 때 큰 숫자는 '원래 최대치'다. 바도 full 까지 그려 놓고 그중 붉은 부분이 손실이라
+     "494 −222" 로 읽힌다. 현재 유효치(272)를 크게 쓰면 "272에서 222를 또 뺀다"로 오해된다. */
+  const shown = dmg ? full : v;
+  const pct=clamp(v/STAT_MAX[k]*100,0,100), val=isPct(k)?(shown*100).toFixed(0)+'%':fmt(shown);
   const ghost = dmg? `<u style="width:${clamp(full/STAT_MAX[k]*100,0,100)}%"></u>` : '';
-  const lost  = dmg? ` <s>-${fmt(full-v)}</s>` : '';
+  const lost  = dmg? ` <s>−${fmt(full-v)}</s>` : '';
   return `<div class="stat"><div class="row"><b>${STAT_LABEL[k]}</b><span>${val}${lost}</span></div><div class="bar">${ghost}<i style="width:${pct}%"></i></div></div>`; }
 
 /* ------------------------------- 격납고 화면 ------------------------------- */
@@ -168,7 +179,10 @@ function renderHangar(){
           </div>
           <div class="stat fat"><div class="row"><b>피로도</b>
               <span class="${fat?'worn':''}">${fat} / ${FAT_MAX}${fat?` <s>최대 내구 −${fat}%</s>`:''}</span></div>
-            <div class="bar"><i style="width:${fat/FAT_MAX*100}%"></i></div></div>
+            <div class="bar"><i style="width:${fat/FAT_MAX*100}%"></i></div>
+            <div class="hint" style="margin-top:4px">${fat
+              ? `자연 회복 중 · 다음 1까지 ${dur(fatNextMs(rb))}, 전부 풀리기까지 ${dur(fatNextMs(rb)+(fat-1)*fatRecoverMs(rb))}`
+              : '피로 없음 · 정상 가동'}</div></div>
           <div class="skill"><b>스킬 · ${T.skill.name}</b><p>${T.skill.desc}</p></div>
           <div class="row-btns" style="margin-top:10px">
             <button class="btn big" ${rb.level>=MAXLV?'disabled':''} onclick="ROWAR.levelUp()">
@@ -177,7 +191,8 @@ function renderHangar(){
               ${scost>0?`정비 (크레딧 ${fmt(scost)})`:'정비 완료'}</button>
           </div>
           <div class="hint" style="margin-top:6px">대전에 출전하면 경험치를 얻어 자동으로 레벨업합니다.
-            대신 피로도가 쌓여 최대 내구(체력)가 줄어듭니다. 등급별 단가로 정비하세요.</div>
+            대신 피로도가 쌓여 최대 내구(체력)가 줄어듭니다. 시간이 지나면 저절로 풀리고,
+            급하면 크레딧으로 정비하세요. 레벨이 높은 기체일수록 자연 회복이 느립니다.</div>
         </div>
       </div>
       <div class="slots">${slotsHtml}</div>
@@ -473,5 +488,17 @@ function boot(){
   go('hangar');
 }
 // type="module" 은 defer 라 이미 파싱이 끝나 있을 수 있다
+/* 피로도 자연 회복은 시간이 흐르면 진행된다. 20초마다 정산하고,
+   실제로 회복됐거나 격납고를 보고 있으면(남은 시간 표시) 다시 그린다.
+   모달이 열려 있으면 건드리지 않는다. */
+setInterval(()=>{
+  if(!S) return;
+  let changed = 0;
+  for(const rb of S.robots) changed += decayFat(rb);
+  if(changed) save();
+  const modalOpen = !!document.querySelector('#modal.on, .modal.on');
+  if(!modalOpen && (changed || (cur==='hangar' && S.robots.some(r=>fatOf(r)>0)))) renderAll();
+}, 20000);
+
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();

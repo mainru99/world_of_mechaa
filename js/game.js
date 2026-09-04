@@ -397,8 +397,14 @@ function renderBattleHome(){
         </div>
       </div>
       <div class="hint" style="margin-top:10px">상대 로봇 또는 야생 몬스터와 대전합니다. 몬스터는 대전에서만 출현합니다.</div>
-      <button class="btn big" style="margin-top:12px" onclick="ROWAR.findMatch()" ${net.state.online?'':'disabled'}>상대 찾기</button>
-      ${net.state.online?'':'<div class="hint" style="margin-top:8px;color:var(--bad)">서버에 연결되지 않아 대전을 할 수 없습니다. 승패와 보상은 서버가 판정합니다.</div>'}
+      ${net.state.online
+        ? `<button class="btn big" style="margin-top:12px" onclick="ROWAR.findMatch()">상대 찾기</button>`
+        : `<button class="btn big" style="margin-top:12px" onclick="ROWAR.practiceFind()">연습 대전</button>
+           <div class="hint" style="margin-top:8px">
+             서버에 연결되지 않았습니다. <b>연습 대전</b>은 지금 편성으로 싸워 볼 수 있지만
+             <b style="color:var(--bad)">아무것도 얻지 못합니다</b> — 경험치·크레딧·파츠·전적이 움직이지 않습니다.
+             승패와 보상은 서버만 판정합니다.
+           </div>`}
       <div class="hint" style="margin-top:8px">전적 · ${S.stat.wins}승 ${S.stat.losses}패
         <span style="color:var(--dim)"> · (지금은 서버 대신 로컬에서 상대를 생성하는 임시 매칭입니다)</span></div>
     </div>`;
@@ -494,7 +500,7 @@ function makeOpponent(){
   const callsign=pick(['NOVA','RAZE','ORCA','KITE','VULT','ZERO','ONYX','HELM','SABLE','ARC','GEIST','ROOK'])+'-'+ri(10,99);
   return {kind:'robot',robot:rb,parts,callsign};
 }
-function showOpponent(opp){
+function showOpponent(opp, practice){
   const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];
   $('#sc-battle').innerHTML = `
     <h2 class="title">${monster?'몬스터 출현':(opp.kind==='player'?'플레이어 발견':'상대 발견')}</h2>
@@ -510,9 +516,58 @@ function showOpponent(opp){
         </div>
       </div>
       ${monster?`<div class="monster-skill"><strong>${T.skill.name}</strong><span>${T.skill.desc}</span></div>`:''}
+      ${practice?'<div class="hint" style="margin-top:10px;color:var(--gold)">연습 대전 · 보상 없음</div>':''}
       <div class="row-btns" style="margin-top:12px">
-        <button class="btn big gold" onclick="ROWAR.startBattle()">전투 시작</button>
-        <button class="btn ghost" onclick="ROWAR.findMatch()">다시 찾기</button>
+        <button class="btn big gold" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작</button>
+        <button class="btn ghost" onclick="ROWAR.${practice?'practiceFind':'findMatch'}()">다시 찾기</button>
+      </div>
+    </div>`;
+}
+
+/* ------------------------------- 연습 대전 ------------------------------- */
+/* 서버가 없어도 게임을 보여 주기 위한 모드.
+ * **아무것도 얻지 못한다** — 경험치·크레딧·파츠·피로도·전적·레이팅이 하나도 안 움직인다.
+ * 그래야 '끊고 굴린 뒤 올리기'라는 길이 아예 생기지 않는다.
+ * (지금은 PUT /api/state 도 닫혀 있지만, 여기서 상태를 안 건드리는 것이 더 확실하다)
+ *
+ * 상대 생성은 클라의 makeOpponent 를 쓴다 — 서버 판정으로 옮기면서 안 쓰게 된 코드다.
+ * 보상이 없으니 상대를 클라가 고르든 말든 부풀릴 것이 없다. */
+let _practiceOpp=null;
+
+function practiceFind(){
+  setScene('battle');
+  const o=makeOpponent();
+  _practiceOpp={ ...o, rating:null, seed:(Math.random()*0xffffffff)>>>0 };
+  showOpponent(_practiceOpp, true);
+}
+
+async function practiceStart(){
+  const opp=_practiceOpp; if(!opp) return;
+  const my=selRobot(); _battleRobot=my;
+
+  /* 지금 피로도 그대로 싸운다(전투에 영향이 있으니까). 다만 늘리지는 않는다. */
+  const P=makeUnit(ROBOT_TYPES[my.type].name, my.type, computeStats(my));
+  const E=makeUnit(opp.callsign, opp.robot.type, computeStats(opp.robot, opp.parts));
+  const events=simulate(P,E,opp.seed);
+  renderArena(my.type, opp.robot.type, P.name, E.name);
+
+  playBattle(events,P,E).then(winner=>{
+    if(!winner) return;
+    renderPracticeResult(events[events.length-1].winner==='P', P, E);
+  });
+}
+
+function renderPracticeResult(win,P,E){
+  setScene('battle');
+  $('#sc-battle').innerHTML = `
+    <div class="panel result">
+      <div class="big ${win?'win':'lose'}">${win?'VICTORY':'DEFEAT'}</div>
+      <div class="hint">${P.name} vs ${E.name}</div>
+      <div class="reward"><div class="r" style="color:var(--dim)">연습 대전 · 보상 없음</div>
+        <div class="r" style="color:var(--dim)">경험치·크레딧·파츠·피로도·전적이 그대로입니다</div></div>
+      <div class="row-btns">
+        <button class="btn big gold" onclick="ROWAR.practiceFind()">한 판 더</button>
+        <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
     </div>`;
 }
@@ -679,7 +734,7 @@ window.ROWAR = {
     if(net.state.online && rb) await net.hangar('select',{robotUid:rb.uid});
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
   levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
-  pull1, pull10, findMatch, nextMatch, startBattle, toggleSpeed, reset:resetSave,
+  pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, toggleSpeed, reset:resetSave,
   account:accountScreen, doRegister, doLogin, logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화

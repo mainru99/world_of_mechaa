@@ -184,7 +184,8 @@ function go(scr){ cur=scr; setScene(scr); document.querySelectorAll('.screen').f
   if(scr==='hangar') renderHangar();
   else if(scr==='gacha') renderGacha();
   else if(scr==='battle') renderBattleHome();     // 대전은 여기서만 처음부터 그린다
-  else if(scr==='rank') renderRank(); }
+  else if(scr==='rank') renderRank();
+  else if(scr==='hunt') renderHunt(); }
 function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); }
 /* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
@@ -461,25 +462,62 @@ async function renderRank(){
 
 /* 상대는 서버가 고른다. 상대 레벨이 보상에 들어가므로 클라가 고르게 두면
    만렙 상대만 잡아 경험치를 부풀릴 수 있다. */
-async function findMatch(){
+async function findMatch(opts){
   setScene('battle');
   $('#sc-battle').innerHTML = `<h2 class="title">대전</h2><div class="panel"><div class="mm">
     <div class="spinner"></div><div style="font-weight:800">상대를 검색하는 중...</div>
     <div class="hint">상대 로봇과 야생 몬스터의 신호를 탐색합니다.</div></div></div>`;
 
   if(!net.state.online){ renderBattleHome(); toast('대전은 서버 연결이 필요합니다'); return; }
-  const [r] = await Promise.all([net.battleFind(), sleep(1000)]);   // 연출용 최소 대기
-  if(!r || r.error){ renderBattleHome(); toast('상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return; }
+  const [r] = await Promise.all([net.battleFind(opts), sleep(1000)]);   // 연출용 최소 대기
+  if(!r || r.error){
+    if(r && r.need!=null){ go('hunt'); toast(`크레딧이 모자랍니다 · 필요 ${fmt(r.need)} / 보유 ${fmt(r.have)}`); return; }
+    renderBattleHome(); toast('상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
+  }
 
-  setPending(r.opponent, r.cost, r.rescue);
+  setPending(r.opponent, r.cost, r.rescue, r.tier);
   showOpponent(_pendingOpp);
 }
 
-function setPending(o, cost, rescue){
+function setPending(o, cost, rescue, tier){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, fat:0, slots:o.slots },
-    parts:o.parts, cost:cost|0, rescue:!!rescue } : null;
+    parts:o.parts, cost:cost|0, rescue:!!rescue, tier:tier||null } : null;
 }
+
+/* ------------------------------- 토벌 ------------------------------- */
+/* 파밍 자리. 아레나는 크레딧과 레이팅, 토벌은 스크랩과 파츠를 준다.
+   등급이 곧 관문이다 — 비용이 오르고 상대 레벨도 올라간다.
+   BOSS 는 내 레벨 +12 라, 잡히기 시작하면 파밍 효율이 가장 좋다. */
+const HUNT_KO = { C:'일반', UC:'정예', R:'희귀', UQ:'초희귀', EP:'전설', BOSS:'보스' };
+function renderHunt(){
+  const rb=selRobot();
+  if(!net.state.online){
+    $('#sc-hunt').innerHTML = `<h2 class="title">토벌</h2>
+      <div class="panel"><div class="hint">토벌은 서버 연결이 필요합니다. 보상을 서버가 판정합니다.</div></div>`;
+    return;
+  }
+  const rows = Object.keys(CONST.HUNT).map(t=>{
+    const H=CONST.HUNT[t], cost=Math.ceil(sortieCost(rb)*H.costX), poor=S.credits<cost;
+    const lv=Math.max(1,Math.min(MAXLV, rb.level+H.lv));
+    const names=(MONSTER_BY_RARITY[t]||[]).map(id=>MONSTER_TYPES[id].name).join(' · ');
+    return `<button class="hunt-row${poor?' poor':''}" ${poor?'disabled':''} onclick="ROWAR.hunt('${t}')">
+      <div class="ht"><span class="tag rar-${t==='BOSS'?'SSR':t}">${HUNT_KO[t]}</span>
+        <b>Lv.${lv}</b></div>
+      <div class="hn">${names}</div>
+      <div class="hd">스크랩 ×${H.scX} · 파츠 ${Math.round(H.partP*100)}%${H.coreP?` · 코어 ${Math.round(H.coreP*100)}%`:''}</div>
+      <div class="hc ${poor?'bad':''}">${fmt(cost)}</div>
+    </button>`;
+  }).join('');
+  $('#sc-hunt').innerHTML = `<h2 class="title">토벌 · 사냥터</h2>
+    <div class="panel">
+      <div class="hint">몬스터를 사냥해 <b>스크랩과 파츠</b>를 캡니다. 크레딧은 아레나의 절반이 안 되고,
+        레이팅은 움직이지 않습니다. 등급이 높을수록 비싸고 상대가 강합니다.</div>
+      <div class="hunt-list" style="margin-top:10px">${rows}</div>
+      <div class="hint" style="margin-top:8px">출전 · ${ROBOT_TYPES[rb.type].name} Lv.${rb.level} · 보유 ${fmt(S.credits)} 크레딧</div>
+    </div>`;
+}
+function hunt(tier){ findMatch({ mode:'hunt', tier }); }
 
 /* '한 판 더' — 서버가 직전 응답에 다음 상대를 실어 보내므로 왕복이 필요 없다.
    (예전에는 여기서 findMatch 를 불러 한 판마다 요청을 두 번 썼다)
@@ -525,7 +563,7 @@ function showOpponent(opp, practice){
         ? '<div class="hint" style="margin-top:10px;color:var(--gold)">연습 대전 · 보상 없음</div>'
         : opp.rescue
           ? `<div class="hint" style="margin-top:10px;color:var(--bad)">비상 출격 · 출격비 없음 · 보상은 크레딧만</div>`
-          : `<div class="hint" style="margin-top:10px">출격비 <b style="color:var(--gold)">${fmt(opp.cost)}</b> 크레딧</div>`}
+          : `<div class="hint" style="margin-top:10px">${opp.tier?`토벌 <b style="color:var(--acc2)">${HUNT_KO[opp.tier]||opp.tier}</b> · `:''}출격비 <b style="color:var(--gold)">${fmt(opp.cost)}</b> 크레딧</div>`}
       <div class="row-btns" style="margin-top:12px">
         <button class="btn big gold" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작</button>
         <button class="btn ghost" onclick="ROWAR.${practice?'practiceFind':'findMatch'}()">다시 찾기</button>
@@ -598,7 +636,7 @@ async function startBattle(){
     if(r && /expired|no pending|not enough credits/i.test(r.error||'')){ _pendingOpp=null; return findMatch(); }
     toast('전투를 시작하지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
   }
-  setPending(r.next && r.next.opponent, r.next && r.next.cost, r.next && r.next.rescue);
+  setPending(r.next && r.next.opponent, r.next && r.next.cost, r.next && r.next.rescue, r.next && r.next.tier);
 
   const P=makeUnit(r.nameP, my.type, r.statP);
   const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE);
@@ -748,7 +786,7 @@ window.ROWAR = {
     if(net.state.online && rb) await net.hangar('select',{robotUid:rb.uid});
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
   levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
-  pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, toggleSpeed, reset:resetSave,
+  pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, hunt, toggleSpeed, reset:resetSave,
   account:accountScreen, doRegister, doLogin, logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화

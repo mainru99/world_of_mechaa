@@ -48,6 +48,40 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster) {
            callsign: pick(CALLSIGNS, rnd) + '-' + ri(10, 99, rnd) };
 }
 
+/* 토벌 상대. 등급을 직접 골라 그 등급의 몬스터를 낸다.
+   아레나 매칭과 달리 '내가 가진 등급'에 묶이지 않는다 — 비용이 곧 관문이다. */
+export function makeHuntTarget(tier, myLevel, rnd, uid) {
+  const list = MONSTER_BY_RARITY[tier];
+  if (!list || !list.length) return null;
+  const type = pick(list, rnd);
+  const off = (CONST.HUNT[tier] || {}).lv || 0;
+  const level = clamp(myLevel + off, 1, CONST.MAXLV);
+  return { kind: 'monster', type, level, parts: [],
+           slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null },
+           callsign: MONSTER_TYPES[type].name };
+}
+
+/* 토벌 보상. 스크랩과 파츠가 본체다 — 크레딧은 아레나의 절반이 안 된다.
+   그래야 '돈을 벌려면 아레나, 재료를 캐려면 토벌'로 갈린다. */
+export function rollHuntRewards(win, tier, enemyLv, rnd, uid) {
+  const H = CONST.HUNT[tier] || CONST.HUNT.C;
+  const base = rollBattleRewards(win, enemyLv, rnd, uid);
+  if (!win) return { ...base, cr: Math.round(base.cr * H.crX), sc: Math.round(base.sc * H.scX * 0.4),
+                     core: 0, part: null, tier };
+
+  let sc = Math.round((18 + ri(0, 14, rnd)) * H.scX);
+  let part = null;
+  if (rnd() < H.partP) {
+    const p = genPart(enemyLv, rnd, uid());
+    const auto = autoScrapValue(p.rarity);
+    if (auto) sc += auto; else part = p;      // 잡템은 행을 만들지 않는다
+  }
+  return { win: true, tier,
+           cr: Math.round((120 + enemyLv * 14) * H.crX),
+           sc, core: rnd() < H.coreP ? 1 : 0, part,
+           expGain: base.expGain, fatAdd: base.fatAdd };
+}
+
 /* 승패에 따른 보상 굴림. 상태를 바꾸지 않고 '무엇을 줄지'만 돌려준다.
    경험치·피로도는 기체 행을 직접 만져야 해서 부르는 쪽(stats.js gainExp/addFat)이 맡는다. */
 export function rollBattleRewards(win, enemyLv, rnd, uid) {

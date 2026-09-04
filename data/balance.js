@@ -227,6 +227,21 @@ export const CONST = {
      Lv.1 = 21 / Lv.30 = 108 / Lv.60 = 198.  (승리 보상이 Lv.30 기준 약 560)
      ※ 값 조정은 ChatGPT 담당. 계산식은 js/stats.js 의 sortieCost 에 있다. */
   SORTIE: { base: 18, perLv: 3 },
+  /* 토벌 — 몬스터를 골라 사냥하는 파밍 모드.
+     아레나는 크레딧과 레이팅을, 토벌은 스크랩과 파츠를 준다. 둘이 겹치지 않아야
+     양쪽 다 할 이유가 생긴다. 레이팅은 움직이지 않는다.
+       costX  출격비 배수      lv     내 레벨 대비 상대 레벨
+       crX/scX 크레딧·스크랩 배수   partP  파츠가 나올 확률   coreP 코어 확률
+     BOSS 는 레벨을 크게 얹어 '아직 못 잡는 벽'으로 둔다. 잡히면 파밍 효율이 가장 좋다.
+     ※ 값 조정은 ChatGPT 담당. */
+  HUNT: {
+    C:    { costX: 1.0, lv:  -6, crX: 0.45, scX: 1.6, partP: 0.10, coreP: 0    },
+    UC:   { costX: 1.4, lv:  -3, crX: 0.45, scX: 2.1, partP: 0.13, coreP: 0    },
+    R:    { costX: 2.0, lv:   0, crX: 0.45, scX: 2.8, partP: 0.17, coreP: 0.05 },
+    UQ:   { costX: 3.0, lv:  +3, crX: 0.45, scX: 3.6, partP: 0.22, coreP: 0.10 },
+    EP:   { costX: 4.5, lv:  +6, crX: 0.45, scX: 4.6, partP: 0.28, coreP: 0.18 },
+    BOSS: { costX: 8.0, lv: +12, crX: 0.45, scX: 7.0, partP: 0.45, coreP: 0.35 },
+  },
   /* 비상 출격 — 크레딧이 출격비보다 적을 때만 열린다.
      비용 0, 상대는 몬스터 고정, 보상은 크레딧만(파츠·코어·경험치 없음), 레이팅 변동 없음.
      막힌 판을 만들지 않기 위한 구제 장치라 일부러 맛이 없다. 피로도는 정상으로 쌓인다. */

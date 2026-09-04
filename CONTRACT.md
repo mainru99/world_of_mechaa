@@ -316,3 +316,10 @@ CONST          // MAXLV PULL_COST ATK_SCALE CRIT_MULT DEF_PEN FAT_MAX MONSTER_RA
 - **오프라인 연습 대전을 붙였다.** 서버 없이 한 판 돌려 볼 수 있지만 **보상이 전혀 없다** —
   경험치·크레딧·파츠·피로도·전적이 안 움직인다. 상대는 클라의 `makeOpponent()` 가 만들고
   `CONST.MONSTER_RATE` 를 그대로 따르므로, 몬스터 출현 비율을 바꾸면 연습에도 같이 반영된다.
+- **출격비와 토벌을 붙였다.** 새 밸런스 값 `CONST.SORTIE`(출격비)와 `CONST.HUNT`(토벌 등급표)를
+  `data/balance.js` 에 추가했다 — **값 조정은 ChatGPT 담당**이다. 계산식은
+  `js/stats.js` 의 `sortieCost`, `server/battle.js` 의 `huntCost` 에 있다.
+- **`MONSTER_BY_RARITY.BOSS` 가 게임에서 한 번도 나올 수 없었다.** `pickOpponentType` 이
+  `ROBOT_RARITY`(C·UC·R·UQ·EP)로 풀을 걸러서다. 보스 3종을 토벌의 최상위 단계로 살렸다.
+  앞으로 보스를 추가하면 토벌 '보스' 등급에 자동으로 들어간다.
+- 토벌은 레이팅을 움직이지 않고 아레나 등록도 건드리지 않는다.

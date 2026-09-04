@@ -243,8 +243,13 @@ async function handleApi(request, env, url) {
   if (path === '/battle/find' && method === 'POST') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
-    const r = await findMatch(env, sess.account_id, Date.now());
-    return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 500);
+    /* 본문으로 모드를 받는다. { mode:'hunt', tier:'BOSS' } 면 토벌, 없으면 아레나. */
+    let body; try { body = await request.json(); } catch { body = null; }
+    const r = await findMatch(env, sess.account_id, Date.now(), body);
+    /* 실패해도 need/have 같은 부가 정보를 그대로 넘긴다 — 클라가 '얼마가 모자란지' 를 보여 준다 */
+    if (r.ok) return json(r);
+    const { status, ...rest } = r;
+    return json(rest, status || 500);
   }
   if (path === '/battle/start' && method === 'POST') {
     const sess = await auth(request, env);

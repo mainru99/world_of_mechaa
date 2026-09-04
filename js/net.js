@@ -171,10 +171,12 @@ export async function pullServer(count) {
 }
 
 /* 전투 — 서버 판정. find 로 상대를 받고, start 로 결과를 받는다. */
-export async function battleFind() {
+export async function battleFind(opts) {
   if (!state.online) return null;
-  const r = await call('/api/battle/find', { method: 'POST', body: {} });
-  return (r.ok && r.data && r.data.ok) ? r.data : { error: (r.data && r.data.error) || r.error || 'find failed' };
+  const r = await call('/api/battle/find', { method: 'POST', body: opts || {} });
+  if (r.ok && r.data && r.data.ok) return r.data;
+  const d = r.data || {};
+  return { error: d.error || r.error || 'find failed', need: d.need, have: d.have };
 }
 export async function battleStart() {
   if (!state.online) return null;

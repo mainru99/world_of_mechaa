@@ -3,20 +3,8 @@
 집에서 이어서 작업하기 위한 순서표. 명령어는 2026-09-04 기준 Cloudflare 공식 문서로 확인했다.
 버전이 올라가면 플래그가 바뀔 수 있으니, 막히면 `npx wrangler d1 --help` 로 먼저 확인할 것.
 
-> **현재 상태** (2026-09-04 갱신)
-> - Cloudflare 계정 `hun7539@naver.com`, D1 `rowar` 생성 완료, 스키마 원격 적용 완료(테이블 8개)
-> - Worker 뼈대 배포 완료 → **https://rowar.hun7539.workers.dev**
-> - 게스트(익명) 계정 + **진행상황 동기화**까지 완료
->   `POST /api/auth/guest` · `GET /api/me` · `GET/PUT /api/state`
-> - 기기 간 이어하기 확인됨. 브라우저 저장본을 지워도 서버에서 복원된다.
-> - **뽑기는 서버가 판정한다** (`POST /api/pull`). 클라가 보낸 결과는 받지 않는다.
->   그래서 뽑기는 온라인 전용이다 — 오프라인에서 굴리게 두면 끊고 굴린 뒤 올리면 그만이다.
-> - **전투도 서버가 판정한다** (`POST /api/battle/find` → `/battle/start`).
->   서버가 상대·시드·승패·보상을 정하고, 클라는 같은 시드로 애니메이션만 재생한다.
-> - **격납고 조작도 서버가 판정한다** (`POST /api/hangar`) — 장착·해제·강화·레벨업·정비·출전선택.
->   비용 계산과 가능 여부를 서버가 하므로 크레딧을 쓰지 않고 레벨을 올릴 수 없다.
-> - `PUT /api/state` 는 **최초 이관(rev 0)에만** 열려 있다. 그 뒤 임의 상태 업로드는 403.
-> - 그래서 게임 조작은 전부 온라인 전용이다. 오프라인에서는 보기만 된다.
+> **진행 상황은 [`STATUS.md`](../STATUS.md) 에 있다.** 한 것 · 남은 것 · 알려진 문제를
+> 거기 한 곳에만 적는다. 이 문서는 '어떻게 설치하고 배포하는가' 만 다룬다.
 
 ---
 
@@ -27,7 +15,7 @@
 | Node.js | 이 PC 는 v24.11.1 (18 이상이면 된다) |
 | npm | 11.7.0 |
 | Cloudflare 계정 | **필요** — 무료로 가입 |
-| wrangler | 아직 미설치 (아래 1번) |
+| wrangler | 설치됨 (`package.json` 의 devDependencies). 새 PC 는 `npm install` |
 
 ---
 
@@ -92,7 +80,8 @@ npx wrangler d1 execute rowar --remote --file=./server/schema.sql
 npx wrangler d1 execute rowar --local --command="SELECT name FROM sqlite_master WHERE type='table'"
 ```
 
-`account · session · part · robot · player · arena_entry · battle · meta` 여덟 개가 나오면 된다.
+`account · session · part · robot · player · arena_entry · battle · login_attempt · meta`
+아홉 개가 나오면 된다. 스키마를 고친 뒤에는 `server/migrations/` 의 마이그레이션도 같은 방식으로 적용한다.
 
 ---
 
@@ -117,29 +106,29 @@ node server/build.mjs      # index.html·style.css·js·data·assets·themes 만
 ## 6. 개발 서버와 배포
 
 ```bash
-npx wrangler dev          # http://localhost:8787
-npx wrangler deploy
+npm run dev               # 빌드 + wrangler dev (http://localhost:8787)
+npm run deploy            # 빌드 + wrangler deploy
 ```
+
+> `npx wrangler deploy` 를 직접 부르면 **`dist/` 빌드를 건너뛴다.** 고친 파일이 안 올라가므로
+> 반드시 `npm run deploy` 를 쓴다.
 
 `wrangler dev` 는 기본이 로컬 D1 이다. 원격 DB 를 보게 하려면 `--remote` 를 붙인다.
 
 ---
 
-## 7. Worker 가 반드시 해야 하는 것
+## 7. Worker 가 반드시 해야 하는 것 — **전부 반영됨**
 
-스키마 검토(2026-09-04)에서 **DB 제약으로는 막을 수 없다고 확인된** 항목들이다.
-빠뜨리면 조용히 뚫린다.
+스키마 검토(2026-09-04)에서 DB 제약으로는 막을 수 없다고 확인했던 항목들이다.
+지금은 모두 Worker 에 들어가 있고, 아래는 고칠 때 깨뜨리지 말아야 할 목록으로 남긴다.
 
-- [ ] **파츠 장착 검증** — `part.account_id == robot.account_id` 이고 `part.slot` 이 슬롯과 같은지.
-      슬롯 컬럼의 `UNIQUE` 는 '같은 슬롯 중복'만 막고 `A.s_weapon` / `B.s_frame` 교차는 못 막는다.
-- [ ] **피로도는 서버 시각으로 정산** — 지금 클라는 `Date.now()` 를 쓴다. 기기 시계를 돌리면
-      피로도가 공짜로 사라진다. `robot.fat_at` 을 서버에서만 갱신할 것.
-- [ ] **arena_entry 는 전투마다 쓰지 않는다** — 편성·레벨이 바뀔 때만. 피로도는 반영하지 않는다.
-- [ ] **arena_entry.rnd 갱신** — 등록·갱신할 때마다 새 난수. 안 넣으면 매칭이 늘 같은 상대를 준다.
-- [ ] **balance_ver 확인** — 밸런스를 고치면 옛 스냅샷은 매칭에서 빼거나 다시 계산.
-- [ ] **몬스터 전투는 기록하지 않는다** — 전투의 40%다. 쓰기 예산이 여기서 갈린다.
-- [ ] **뽑기·전투 판정은 서버가** — 클라가 보낸 결과를 믿지 않는다.
-      `data/balance.js` 와 `js/sim.js` 는 DOM 을 안 쓰는 순수 모듈이라 Worker 가 그대로 import 한다.
+- [x] **파츠 장착 검증** — 소유자와 슬롯 일치를 서버가 본다 (`server/hangar.js`)
+- [x] **피로도는 서버 시각으로 정산** (`server/battle.js` · `hangar.js` 의 `decayFat`)
+- [x] **arena_entry 는 편성·레벨이 바뀔 때만 쓴다** (`server/arena.js`)
+- [x] **arena_entry.rnd 갱신** — 등록할 때마다 새 난수. 없으면 늘 같은 상대가 나온다
+- [x] **balance_ver 확인** — 옛 밸런스로 만든 스냅샷은 매칭에서 걸러진다
+- [x] **몬스터 전투는 기록하지 않는다** — 전투의 40%다
+- [x] **뽑기·전투 판정은 서버가** — `data/balance.js` 와 `js/sim.js` 를 Worker 가 그대로 import 한다
 
 ---
 
@@ -183,35 +172,9 @@ npx wrangler deploy
 
 ---
 
-## 9. 다음에 만들 것 (순서 제안)
+## 9. 다음에 만들 것
 
-1. ~~`server/worker.js` — 라우팅 뼈대 + `/api/health`~~ **완료**
-2. ~~익명 계정: `device_key` 로 `account` + `player` + 시작 기체 1기 생성, `session` 토큰 발급~~ **완료**
-3. ~~`js/net.js` — 클라 통신 계층~~ **완료** (오프라인 폴백 확인). 다음은 이걸로 상태를 실제로 주고받는 것
-4. ~~상태 동기화: localStorage 저장본을 서버로 올리는 이관~~ **완료** (양방향 + 차등 쓰기)
-5. ~~서버 판정: 뽑기 → 전투~~ **완료**
-
-> - **실제 사람 상대와 싸운다.** 편성이 바뀔 때마다 `arena_entry` 에 방어 스냅샷을 등록하고,
->   매칭은 전투력 ±15% 안에서 `rnd` 인덱스로 **한 행만 읽어** 고른다.
->   등록자가 없으면 서버가 상대를 만들어 낸다 — 혼자여도 게임이 돌아가야 하므로.
-> - 사람 상대 전투만 `battle` 에 기록하고 Elo 로 레이팅을 조정한다.
-> - **정식 계정 승격** — 게스트에 아이디·비밀번호를 붙이면 같은 계정이 그대로 이어진다.
->   `POST /api/auth/register` · `/auth/login` · `/auth/logout`.
->   비밀번호는 PBKDF2-SHA256 10만 회(약 180ms). 평문은 어디에도 남기지 않는다.
-> - **로그인 시도 제한** — 아이디 5회 / IP 30회 실패하면 15분 잠금.
->   IP 기준을 느슨하게 둔 것은 학교 컴퓨터실처럼 여러 명이 한 IP 를 쓰는 곳 때문이다.
-> - **대문(타이틀 화면)** — 게임 화면이 바로 뜨지 않는다. 시작하기를 눌러야 들어간다.
-
-### 그 다음 후보
-- 랭킹 화면 (`rank_cached` 를 Cron 으로 주기 갱신 — 실시간 계산은 하위권이 2만 행을 읽는다)
-- 정식 계정 승격(아이디·비번) — 지금은 device_key 를 잃으면 계정도 잃는다
-- 오래된 `arena_entry` 정리, 전투 기록 플레이어당 50판 유지
-- 오프라인 연습 모드(보상 없는 전투). `js/rewards.js` 가 순수 함수라 어렵지 않다.
-
-### 남아 있는 신뢰 지점
-- 최초 이관(`PUT /api/state`, rev 0)은 클라가 보낸 값을 그대로 받는다.
-  새 게스트 계정을 만들어 강한 상태를 한 번 심을 수 있다. 이관을 아예 없애거나
-  값 상한을 두는 것이 다음 방어선이다.
+[`STATUS.md`](../STATUS.md) 의 '남은 것' 을 본다.
 
 ---
 

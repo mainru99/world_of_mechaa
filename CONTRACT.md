@@ -218,8 +218,13 @@ CONST          // MAXLV PULL_COST ATK_SCALE CRIT_MULT DEF_PEN FAT_MAX MONSTER_RA
 ## 밸런스 변경 시 서버가 해야 할 일 · 2026-09-04
 
 `ATK_SCALE` 을 0.2 → 0.33 으로 올리면서 확인한 내용을 남긴다.
-**지금은 Worker 코드가 없어 배포 대상이 없다** (`server/` 에는 `schema.sql` 뿐).
-아래는 Worker 를 만들 때 반드시 반영해야 할 항목이다.
+> **2026-09-04 갱신 — 아래 항목은 전부 반영됐다.** Worker 가 배포되어 있고
+> (https://rowar.hun7539.workers.dev) 뽑기·전투·격납고를 서버가 판정한다.
+> 그래서 **밸런스를 고치면 클라와 서버를 같이 배포해야 한다** — `npm run deploy` 한 번이면 된다.
+> 한쪽만 올라가면 서버가 클라의 전투 결과를 위조로 판정한다.
+> 진행 상황은 `STATUS.md`, 설치·배포는 `server/SETUP_KO.md` 를 본다.
+
+아래는 그때 정리한 항목이다. 고칠 때 깨뜨리지 않도록 남긴다.
 
 | 저장하는 값 | 밸런스 변경의 영향 | 해야 할 일 |
 |---|---|---|
@@ -274,3 +279,17 @@ CONST          // MAXLV PULL_COST ATK_SCALE CRIT_MULT DEF_PEN FAT_MAX MONSTER_RA
 - 새 스탯이나 새 `skill.fx` 키는 추가하지 않았다.
 - 스프라이트 3장은 440×420 RGBA, 투명 배경, 경계 접촉 없음, 전경 하단 y=408 규격이다.
   원본이 정면 구도라 향후 중앙 배치형 보스 연출을 전제로 한다.
+
+
+---
+
+## 서버 전환 완료 · 2026-09-04
+
+`data/balance.js` 와 `js/sim.js` · `js/stats.js` · `js/gacha.js` · `js/rewards.js` 는
+이제 **브라우저와 Cloudflare Worker 가 같이 import 한다.** DOM 을 쓰지 않는 순수 모듈로 유지할 것.
+
+- 기체·몬스터를 추가하는 것은 지금까지처럼 `ROBOT_TYPES` / `MONSTER_TYPES` 에 항목과
+  `assets/<id>.png` 만 넣으면 된다. 프론트 수정은 필요 없다.
+- 다만 `CONST` 나 성장식을 건드리면 `balance_ver` 가 바뀌어 **아레나에 등록된 옛 스냅샷이
+  매칭에서 걸러진다.** 사람 상대가 잠깐 줄었다가 각자 접속하면서 다시 채워진다. 정상이다.
+- 새 `skill.fx` 키를 추가하면 `js/sim.js` 도 같이 고쳐야 한다 (Claude 담당).

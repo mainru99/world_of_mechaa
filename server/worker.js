@@ -11,6 +11,7 @@
  */
 import { ROBOT_TYPES } from '../data/balance.js';
 import { sanitize, loadState, saveState } from './state.js';
+import { serverPull } from './pull.js';
 
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
@@ -197,6 +198,17 @@ async function handleApi(request, env, url) {
     const r = await saveState(env, sess.account_id, clean.state, Date.now());
     if (!r.ok) return json({ ok: false, error: r.error }, 500);
     return json({ ok: true, rev: r.rev, wrote: r.wrote, server_now: Date.now() });
+  }
+
+  /* 뽑기 — 서버가 판정한다. 클라가 보낸 결과는 받지 않는다. */
+  if (path === '/pull' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let body; try { body = await request.json(); } catch { body = {}; }
+    const r = await serverPull(env, sess.account_id, body && body.count, Date.now());
+    if (!r.ok) return json({ ok: false, error: r.error, cores: r.cores }, r.status || 500);
+    return json({ ok: true, results: r.results, rev: r.rev,
+                  credits: r.credits, cores: r.cores, scrap: r.scrap, wrote: r.wrote });
   }
 
   return json({ ok: false, error: 'not found', path: url.pathname, method }, 404);

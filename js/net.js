@@ -154,3 +154,13 @@ export async function flush(getState) {
   if (!state.online) return null;
   return push(getState());
 }
+
+/* 서버 판정 뽑기. 온라인일 때만 쓴다 — 오프라인이면 null 을 돌려주고,
+   부르는 쪽이 '연결이 필요하다'고 알린다. 오프라인에서 로컬로 굴리게 두면
+   서버 판정을 넣은 의미가 사라진다(끊고 굴린 뒤 올리면 그만이므로). */
+export async function pullServer(count) {
+  if (!state.online) return null;
+  const r = await call('/api/pull', { method: 'POST', body: { count } });
+  if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return r.data; }
+  return { error: (r.data && r.data.error) || r.error || 'pull failed', cores: r.data && r.data.cores };
+}

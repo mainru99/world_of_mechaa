@@ -14,6 +14,7 @@ import { isPct, fatOf, serviceCost, findPart, partStat, gainExp, addFat, decayFa
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import * as net from './net.js';
+import { rollPull, genPart as _genPart, autoScrapValue } from './gacha.js';
 import { sprite, preloadSprites } from './sprites.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN } = CONST;
@@ -96,31 +97,26 @@ const power        = (robot, parts) => _power(robot, parts || S.parts);
 const overallLevel = ()=> Math.max(1, ...S.robots.map(r=>r.level));
 
 /* ------------------------------- 파츠/뽑기 ------------------------------- */
-function genPart(level){
-  const slot=pick(SLOTS), rar=weighted(RARITY), lvScale=1+(level||1)*0.03, stats={};
-  for(let i=0;i<rar.n;i++){ const st=pick(SLOT_STATS[slot]); const [a,b]=STAT_ROLL[st];
-    let v=rf(a,b)*rar.mul; if(!isPct(st)) v=Math.round(v*lvScale);
-    stats[st]=(stats[st]||0)+v; }
-  for(const k in stats) if(isPct(k)) stats[k]=Math.round(stats[k]*1000)/1000;
-  return { uid:uid(), slot, name:pick(PART_NAMES[slot]), rarity:rar.k, ko:rar.ko, stats, enh:0 };
+/* 뽑기 판정은 js/gacha.js 로 옮겼다 — Worker 가 같은 파일을 import 해서 서버가 판정한다 */
+const genPart = level => _genPart(level, R, uid);
+const autoScrap = p => autoScrapValue(p.rarity);
+/* 판정 결과 하나를 상태에 반영한다. 서버가 판정한 결과도 같은 함수로 적용하므로
+   '누가 굴렸든' 반영 방식은 한 곳뿐이다. */
+function applyPull(res){
+  if(!res) return null;
+  if(res.kind==='robot'){ S.robots.push({uid:uid(),type:res.type,level:1,exp:0,fat:0,slots:emptySlots()}); }
+  else if(res.kind==='dupe'){ const g=res.gain; S.credits+=g.cr; S.scrap+=g.sc; S.cores+=g.co; }
+  else if(res.kind==='core'){ S.cores+=res.n; }
+  else if(res.kind==='credit'){ S.credits+=res.cr; }
+  else if(res.kind==='part'){ S.parts.push(res.part); }
+  else if(res.kind==='scrap'){ S.scrap+=res.n; }
+  return res;
 }
-/* 자동 분해 대상이면 바꿔줄 스크랩 양을, 아니면 0 을 돌려준다 */
-function autoScrap(p){ return (CONST.AUTO_SCRAP && CONST.AUTO_SCRAP[p.rarity]) || 0; }
 function pull(){
   if(S.cores<PULL_COST){ toast('코어가 부족합니다'); return null; }
   S.cores-=PULL_COST; S.stat.pulls++;
-  const kind=weighted(PULL_TABLE).k; let res;
-  if(kind==='robot'){ const type=pick(BY_RARITY[weighted(ROBOT_RARITY).k]);
-    if(S.robots.some(r=>r.type===type)){ const g=DUPE_GAIN[rarOf(type)];
-      S.credits+=g.cr; S.scrap+=g.sc; S.cores+=g.co; res={kind:'dupe',type,gain:g}; }
-    else { const rb={uid:uid(),type,level:1,exp:0,fat:0,slots:emptySlots()}; S.robots.push(rb); res={kind:'robot',type}; }
-  }
-  else if(kind==='core'){ S.cores+=1; res={kind:'core',n:1}; }
-  else if(kind==='credit'){ const cr=47+overallLevel()*4+ri(0,30); S.credits+=cr; res={kind:'credit',cr}; }   // 예전 값의 1/3
-  else if(kind==='part'){ const p=genPart(overallLevel()); const sc=autoScrap(p);
-    if(sc){ S.scrap+=sc; res={kind:'scrap',n:sc,part:p}; }        // 잡템은 행을 만들지 않는다
-    else { S.parts.push(p); res={kind:'part',part:p}; } }
-  else { res={kind:'bust'}; }
+  const owned=new Set(S.robots.map(r=>r.type));
+  const res=applyPull(rollPull(owned, overallLevel(), R, uid));
   save(); return res;
 }
 
@@ -274,27 +270,40 @@ function renderGacha(){
       <div class="gacha-stage" id="stage"><div class="ray" style="opacity:.35"></div><div class="capsule"></div></div>
       ${rate}
       <div class="row-btns" style="margin-top:12px">
-        <button class="btn gold big" onclick="ROWAR.pull1()" ${S.cores<1?'disabled':''}>1회 뽑기 (코어 1)</button>
-        <button class="btn big" onclick="ROWAR.pull10()" ${S.cores<10?'disabled':''}>10회 뽑기 (코어 10)</button>
+        <button class="btn gold big" onclick="ROWAR.pull1()" ${(S.cores<1||!net.state.online)?'disabled':''}>1회 뽑기 (코어 1)</button>
+        <button class="btn big" onclick="ROWAR.pull10()" ${(S.cores<10||!net.state.online)?'disabled':''}>10회 뽑기 (코어 10)</button>
       </div>
+      ${net.state.online?'':'<div class="hint" style="margin-top:8px;color:var(--bad)">서버에 연결되지 않아 뽑기를 할 수 없습니다. 뽑기 결과는 서버가 판정합니다.</div>'}
       <div class="hint" style="margin-top:8px">코어는 대전 승리로 조금씩 얻습니다.
         로봇은 ${ROBOT_RARITY.length}등급 ${ROBOT_IDS.length}종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.</div>
     </div>`;
 }
-async function pull1(){
-  if(S.cores<1){toast('코어가 부족합니다');return;}
+/* 뽑기는 서버가 판정한다.
+   클라가 "이런 게 나왔다"고 보내는 것을 받지 않기 때문에, 클라 코드를 고쳐도
+   결과를 조작할 수 없다. 대신 연결이 없으면 뽑을 수 없다 — 오프라인에서 로컬로
+   굴리게 두면 끊고 굴린 뒤 올리면 그만이라 서버 판정의 의미가 사라진다. */
+async function doPull(count){
+  if(S.cores<count){ toast('코어가 부족합니다'); return; }
+  if(!net.state.online){ toast('뽑기는 서버 연결이 필요합니다'); return; }
+
   const stage=$('#stage'); stage.classList.add('rolling');
-  const res=pull(); renderWallet();
+  const r = await net.pullServer(count);
   await sleep(650); stage.classList.remove('rolling');
-  showReveal([res]);
+
+  if(!r){ toast('뽑기는 서버 연결이 필요합니다'); return; }
+  if(r.error){ toast(r.error==='not enough cores' ? '코어가 부족합니다' : '뽑기 실패: '+r.error); return; }
+
+  /* 서버가 재화까지 확정해서 돌려준다. 클라는 그 값을 그대로 받아 적는다. */
+  for(const res of r.results) applyPull(res);
+  S.credits = r.credits; S.cores = r.cores; S.scrap = r.scrap;
+  S.stat.pulls += r.results.length;
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}   // save() 를 쓰면 곧바로 되올린다
+  net.cancelSync();                                                     // 서버가 이미 최신이다
+  renderWallet(); renderGacha();
+  showReveal(r.results);
 }
-async function pull10(){
-  if(S.cores<10){toast('코어가 부족합니다');return;}
-  const stage=$('#stage'); stage.classList.add('rolling');
-  const results=[]; for(let i=0;i<10;i++){ const r=pull(); if(r) results.push(r); }
-  renderWallet(); await sleep(650); stage.classList.remove('rolling');
-  showReveal(results);
-}
+const pull1  = () => doPull(1);
+const pull10 = () => doPull(10);
 function revealCardHtml(res){
   if(res.kind==='robot') return `<div class="pchip" style="border-color:var(--acc)"><div class="pn" style="color:var(--acc2)">신규 로봇! ${ROBOT_TYPES[res.type].name} ${robRarTag(res.type)}</div><div class="ps">${ROBOT_TYPES[res.type].role}</div></div>`;
   if(res.kind==='dupe'){ const g=res.gain||DUPE_GAIN[rarOf(res.type)];

@@ -10,7 +10,7 @@
  * 다음 단계는 server/SETUP_KO.md 9절 참고.
  */
 import { ROBOT_TYPES } from '../data/balance.js';
-import { sanitize, loadState, saveState } from './state.js';
+import { sanitize, loadState, saveState, migrationOpen, noteMigration } from './state.js';
 import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
@@ -195,6 +195,9 @@ async function handleApi(request, env, url) {
   if (path === '/state' && method === 'PUT') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    /* 문이 닫혀 있으면 아무것도 받지 않는다. 상한만으로는 '만렙 계정 심기'를 못 막는다. */
+    if (!(await migrationOpen(env)))
+      return json({ ok: false, error: 'migration is closed' }, 403);
     let body; try { body = await request.json(); } catch { body = null; }
     const clean = sanitize(body && body.state);
     if (!clean.ok) return json({ ok: false, error: clean.error }, 400);
@@ -210,10 +213,13 @@ async function handleApi(request, env, url) {
       const st = await loadState(env, sess.account_id);
       return json({ ok: false, error: 'rev mismatch', ...st, server_now: Date.now() }, 409);
     }
-    const r = await saveState(env, sess.account_id, clean.state, Date.now());
+    const now = Date.now();
+    const r = await saveState(env, sess.account_id, clean.state, now);
     if (!r.ok) return json({ ok: false, error: r.error }, 500);
-    await registerArena(env, sess.account_id, Date.now());   // 이관된 편성으로 다시 등록
-    return json({ ok: true, rev: r.rev, wrote: r.wrote, server_now: Date.now() });
+    await registerArena(env, sess.account_id, now);          // 이관된 편성으로 다시 등록
+    await noteMigration(env, sess.account_id, clean.clamped, now);
+    if (clean.clamped.length) console.log('migration clamped', sess.account_id, clean.clamped.slice(0, 10));
+    return json({ ok: true, rev: r.rev, wrote: r.wrote, clamped: clean.clamped, server_now: now });
   }
 
   /* 뽑기 — 서버가 판정한다. 클라가 보낸 결과는 받지 않는다. */

@@ -9,11 +9,41 @@
  * 검증은 '모양과 범위'까지만 한다. 클라가 보낸 값이 정당하게 얻은 것인지는
  * 아직 확인하지 않는다 — 그건 서버가 뽑기·전투를 직접 판정하는 다음 단계의 일이다.
  */
-import { ROBOT_TYPES, RARITY, SLOTS, CONST } from '../data/balance.js';
+import { ROBOT_TYPES, RARITY, SLOTS, STAT_ROLL, CONST } from '../data/balance.js';
 
 const PART_RARITIES = new Set(RARITY.map(r => r.k));
 const SLOT_SET = new Set(SLOTS);
-const STAT_KEYS = new Set(['hp', 'atk', 'def', 'spd', 'crit', 'eva']);
+const STAT_LIST = ['hp', 'atk', 'def', 'spd', 'crit', 'eva'];
+const STAT_KEYS = new Set(STAT_LIST);
+const isPct = k => k === 'crit' || k === 'eva';
+
+/* 파츠 스탯 상한을 밸런스 데이터에서 유도한다.
+   genPart 는 등급 k 마다 n_k 번 굴리고 각 굴림에 mul_k 를 곱한다.
+   비율이 아닌 스탯에는 레벨 배율(1 + lv*0.03)이 한 번 더 곱해진다.
+   따라서 정당하게 만들어질 수 있는 최댓값은
+       n_k × max(STAT_ROLL[s]) × mul_k × (비율이면 1, 아니면 1 + MAXLV*0.03)
+   이다. 상수를 베껴 두지 않고 여기서 계산하므로, ChatGPT 가 수치를 바꾸면
+   상한도 같이 움직인다. (강화 enh 는 스탯에 굽지 않고 계산할 때 곱하므로 무관) */
+const LV_SCALE_MAX = 1 + CONST.MAXLV * 0.03;
+const STAT_CAP = {};
+for (const r of RARITY) {
+  const cap = {};
+  for (const st of STAT_LIST) {
+    const hi = STAT_ROLL[st] ? STAT_ROLL[st][1] : 0;
+    cap[st] = r.n * hi * r.mul * (isPct(st) ? 1 : LV_SCALE_MAX) * 1.02;   // 반올림 여유 2%
+  }
+  STAT_CAP[r.k] = cap;
+}
+
+/* 이관 상한 — 오래 논 저장본보다는 넉넉하되 무한은 아니게.
+   이 문은 '브라우저에 있던 예전 저장본을 한 번 옮기는' 용도다.
+   넘어가면 통째로 거절하지 않고 잘라 낸 뒤 무엇을 잘랐는지 남긴다. */
+export const MIG_CAP = {
+  credits: 500000, cores: 2000, scrap: 200000,
+  wins: 100000, losses: 100000, pulls: 100000,
+  parts: 300,
+  robots: Object.keys(ROBOT_TYPES).length,      // 뽑기가 중복을 분해하므로 종류 수를 넘을 수 없다
+};
 
 const int = (v, lo, hi, dflt = 0) => {
   const n = Math.round(Number(v));
@@ -27,25 +57,36 @@ const uidOk = u => typeof u === 'string' && u.length > 0 && u.length <= 32;
    저장본이 조금 깨졌다고 진행을 통째로 잃게 하고 싶지 않아서다. */
 export function sanitize(raw) {
   const out = { credits: 0, cores: 0, scrap: 0, sel: 0, stat: {}, robots: [], parts: [] };
+  const clamped = [];                       // 무엇을 잘랐는지 — 호출한 쪽이 기록한다
+  const cut = (what, from, to) => { if (from > to) clamped.push(`${what} ${from}→${to}`); };
   if (!raw || typeof raw !== 'object') return { ok: false, error: 'state is not an object' };
 
-  out.credits = int(raw.credits, 0, 1e12);
-  out.cores   = int(raw.cores,   0, 1e9);
-  out.scrap   = int(raw.scrap,   0, 1e12);
+  out.credits = int(raw.credits, 0, MIG_CAP.credits);
+  out.cores   = int(raw.cores,   0, MIG_CAP.cores);
+  out.scrap   = int(raw.scrap,   0, MIG_CAP.scrap);
+  cut('credits', int(raw.credits, 0, 1e12), out.credits);
+  cut('cores',   int(raw.cores,   0, 1e12), out.cores);
+  cut('scrap',   int(raw.scrap,   0, 1e12), out.scrap);
   const st = raw.stat && typeof raw.stat === 'object' ? raw.stat : {};
-  out.stat = { wins: int(st.wins, 0, 1e9), losses: int(st.losses, 0, 1e9), pulls: int(st.pulls, 0, 1e9) };
+  out.stat = { wins: int(st.wins, 0, MIG_CAP.wins), losses: int(st.losses, 0, MIG_CAP.losses),
+               pulls: int(st.pulls, 0, MIG_CAP.pulls) };
 
   const parts = Array.isArray(raw.parts) ? raw.parts : [];
   const seenPart = new Set();
   for (const p of parts) {
     if (!p || !uidOk(p.uid) || seenPart.has(p.uid)) continue;
     if (!SLOT_SET.has(p.slot) || !PART_RARITIES.has(p.rarity)) continue;
+    if (out.parts.length >= MIG_CAP.parts) { clamped.push('parts>' + MIG_CAP.parts); break; }
     const stats = {};
     if (p.stats && typeof p.stats === 'object') {
       for (const k of Object.keys(p.stats)) {
         if (!STAT_KEYS.has(k)) continue;
         const v = Number(p.stats[k]);
-        if (Number.isFinite(v) && v >= 0) stats[k] = v;
+        if (!Number.isFinite(v) || v < 0) continue;
+        // 등급이 낼 수 있는 최댓값을 넘으면 잘라 낸다. 여기가 예전에 뚫려 있던 자리다.
+        const cap = STAT_CAP[p.rarity][k];
+        if (v > cap) { clamped.push(`${p.uid}.${k} ${v}→${cap.toFixed(3)}`); stats[k] = cap; }
+        else stats[k] = v;
       }
     }
     seenPart.add(p.uid);
@@ -58,10 +99,14 @@ export function sanitize(raw) {
   const partIds = new Set(out.parts.map(p => p.uid));
 
   const robots = Array.isArray(raw.robots) ? raw.robots : [];
-  const seenRobot = new Set(), usedPart = new Set();
+  const seenRobot = new Set(), seenType = new Set(), usedPart = new Set();
   for (const r of robots) {
     if (!r || !uidOk(r.uid) || seenRobot.has(r.uid)) continue;
     if (!ROBOT_TYPES[r.type]) continue;               // 몬스터·보스·미지의 id 는 소유 불가
+    // 뽑기는 중복 기체를 분해하므로, 정당한 저장본에 같은 종류가 둘 있을 수 없다.
+    if (seenType.has(r.type)) { clamped.push('dup ' + r.type); continue; }
+    if (out.robots.length >= MIG_CAP.robots) { clamped.push('robots>' + MIG_CAP.robots); break; }
+    seenType.add(r.type);
     const slots = {};
     for (const sl of SLOTS) {
       const u = r.slots && r.slots[sl];
@@ -83,7 +128,29 @@ export function sanitize(raw) {
   }
   if (!out.robots.length) return { ok: false, error: 'no valid robots' };
   out.sel = int(raw.sel, 0, out.robots.length - 1);
-  return { ok: true, state: out };
+  return { ok: true, state: out, clamped };
+}
+
+/* ── 이관 문 ───────────────────────────────────────────────
+ * 상한을 걸어도 '정당하게 도달 가능한 최대치'까지는 만들 수 있다.
+ * 30기를 만렙으로 채운 계정을 새로 심는 건 상한으로 못 막는다.
+ * 그래서 이관이 끝나면 문을 닫는 것이 유일한 완전한 방어다.
+ *
+ *   닫기: npx wrangler d1 execute rowar --remote  *           --command="INSERT OR REPLACE INTO meta VALUES('migration_open','0')"
+ *   열기: 같은 명령에서 '1'
+ *
+ * 값이 없으면 열린 것으로 본다 — 기존 동작을 바꾸지 않기 위해서다.
+ */
+export async function migrationOpen(env) {
+  const row = await env.DB.prepare("SELECT v FROM meta WHERE k = 'migration_open'").first();
+  return !row || row.v === '1';
+}
+
+/* 누가 언제 무엇을 잘린 채로 이관했는지 남긴다. 나중에 되짚을 수 있어야 한다. */
+export async function noteMigration(env, accountId, clamped, now) {
+  await env.DB.prepare('INSERT OR REPLACE INTO meta (k, v) VALUES (?1, ?2)')
+    .bind('migrated:' + accountId,
+          JSON.stringify({ at: now, clamped: (clamped || []).slice(0, 20) })).run();
 }
 
 /* ── 읽기 ──────────────────────────────────────────────── */

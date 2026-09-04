@@ -5,7 +5,7 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md) 에 있다.
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-04 · 커밋 `9ec7810`
+- **마지막 갱신** — 2026-09-04 · 임의 상태 업로드 구멍을 막았다
 - **지금 단계** — 서버 판정 전환이 끝났다. 게임 조작은 전부 온라인 전용이고, 오프라인에서는 보기만 된다.
 
 ---
@@ -61,11 +61,13 @@ npm run deploy      # node server/build.mjs && wrangler deploy
 | `37eaf79` | 정식 계정 승계 — 게스트에 아이디·비밀번호를 붙인다 (PBKDF2-SHA256 10만 회) |
 | `d97f13c` | 로그인 시도 제한 (아이디 5회 / IP 30회 → 15분 잠금) + 대문 |
 | `9ec7810` | 대문에서 계정·로그인을 대문 위에서 처리 · 접속 후 화면 재렌더 |
+| (이번) | **최초 이관 구멍 차단** — 상한을 밸런스에서 유도 + 이관 문 스위치 |
 
 ### 신뢰 경계 — 지금 서버가 정하는 것
 - 뽑기 결과, 전투 상대·시드·승패·보상, 장착·강화·레벨업·정비 비용과 가능 여부
 - **피로도 정산은 서버 시각으로만** 한다. 기기 시계를 돌려도 소용없다.
 - `PUT /api/state` 는 최초 이관(`rev == 0`)에만 열려 있고 그 뒤로는 403.
+  **그리고 지금은 이관 문 자체가 닫혀 있다**(`meta.migration_open = '0'`). 아래 참조.
 
 ### API
 | 메서드 | 경로 | 용도 |
@@ -100,17 +102,33 @@ DB 는 테이블 9개, `schema_version 5`. 마이그레이션은 `server/migrati
    21→13 이 되어 7,692 접속까지 간다. (`server/battle.js`, `js/net.js`)
 5. **오프라인 연습 모드** — 보상 없는 전투. `js/rewards.js` 가 순수 함수라 어렵지 않다.
    지금은 서버가 없으면 아무것도 못 해서 첫인상이 나쁘다.
-6. **최초 이관 막기** — 아래 '남아 있는 구멍' 참조.
 
 ---
 
 ## 알아 둘 것
 
-### 남아 있는 구멍
-`PUT /api/state` 의 최초 이관(`rev == 0`)은 클라가 보낸 값을 그대로 받는다.
-새 게스트 계정을 만들어 강한 상태를 한 번 심을 수 있다.
-localStorage 저장본을 가진 기존 플레이어를 위해 열어 둔 문이므로,
-**이관이 더 필요 없어지면 아예 닫는 것**이 가장 깔끔하다. 당장 닫기 어려우면 값에 상한을 둔다.
+### 이관 문 (막은 구멍)
+`PUT /api/state` 는 예전에 클라가 보낸 값을 거의 그대로 받았다. 파츠 스탯에 상한이 없어
+`atk: 999999` 가 통과했고, 같은 기체를 200기 소유할 수 있었고, 재화 상한이 1조였다.
+새 게스트를 만들어 최강 계정을 심는 것이 가능했다. 두 겹으로 막았다.
+
+**① 상한을 밸런스 데이터에서 유도한다** (`server/state.js` 의 `STAT_CAP`, `MIG_CAP`).
+`genPart` 가 등급마다 `n` 번 굴리고 `mul` 을 곱하므로, 등급 k 의 스탯 s 상한은
+`n_k × max(STAT_ROLL[s]) × mul_k × (비율이면 1, 아니면 1 + MAXLV×0.03)` 이다.
+상수를 베끼지 않고 계산하므로 밸런스가 바뀌면 상한도 같이 움직인다.
+중복 기체는 뽑기가 분해하므로 종류당 1기로 접고, 총 기체 수는 종류 수(30)로 제한한다.
+
+**② 문 자체를 끌 수 있다.** 상한만으로는 '30기를 만렙으로 채운 계정 심기'를 못 막는다.
+
+```bash
+# 닫기 (지금 상태)
+npx wrangler d1 execute rowar --remote --command="INSERT OR REPLACE INTO meta VALUES('migration_open','0')"
+# 열기 — 예전 localStorage 저장본을 가진 사람이 나타났을 때만 잠깐
+npx wrangler d1 execute rowar --remote --command="INSERT OR REPLACE INTO meta VALUES('migration_open','1')"
+```
+
+기존 계정 둘 다 이미 `rev = 1` 이라(이관 완료) **닫아 두었다.** 값이 아예 없으면 열린 것으로 본다.
+이관이 일어나면 `meta` 에 `migrated:<account_id>` 로 잘라 낸 내역이 남는다.
 
 ### 밸런스를 고칠 때
 `data/balance.js` 는 클라와 Worker 가 **같이** import 한다. 그래서

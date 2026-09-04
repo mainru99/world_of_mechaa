@@ -100,6 +100,8 @@ function genPart(level){
   for(const k in stats) if(isPct(k)) stats[k]=Math.round(stats[k]*1000)/1000;
   return { uid:uid(), slot, name:pick(PART_NAMES[slot]), rarity:rar.k, ko:rar.ko, stats, enh:0 };
 }
+/* 자동 분해 대상이면 바꿔줄 스크랩 양을, 아니면 0 을 돌려준다 */
+function autoScrap(p){ return (CONST.AUTO_SCRAP && CONST.AUTO_SCRAP[p.rarity]) || 0; }
 function pull(){
   if(S.cores<PULL_COST){ toast('코어가 부족합니다'); return null; }
   S.cores-=PULL_COST; S.stat.pulls++;
@@ -111,7 +113,9 @@ function pull(){
   }
   else if(kind==='core'){ S.cores+=1; res={kind:'core',n:1}; }
   else if(kind==='credit'){ const cr=47+overallLevel()*4+ri(0,30); S.credits+=cr; res={kind:'credit',cr}; }   // 예전 값의 1/3
-  else if(kind==='part'){ const p=genPart(overallLevel()); S.parts.push(p); res={kind:'part',part:p}; }
+  else if(kind==='part'){ const p=genPart(overallLevel()); const sc=autoScrap(p);
+    if(sc){ S.scrap+=sc; res={kind:'scrap',n:sc,part:p}; }        // 잡템은 행을 만들지 않는다
+    else { S.parts.push(p); res={kind:'part',part:p}; } }
   else { res={kind:'bust'}; }
   save(); return res;
 }
@@ -257,6 +261,7 @@ function renderGacha(){
     ${ROBOT_RARITY.map(r=>`<span class="tag rr-${r.k}">${r.ko} ${(ROBOT_APPEAR*r.w/wsum*100).toFixed(2)}%</span>`).join('')}</div>
     <div class="rates" style="margin-top:6px">
     <span class="tag" style="color:var(--sub)">파츠 등급</span>
+    <span class="tag" style="color:var(--dim)">일반은 자동 분해</span>
     <span class="tag rar-C">일반 52%</span><span class="tag rar-R">정밀 30%</span>
     <span class="tag rar-SR">시제 14%</span><span class="tag rar-SSR">초월 4%</span></div>`;
   $('#sc-gacha').innerHTML = `
@@ -293,6 +298,7 @@ function revealCardHtml(res){
   if(res.kind==='core') return `<div class="pchip" style="border-color:var(--acc2)"><div class="pn" style="color:var(--acc2)">코어 +${res.n}</div><div class="ps">뽑기를 한 번 더 돌릴 수 있습니다</div></div>`;
   if(res.kind==='credit') return `<div class="pchip"><div class="pn" style="color:var(--gold)">크레딧 +${fmt(res.cr)}</div><div class="ps">레벨업·정비에 쓰세요</div></div>`;
   if(res.kind==='bust') return `<div class="pchip" style="opacity:.6"><div class="pn" style="color:var(--dim)">꽝</div><div class="ps">아무것도 나오지 않았습니다</div></div>`;
+  if(res.kind==='scrap') return `<div class="pchip"><div class="pn">${res.part.name} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
   const p=res.part; return `<div class="pchip"><div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]} · ${partStatLine(p)}</div></div>`;
 }
 function showReveal(results){
@@ -300,6 +306,7 @@ function showReveal(results){
   const heroType = (best.kind==='robot'||best.kind==='dupe')? best.type : null;
   const hero = heroType ? `<div class="sprite" data-t="${rarOf(heroType)}">${sprite(heroType,false)}</div>`
              : best.kind==='part'   ? bigPartArt(best.part)
+             : best.kind==='scrap'  ? bigIconArt('♻','var(--sub)')
              : best.kind==='core'   ? bigIconArt('◆','var(--acc2)')
              : best.kind==='credit' ? bigIconArt('₡','var(--gold)')
                                     : bigIconArt('✕','var(--dim)');
@@ -313,6 +320,7 @@ function rankOf(res){ if(res.kind==='robot')return 200+RIDX[rarOf(res.type)];
   if(res.kind==='dupe')return 100+RIDX[rarOf(res.type)];
   if(res.kind==='core')return 60;
   if(res.kind==='credit')return 20;
+  if(res.kind==='scrap')return 10;
   if(res.kind==='bust')return -1;
   return {C:1,R:2,SR:3,SSR:4}[res.part.rarity]||0; }
 function bigIconArt(ch,col){
@@ -405,8 +413,11 @@ function battleRewards(win,enemyLv){
   const rb=_battleRobot||selRobot(), rname=ROBOT_TYPES[rb.type].name;
   const lv=gainExp(rb, win? battleExp(enemyLv) : Math.round(battleExp(enemyLv)*0.35));
   const fat={add:addFat(rb, win? 3+ri(0,2) : 7+ri(0,3)), now:fatOf(rb)};
-  if(win){ const cr=120+enemyLv*14+ri(0,40), sc=18+ri(0,14); S.credits+=cr; S.scrap+=sc;
-    let core=0,part=null; if(R()<0.20){core=1;S.cores++;} if(R()<0.09){part=genPart(enemyLv);S.parts.push(part);}   // 예전 0.35 의 약 1/4
+  if(win){ const cr=120+enemyLv*14+ri(0,40); let sc=18+ri(0,14); S.credits+=cr; S.scrap+=sc;
+    let core=0,part=null,autoSc=0; if(R()<0.20){core=1;S.cores++;}
+    if(R()<0.09){ const p=genPart(enemyLv); autoSc=autoScrap(p);      // 예전 0.35 의 약 1/4
+      if(autoSc){ S.scrap+=autoSc; } else { part=p; S.parts.push(p); } }
+    sc+=autoSc;
     S.stat.wins++; save(); return {win,cr,sc,core,part,lv,fat,rname}; }
   const cr=40+ri(0,20), sc=6; S.credits+=cr; S.scrap+=sc; S.stat.losses++; save();
   return {win,cr,sc,core:0,part:null,lv,fat,rname};

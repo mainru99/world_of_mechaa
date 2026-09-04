@@ -11,8 +11,9 @@
  * 시드를 서버가 정하는 이유: 결정적 시뮬이라 시드가 곧 결과다.
  */
 import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
-import { computeStats, gainExp, addFat, fatOf, decayFat } from '../js/stats.js';
+import { computeStats, power, gainExp, addFat, fatOf, decayFat } from '../js/stats.js';
 import { makeOpponent, rollBattleRewards } from '../js/rewards.js';
+import { registerArena, pickOpponentFromArena, ratingDelta } from './arena.js';
 import { makeUnit, simulate } from '../js/sim.js';
 
 function cryptoRnd() {
@@ -56,7 +57,16 @@ export async function findMatch(env, accountId, now) {
   const rnd = cryptoRnd();
   let seq = 0;
   const uid = () => 'o' + now.toString(36) + (seq++).toString(36);
-  const opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid);
+
+  /* 먼저 아레나에 등록된 '진짜 사람'을 찾는다. 없으면(초기라 등록자가 적을 때)
+     예전처럼 서버가 상대를 만들어 낸다 — 혼자여도 게임이 돌아가야 하므로. */
+  let opp = null;
+  if (rnd() >= CONST.MONSTER_RATE) {
+    const myPower = power(me.robot, me.parts);
+    const found = await pickOpponentFromArena(env, accountId, myPower);
+    if (found) opp = found;
+  }
+  if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid);
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
 
   /* 다음 요청에서 그대로 쓰기 위해 저장한다. 클라가 보낸 상대는 받지 않는다. */
@@ -69,6 +79,7 @@ export async function findMatch(env, accountId, now) {
     ok: true,
     opponent: {
       kind: opp.kind, type: opp.type, level: opp.level, callsign: opp.callsign,
+      rating: opp.rating ?? null,
       name: T.name, role: T.role, rarity: T.rarity,
       skill: T.skill, parts: opp.parts, slots: opp.slots,
     },
@@ -101,7 +112,9 @@ export async function startBattle(env, accountId, now) {
      각자 계산하면 피로도 정산 시점 차이 같은 것으로 결과가 어긋나, 화면에는 이겼는데
      결과창은 졌다고 나오는 일이 생긴다. 그래서 아래 statP/statE 를 응답에 실어 보낸다. */
   const statP = computeStats(me.robot, me.parts);
-  const statE = computeStats({ type: opp.type, level: opp.level, fat: 0, slots: opp.slots }, opp.parts);
+  /* 사람 상대는 등록 당시 스냅샷의 스탯을 쓴다. 다시 계산하면 그 사이 상대가
+     장비를 바꿨을 때 이미 성사된 전투의 입력이 달라진다. */
+  const statE = opp.stats || computeStats({ type: opp.type, level: opp.level, fat: 0, slots: opp.slots }, opp.parts);
   const P = makeUnit(ROBOT_TYPES[me.robot.type].name, me.robot.type, statP);
   const E = makeUnit(opp.callsign, opp.type, statE);
   const events = simulate(P, E, seed);
@@ -136,8 +149,26 @@ export async function startBattle(env, accountId, now) {
        pending_match=NULL, updated_at=?7 WHERE account_id=?8`)
     .bind(credits, cores, scrap, wins, losses, rev, now, accountId));
 
-  /* 사람 상대 전투만 기록한다. 몬스터는 다툴 상대가 없고 전투의 40%라 쓰기가 아깝다. */
+  /* 사람 상대 전투만 기록한다. 몬스터·생성 상대는 다툴 상대가 없고, 쓰기 예산도 아낀다. */
+  let delta = 0;
+  if (opp.kind === 'player') {
+    const myRating = (await env.DB.prepare('SELECT rating FROM player WHERE account_id = ?1')
+      .bind(accountId).first())?.rating ?? 1000;
+    delta = ratingDelta(myRating, opp.rating ?? 1000, win);
+    stmts.push(env.DB.prepare('UPDATE player SET rating = MAX(0, rating + ?1) WHERE account_id = ?2')
+      .bind(delta, accountId));
+    stmts.push(env.DB.prepare(
+      `INSERT INTO battle (attacker_id, def_kind, defender_id, seed, atk_snap, def_snap, winner_id, atk_delta, created_at)
+       VALUES (?1,'player',?2,?3,?4,?5,?6,?7,?8)`)
+      .bind(accountId, opp.accountId, String(seed),
+            JSON.stringify(statP), JSON.stringify(statE),
+            win ? accountId : opp.accountId, delta, now));
+  }
+
   await env.DB.batch(stmts);
+
+  /* 내 편성은 그대로지만 레벨이 올랐을 수 있다. 올랐을 때만 아레나를 갱신한다. */
+  if (lv.to > lv.from) await registerArena(env, accountId, now);
 
   return {
     ok: true,
@@ -146,6 +177,7 @@ export async function startBattle(env, accountId, now) {
     nameP: ROBOT_TYPES[me.robot.type].name,
     win,
     opponent: { kind: opp.kind, type: opp.type, level: opp.level, callsign: opp.callsign, parts: opp.parts, slots: opp.slots },
+    ratingDelta: delta,
     reward: { cr: rw.cr, sc: rw.sc, core: rw.core, part: rw.part,
               lv: { amt: lv.amt, from: lv.from, to: lv.to }, fat: { add: fatAdd, now: fatOf(me.robot) } },
     player: { credits, cores, scrap, wins, losses },

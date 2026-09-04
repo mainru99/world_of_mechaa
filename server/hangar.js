@@ -9,6 +9,7 @@
  */
 import { CONST } from '../data/balance.js';
 import { lvCost, enhCost, serviceCost, fatOf, decayFat } from '../js/stats.js';
+import { registerArena } from './arena.js';
 
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 const err = (status, error) => ({ ok: false, status, error });
@@ -50,6 +51,7 @@ export async function hangarAction(env, acc, body, now) {
     stmts.push(env.DB.prepare('UPDATE player SET rev = ?1, updated_at = ?2 WHERE account_id = ?3')
       .bind(p.rev + 1, now, acc));
     await env.DB.batch(stmts);
+    await registerArena(env, acc, now);   // 방어 편성이 바뀌었다
     return { ok: true, rev: p.rev + 1 };
   }
 
@@ -63,6 +65,7 @@ export async function hangarAction(env, acc, body, now) {
       env.DB.prepare(`UPDATE robot SET ${col} = NULL WHERE id = ?1`).bind(rb.id),
       env.DB.prepare('UPDATE player SET rev = ?1, updated_at = ?2 WHERE account_id = ?3').bind(p.rev + 1, now, acc),
     ]);
+    await registerArena(env, acc, now);   // 방어 편성이 바뀌었다
     return { ok: true, rev: p.rev + 1 };
   }
 
@@ -77,6 +80,7 @@ export async function hangarAction(env, acc, body, now) {
       env.DB.prepare('UPDATE part SET enh = ?1 WHERE id = ?2').bind(pt.enh + 1, pt.id),
       spend(env, acc, p, { scrap: cost }, now),
     ]);
+    await registerArena(env, acc, now);   // 강화한 파츠를 끼고 있을 수 있다
     return { ok: true, rev: p.rev + 1, scrap: p.scrap - cost, enh: pt.enh + 1, cost };
   }
 
@@ -91,6 +95,7 @@ export async function hangarAction(env, acc, body, now) {
       env.DB.prepare('UPDATE robot SET level = ?1, exp = 0 WHERE id = ?2').bind(rb.level + 1, rb.id),
       spend(env, acc, p, { credits: cost }, now),
     ]);
+    await registerArena(env, acc, now);
     return { ok: true, rev: p.rev + 1, credits: p.credits - cost, level: rb.level + 1, cost };
   }
 
@@ -117,6 +122,7 @@ export async function hangarAction(env, acc, body, now) {
     if (!rb) return err(404, 'robot not found');
     await env.DB.prepare('UPDATE player SET sel_robot = ?1, rev = ?2, updated_at = ?3 WHERE account_id = ?4')
       .bind(rb.id, p.rev + 1, now, acc).run();
+    await registerArena(env, acc, now);   // 출전 기체가 곧 방어 기체다
     return { ok: true, rev: p.rev + 1 };
   }
 

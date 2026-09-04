@@ -14,6 +14,7 @@ import { sanitize, loadState, saveState } from './state.js';
 import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
+import { registerArena, balanceVersion } from './arena.js';
 
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
@@ -97,6 +98,7 @@ async function guestLogin(request, env) {
     .bind(accountId, 'GUEST-' + String(accountId).padStart(4, '0'), now).run();
 
   await ensureStarter(env, accountId, now);
+  await registerArena(env, accountId, now);   // 만들어지자마자 남의 상대가 될 수 있게
 
   const s = await newSession(env, accountId, now);
   return json({ ok: true, isNew: true, account_id: accountId, ...s });
@@ -152,6 +154,8 @@ async function health(env) {
       schema_version: row?.v ?? null,
       tables: tables?.n ?? 0,
       accounts: accounts?.n ?? 0,
+      arena: (await env.DB.prepare('SELECT COUNT(*) AS n FROM arena_entry').first())?.n ?? 0,
+      balance_ver: balanceVersion(),
       ms: Date.now() - started,
     });
   } catch (e) {
@@ -203,6 +207,7 @@ async function handleApi(request, env, url) {
     }
     const r = await saveState(env, sess.account_id, clean.state, Date.now());
     if (!r.ok) return json({ ok: false, error: r.error }, 500);
+    await registerArena(env, sess.account_id, Date.now());   // 이관된 편성으로 다시 등록
     return json({ ok: true, rev: r.rev, wrote: r.wrote, server_now: Date.now() });
   }
 

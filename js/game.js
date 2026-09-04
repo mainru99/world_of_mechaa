@@ -415,7 +415,7 @@ async function findMatch(){
   if(!r || r.error){ renderBattleHome(); toast('상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return; }
 
   const o=r.opponent;
-  _pendingOpp = { kind:o.kind, callsign:o.callsign,
+  _pendingOpp = { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, fat:0, slots:o.slots },
     parts:o.parts };
   showOpponent(_pendingOpp);
@@ -439,13 +439,15 @@ function makeOpponent(){
 function showOpponent(opp){
   const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];
   $('#sc-battle').innerHTML = `
-    <h2 class="title">${monster?'몬스터 출현':'상대 발견'}</h2>
+    <h2 class="title">${monster?'몬스터 출현':(opp.kind==='player'?'플레이어 발견':'상대 발견')}</h2>
     <div class="panel">
       <div class="oppcard">
         <div class="sprite" data-t="${T.rarity}" style="height:120px">${sprite(opp.robot.type,false)}</div>
         <div>
-          <div class="rname">${opp.callsign} ${monster?'<span class="tag monster-tag">몬스터</span>':robRarTag(opp.robot.type)}</div>
-          <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}</div>
+          <div class="rname">${opp.callsign} ${monster?'<span class="tag monster-tag">몬스터</span>':robRarTag(opp.robot.type)}${
+            opp.kind==='player'?' <span class="tag" style="color:var(--acc2)">플레이어</span>':''}</div>
+          <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}${
+            opp.kind==='player'&&opp.rating!=null?' · 레이팅 '+opp.rating:''}</div>
           <div style="margin-top:6px;font-weight:800;color:var(--bad)">전투력 ${fmt(power(opp.robot,opp.parts))}</div>
         </div>
       </div>
@@ -489,7 +491,8 @@ function applyServerBattle(r, rb){
   rb.level=r.robot.level; rb.exp=r.robot.exp; rb.fat=r.robot.fat; rb.fatAt=r.robot.fatAt;
   if(r.reward.part) S.parts.push(r.reward.part);
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
-                lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name };
+                lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
+                ratingDelta:r.ratingDelta||0 };
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();                              // 서버가 이미 최신이다
   renderWallet();
@@ -585,6 +588,7 @@ function renderResult(win,rw,P,E,opp){
   const rewards = [ `<div class="r">경험치 +${rw.lv.amt}</div>` ];
   if(rw.lv.to>rw.lv.from) rewards.push(`<div class="r" style="color:var(--good)">레벨 업!  ${rw.rname}  Lv.${rw.lv.from} → Lv.${rw.lv.to}</div>`);
   rewards.push(`<div class="r">크레딧 +${rw.cr}</div>`, `<div class="r">스크랩 +${rw.sc}</div>`);
+  if(rw.ratingDelta) rewards.push(`<div class="r" style="color:var(--acc2)">레이팅 ${rw.ratingDelta>0?'+':''}${rw.ratingDelta}</div>`);
   if(rw.fat.add) rewards.push(`<div class="r" style="color:var(--bad)">피로도 +${rw.fat.add}  (누적 ${rw.fat.now} / ${FAT_MAX})</div>`);
   if(rw.core) rewards.push(`<div class="r" style="color:var(--acc2)">코어 +${rw.core}</div>`);
   if(rw.part) rewards.push(`<div class="r">파츠: ${rw.part.name} <span class="tag rar-${rw.part.rarity}">${rw.part.rarity}</span></div>`);

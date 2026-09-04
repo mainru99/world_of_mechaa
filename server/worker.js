@@ -12,6 +12,11 @@
 import { ROBOT_TYPES } from '../data/balance.js';
 import { sanitize, loadState, saveState, migrationOpen, noteMigration } from './state.js';
 import { ranking, refreshRanks } from './ranking.js';
+import { cleanup } from './cleanup.js';
+
+/* 청소는 하루 한 번만 돈다. 전투 기록 정리가 표 전체를 훑기 때문이다.
+   wrangler.jsonc 의 두 번째 크론과 문자열이 정확히 같아야 한다. */
+const DAILY_CRON = '17 4 * * *';
 import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
@@ -354,7 +359,10 @@ export default {
   async scheduled(event, env) {
     /* waitUntil 로 던져 두지 않고 그냥 기다린다. 크론은 사용자를 기다리게 하지 않으므로
        늦어도 상관없고, 실패가 크론 실행 기록에 그대로 남아야 알아챌 수 있다. */
-    const r = await refreshRanks(env, Date.now());
-    console.log('ranks refreshed', JSON.stringify(r));
+    const now = Date.now();
+    console.log('ranks refreshed', JSON.stringify(await refreshRanks(env, now)));
+    if (event.cron === DAILY_CRON) {
+      console.log('cleanup', JSON.stringify(await cleanup(env, now)));
+    }
   },
 };

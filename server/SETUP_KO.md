@@ -3,8 +3,11 @@
 집에서 이어서 작업하기 위한 순서표. 명령어는 2026-09-04 기준 Cloudflare 공식 문서로 확인했다.
 버전이 올라가면 플래그가 바뀔 수 있으니, 막히면 `npx wrangler d1 --help` 로 먼저 확인할 것.
 
-> **현재 상태**: `server/` 에는 `schema.sql` 과 이 문서뿐이다. Worker 코드도, 배포된 DB도 없다.
-> 게임은 아직 100% 클라이언트 단독이고 네트워크 호출이 한 줄도 없다.
+> **현재 상태** (2026-09-04 갱신)
+> - Cloudflare 계정 `hun7539@naver.com`, D1 `rowar` 생성 완료, 스키마 원격 적용 완료(테이블 8개)
+> - Worker 뼈대 배포 완료 → **https://rowar.hun7539.workers.dev**
+> - 게임은 아직 클라이언트 단독으로 돈다. 서버는 `/api/health` 만 응답한다.
+> - 다음은 9절 2번(익명 계정)부터.
 
 ---
 
@@ -173,7 +176,7 @@ npx wrangler deploy
 
 ## 9. 다음에 만들 것 (순서 제안)
 
-1. `server/worker.js` — 라우팅 뼈대 + `/api/health`
+1. ~~`server/worker.js` — 라우팅 뼈대 + `/api/health`~~ **완료**
 2. 익명 계정: `device_key` 로 `account` + `player` + 시작 기체 1기 생성, `session` 토큰 발급
 3. `js/net.js` — 클라 통신 계층. 실패하면 localStorage 로 떨어지게(오프라인 유지)
 4. 상태 동기화: 지금 localStorage 저장본을 서버로 올리는 1회성 이관

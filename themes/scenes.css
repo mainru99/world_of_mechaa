@@ -79,39 +79,21 @@ body[data-scene="hangar"] .nav button.active, body[data-scene="gacha"] .nav butt
  * ══════════════════════════════════════════════════════════ */
 body[data-scene="battle"]{
   background:
-    radial-gradient(1100px 260px at 50% 60%, rgba(255,120,50,.34) 0%, transparent 70%),
-    radial-gradient(680px 170px at 50% 59%, rgba(255,200,110,.26) 0%, transparent 68%),
-    radial-gradient(1000px 420px at 50% 26%, rgba(70,130,220,.16) 0%, transparent 72%),
-    linear-gradient(180deg,#04060d 0%,#0a1024 26%,#1c2647 48%,#3a2a2a 60%,#120e14 66%,#07080e 82%,#040509 100%);
+    linear-gradient(180deg,rgba(2,4,10,.06) 0%,transparent 60%,rgba(2,4,10,.14) 100%),
+    url('../assets/backgrounds/battle-industrial-ruins.webp') center center / cover no-repeat;
+  background-color:#04060d;
   background-attachment:fixed;
 }
-/* 원경 스카이라인 — 지평선 위에 얹히는 '띠'. 폭과 높이가 다른 층을 겹쳐 도시처럼 만든다.
-   (세로 막대로 아래를 통째로 채우면 건물이 아니라 검은 기둥으로 보인다) */
-body[data-scene="battle"]::before{
-  inset:auto 0 40% 0; height:120px;
-  background:
-    linear-gradient(90deg,#080d1c 0 26px, transparent 26px) 0    100% / 78px  104px repeat-x,
-    linear-gradient(90deg,#080d1c 0 16px, transparent 16px) 34px 100% / 56px   72px repeat-x,
-    linear-gradient(90deg,#080d1c 0 38px, transparent 38px) 14px 100% / 124px  56px repeat-x,
-    linear-gradient(90deg,#080d1c 0 8px,  transparent 8px)  62px 100% / 96px   88px repeat-x;
-  opacity:.9;
-}
-/* 근경 스카이라인 — 더 크고 더 어둡게. 창문 불빛 몇 점을 얹는다 */
-body[data-scene="battle"]::after{
-  inset:auto 0 26% 0; height:170px;
-  background:
-    /* 창문 불빛 */
-    radial-gradient(circle, rgba(255,190,110,.75) 1.1px, transparent 1.6px) 18px 100% / 46px 34px repeat,
-    radial-gradient(circle, rgba(150,200,255,.45) 1px,   transparent 1.5px) 32px 100% / 74px 52px repeat,
-    /* 건물 */
-    linear-gradient(90deg,#02040a 0 46px, transparent 46px) 0    100% / 132px 150px repeat-x,
-    linear-gradient(90deg,#02040a 0 30px, transparent 30px) 70px 100% / 104px 108px repeat-x,
-    linear-gradient(90deg,#02040a 0 62px, transparent 62px) 26px 100% / 210px  78px repeat-x;
-  -webkit-mask-image:linear-gradient(180deg,#000 0 88%, transparent 100%);
-          mask-image:linear-gradient(180deg,#000 0 88%, transparent 100%);
-}
+/* 생성 일러스트가 폐허 실루엣을 담당하므로 예전 CSS 사각형 스카이라인은 끈다. */
+body[data-scene="battle"]::before,
+body[data-scene="battle"]::after{ display:none }
 /* 지평선 아래 지면 */
 body[data-scene="battle"] .ground{ display:none }
+
+/* 모바일 브라우저의 fixed 배경 확대·스크롤 떨림을 피한다. */
+@media(max-width:560px){
+  body[data-scene="battle"]{ background-attachment:scroll; background-position:50% center }
+}
 
 /* 서치라이트 두 줄기 — 천천히 훑는다 */
 body[data-scene="battle"] #fx{
@@ -124,8 +106,8 @@ body[data-scene="battle"] #fx{
 /* 지면 안개 + 비네트 */
 body[data-scene="battle"] #fx::before{
   background:
-    radial-gradient(130% 40% at 50% 100%, rgba(150,185,240,.22) 0%, transparent 72%),
-    radial-gradient(120% 95% at 50% 45%, transparent 52%, rgba(0,0,0,.62) 100%);
+    radial-gradient(130% 40% at 50% 100%, rgba(150,185,240,.10) 0%, transparent 72%),
+    radial-gradient(120% 95% at 50% 45%, transparent 66%, rgba(0,0,0,.20) 100%);
 }
 /* 떠오르는 불티 */
 body[data-scene="battle"] #fx::after{

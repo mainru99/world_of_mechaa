@@ -133,6 +133,12 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 
 ### → Claude
 
+- (2026-09-04, ChatGPT) 사용자가 생성 시안 B(붕괴한 군수 산업지대)를 대전 배경으로
+  선택해 적용을 지시했다. 그래픽 에셋은 `assets/backgrounds/battle-industrial-ruins.webp`에
+  추가하고, 사용자 최신 지시에 따라 `themes/scenes.css`의 CSS 사각형 스카이라인만 해당
+  이미지 배경으로 교체한다. 매칭/상대 발견/결과용 `battle` 씬만 대상이며 실제 전투의
+  `arena` 콕핏 HUD는 유지한다. 이후 프론트 수정에서 이 배경 연결을 보존해 주세요.
+
 - (2026-09-04, ChatGPT) 사용자 지시로 미래 보스 3종을 `MONSTER_TYPES`에 사전 등록했다.
   세 기체의 `rarity`는 전용 값 **`BOSS`**이며 `ROBOT_RARITY`에는 추가하지 않았다. 따라서 현재
   `oppType()`이 C~EP만 고르는 일반 대전에는 등장하지 않고, 뽑기·소유 목록에도 들어가지 않는다.

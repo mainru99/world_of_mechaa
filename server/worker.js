@@ -13,6 +13,7 @@ import { ROBOT_TYPES } from '../data/balance.js';
 import { sanitize, loadState, saveState } from './state.js';
 import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
+import { hangarAction } from './hangar.js';
 
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
@@ -192,6 +193,10 @@ async function handleApi(request, env, url) {
        덮어쓰지 않고 현재 상태를 돌려준다. 클라가 받아서 다시 판단한다. */
     const cur = await env.DB.prepare('SELECT rev FROM player WHERE account_id = ?1').bind(sess.account_id).first();
     if (!cur) return json({ ok: false, error: 'no player' }, 404);
+    /* 격납고·뽑기·전투가 전부 서버 판정이 된 뒤로, 임의 상태 업로드를 열어 두면
+       조작이 그쪽으로 새어 나간다. 그래서 '아직 한 번도 올린 적 없는 계정'의
+       최초 이관에만 허용한다(브라우저에 있던 예전 저장본을 옮기는 용도). */
+    if (cur.rev !== 0) return json({ ok: false, error: 'state upload is only allowed once (migration)' }, 403);
     if (typeof body.rev === 'number' && body.rev !== cur.rev) {
       const st = await loadState(env, sess.account_id);
       return json({ ok: false, error: 'rev mismatch', ...st, server_now: Date.now() }, 409);
@@ -224,6 +229,15 @@ async function handleApi(request, env, url) {
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
     const r = await startBattle(env, sess.account_id, Date.now());
     return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 500);
+  }
+
+  /* 격납고 조작 — 비용 계산과 가능 여부 판단을 서버가 한다 */
+  if (path === '/hangar' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let body; try { body = await request.json(); } catch { body = {}; }
+    const r = await hangarAction(env, sess.account_id, body, Date.now());
+    return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 400);
   }
 
   return json({ ok: false, error: 'not found', path: url.pathname, method }, 404);

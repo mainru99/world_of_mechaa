@@ -122,18 +122,55 @@ function pull(){
 
 /* ------------------------------- 장착/육성 ------------------------------- */
 function selRobot(){ return S.robots[S.sel]; }
-function equip(slot,partUid){ for(const rb of S.robots) for(const sl of SLOTS) if(rb.slots[sl]===partUid) rb.slots[sl]=null; selRobot().slots[slot]=partUid; save(); renderAll(); closeModal(); }
-function unequip(slot){ selRobot().slots[slot]=null; save(); renderAll(); closeModal(); }
-function enhancePart(u){ const p=findPart(u,S.parts); if(!p) return; if((p.enh||0)>=10){toast('최대 강화입니다');return;} const c=enhCost(p.enh||0); if(S.scrap<c){toast('스크랩이 부족합니다');return;} S.scrap-=c; p.enh=(p.enh||0)+1; save(); renderAll(); toast(p.name+' +'+p.enh); }
-function service(){               // 크레딧으로 피로도 0 복구
-  const rb=selRobot(), c=serviceCost(rb);
-  if(c<=0){ toast('이미 정비된 상태입니다'); return; }
-  if(S.credits<c){ toast('크레딧이 부족합니다'); return; }
-  S.credits-=c; rb.fat=0; rb.fatAt=Date.now(); save(); renderAll(); toast(ROBOT_TYPES[rb.type].name+' 정비 완료'); }
-function levelUp(){               // 크레딧으로 즉시 1레벨(진행 중인 경험치는 소모된다)
-  const rb=selRobot(); if(rb.level>=MAXLV){toast('최대 레벨입니다');return;}
-  const c=lvCost(rb.level); if(S.credits<c){toast('크레딧이 부족합니다');return;}
-  S.credits-=c; rb.level++; rb.exp=0; save(); renderAll(); toast(ROBOT_TYPES[rb.type].name+' Lv.'+rb.level); }
+/* 격납고 조작도 서버가 판정한다. 비용 계산과 가능 여부를 클라가 하면
+   크레딧을 쓰지 않고 레벨을 올리는 식의 조작이 가능하다.
+   클라는 '무엇을 하겠다'만 보내고, 확정된 값을 받아 적는다. */
+const ERR_KO = { 'not enough credits':'크레딧이 부족합니다', 'not enough scrap':'스크랩이 부족합니다',
+  'max level':'최대 레벨입니다', 'max enhanced':'최대 강화입니다', 'already serviced':'이미 정비된 상태입니다',
+  'slot mismatch':'그 슬롯에 넣을 수 없는 파츠입니다', 'part not found':'파츠를 찾을 수 없습니다' };
+
+async function srvHangar(action, args){
+  if(!net.state.online){ toast('격납고 조작은 서버 연결이 필요합니다'); return null; }
+  const r = await net.hangar(action, args);
+  if(!r){ toast('서버 연결이 필요합니다'); return null; }
+  if(r.error){ toast(ERR_KO[r.error] || ('실패: '+r.error)); return null; }
+  return r;
+}
+/* 서버가 확정한 뒤 로컬을 맞춘다. save() 로 되올리지 않도록 직접 쓴다. */
+function commitLocal(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  net.cancelSync();
+  renderAll();
+}
+
+async function equip(slot,partUid){
+  const rb=selRobot();
+  const r=await srvHangar('equip',{robotUid:rb.uid, slot, partUid}); if(!r) return;
+  for(const x of S.robots) for(const sl of SLOTS) if(x.slots[sl]===partUid) x.slots[sl]=null;
+  rb.slots[slot]=partUid; commitLocal(); closeModal();
+}
+async function unequip(slot){
+  const rb=selRobot();
+  const r=await srvHangar('unequip',{robotUid:rb.uid, slot}); if(!r) return;
+  rb.slots[slot]=null; commitLocal(); closeModal();
+}
+async function enhancePart(u){
+  const p=findPart(u,S.parts); if(!p) return;
+  const r=await srvHangar('enhance',{partUid:u}); if(!r) return;
+  p.enh=r.enh; S.scrap=r.scrap; commitLocal(); toast(p.name+' +'+p.enh);
+}
+async function service(){
+  const rb=selRobot();
+  const r=await srvHangar('service',{robotUid:rb.uid}); if(!r) return;
+  S.credits=r.credits; rb.fat=0; rb.fatAt=Date.now(); commitLocal();
+  toast(ROBOT_TYPES[rb.type].name+' 정비 완료');
+}
+async function levelUp(){
+  const rb=selRobot();
+  const r=await srvHangar('levelup',{robotUid:rb.uid}); if(!r) return;
+  S.credits=r.credits; rb.level=r.level; rb.exp=0; commitLocal();
+  toast(ROBOT_TYPES[rb.type].name+' Lv.'+rb.level);
+}
 
 /* ------------------------------- UI 기본 ------------------------------- */
 let cur='hangar', toastT;
@@ -218,11 +255,12 @@ function renderHangar(){
               : '피로 없음 · 정상 가동'}</div></div>
           <div class="skill"><b>스킬 · ${T.skill.name}</b><p>${T.skill.desc}</p></div>
           <div class="row-btns" style="margin-top:10px">
-            <button class="btn big" ${rb.level>=MAXLV?'disabled':''} onclick="ROWAR.levelUp()">
+            <button class="btn big" ${(rb.level>=MAXLV||!net.state.online)?'disabled':''} onclick="ROWAR.levelUp()">
               ${rb.level>=MAXLV?'최대 레벨':`즉시 레벨업 (크레딧 ${fmt(cost)})`}</button>
-            <button class="btn big ${scost>0?'gold':''}" ${scost>0?'':'disabled'} onclick="ROWAR.service()">
+            <button class="btn big ${scost>0?'gold':''}" ${(scost>0&&net.state.online)?'':'disabled'} onclick="ROWAR.service()">
               ${scost>0?`정비 (크레딧 ${fmt(scost)})`:'정비 완료'}</button>
           </div>
+          ${net.state.online?'':'<div class="hint" style="margin-top:6px;color:var(--bad)">서버에 연결되지 않아 장착·강화·정비·레벨업을 할 수 없습니다.</div>'}
           <div class="hint" style="margin-top:6px">대전에 출전하면 경험치를 얻어 자동으로 레벨업합니다.
             대신 피로도가 쌓여 최대 내구(체력)가 줄어듭니다. 시간이 지나면 저절로 풀리고,
             급하면 크레딧으로 정비하세요. 레벨이 높은 기체일수록 자연 회복이 느립니다.</div>
@@ -567,7 +605,12 @@ function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$(
 /* ------------------------------- 초기화/공개 ------------------------------- */
 function resetSave(){ if(confirm('정말 초기화할까요? 모든 진행이 삭제됩니다.')){ S=freshState(); save(); go('hangar'); toast('초기화 완료'); } }
 window.ROWAR = {
-  go, selectRobot:(i)=>{ S.sel=i; save(); renderHangar(); }, levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
+  go,
+  selectRobot:async(i)=>{ S.sel=i; renderHangar();
+    const rb=S.robots[i];
+    if(net.state.online && rb) await net.hangar('select',{robotUid:rb.uid});
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
+  levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
   pull1, pull10, findMatch, startBattle, toggleSpeed, reset:resetSave,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화

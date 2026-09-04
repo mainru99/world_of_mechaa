@@ -134,6 +134,10 @@ export async function push(state) {
 let timer = null, pending = null;
 export function scheduleSync(getState, delay = 4000) {
   if (!state.online) return;
+  /* 뽑기·전투·격납고가 전부 서버 판정이 된 뒤로, 클라가 상태를 밀어 올릴 일은
+     '처음 한 번의 이관'뿐이다. 그 뒤의 업로드는 서버가 403 으로 막으므로
+     보내 봐야 실패만 쌓인다. rev 가 올라간 계정에서는 아예 예약하지 않는다. */
+  if (syncedRev() > 0) return;
   pending = getState;
   if (timer) return;
   timer = setTimeout(async () => {
@@ -152,6 +156,7 @@ export async function flush(getState) {
   if (timer) { clearTimeout(timer); timer = null; }
   pending = null;
   if (!state.online) return null;
+  if (syncedRev() > 0) return null;      // 이관이 끝난 계정은 올릴 것이 없다
   return push(getState());
 }
 
@@ -176,4 +181,12 @@ export async function battleStart() {
   const r = await call('/api/battle/start', { method: 'POST', body: {} });
   if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return r.data; }
   return { error: (r.data && r.data.error) || r.error || 'start failed' };
+}
+
+/* 격납고 조작 — 서버 판정. 성공하면 서버가 확정한 값을 돌려준다. */
+export async function hangar(action, args = {}) {
+  if (!state.online) return null;
+  const r = await call('/api/hangar', { method: 'POST', body: { action, ...args } });
+  if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return r.data; }
+  return { error: (r.data && r.data.error) || r.error || 'hangar failed' };
 }

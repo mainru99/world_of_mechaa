@@ -6,8 +6,10 @@
 > **현재 상태** (2026-09-04 갱신)
 > - Cloudflare 계정 `hun7539@naver.com`, D1 `rowar` 생성 완료, 스키마 원격 적용 완료(테이블 8개)
 > - Worker 뼈대 배포 완료 → **https://rowar.hun7539.workers.dev**
-> - 게임은 아직 클라이언트 단독으로 돈다. 서버는 `/api/health` 만 응답한다.
-> - 다음은 9절 2번(익명 계정)부터.
+> - 게스트(익명) 계정까지 완료. `POST /api/auth/guest`, `GET /api/me`
+> - **게임 진행은 아직 클라이언트 단독이다.** 서버에 계정과 시작 기체가 만들어지지만
+>   localStorage 저장본과는 아직 별개다 — 동기화가 다음 단계(9절 3~4번).
+> - 다음은 9절 3번(`js/net.js` 를 통한 상태 동기화)부터.
 
 ---
 
@@ -177,8 +179,8 @@ npx wrangler deploy
 ## 9. 다음에 만들 것 (순서 제안)
 
 1. ~~`server/worker.js` — 라우팅 뼈대 + `/api/health`~~ **완료**
-2. 익명 계정: `device_key` 로 `account` + `player` + 시작 기체 1기 생성, `session` 토큰 발급
-3. `js/net.js` — 클라 통신 계층. 실패하면 localStorage 로 떨어지게(오프라인 유지)
+2. ~~익명 계정: `device_key` 로 `account` + `player` + 시작 기체 1기 생성, `session` 토큰 발급~~ **완료**
+3. ~~`js/net.js` — 클라 통신 계층~~ **완료** (오프라인 폴백 확인). 다음은 이걸로 상태를 실제로 주고받는 것
 4. 상태 동기화: 지금 localStorage 저장본을 서버로 올리는 1회성 이관
 5. 서버 판정으로 이동: 뽑기 → 전투 순서로
 

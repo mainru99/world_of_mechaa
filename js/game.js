@@ -13,6 +13,7 @@ import { isPct, fatOf, serviceCost, findPart, partStat, gainExp, addFat, decayFa
          expNeed, battleExp, lvCost, enhCost,
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
+import * as net from './net.js';
 import { sprite, preloadSprites } from './sprites.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN } = CONST;
@@ -519,13 +520,34 @@ function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$(
 function resetSave(){ if(confirm('정말 초기화할까요? 모든 진행이 삭제됩니다.')){ S=freshState(); save(); go('hangar'); toast('초기화 완료'); } }
 window.ROWAR = {
   go, selectRobot:(i)=>{ S.sel=i; save(); renderHangar(); }, levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
-  pull1, pull10, findMatch, startBattle, toggleSpeed, reset:resetSave
+  pull1, pull10, findMatch, startBattle, toggleSpeed, reset:resetSave,
+  net                     // 콘솔에서 상태 확인용: ROWAR.net.state
 };
+/* 접속 상태 칩. 서버에 못 붙어도 게임은 그대로 돌아가므로 조용히 표시만 한다. */
+function renderAcct(){
+  const el=$('#acct'); if(!el) return;
+  const s=net.state;
+  if(s.online){
+    el.textContent='게스트 #'+String(s.accountId).padStart(4,'0');
+    el.dataset.tip='서버에 연결됨 · 이 브라우저의 게스트 계정입니다';
+    el.className='coin acct on';
+  } else {
+    el.textContent='오프라인';
+    el.dataset.tip='서버에 연결하지 못했습니다. 진행상황은 이 브라우저에만 저장됩니다.'
+      + (s.error?' ('+s.error+')':'');
+    el.className='coin acct off';
+  }
+}
+
 function boot(){
   preloadSprites();
   S=load(); save();          // 첫 실행이면 시작 기체를 바로 확정해 저장한다
   document.querySelectorAll('.nav button').forEach(b=> b.addEventListener('click',()=>go(b.dataset.s)));
   go('hangar');
+
+  /* 게스트 계정 연결은 화면을 막지 않는다. 실패해도 localStorage 로 계속 논다.
+     지금은 계정만 만들어 두고, 진행상황 동기화는 다음 단계다. */
+  net.connect().then(renderAcct).catch(renderAcct);
 }
 // type="module" 은 defer 라 이미 파싱이 끝나 있을 수 있다
 /* 피로도 자연 회복은 시간이 흐르면 진행된다. 20초마다 정산하고,

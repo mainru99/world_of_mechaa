@@ -36,6 +36,10 @@ body{
   padding:6px 10px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.55);
   opacity:0;pointer-events:none;transition:opacity .12s;z-index:60}
 .coin:hover::after{opacity:1}
+/* 접속 상태 — 게스트로 붙었는지, 오프라인인지 */
+.coin.acct{color:var(--sub);font-size:12px}
+.coin.acct.on{color:var(--good);border-color:#2b5c43}
+.coin.acct.off{color:var(--dim)}
 .coin .ic{width:16px;height:16px;border-radius:50%;display:inline-block}
 .ic-credit{background:radial-gradient(circle at 30% 30%,#ffe89a,#f0b429)}
 .ic-core{background:radial-gradient(circle at 30% 30%,#bff0ff,#37a7d6)}

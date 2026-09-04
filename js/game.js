@@ -183,7 +183,8 @@ function go(scr){ cur=scr; setScene(scr); document.querySelectorAll('.screen').f
   renderWallet();
   if(scr==='hangar') renderHangar();
   else if(scr==='gacha') renderGacha();
-  else if(scr==='battle') renderBattleHome(); }   // 대전은 여기서만 처음부터 그린다
+  else if(scr==='battle') renderBattleHome();     // 대전은 여기서만 처음부터 그린다
+  else if(scr==='rank') renderRank(); }
 function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); }
 /* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
@@ -402,6 +403,51 @@ function renderBattleHome(){
         <span style="color:var(--dim)"> · (지금은 서버 대신 로컬에서 상대를 생성하는 임시 매칭입니다)</span></div>
     </div>`;
 }
+/* ------------------------------- 랭킹 ------------------------------- */
+/* 순위는 서버 크론이 미리 계산해 둔 값을 받아 오기만 한다.
+   여기서 세면 하위권일수록 거의 전원을 읽어 무료 한도가 마른다. */
+async function renderRank(){
+  const el=$('#sc-rank');
+  const wrap = inner => `<h2 class="title">랭킹</h2>${inner}`;
+  if(!net.state.online){
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">랭킹은 서버 연결이 필요합니다.</div></div>`);
+    return;
+  }
+  el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
+    <div style="font-weight:800">순위를 불러오는 중...</div></div></div>`);
+
+  const r=await net.ranking();
+  if(!r || r.error){
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">순위를 불러오지 못했습니다${r&&r.error?' · '+r.error:''}</div></div>`);
+    return;
+  }
+
+  const me=r.me;
+  const myRank = me.rank==null ? '집계 중' : me.rank+'위';
+  const when = r.ranked_at ? new Date(r.ranked_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '아직 없음';
+
+  const rows = r.top.map(t=>`
+    <tr class="${t.me?'mine':''}">
+      <td class="rk">${t.rank}</td>
+      <td class="nm">${t.nickname}${t.me?' <span class="tag">나</span>':''}</td>
+      <td class="rt">${fmt(t.rating)}</td>
+      <td class="wl">${t.wins}승 ${t.losses}패</td>
+    </tr>`).join('');
+
+  el.innerHTML = wrap(`
+    <div class="panel myrank">
+      <div><div class="hint">내 순위</div><div class="big">${myRank}</div></div>
+      <div><div class="hint">레이팅</div><div class="big">${fmt(me.rating)}</div></div>
+      <div><div class="hint">전적</div><div class="big">${me.wins}승 ${me.losses}패</div></div>
+    </div>
+    <div class="panel">
+      <table class="rank"><tbody>${rows||'<tr><td class="hint">아직 아무도 없습니다.</td></tr>'}</tbody></table>
+      <div class="hint" style="margin-top:8px">
+        ${when} 집계 기준 · 전체 ${fmt(r.total)}명${me.live?' · 내 순위는 방금 계산한 값':''}
+      </div>
+    </div>`);
+}
+
 /* 상대는 서버가 고른다. 상대 레벨이 보상에 들어가므로 클라가 고르게 두면
    만렙 상대만 잡아 경험치를 부풀릴 수 있다. */
 async function findMatch(){

@@ -318,3 +318,23 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 
 /* 대문이 떠 있는 동안에는 뒤 화면을 읽지 못하게 */
 body.gated #app{ filter:blur(2px) }
+
+/* ── 랭킹 ─────────────────────────────────────────────── */
+.myrank{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin-bottom:10px}
+.myrank .big{font-size:20px;font-weight:900;color:var(--gold);margin-top:2px}
+.myrank .hint{font-size:11px}
+
+table.rank{width:100%;border-collapse:collapse;font-size:13px}
+table.rank td{padding:7px 6px;border-bottom:1px solid #1e294a}
+table.rank tr:last-child td{border-bottom:0}
+table.rank .rk{width:44px;text-align:right;color:var(--dim);font-weight:900;font-variant-numeric:tabular-nums}
+table.rank .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.rank .rt{width:72px;text-align:right;color:var(--acc2);font-weight:800;font-variant-numeric:tabular-nums}
+table.rank .wl{width:96px;text-align:right;color:var(--dim);font-size:11.5px}
+/* 상위 셋은 눈에 띄게 — 표가 길어지면 위쪽만 봐도 되게 */
+table.rank tr:nth-child(1) .rk{color:var(--gold)}
+table.rank tr:nth-child(2) .rk{color:#cfd8ea}
+table.rank tr:nth-child(3) .rk{color:#d79a5c}
+table.rank tr.mine{background:#1b2748}
+table.rank tr.mine .nm{color:var(--gold)}
+table.rank tr.mine .tag{background:#0e1526;color:var(--gold);border-color:#3d4b7a}

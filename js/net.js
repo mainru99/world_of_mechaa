@@ -183,6 +183,13 @@ export async function battleStart() {
   return { error: (r.data && r.data.error) || r.error || 'start failed' };
 }
 
+/* 랭킹 — 순위 자체는 크론이 미리 계산해 둔다. 여기서는 읽기만 한다. */
+export async function ranking() {
+  if (!state.online) return null;
+  const r = await call('/api/ranking');
+  return (r.ok && r.data && r.data.ok) ? r.data : { error: (r.data && r.data.error) || r.error || 'ranking failed' };
+}
+
 /* 격납고 조작 — 서버 판정. 성공하면 서버가 확정한 값을 돌려준다. */
 export async function hangar(action, args = {}) {
   if (!state.online) return null;

@@ -11,6 +11,7 @@
  */
 import { ROBOT_TYPES } from '../data/balance.js';
 import { sanitize, loadState, saveState, migrationOpen, noteMigration } from './state.js';
+import { ranking, refreshRanks } from './ranking.js';
 import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
@@ -247,6 +248,14 @@ async function handleApi(request, env, url) {
     return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 500);
   }
 
+  /* 랭킹 — 순위는 크론이 미리 계산해 둔다. 여기서 세면 하위권이 전원을 읽는다. */
+  if (path === '/ranking' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await ranking(env, sess.account_id);
+    return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 500);
+  }
+
   /* 격납고 조작 — 비용 계산과 가능 여부 판단을 서버가 한다 */
   if (path === '/hangar' && method === 'POST') {
     const sess = await auth(request, env);
@@ -338,5 +347,14 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
+  },
+
+  /* 주기 작업. wrangler.jsonc 의 triggers.crons 가 부른다.
+     여기서 도는 것은 사용자를 기다리게 하지 않으므로, 무거운 집계는 전부 이쪽으로 민다. */
+  async scheduled(event, env) {
+    /* waitUntil 로 던져 두지 않고 그냥 기다린다. 크론은 사용자를 기다리게 하지 않으므로
+       늦어도 상관없고, 실패가 크론 실행 기록에 그대로 남아야 알아챌 수 있다. */
+    const r = await refreshRanks(env, Date.now());
+    console.log('ranks refreshed', JSON.stringify(r));
   },
 };

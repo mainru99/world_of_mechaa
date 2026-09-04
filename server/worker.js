@@ -15,6 +15,7 @@ import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
 import { registerArena, balanceVersion } from './arena.js';
+import { hashPassword, verifyPassword, checkCredentials } from './auth.js';
 
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
@@ -130,10 +131,13 @@ async function me(env, sess) {
     .prepare('SELECT id, type, level, exp, fat, fat_at FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(sess.account_id).all();
 
+  const acc = await env.DB.prepare('SELECT login_id FROM account WHERE id = ?1').bind(sess.account_id).first();
+
   return json({
     ok: true,
     account_id: sess.account_id,
-    guest: true,                       // 정식 계정 승격은 아직 없다
+    guest: !(acc && acc.login_id),
+    login_id: (acc && acc.login_id) || null,
     player,
     robots: robots.results || [],
     server_now: now,                   // 피로도 회복은 서버 시각 기준이어야 한다
@@ -243,6 +247,62 @@ async function handleApi(request, env, url) {
     let body; try { body = await request.json(); } catch { body = {}; }
     const r = await hangarAction(env, sess.account_id, body, Date.now());
     return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 400);
+  }
+
+  /* ── 정식 계정 ───────────────────────────────────────
+     승격은 새 계정을 만드는 게 아니라 지금 쓰던 계정에 로그인 수단을 붙이는 것이다.
+     그래서 진행상황이 그대로 이어진다. */
+  if (path === '/auth/register' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let body; try { body = await request.json(); } catch { body = {}; }
+    const { login_id, password } = body || {};
+    const bad = checkCredentials(login_id, password);
+    if (bad) return json({ ok: false, error: bad }, 400);
+
+    const cur = await env.DB.prepare('SELECT login_id FROM account WHERE id = ?1').bind(sess.account_id).first();
+    if (cur && cur.login_id) return json({ ok: false, error: '이미 정식 계정입니다' }, 400);
+
+    const taken = await env.DB.prepare('SELECT id FROM account WHERE login_id = ?1').bind(login_id).first();
+    if (taken) return json({ ok: false, error: '이미 쓰이는 아이디입니다' }, 409);
+
+    const t0 = Date.now();
+    const pw = await hashPassword(password);
+    try {
+      await env.DB.prepare('UPDATE account SET login_id = ?1, pw_hash = ?2 WHERE id = ?3')
+        .bind(login_id, pw, sess.account_id).run();
+    } catch (e) {
+      // UNIQUE 충돌이 여기서 날 수도 있다(동시에 같은 아이디로 가입)
+      return json({ ok: false, error: '이미 쓰이는 아이디입니다' }, 409);
+    }
+    return json({ ok: true, login_id, hash_ms: Date.now() - t0 });
+  }
+
+  if (path === '/auth/login' && method === 'POST') {
+    let body; try { body = await request.json(); } catch { body = {}; }
+    const { login_id, password } = body || {};
+    if (typeof login_id !== 'string' || typeof password !== 'string')
+      return json({ ok: false, error: '아이디와 비밀번호를 입력하세요' }, 400);
+
+    const acc = await env.DB.prepare('SELECT id, pw_hash, status FROM account WHERE login_id = ?1')
+      .bind(login_id).first();
+    /* 아이디가 없을 때도 같은 문구를 돌려준다 — 어떤 아이디가 존재하는지 알려주지 않는다. */
+    const FAIL = { ok: false, error: '아이디 또는 비밀번호가 맞지 않습니다' };
+    if (!acc || !acc.pw_hash) return json(FAIL, 401);
+    if (acc.status !== 'active') return json({ ok: false, error: '사용할 수 없는 계정입니다' }, 403);
+    if (!await verifyPassword(password, acc.pw_hash)) return json(FAIL, 401);
+
+    const now = Date.now();
+    await env.DB.prepare('UPDATE account SET last_seen = ?1 WHERE id = ?2').bind(now, acc.id).run();
+    const s = await newSession(env, acc.id, now);
+    return json({ ok: true, account_id: acc.id, login_id, ...s });
+  }
+
+  if (path === '/auth/logout' && method === 'POST') {
+    const h = request.headers.get('authorization') || '';
+    const m = h.match(/^Bearer\s+([0-9a-f]{32,128})$/i);
+    if (m) await env.DB.prepare('DELETE FROM session WHERE token = ?1').bind(m[1]).run();
+    return json({ ok: true });
   }
 
   return json({ ok: false, error: 'not found', path: url.pathname, method }, 404);

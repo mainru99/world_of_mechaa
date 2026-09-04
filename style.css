@@ -40,6 +40,16 @@ body{
 .coin.acct{color:var(--sub);font-size:12px}
 .coin.acct.on{color:var(--good);border-color:#2b5c43}
 .coin.acct.off{color:var(--dim)}
+.coin.acct.guest{color:var(--gold);border-color:#5a4a24}
+.acctbox{display:flex;flex-direction:column;gap:10px}
+.acctbox .arow{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
+.acctbox .arow b{color:var(--sub)}
+.asec{border:1px solid var(--line);border-radius:12px;padding:12px;background:#0e1526}
+.asec .atitle{font-weight:800;margin-bottom:4px}
+.ainput{width:100%;margin-top:8px;padding:10px 12px;border-radius:10px;
+  background:#0a1020;border:1px solid var(--line);color:var(--ink);font-size:14px}
+.ainput:focus{outline:none;border-color:var(--acc)}
+.asec .btn{width:100%;margin-top:10px}
 .coin .ic{width:16px;height:16px;border-radius:50%;display:inline-block}
 .ic-credit{background:radial-gradient(circle at 30% 30%,#ffe89a,#f0b429)}
 .ic-core{background:radial-gradient(circle at 30% 30%,#bff0ff,#37a7d6)}

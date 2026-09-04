@@ -33,7 +33,7 @@ export const token = () => ls.get(TOK_KEY);
 export const clearSession = () => ls.del(TOK_KEY);
 
 /* 서버 상태. online 이 아니면 화면에 '오프라인'을 표시하고 게임은 그대로 돈다. */
-export const state = { online: false, accountId: null, guest: true, checkedAt: 0, error: null };
+export const state = { online: false, accountId: null, guest: true, loginId: null, checkedAt: 0, error: null };
 
 async function call(path, { method = 'GET', body, auth = true, timeout = 8000 } = {}) {
   const ctl = new AbortController();
@@ -66,7 +66,7 @@ export async function connect() {
   if (token()) {
     const r = await call('/api/me');
     if (r.ok && r.data && r.data.ok) {
-      Object.assign(state, { online: true, accountId: r.data.account_id, guest: !!r.data.guest, error: null });
+      Object.assign(state, { online: true, accountId: r.data.account_id, guest: !!r.data.guest, loginId: r.data.login_id || null, error: null });
       return r.data;
     }
     if (r.status === 401) clearSession();      // 만료·폐기된 토큰이면 버리고 새로 받는다
@@ -85,7 +85,7 @@ export async function connect() {
 
   const r = await call('/api/me');
   if (r.ok && r.data && r.data.ok) {
-    Object.assign(state, { online: true, accountId: r.data.account_id, guest: !!r.data.guest, error: null });
+    Object.assign(state, { online: true, accountId: r.data.account_id, guest: !!r.data.guest, loginId: r.data.login_id || null, error: null });
     return r.data;
   }
   Object.assign(state, { online: false, error: 'me failed' });
@@ -189,4 +189,41 @@ export async function hangar(action, args = {}) {
   const r = await call('/api/hangar', { method: 'POST', body: { action, ...args } });
   if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return r.data; }
   return { error: (r.data && r.data.error) || r.error || 'hangar failed' };
+}
+
+/* ── 정식 계정 ─────────────────────────────────────────────
+ * 승격은 지금 쓰던 계정에 아이디·비밀번호를 붙이는 것이라 진행상황이 그대로 이어진다.
+ * 비밀번호는 이 함수 밖으로 나가지 않는다 — 저장하지도, 로그에 남기지도 않는다.
+ */
+export async function register(loginId, password) {
+  if (!state.online) return { error: '서버 연결이 필요합니다' };
+  const r = await call('/api/auth/register', { method: 'POST', body: { login_id: loginId, password } });
+  if (r.ok && r.data && r.data.ok) {
+    Object.assign(state, { guest: false, loginId: r.data.login_id });
+    return { ok: true, loginId: r.data.login_id };
+  }
+  return { error: (r.data && r.data.error) || r.error || '가입에 실패했습니다' };
+}
+
+/* 로그인하면 그 계정의 진행상황을 따른다. 이 브라우저에 있던 게스트 진행은
+   그 계정이 아니므로 로컬 저장본과 rev 를 버리고 서버에서 새로 받는다. */
+export async function login(loginId, password) {
+  const r = await call('/api/auth/login', { method: 'POST', body: { login_id: loginId, password }, auth: false });
+  if (!(r.ok && r.data && r.data.ok)) {
+    return { error: (r.data && r.data.error) || r.error || '로그인에 실패했습니다' };
+  }
+  ls.set(TOK_KEY, r.data.token);
+  ls.del(REV_KEY);
+  cancelSync();
+  Object.assign(state, { online: true, accountId: r.data.account_id, guest: false, loginId: r.data.login_id, error: null });
+  return { ok: true, accountId: r.data.account_id, loginId: r.data.login_id };
+}
+
+export async function logout() {
+  await call('/api/auth/logout', { method: 'POST', body: {} });
+  clearSession();
+  ls.del(REV_KEY);
+  cancelSync();
+  Object.assign(state, { online: false, accountId: null, guest: true, loginId: null });
+  return { ok: true };
 }

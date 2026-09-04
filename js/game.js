@@ -616,17 +616,23 @@ window.ROWAR = {
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
   levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
   pull1, pull10, findMatch, startBattle, toggleSpeed, reset:resetSave,
+  account:accountScreen, doRegister, doLogin, logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화
 };
-/* 접속 상태 칩. 서버에 못 붙어도 게임은 그대로 돌아가므로 조용히 표시만 한다. */
+/* 접속 상태 칩. 서버에 못 붙어도 게임은 그대로 돌아가므로 조용히 표시만 한다.
+   누르면 계정 화면이 열린다. */
 function renderAcct(){
   const el=$('#acct'); if(!el) return;
+  el.onclick = accountScreen;
+  el.style.cursor='pointer';
   const s=net.state;
   if(s.online){
-    el.textContent='게스트 #'+String(s.accountId).padStart(4,'0');
-    el.dataset.tip='서버에 연결됨 · 이 브라우저의 게스트 계정입니다';
-    el.className='coin acct on';
+    el.textContent = s.guest ? ('게스트 #'+String(s.accountId).padStart(4,'0')) : s.loginId;
+    el.dataset.tip = s.guest
+      ? '이 브라우저에만 저장되는 게스트 계정입니다. 눌러서 정식 계정으로 만드세요.'
+      : ('정식 계정 · '+s.loginId+' (눌러서 계정 관리)');
+    el.className='coin acct '+(s.guest?'on guest':'on');
   } else {
     el.textContent='오프라인';
     el.dataset.tip='서버에 연결하지 못했습니다. 진행상황은 이 브라우저에만 저장됩니다.'
@@ -661,6 +667,70 @@ async function syncOnConnect(){
     return;
   }
   await net.push(S);
+}
+
+/* 계정 화면 — 게스트면 승격/로그인, 정식이면 로그아웃 */
+function accountScreen(){
+  const s=net.state;
+  if(!s.online){ toast('서버에 연결되지 않았습니다'); return; }
+
+  if(!s.guest){
+    openModal(`<div class="mhead">계정 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+      <div class="acctbox">
+        <div class="arow"><b>아이디</b><span>${s.loginId}</span></div>
+        <div class="arow"><b>계정 번호</b><span>#${String(s.accountId).padStart(4,'0')}</span></div>
+        <p class="hint">다른 기기에서도 이 아이디로 로그인하면 진행상황이 이어집니다.</p>
+        <button class="btn big" style="margin-top:10px" onclick="ROWAR.logout()">로그아웃</button>
+      </div>`);
+    return;
+  }
+
+  openModal(`<div class="mhead">계정 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <div class="acctbox">
+      <p class="hint" style="color:var(--gold)">지금은 <b>게스트 #${String(s.accountId).padStart(4,'0')}</b> 입니다.
+        진행상황이 이 브라우저에만 묶여 있어, 브라우저 데이터를 지우면 계정을 잃습니다.</p>
+
+      <div class="asec">
+        <div class="atitle">정식 계정 만들기</div>
+        <p class="hint">지금 진행상황을 그대로 가지고 갑니다. 새로 시작하지 않습니다.</p>
+        <input id="rg-id" class="ainput" placeholder="아이디 (영문·숫자·밑줄 4~20자)" maxlength="20" autocomplete="username">
+        <input id="rg-pw" class="ainput" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="new-password">
+        <button class="btn big gold" onclick="ROWAR.doRegister()">정식 계정으로 만들기</button>
+      </div>
+
+      <div class="asec">
+        <div class="atitle">이미 계정이 있다면</div>
+        <p class="hint" style="color:var(--bad)">로그인하면 그 계정의 진행상황을 따릅니다.
+          지금 이 게스트 진행은 이 브라우저에서 더 이상 보이지 않습니다.</p>
+        <input id="lg-id" class="ainput" placeholder="아이디" maxlength="20" autocomplete="username">
+        <input id="lg-pw" class="ainput" type="password" placeholder="비밀번호" autocomplete="current-password">
+        <button class="btn big" onclick="ROWAR.doLogin()">로그인</button>
+      </div>
+    </div>`);
+}
+
+async function doRegister(){
+  const id=$('#rg-id').value.trim(), pw=$('#rg-pw').value;
+  const r=await net.register(id, pw);
+  if(r.error){ toast(r.error); return; }
+  closeModal(); renderAcct();
+  toast('정식 계정이 되었습니다 · '+r.loginId);
+}
+async function doLogin(){
+  const id=$('#lg-id').value.trim(), pw=$('#lg-pw').value;
+  const r=await net.login(id, pw);
+  if(r.error){ toast(r.error); return; }
+  closeModal();
+  const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
+  if(remote){ S=normalize(remote.state); save(); net.cancelSync(); }
+  renderAcct(); renderAll();
+  toast(r.loginId+' 으로 로그인했습니다');
+}
+async function doLogout(){
+  await net.logout();
+  closeModal();
+  localStorage.removeItem(SAVE_KEY);             // 남의 기기에 진행상황을 남기지 않는다
+  location.reload();
 }
 
 function boot(){

@@ -66,9 +66,11 @@ CREATE TABLE IF NOT EXISTS part (
   rarity      TEXT NOT NULL CHECK (rarity IN ('C','R','SR','SSR')),
   stats       TEXT NOT NULL,                   -- JSON {hp,atk,def,spd,crit,eva} 중 일부
   enh         INTEGER NOT NULL DEFAULT 0 CHECK (enh BETWEEN 0 AND 10),
+  uid         TEXT,                            -- 클라이언트가 쓰는 식별자. 동기화 때 행을 짝짓는다
   created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_part_account ON part(account_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_part_uid ON part(account_id, uid);
 
 -- ── 기체 ────────────────────────────────────────────────
 -- 슬롯은 정확히 넷으로 고정이라 조인 테이블 대신 컬럼 넷으로 둔다.
@@ -89,6 +91,7 @@ CREATE TABLE IF NOT EXISTS robot (
   exp         INTEGER NOT NULL DEFAULT 0 CHECK (exp >= 0),
   fat         INTEGER NOT NULL DEFAULT 0 CHECK (fat >= 0),
   fat_at      INTEGER NOT NULL DEFAULT 0,      -- 피로도 자연 회복 정산 시각(서버 시각)
+  uid         TEXT,                            -- 클라이언트가 쓰는 식별자. 동기화 때 행을 짝짓는다
   s_weapon    INTEGER UNIQUE REFERENCES part(id) ON DELETE SET NULL,
   s_frame     INTEGER UNIQUE REFERENCES part(id) ON DELETE SET NULL,
   s_booster   INTEGER UNIQUE REFERENCES part(id) ON DELETE SET NULL,
@@ -96,6 +99,7 @@ CREATE TABLE IF NOT EXISTS robot (
   created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_robot_account ON robot(account_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_robot_uid ON robot(account_id, uid);
 
 -- ── 진행 상태 ───────────────────────────────────────────
 -- 인증(account)과 게임 진행(player)을 나눈다. 진행만 초기화하는 일이 생긴다.
@@ -114,6 +118,7 @@ CREATE TABLE IF NOT EXISTS player (
   losses      INTEGER NOT NULL DEFAULT 0,
   pulls       INTEGER NOT NULL DEFAULT 0,
   rating      INTEGER NOT NULL DEFAULT 1000,   -- 랭킹 기준
+  rev         INTEGER NOT NULL DEFAULT 0,      -- 동기화 리비전. 저장될 때마다 1 오른다
   rank_cached INTEGER,                         -- 주기 계산된 순위 (NULL = 아직 없음)
   rank_at     INTEGER,                         -- 그 순위를 계산한 시각
   sel_robot   INTEGER REFERENCES robot(id) ON DELETE SET NULL,
@@ -186,7 +191,7 @@ CREATE INDEX IF NOT EXISTS ix_battle_def ON battle(defender_id, created_at DESC)
 
 -- ── 메타 ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '2');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '3');
 
 
 -- =========================================================

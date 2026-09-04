@@ -96,3 +96,61 @@ export async function health() {
   const r = await call('/api/health', { auth: false });
   return r.ok ? r.data : null;
 }
+
+/* ── 진행상황 동기화 ─────────────────────────────────────
+ *
+ * 누가 진실인가 — 지금은 이렇게 정한다.
+ *   · 서버 rev 가 0 이면 (한 번도 올린 적 없음) → 이 브라우저 저장본을 올린다 (이관)
+ *   · 서버 rev 가 내가 아는 rev 보다 크면 → 다른 곳에서 저장한 것이니 내려받는다
+ *   · 그 밖에는 → 내가 바뀐 게 있으면 올린다
+ *
+ * 아직 게임 판정은 클라가 한다. 그래서 이 동기화는 '보관과 기기 간 이어하기'까지고,
+ * 조작을 막지는 못한다. 그건 서버가 뽑기·전투를 직접 판정하는 다음 단계의 일이다.
+ */
+const REV_KEY = 'rowar.rev';
+
+export const syncedRev = () => { const v = parseInt(ls.get(REV_KEY), 10); return Number.isFinite(v) ? v : -1; };
+const setSyncedRev = r => ls.set(REV_KEY, String(r));
+
+export async function pull() {
+  const r = await call('/api/state');
+  if (!(r.ok && r.data && r.data.ok)) return null;
+  setSyncedRev(r.data.rev);
+  return r.data;                      // { rev, nickname, rating, state, server_now }
+}
+
+export async function push(state) {
+  const r = await call('/api/state', { method: 'PUT', body: { state, rev: syncedRev() } });
+  if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return { ok: true, rev: r.data.rev, wrote: r.data.wrote }; }
+  if (r.status === 409 && r.data && r.data.state) {   // 다른 곳이 먼저 저장했다
+    setSyncedRev(r.data.rev);
+    return { ok: false, conflict: true, remote: r.data };
+  }
+  return { ok: false, error: (r.data && r.data.error) || r.error || 'push failed' };
+}
+
+/* save() 가 불릴 때마다 부르되, 실제 전송은 묶어서 한 번만 한다.
+   D1 은 쓴 행으로 과금하므로 조작 하나마다 보내면 안 된다. */
+let timer = null, pending = null;
+export function scheduleSync(getState, delay = 4000) {
+  if (!state.online) return;
+  pending = getState;
+  if (timer) return;
+  timer = setTimeout(async () => {
+    timer = null;
+    const get = pending; pending = null;
+    if (!get) return;
+    try { await push(get()); } catch { /* 실패해도 게임은 계속 */ }
+  }, delay);
+}
+
+/* 서버에서 상태를 내려받은 직후처럼, 예약된 전송을 없애야 할 때 쓴다 */
+export function cancelSync() { if (timer) { clearTimeout(timer); timer = null; } pending = null; }
+
+/* 페이지를 닫기 전에 남은 변경을 한 번 밀어 넣는다 */
+export async function flush(getState) {
+  if (timer) { clearTimeout(timer); timer = null; }
+  pending = null;
+  if (!state.online) return null;
+  return push(getState());
+}

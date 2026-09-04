@@ -83,7 +83,10 @@ function load(){
   try{ const j=JSON.parse(localStorage.getItem(SAVE_KEY)); if(j&&j.robots&&j.robots.length) return normalize(j); }catch(e){}
   return freshState();
 }
-function save(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify(S)); }catch(e){} }
+function save(){
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify(S)); }catch(e){}
+  net.scheduleSync(()=>S);          // 실제 전송은 몇 초 뒤 한 번만. 오프라인이면 아무 일도 안 한다
+}
 
 /* ------------------------------- 스탯 계산 ------------------------------- */
 /* computeStats / power 는 js/stats.js 의 순수 함수다. 여기서는 기본 parts 로 S.parts 를
@@ -521,7 +524,8 @@ function resetSave(){ if(confirm('정말 초기화할까요? 모든 진행이 �
 window.ROWAR = {
   go, selectRobot:(i)=>{ S.sel=i; save(); renderHangar(); }, levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
   pull1, pull10, findMatch, startBattle, toggleSpeed, reset:resetSave,
-  net                     // 콘솔에서 상태 확인용: ROWAR.net.state
+  net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
+  sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화
 };
 /* 접속 상태 칩. 서버에 못 붙어도 게임은 그대로 돌아가므로 조용히 표시만 한다. */
 function renderAcct(){
@@ -539,15 +543,50 @@ function renderAcct(){
   }
 }
 
+/* 접속 직후 한 번: 서버와 이 브라우저 중 어느 쪽을 따를지 정한다.
+     · 서버 rev 0  = 한 번도 올린 적 없음 → 이 브라우저 저장본을 올린다(이관)
+     · 서버 rev 가 내가 아는 것보다 큼 → 다른 곳에서 저장한 것이니 내려받는다
+     · 그 밖 → 올린다 */
+async function syncOnConnect(){
+  /* 주의: net.pull() 이 내부에서 syncedRev 를 서버 값으로 갱신한다.
+     그래서 '내가 알고 있던 rev' 는 반드시 pull 전에 읽어야 한다.
+     뒤에서 읽으면 항상 서버와 같아져 '올리기'로 빠지고, 새 저장본이 서버를 덮어쓴다. */
+  const known = net.syncedRev();
+  const remote = await net.pull();
+  if(!remote) return;
+
+  if(remote.rev === 0){                     // 서버는 아직 빈 계정 — 내 진행을 올린다
+    const r = await net.push(S);
+    if(r && r.ok) toast('진행상황을 서버에 올렸습니다');
+    return;
+  }
+  if(remote.rev > known || known < 0){      // 서버가 더 최신 — 내려받는다
+    S = normalize(remote.state);
+    save();
+    net.cancelSync();                        // 방금 받은 걸 도로 올릴 필요는 없다
+    renderAll();
+    toast('서버에서 진행상황을 불러왔습니다');
+    return;
+  }
+  await net.push(S);
+}
+
 function boot(){
   preloadSprites();
   S=load(); save();          // 첫 실행이면 시작 기체를 바로 확정해 저장한다
   document.querySelectorAll('.nav button').forEach(b=> b.addEventListener('click',()=>go(b.dataset.s)));
   go('hangar');
 
-  /* 게스트 계정 연결은 화면을 막지 않는다. 실패해도 localStorage 로 계속 논다.
-     지금은 계정만 만들어 두고, 진행상황 동기화는 다음 단계다. */
-  net.connect().then(renderAcct).catch(renderAcct);
+  /* 게스트 계정 연결과 동기화는 화면을 막지 않는다. 실패해도 localStorage 로 계속 논다. */
+  net.connect().then(async ok=>{
+    renderAcct();
+    if(ok) await syncOnConnect();
+  }).catch(renderAcct);
+
+  /* 탭을 닫기 전에 남은 변경을 밀어 넣는다. visibilitychange 가 더 확실하게 불린다. */
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='hidden') net.flush(()=>S);
+  });
 }
 // type="module" 은 defer 라 이미 파싱이 끝나 있을 수 있다
 /* 피로도 자연 회복은 시간이 흐르면 진행된다. 20초마다 정산하고,

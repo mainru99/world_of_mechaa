@@ -10,6 +10,7 @@
  * 다음 단계는 server/SETUP_KO.md 9절 참고.
  */
 import { ROBOT_TYPES } from '../data/balance.js';
+import { sanitize, loadState, saveState } from './state.js';
 
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
@@ -168,6 +169,34 @@ async function handleApi(request, env, url) {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
     return me(env, sess);
+  }
+
+  /* 진행상황 읽기/쓰기. 클라 저장본과 같은 모양으로 주고받는다. */
+  if (path === '/state' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const st = await loadState(env, sess.account_id);
+    if (!st) return json({ ok: false, error: 'no player' }, 404);
+    return json({ ok: true, ...st, server_now: Date.now() });
+  }
+
+  if (path === '/state' && method === 'PUT') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let body; try { body = await request.json(); } catch { body = null; }
+    const clean = sanitize(body && body.state);
+    if (!clean.ok) return json({ ok: false, error: clean.error }, 400);
+    /* 낙관적 잠금: 클라가 알고 있는 rev 와 서버 rev 가 다르면 다른 곳에서 먼저 저장한 것이다.
+       덮어쓰지 않고 현재 상태를 돌려준다. 클라가 받아서 다시 판단한다. */
+    const cur = await env.DB.prepare('SELECT rev FROM player WHERE account_id = ?1').bind(sess.account_id).first();
+    if (!cur) return json({ ok: false, error: 'no player' }, 404);
+    if (typeof body.rev === 'number' && body.rev !== cur.rev) {
+      const st = await loadState(env, sess.account_id);
+      return json({ ok: false, error: 'rev mismatch', ...st, server_now: Date.now() }, 409);
+    }
+    const r = await saveState(env, sess.account_id, clean.state, Date.now());
+    if (!r.ok) return json({ ok: false, error: r.error }, 500);
+    return json({ ok: true, rev: r.rev, wrote: r.wrote, server_now: Date.now() });
   }
 
   return json({ ok: false, error: 'not found', path: url.pathname, method }, 404);

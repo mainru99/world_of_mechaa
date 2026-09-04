@@ -274,3 +274,46 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .monster-skill{display:flex;flex-direction:column;gap:5px;margin-top:14px;padding:12px 14px;border-left:3px solid var(--bad);background:rgba(255,100,110,.06);border-radius:5px;font-size:13px;line-height:1.5}
 .monster-skill strong{color:#ffb4ae}
 .monster-skill span{color:var(--dim)}
+
+/* ===================== 대문 (타이틀 화면) =====================
+   게임 화면이 바로 뜨면 만들다 만 인상을 준다. 한 겹 두어 시작점을 만든다.
+   로그인·가입으로 가는 자연스러운 자리이기도 하다. */
+#gate{
+  position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+  padding:24px; text-align:center;
+  background:
+    radial-gradient(900px 420px at 50% 18%, rgba(255,167,58,.14) 0%, transparent 64%),
+    linear-gradient(rgba(120,150,200,.06) 1px, transparent 1px) 0 0 / 100% 96px,
+    linear-gradient(90deg, rgba(120,150,200,.06) 1px, transparent 1px) 0 0 / 96px 100%,
+    linear-gradient(180deg,#0e1526 0%,#0a0f1c 60%,#070a12 100%);
+  transition:opacity .35s ease, visibility .35s;
+}
+#gate.hide{ opacity:0; visibility:hidden; pointer-events:none }
+.gate-inner{ width:100%; max-width:360px; display:flex; flex-direction:column; align-items:stretch; gap:10px }
+
+.gate-logo{
+  font-size:52px; font-weight:900; letter-spacing:6px; line-height:1;
+  background:linear-gradient(90deg,#ffc061,#ffe3a6); -webkit-background-clip:text; background-clip:text; color:transparent;
+  text-shadow:0 0 40px rgba(255,180,80,.18);
+}
+.gate-logo span{
+  display:block; font-size:10px; letter-spacing:7px; margin-top:8px;
+  color:#8d7a55; -webkit-text-fill-color:#8d7a55; font-weight:700;
+}
+.gate-tag{ color:var(--sub); font-size:13px; margin:2px 0 14px }
+
+.gate-who{
+  border:1px solid var(--line); border-radius:999px; padding:8px 14px;
+  font-size:12px; font-weight:700; color:var(--sub); background:#0e1526;
+}
+.gate-who.on{ color:var(--good); border-color:#2b5c43 }
+.gate-who.guest{ color:var(--gold); border-color:#5a4a24 }
+.gate-who.off{ color:var(--dim) }
+
+.gate-start{ margin-top:6px }
+.gate-acct{ width:100% }
+.gate-foot{ margin-top:14px; font-size:11px; color:var(--dim) }
+.gate-foot .dot{ margin:0 6px }
+
+/* 대문이 떠 있는 동안에는 뒤 화면을 읽지 못하게 */
+body.gated #app{ filter:blur(2px) }

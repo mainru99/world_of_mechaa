@@ -713,7 +713,7 @@ async function doRegister(){
   const id=$('#rg-id').value.trim(), pw=$('#rg-pw').value;
   const r=await net.register(id, pw);
   if(r.error){ toast(r.error); return; }
-  closeModal(); renderAcct();
+  closeModal(); renderAcct(); renderGate();
   toast('정식 계정이 되었습니다 · '+r.loginId);
 }
 async function doLogin(){
@@ -723,7 +723,7 @@ async function doLogin(){
   closeModal();
   const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
   if(remote){ S=normalize(remote.state); save(); net.cancelSync(); }
-  renderAcct(); renderAll();
+  renderAcct(); renderGate(); renderAll();
   toast(r.loginId+' 으로 로그인했습니다');
 }
 async function doLogout(){
@@ -733,17 +733,38 @@ async function doLogout(){
   location.reload();
 }
 
+/* ── 대문 ──────────────────────────────────────────────
+   시작을 누르기 전까지 게임 화면을 가린다. 접속 상태에 따라 문구가 바뀐다. */
+function renderGate(){
+  const el=$('#gate-who'); if(!el) return;
+  const s=net.state;
+  if(!s.online){ el.textContent='오프라인 · 서버에 연결하지 못했습니다'; el.className='gate-who off'; }
+  else if(s.guest){ el.textContent='게스트 #'+String(s.accountId).padStart(4,'0')+' 로 시작합니다'; el.className='gate-who guest'; }
+  else { el.textContent=s.loginId+' 님으로 접속했습니다'; el.className='gate-who on'; }
+}
+function openGate(){
+  const g=$('#gate'); if(!g) return;
+  g.classList.add('hide'); document.body.classList.remove('gated');
+}
+function initGate(){
+  document.body.classList.add('gated');
+  $('#gate-start').addEventListener('click', openGate);
+  $('#gate-acct').addEventListener('click', ()=>{ openGate(); accountScreen(); });
+  renderGate();
+}
+
 function boot(){
   preloadSprites();
+  initGate();
   S=load(); save();          // 첫 실행이면 시작 기체를 바로 확정해 저장한다
   document.querySelectorAll('.nav button').forEach(b=> b.addEventListener('click',()=>go(b.dataset.s)));
   go('hangar');
 
   /* 게스트 계정 연결과 동기화는 화면을 막지 않는다. 실패해도 localStorage 로 계속 논다. */
   net.connect().then(async ok=>{
-    renderAcct();
+    renderAcct(); renderGate();
     if(ok) await syncOnConnect();
-  }).catch(renderAcct);
+  }).catch(()=>{ renderAcct(); renderGate(); });
 
   /* 탭을 닫기 전에 남은 변경을 밀어 넣는다. visibilitychange 가 더 확실하게 불린다. */
   document.addEventListener('visibilitychange', ()=>{

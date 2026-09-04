@@ -10,6 +10,25 @@
 <body data-scene="hangar">
 <!-- 화면별 배경 연출 레이어. 전부 pointer-events:none 이라 조작을 막지 않는다 -->
 <div id="fx" aria-hidden="true"></div>
+
+<!-- 대문. 게임 화면이 바로 뜨지 않게 한 겹 둔다. 시작을 누르면 사라진다. -->
+<div id="gate">
+  <div class="gate-inner">
+    <div class="gate-logo">ROWAR<span>ROBOT · WAR</span></div>
+    <p class="gate-tag">기체를 뽑고, 정비하고, 내보낸다.</p>
+
+    <div class="gate-who" id="gate-who">연결 중…</div>
+
+    <button class="btn big gold gate-start" id="gate-start">시작하기</button>
+    <button class="btn ghost gate-acct" id="gate-acct">계정 · 로그인</button>
+
+    <div class="gate-foot">
+      <span>프로토타입 v0.5</span>
+      <span class="dot">·</span>
+      <span>진행상황은 서버에 저장됩니다</span>
+    </div>
+  </div>
+</div>
 <div id="app">
   <header class="topbar">
     <div class="brand">ROWAR<small>ROBOT · WAR</small></div>

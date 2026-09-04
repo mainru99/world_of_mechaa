@@ -15,7 +15,8 @@ import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
 import { registerArena, balanceVersion } from './arena.js';
-import { hashPassword, verifyPassword, checkCredentials } from './auth.js';
+import { hashPassword, verifyPassword, checkCredentials,
+         attemptKeys, checkBlocked, noteFailure, clearAttempts } from './auth.js';
 
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
@@ -284,15 +285,24 @@ async function handleApi(request, env, url) {
     if (typeof login_id !== 'string' || typeof password !== 'string')
       return json({ ok: false, error: '아이디와 비밀번호를 입력하세요' }, 400);
 
+    const now = Date.now();
+    const ip = request.headers.get('cf-connecting-ip') || '';
+    const keys = attemptKeys(login_id, ip);
+
+    /* 실패가 쌓였으면 비밀번호를 확인하기도 전에 막는다.
+       PBKDF2 를 돌리지 않으므로 잠긴 뒤에는 CPU 도 쓰지 않는다. */
+    const wait = await checkBlocked(env, keys, now);
+    if (wait) return json({ ok: false, error: `시도가 너무 많습니다. ${Math.ceil(wait / 60)}분 뒤에 다시 시도하세요`, retry_after: wait }, 429);
+
     const acc = await env.DB.prepare('SELECT id, pw_hash, status FROM account WHERE login_id = ?1')
       .bind(login_id).first();
     /* 아이디가 없을 때도 같은 문구를 돌려준다 — 어떤 아이디가 존재하는지 알려주지 않는다. */
     const FAIL = { ok: false, error: '아이디 또는 비밀번호가 맞지 않습니다' };
-    if (!acc || !acc.pw_hash) return json(FAIL, 401);
+    if (!acc || !acc.pw_hash) { await noteFailure(env, keys, now); return json(FAIL, 401); }
     if (acc.status !== 'active') return json({ ok: false, error: '사용할 수 없는 계정입니다' }, 403);
-    if (!await verifyPassword(password, acc.pw_hash)) return json(FAIL, 401);
+    if (!await verifyPassword(password, acc.pw_hash)) { await noteFailure(env, keys, now); return json(FAIL, 401); }
 
-    const now = Date.now();
+    await clearAttempts(env, keys);          // 성공했으면 기록을 지운다
     await env.DB.prepare('UPDATE account SET last_seen = ?1 WHERE id = ?2').bind(now, acc.id).run();
     const s = await newSession(env, acc.id, now);
     return json({ ok: true, account_id: acc.id, login_id, ...s });

@@ -59,3 +59,58 @@ export function checkCredentials(loginId, password) {
     return '비밀번호가 아이디와 같습니다';
   return null;
 }
+
+/* ── 로그인 시도 제한 ────────────────────────────────────
+ * PBKDF2 가 180ms 걸려 자연스러운 제동은 되지만, 그것만으로는 무한 시도를 못 막는다.
+ * 아이디별과 IP별로 따로 센다 — 아이디만 세면 IP 하나로 여러 아이디를 훑을 수 있고,
+ * IP 만 세면 여러 IP 로 한 아이디를 노릴 수 있다.
+ *
+ * 쓰기는 '실패했을 때만' 일어난다. 성공하면 그 아이디 기록을 지운다.
+ */
+const WINDOW_MS = 10 * 60 * 1000;   // 이 시간 안의 실패를 센다
+const BLOCK_MS  = 15 * 60 * 1000;   // 잠그는 시간
+
+/* 아이디와 IP 의 기준을 다르게 둔다.
+   학교 컴퓨터실처럼 여러 명이 같은 IP 를 쓰는 곳에서 IP 기준을 빡빡하게 잡으면
+   한 사람이 비밀번호를 헷갈렸다고 교실 전체가 막힌다.
+   실제 표적 공격은 '한 아이디를 계속 두드리는' 쪽이므로 아이디를 엄하게 본다. */
+const MAX_FAILS = { id: 5, ip: 30 };
+
+export const attemptKeys = (loginId, ip) =>
+  [`id:${String(loginId || '').slice(0, 40)}`, ip ? `ip:${ip.slice(0, 45)}` : null].filter(Boolean);
+
+/* 막혀 있으면 남은 초를 돌려준다. 아니면 0. */
+export async function checkBlocked(env, keys, now) {
+  if (!keys.length) return 0;
+  const marks = keys.map((_, i) => `?${i + 1}`).join(',');
+  const rows = (await env.DB.prepare(
+    `SELECT k, blocked_until FROM login_attempt WHERE k IN (${marks})`).bind(...keys).all()).results || [];
+  let until = 0;
+  for (const r of rows) if (r.blocked_until > now && r.blocked_until > until) until = r.blocked_until;
+  return until ? Math.ceil((until - now) / 1000) : 0;
+}
+
+export async function noteFailure(env, keys, now) {
+  const stmts = [];
+  for (const k of keys) {
+    const max = k.startsWith('ip:') ? MAX_FAILS.ip : MAX_FAILS.id;
+    /* 창이 지났으면 처음부터 다시 센다. 넘으면 blocked_until 을 세운다. */
+    stmts.push(env.DB.prepare(
+      `INSERT INTO login_attempt (k, fails, first_at, blocked_until) VALUES (?1, 1, ?2, 0)
+       ON CONFLICT(k) DO UPDATE SET
+         fails    = CASE WHEN ?2 - first_at > ${WINDOW_MS} THEN 1 ELSE fails + 1 END,
+         first_at = CASE WHEN ?2 - first_at > ${WINDOW_MS} THEN ?2 ELSE first_at END,
+         blocked_until = CASE
+           WHEN ?2 - first_at <= ${WINDOW_MS} AND fails + 1 >= ${max} THEN ?2 + ${BLOCK_MS}
+           ELSE blocked_until END`).bind(k, now));
+  }
+  await env.DB.batch(stmts);
+}
+
+/* 성공하면 '그 아이디'의 기록만 지운다.
+   IP 기록까지 지우면 '아무 계정이나 한 번 성공시켜 카운터를 비우는' 우회가 생긴다. */
+export async function clearAttempts(env, keys) {
+  const idKey = keys.find(k => k.startsWith('id:'));
+  if (!idKey) return;
+  await env.DB.prepare('DELETE FROM login_attempt WHERE k = ?1').bind(idKey).run();
+}

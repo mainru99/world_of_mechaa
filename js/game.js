@@ -749,7 +749,9 @@ function openGate(){
 function initGate(){
   document.body.classList.add('gated');
   $('#gate-start').addEventListener('click', openGate);
-  $('#gate-acct').addEventListener('click', ()=>{ openGate(); accountScreen(); });
+  /* 대문을 닫지 않는다. 계정 창은 대문 위에 뜨고, 닫으면 다시 대문으로 돌아온다.
+     로그인/가입을 마쳐도 '시작하기'를 누르기 전까지는 게임에 들어가지 않는다. */
+  $('#gate-acct').addEventListener('click', accountScreen);
   renderGate();
 }
 
@@ -764,6 +766,7 @@ function boot(){
   net.connect().then(async ok=>{
     renderAcct(); renderGate();
     if(ok) await syncOnConnect();
+    renderAll();   // 접속 전에 그려 둔 화면에는 '오프라인' 안내가 남아 있다
   }).catch(()=>{ renderAcct(); renderGate(); });
 
   /* 탭을 닫기 전에 남은 변경을 밀어 넣는다. visibilitychange 가 더 확실하게 불린다. */

@@ -247,7 +247,7 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .reward .r{background:#0e1526;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-weight:800}
 
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0e1526;border:1px solid var(--acc);
-  color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;z-index:50;box-shadow:0 10px 30px -10px #000;opacity:0;transition:.25s}
+  color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;z-index:320;box-shadow:0 10px 30px -10px #000;opacity:0;transition:.25s}
 .toast.on{opacity:1;bottom:34px}
 .inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px}
 .pchip{background:#111a30;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;transition:.12s}
@@ -256,7 +256,8 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .empty{color:var(--dim);font-size:12px;padding:8px;grid-column:1/-1}
 
 /* ---- modal ---- */
-#modal{position:fixed;inset:0;background:rgba(6,10,20,.72);backdrop-filter:blur(3px);z-index:40;
+/* 대문(#gate, z-index 200) 위에 떠야 한다. 대문에서 로그인·가입을 처리하기 때문이다. */
+#modal{position:fixed;inset:0;background:rgba(6,10,20,.72);backdrop-filter:blur(3px);z-index:300;
   display:none;align-items:center;justify-content:center;padding:16px}
 #modal.on{display:flex}
 .modal-card{width:100%;max-width:440px;max-height:82vh;overflow:auto;

@@ -50,10 +50,19 @@ async function loadFighter(env, accountId) {
   };
 }
 
-export async function findMatch(env, accountId, now) {
-  const me = await loadFighter(env, accountId);
-  if (!me) return { ok: false, status: 400, error: 'no robot' };
+/* 상대를 하나 골라 pending_match 에 넣을 문자열과 화면에 띄울 정보를 만든다.
+   findMatch 와 startBattle 이 같이 쓴다.
 
+   startBattle 이 끝나면서 '다음 상대'까지 미리 잡아 두는 것이 핵심이다.
+   예전에는 한 판마다 find + start 로 왕복을 두 번 썼다. 이제 처음 한 번만 find 고
+   그 뒤로는 start 하나로 이어진다 — 8판이면 16요청이 9요청이 된다.
+   진짜 천장은 D1 행 수가 아니라 **Workers 요청 10만/일** 이라 왕복 한 번이
+   그대로 하루 접속 상한이 된다.
+
+   '다시 찾기'는 그대로 find 를 부르면 되므로 기능이 죽지 않는다.
+   (find 와 start 를 한 요청으로 아예 합치면 상대를 보기 전에 승패가 확정되어
+    다시 찾기가 성립하지 않는다. 그래서 합치지 않고 미리 잡는 쪽을 택했다.) */
+async function preparePending(env, accountId, me, now) {
   const rnd = cryptoRnd();
   let seq = 0;
   const uid = () => 'o' + now.toString(36) + (seq++).toString(36);
@@ -62,21 +71,15 @@ export async function findMatch(env, accountId, now) {
      예전처럼 서버가 상대를 만들어 낸다 — 혼자여도 게임이 돌아가야 하므로. */
   let opp = null;
   if (rnd() >= CONST.MONSTER_RATE) {
-    const myPower = power(me.robot, me.parts);
-    const found = await pickOpponentFromArena(env, accountId, myPower);
+    const found = await pickOpponentFromArena(env, accountId, power(me.robot, me.parts));
     if (found) opp = found;
   }
   if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid);
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
 
-  /* 다음 요청에서 그대로 쓰기 위해 저장한다. 클라가 보낸 상대는 받지 않는다. */
-  const pending = JSON.stringify({ opp, seed, at: now });
-  await env.DB.prepare('UPDATE player SET pending_match = ?1 WHERE account_id = ?2')
-    .bind(pending, accountId).run();
-
   const T = COMBAT[opp.type];
   return {
-    ok: true,
+    json: JSON.stringify({ opp, seed, at: now }),      // 클라가 보낸 상대는 받지 않는다
     opponent: {
       kind: opp.kind, type: opp.type, level: opp.level, callsign: opp.callsign,
       rating: opp.rating ?? null,
@@ -84,6 +87,15 @@ export async function findMatch(env, accountId, now) {
       skill: T.skill, parts: opp.parts, slots: opp.slots,
     },
   };
+}
+
+export async function findMatch(env, accountId, now) {
+  const me = await loadFighter(env, accountId);
+  if (!me) return { ok: false, status: 400, error: 'no robot' };
+  const next = await preparePending(env, accountId, me, now);
+  await env.DB.prepare('UPDATE player SET pending_match = ?1 WHERE account_id = ?2')
+    .bind(next.json, accountId).run();
+  return { ok: true, opponent: next.opponent };
 }
 
 const PENDING_TTL = 10 * 60 * 1000;   // 상대를 찾아 놓고 10분 넘게 방치하면 무효
@@ -136,6 +148,10 @@ export async function startBattle(env, accountId, now) {
   const losses = prow.losses + (win ? 0 : 1);
   const rev = prow.rev + 1;
 
+  /* 다음 상대를 지금 잡아 둔다. 레벨이 올랐을 수 있으니 정산 뒤에 고른다.
+     pending_match 는 어차피 이 UPDATE 에서 건드리므로 쓰기가 늘지 않는다. */
+  const next = await preparePending(env, accountId, me, now);
+
   const stmts = [];
   if (rw.part) {
     stmts.push(env.DB.prepare(
@@ -146,8 +162,8 @@ export async function startBattle(env, accountId, now) {
     .bind(me.robot.level, me.robot.exp, me.robot.fat, me.robot.fatAt, me.row.id));
   stmts.push(env.DB.prepare(
     `UPDATE player SET credits=?1, cores=?2, scrap=?3, wins=?4, losses=?5, rev=?6,
-       pending_match=NULL, updated_at=?7 WHERE account_id=?8`)
-    .bind(credits, cores, scrap, wins, losses, rev, now, accountId));
+       pending_match=?7, updated_at=?8 WHERE account_id=?9`)
+    .bind(credits, cores, scrap, wins, losses, rev, next.json, now, accountId));
 
   /* 사람 상대 전투만 기록한다. 몬스터·생성 상대는 다툴 상대가 없고, 쓰기 예산도 아낀다. */
   let delta = 0;
@@ -180,6 +196,7 @@ export async function startBattle(env, accountId, now) {
     ratingDelta: delta,
     reward: { cr: rw.cr, sc: rw.sc, core: rw.core, part: rw.part,
               lv: { amt: lv.amt, from: lv.from, to: lv.to }, fat: { add: fatAdd, now: fatOf(me.robot) } },
+    next: { opponent: next.opponent },     // '한 판 더' 가 요청을 더 쓰지 않게 미리 실어 보낸다
     player: { credits, cores, scrap, wins, losses },
     robot: { uid: me.robot.uid, level: me.robot.level, exp: me.robot.exp, fat: me.robot.fat, fatAt: me.robot.fatAt },
     rev,

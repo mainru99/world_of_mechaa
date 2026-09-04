@@ -414,10 +414,22 @@ async function findMatch(){
   const [r] = await Promise.all([net.battleFind(), sleep(1000)]);   // 연출용 최소 대기
   if(!r || r.error){ renderBattleHome(); toast('상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return; }
 
-  const o=r.opponent;
-  _pendingOpp = { kind:o.kind, callsign:o.callsign, rating:o.rating,
+  setPending(r.opponent);
+  showOpponent(_pendingOpp);
+}
+
+function setPending(o){
+  _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, fat:0, slots:o.slots },
-    parts:o.parts };
+    parts:o.parts } : null;
+}
+
+/* '한 판 더' — 서버가 직전 응답에 다음 상대를 실어 보내므로 왕복이 필요 없다.
+   (예전에는 여기서 findMatch 를 불러 한 판마다 요청을 두 번 썼다)
+   미리 받은 게 없거나 만료됐으면 그때만 다시 찾는다. */
+function nextMatch(){
+  if(!_pendingOpp) return findMatch();
+  setScene('battle');
   showOpponent(_pendingOpp);
 }
 function oppType(byRarity=BY_RARITY){                       // 내가 가진 최고 등급보다 한 단계 위까지만 만난다
@@ -469,7 +481,13 @@ async function startBattle(){
 
   const my=selRobot(); _battleRobot=my;
   const r=await net.battleStart();
-  if(!r || r.error){ toast('전투를 시작하지 못했습니다'+(r&&r.error?': '+r.error:'')); return; }
+  if(!r || r.error){
+    /* 미리 잡아 둔 상대는 10분이 지나면 서버가 무효로 돌린다.
+       결과 화면에 오래 머물다 '한 판 더'를 누른 경우가 여기 걸린다 — 막다른 길로 두지 않는다. */
+    if(r && /expired|no pending/i.test(r.error||'')){ _pendingOpp=null; return findMatch(); }
+    toast('전투를 시작하지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
+  }
+  setPending(r.next && r.next.opponent);        // 서버가 잡아 둔 다음 상대 (없으면 다음에 다시 찾는다)
 
   const P=makeUnit(r.nameP, my.type, r.statP);
   const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE);
@@ -598,7 +616,7 @@ function renderResult(win,rw,P,E,opp){
       <div class="hint">${P.name} vs ${E.name}</div>
       <div class="reward">${rewards.join('')}</div>
       <div class="row-btns">
-        <button class="btn big gold" onclick="ROWAR.findMatch()">한 판 더</button>
+        <button class="btn big gold" onclick="ROWAR.nextMatch()">한 판 더</button>
         <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
     </div>`;
@@ -615,7 +633,7 @@ window.ROWAR = {
     if(net.state.online && rb) await net.hangar('select',{robotUid:rb.uid});
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
   levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
-  pull1, pull10, findMatch, startBattle, toggleSpeed, reset:resetSave,
+  pull1, pull10, findMatch, nextMatch, startBattle, toggleSpeed, reset:resetSave,
   account:accountScreen, doRegister, doLogin, logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화

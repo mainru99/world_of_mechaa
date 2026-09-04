@@ -1,0 +1,17 @@
+{
+  "name": "rowar",
+  "private": true,
+  "type": "module",
+  "description": "ROWAR — 1:1 로봇 배틀 웹게임. 클라이언트는 순수 정적 웹이고, 서버는 Cloudflare Worker + D1.",
+  "scripts": {
+    "build": "node server/build.mjs",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "db:local": "wrangler d1 execute rowar --local --file=./server/schema.sql",
+    "db:remote": "wrangler d1 execute rowar --remote --file=./server/schema.sql",
+    "db:tables": "wrangler d1 execute rowar --local --command=\"SELECT name FROM sqlite_master WHERE type='table'\""
+  },
+  "devDependencies": {
+    "wrangler": "^4.129.0"
+  }
+}

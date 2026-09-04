@@ -1,0 +1,30 @@
+// Cloudflare Worker + D1 설정.
+//   database_id 는 `npx wrangler d1 create rowar` 로 만든 DB 의 uuid 다.
+//   비밀값이 아니다 — 이것만으로는 접근할 수 없고 계정 인증이 따로 필요하다.
+//   그래서 커밋한다. 다른 PC 에서 클론하면 설정을 다시 만들지 않아도 된다.
+{
+  "name": "rowar",
+  "main": "server/worker.js",
+  "compatibility_date": "2026-09-04",
+
+  // 게임 파일. 리포 루트를 그대로 올리면 server/schema.sql 과 내부 문서까지
+  // 공개되므로, `npm run build` 로 클라이언트 파일만 dist/ 에 모아서 올린다.
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // /api/* 는 정적 파일보다 Worker 가 먼저 본다.
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Worker 안에서 env.DB 로 접근한다.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rowar",
+      "database_id": "d3b96715-7ed0-4385-b947-944ca82d482b"
+    }
+  ]
+
+  // 나중에 순위 갱신 같은 주기 작업을 붙일 때:
+  // "triggers": { "crons": ["*/30 * * * *"] }
+}

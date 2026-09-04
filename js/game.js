@@ -20,7 +20,7 @@ const ROBOT_APPEAR = PULL_TABLE.find(t=>t.k==='robot').w/100;   // 화면 표기
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
 const SLOT_KO = {WEAPON:'무장',FRAME:'프레임',BOOSTER:'부스터',CORE:'코어'};
 const STAT_LABEL = { hp:'내구', atk:'공격', def:'방어', spd:'속도', crit:'치명', eva:'회피' };
-const STAT_MAX   = { hp:1500, atk:68, def:280, spd:140, crit:.75, eva:.6 };  // atk 는 ATK_SCALE 적용 후 기준
+const STAT_MAX   = { hp:1500, atk:Math.round(340*ATK_SCALE), def:280, spd:140, crit:.75, eva:.6 };  // atk 는 배율에서 파생
 
 /* ------------------------------- 유틸 ------------------------------- */
 const R = Math.random;

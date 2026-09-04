@@ -209,7 +209,7 @@ export const STAT_ROLL = { hp:[24,60], atk:[6,16], def:[5,13], spd:[3,9], crit:[
 export const CONST = {
   MAXLV: 60,          // 최대 레벨
   PULL_COST: 1,       // 뽑기 1회에 드는 코어
-  ATK_SCALE: 0.2,     // 공격력 전역 배율 — 낮출수록 한 판이 길어진다
+  ATK_SCALE: 0.33,    // 공격력 전역 배율 — 낮출수록 한 판이 길어진다
   CRIT_MULT: 1.6,     // 치명타 배수
   DEF_PEN: 0.6,       // 'ignoreDef' 스킬이 실제로 깎는 방어력 비율 (완전 무시가 아니다)
   FAT_MAX: 45,        // 최대 피로도 = 최대 체력이 45% 까지만 줄어든다

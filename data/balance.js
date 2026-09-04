@@ -185,7 +185,22 @@ export const MONSTER_TYPES = {
     skill:{"name":"프레데터 러시","desc":"0.7배 급습을 3회. 모두 확정 치명타(회피는 가능).","fx":{"mult":0.7,"hits":3,"alwaysCrit":true}} },
   enemy_kabuto:{ id:'enemy_kabuto', name:'오닉스 카부토', rarity:'EP', role:'장갑 돌파형 · 갑충 군주',
     base:{"hp":831,"atk":153,"def":89,"spd":79,"crit":0.21,"eva":0.12}, grow:{"hp":44,"atk":12,"def":8,"spd":5},
-    skill:{"name":"모나크 브레이크","desc":"방어력 60%를 관통하는 1.1배 돌진 공격을 3회.","fx":{"mult":1.1,"hits":3,"ignoreDef":true}} }
+    skill:{"name":"모나크 브레이크","desc":"방어력 60%를 관통하는 1.1배 돌진 공격을 3회.","fx":{"mult":1.1,"hits":3,"ignoreDef":true}} },
+  /* ---- 미래 보스 콘텐츠 ----
+     전용 위험도 BOSS는 ROBOT_RARITY(C~EP)에 없으므로 현재 일반 매칭 풀에서 선택되지 않는다.
+     향후 보스 진입/보상 UI가 직접 id를 선택할 때만 등장시킨다. */
+  boss_bael_fortress:{ id:'boss_bael_fortress', name:'철혈성채 바알', rarity:'BOSS', role:'초중장 섬멸형 · 마왕성채',
+    base:{hp:2700,atk:275,def:190,spd:95,crit:.22,eva:.06}, grow:{hp:175,atk:21,def:18,spd:4},
+    skill:{name:'종말의 일제사격', desc:'1.0배 포격을 3회. 방어력 60%를 관통하며 회피할 수 없다.',
+           fx:{mult:1.0,hits:3,ignoreDef:true,noMiss:true}} },
+  boss_astraea:{ id:'boss_astraea', name:'성극천사 아스트라이아', rarity:'BOSS', role:'초고기동 심판형 · 성역병기',
+    base:{hp:1900,atk:250,def:172,spd:120,crit:.30,eva:.20}, grow:{hp:107,atk:20,def:12,spd:9},
+    skill:{name:'세라픽 저지먼트', desc:'0.65배 심판광을 3회. 방어력 60%를 관통하고 회피 불가·확정 치명타, 피해의 10%를 흡수한다.',
+           fx:{mult:.65,hits:3,ignoreDef:true,noMiss:true,alwaysCrit:true,drain:.1}} },
+  boss_nihil:{ id:'boss_nihil', name:'공허군주 니힐', rarity:'BOSS', role:'공간침식 연격형 · 공허핵',
+    base:{hp:1700,atk:290,def:140,spd:120,crit:.38,eva:.32}, grow:{hp:87,atk:21,def:11,spd:10},
+    skill:{name:'이벤트 호라이즌', desc:'방어력 60%를 관통하는 0.85배 침식을 4회. 피해의 25%를 흡수한다.',
+           fx:{mult:.85,hits:4,ignoreDef:true,drain:.25}} }
 };
 
 /* 파츠 */

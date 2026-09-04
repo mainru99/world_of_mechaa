@@ -184,9 +184,14 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .fighter.hit{animation:shake .28s}
 @keyframes shake{0%,100%{}25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
 .fighter.lungeL{transform:translateX(120px)} .fighter.lungeR{transform:translateX(-120px)}
-.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
-.flash.on{animation:fl .3s}
-@keyframes fl{0%{opacity:.5}100%{opacity:0}}
+/* 피격 섬광 — 광과민성(WCAG 2.3.1) 때문에 의도적으로 약하게 잡았다.
+   흰 판으로 화면을 덮지 않고 부드러운 글로우로 번지게 하며, 최대 불투명도는 0.18.
+   터지는 빈도 제한은 js/game.js 의 flash() 가 맡는다(초당 3회 미만). */
+.flash{position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:radial-gradient(68% 62% at 50% 55%, rgba(255,246,224,.85), rgba(255,240,210,.25) 55%, transparent 78%)}
+.flash.on{animation:fl .34s ease-out}
+@keyframes fl{0%{opacity:.18}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){ .flash.on{animation:none;opacity:0} }
 
 .hpwrap{position:absolute;top:10px;width:44%;}
 .hpwrap.p{left:10px} .hpwrap.e{right:10px}

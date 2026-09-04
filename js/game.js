@@ -111,7 +111,10 @@ function levelUp(){               // 크레딧으로 즉시 1레벨(진행 중�
 /* ------------------------------- UI 기본 ------------------------------- */
 let cur='hangar', toastT;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1600); }
-function go(scr){ cur=scr; document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
+/* 배경 연출은 body[data-scene] 하나로 갈린다.
+   hangar/gacha = 격납고, battle = 야간작전, arena = 콕핏 HUD */
+function setScene(name){ document.body.dataset.scene = name; }
+function go(scr){ cur=scr; setScene(scr); document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.s===scr));
   renderAll(); }
 function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); }
@@ -296,6 +299,7 @@ function renderBattleHome(){
     </div>`;
 }
 function findMatch(){
+  setScene('battle');
   $('#sc-battle').innerHTML = `<h2 class="title">대전</h2><div class="panel"><div class="mm">
     <div class="spinner"></div><div style="font-weight:800">상대를 검색하는 중...</div>
     <div class="hint">상대 로봇과 야생 몬스터의 신호를 탐색합니다.</div></div></div>`;
@@ -366,6 +370,7 @@ function battleRewards(win,enemyLv){
 
 /* ---- 대전 아레나 & 재생 ---- */
 function renderArena(pType,eType,pName,eName){
+  setScene('arena');                    // 전투 재생 동안만 콕핏 HUD
   $('#sc-battle').innerHTML = `
     <h2 class="title">${MONSTER_TYPES[eType]?'몬스터 대전':'자동 대전'}</h2>
     <div class="arena" id="arena">
@@ -391,7 +396,17 @@ function setHP(side,hp,max){ const bar=AR('#hp-'+side); if(!bar) return; const p
   bar.querySelector('i').style.width=pct+'%'; bar.classList.toggle('low',pct<30);
   const n=AR('#hpn-'+side); if(n) n.textContent=Math.max(0,Math.round(hp))+'/'+Math.round(max); }
 function setSP(side,sp){ const i=AR('#sp-'+side+' i'); if(i) i.style.width=sp+'%'; }
-function flash(){ const f=AR('#flash'); if(!f) return; f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); }
+/* 배속을 올려도 섬광이 초당 3회를 넘지 않게 막는다.
+   x8 배속이면 타격 간격이 51ms 라 제한이 없으면 초당 19회까지 터진다(광과민성 위험). */
+const FLASH_MIN_GAP = 340;
+let _lastFlash = 0;
+function flash(){
+  const f=AR('#flash'); if(!f) return;
+  const now = performance.now();
+  if(now - _lastFlash < FLASH_MIN_GAP) return;
+  _lastFlash = now;
+  f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+}
 function shakeF(side){ const el=AR('#fighter-'+side); if(!el) return; el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
 async function lunge(side){ const el=AR('#fighter-'+side); if(!el) return; el.classList.add(side==='p'?'lungeL':'lungeR'); await sleep(110/battleSpeed); el.classList.remove('lungeL','lungeR'); }
 function floatDmg(side,text,cls){ const host=AR('#fighter-'+side); if(!host) return; const d=document.createElement('div'); d.className='dmg '+cls; d.textContent=text; d.style.left=(side==='p'?'30px':'70px'); d.style.top='24px'; host.appendChild(d); setTimeout(()=>d.remove(),1000); }
@@ -424,6 +439,7 @@ async function playBattle(events,P,E){
   return 'P';
 }
 function renderResult(win,rw,P,E,opp){
+  setScene('battle');                   // 전투가 끝나면 야간작전으로 돌아온다
   const rewards = [ `<div class="r">경험치 +${rw.lv.amt}</div>` ];
   if(rw.lv.to>rw.lv.from) rewards.push(`<div class="r" style="color:var(--good)">레벨 업!  ${rw.rname}  Lv.${rw.lv.from} → Lv.${rw.lv.to}</div>`);
   rewards.push(`<div class="r">크레딧 +${rw.cr}</div>`, `<div class="r">스크랩 +${rw.sc}</div>`);

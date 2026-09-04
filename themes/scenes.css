@@ -1,0 +1,264 @@
+/* =============================================================
+ * ROWAR - 화면별 씬 연출
+ *   격납고·뽑기 → A 격납고(HANGAR)   정비고. 도면 격자 + 강판 + 위험 표시 띠
+ *   대전         → B 야간작전(NIGHT OPS) 폐허 도시 + 서치라이트 + 불티
+ *   아레나       → C 콕핏 HUD          육각 메시 + 스캔 + 조준선 + 레이더
+ *
+ * js/game.js 가 body[data-scene] 을 갈아끼우면 배경이 통째로 바뀐다.
+ * 연출 레이어는 전부 position:fixed + pointer-events:none 이라 조작을 막지 않는다.
+ * 이미지 파일은 쓰지 않는다 — 전부 CSS 그라디언트.
+ * ============================================================= */
+
+/* ── 공통 골격 ─────────────────────────────────────────────── */
+#fx{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden }
+#fx::before,#fx::after{ content:''; position:absolute; inset:0; pointer-events:none }
+body::before,body::after{ content:''; position:fixed; inset:0; z-index:0; pointer-events:none }
+#app{ position:relative; z-index:1 }
+body{ transition:background-color .4s ease }
+
+@media (prefers-reduced-motion: reduce){
+  #fx,#fx::before,#fx::after,body::after{ animation:none !important }
+}
+
+/* ══════════════════════════════════════════════════════════
+ * A · 격납고 (격납고 · 뽑기)
+ * ══════════════════════════════════════════════════════════ */
+body[data-scene="hangar"], body[data-scene="gacha"]{
+  background:
+    radial-gradient(900px 380px at 50% -8%, rgba(255,167,58,.16) 0%, transparent 65%),
+    linear-gradient(rgba(120,150,200,.07) 1px, transparent 1px) 0 0 / 100% 96px,
+    linear-gradient(90deg, rgba(120,150,200,.07) 1px, transparent 1px) 0 0 / 96px 100%,
+    linear-gradient(rgba(120,150,200,.035) 1px, transparent 1px) 0 0 / 100% 24px,
+    linear-gradient(90deg, rgba(120,150,200,.035) 1px, transparent 1px) 0 0 / 24px 100%,
+    linear-gradient(180deg,#0e1526 0%,#0a0f1c 55%,#080c16 100%);
+  background-attachment:fixed;
+}
+/* 바닥 강판 리벳 */
+body[data-scene="hangar"]::before, body[data-scene="gacha"]::before{
+  inset:auto 0 0 0; height:180px;
+  background:
+    radial-gradient(circle at 14px 14px, rgba(150,175,215,.10) 1.4px, transparent 2px) 0 0 / 56px 56px,
+    linear-gradient(0deg, rgba(255,167,58,.05), transparent 70%);
+  -webkit-mask-image:linear-gradient(0deg,#000,transparent);
+          mask-image:linear-gradient(0deg,#000,transparent);
+}
+body[data-scene="hangar"] .topbar, body[data-scene="gacha"] .topbar{
+  background:linear-gradient(180deg,#1b2135,#12172a); border-bottom:1px solid #3a4668;
+  box-shadow:0 10px 26px rgba(0,0,0,.5);
+}
+body[data-scene="hangar"] .topbar::after, body[data-scene="gacha"] .topbar::after{
+  content:''; position:absolute; left:0; right:0; bottom:-4px; height:4px;
+  background:repeating-linear-gradient(115deg,#f0a52e 0 14px,#191c2b 14px 28px); opacity:.55;
+}
+body[data-scene="hangar"] .brand, body[data-scene="gacha"] .brand{
+  background:linear-gradient(90deg,#ffc061,#ffe3a6); -webkit-background-clip:text; background-clip:text }
+body[data-scene="hangar"] .panel, body[data-scene="gacha"] .panel{
+  position:relative;
+  background:linear-gradient(180deg, rgba(255,255,255,.035), transparent 40%),
+             linear-gradient(180deg,#18203a,#131a30);
+  border:1px solid #33405f;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 6px 20px rgba(0,0,0,.35);
+}
+body[data-scene="hangar"] .panel::before, body[data-scene="gacha"] .panel::before{
+  content:''; position:absolute; left:0; top:14px; bottom:14px; width:3px; border-radius:0 3px 3px 0;
+  background:linear-gradient(180deg,transparent,#f0a52e 30%,#f0a52e 70%,transparent); opacity:.5;
+}
+body[data-scene="hangar"] .title, body[data-scene="gacha"] .title{ color:#ffd9a0 }
+body[data-scene="hangar"] .title::before, body[data-scene="gacha"] .title::before{ background:#f0a52e }
+body[data-scene="hangar"] .sprite, body[data-scene="gacha"] .sprite{
+  background:
+    radial-gradient(70% 60% at 50% 100%, rgba(240,165,46,.13), transparent 70%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.028) 0 1px, transparent 1px 14px),
+    linear-gradient(180deg,#101728,#0b111f);
+}
+body[data-scene="hangar"] .nav button.active, body[data-scene="gacha"] .nav button.active{
+  border-color:#f0a52e; box-shadow:inset 0 0 0 1px rgba(240,165,46,.35) }
+
+/* ══════════════════════════════════════════════════════════
+ * B · 야간작전 (대전 · 상대 찾기/발견/결과)
+ * ══════════════════════════════════════════════════════════ */
+body[data-scene="battle"]{
+  background:
+    radial-gradient(1100px 260px at 50% 60%, rgba(255,120,50,.34) 0%, transparent 70%),
+    radial-gradient(680px 170px at 50% 59%, rgba(255,200,110,.26) 0%, transparent 68%),
+    radial-gradient(1000px 420px at 50% 26%, rgba(70,130,220,.16) 0%, transparent 72%),
+    linear-gradient(180deg,#04060d 0%,#0a1024 26%,#1c2647 48%,#3a2a2a 60%,#120e14 66%,#07080e 82%,#040509 100%);
+  background-attachment:fixed;
+}
+/* 원경 스카이라인 — 지평선 위에 얹히는 '띠'. 폭과 높이가 다른 층을 겹쳐 도시처럼 만든다.
+   (세로 막대로 아래를 통째로 채우면 건물이 아니라 검은 기둥으로 보인다) */
+body[data-scene="battle"]::before{
+  inset:auto 0 40% 0; height:120px;
+  background:
+    linear-gradient(90deg,#080d1c 0 26px, transparent 26px) 0    100% / 78px  104px repeat-x,
+    linear-gradient(90deg,#080d1c 0 16px, transparent 16px) 34px 100% / 56px   72px repeat-x,
+    linear-gradient(90deg,#080d1c 0 38px, transparent 38px) 14px 100% / 124px  56px repeat-x,
+    linear-gradient(90deg,#080d1c 0 8px,  transparent 8px)  62px 100% / 96px   88px repeat-x;
+  opacity:.9;
+}
+/* 근경 스카이라인 — 더 크고 더 어둡게. 창문 불빛 몇 점을 얹는다 */
+body[data-scene="battle"]::after{
+  inset:auto 0 26% 0; height:170px;
+  background:
+    /* 창문 불빛 */
+    radial-gradient(circle, rgba(255,190,110,.75) 1.1px, transparent 1.6px) 18px 100% / 46px 34px repeat,
+    radial-gradient(circle, rgba(150,200,255,.45) 1px,   transparent 1.5px) 32px 100% / 74px 52px repeat,
+    /* 건물 */
+    linear-gradient(90deg,#02040a 0 46px, transparent 46px) 0    100% / 132px 150px repeat-x,
+    linear-gradient(90deg,#02040a 0 30px, transparent 30px) 70px 100% / 104px 108px repeat-x,
+    linear-gradient(90deg,#02040a 0 62px, transparent 62px) 26px 100% / 210px  78px repeat-x;
+  -webkit-mask-image:linear-gradient(180deg,#000 0 88%, transparent 100%);
+          mask-image:linear-gradient(180deg,#000 0 88%, transparent 100%);
+}
+/* 지평선 아래 지면 */
+body[data-scene="battle"] .ground{ display:none }
+
+/* 서치라이트 두 줄기 — 천천히 훑는다 */
+body[data-scene="battle"] #fx{
+  background:
+    linear-gradient(76deg, transparent 40%, rgba(170,215,255,.12) 45%, rgba(170,215,255,.03) 48%, transparent 53%),
+    linear-gradient(-70deg, transparent 55%, rgba(170,215,255,.09) 61%, transparent 66%);
+  animation:ops-sweep 11s ease-in-out infinite alternate;
+}
+@keyframes ops-sweep{ from{ transform:translateX(-4%) } to{ transform:translateX(4%) } }
+/* 지면 안개 + 비네트 */
+body[data-scene="battle"] #fx::before{
+  background:
+    radial-gradient(130% 40% at 50% 100%, rgba(150,185,240,.22) 0%, transparent 72%),
+    radial-gradient(120% 95% at 50% 45%, transparent 52%, rgba(0,0,0,.62) 100%);
+}
+/* 떠오르는 불티 */
+body[data-scene="battle"] #fx::after{
+  top:-100%; height:200%;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(255,175,90,.55) 1.4px, transparent 2px) 0 0 / 260px 300px,
+    radial-gradient(circle at 68% 55%, rgba(255,150,70,.42) 1.2px, transparent 2px) 0 0 / 190px 240px,
+    radial-gradient(circle at 40% 80%, rgba(255,205,140,.35) 1px, transparent 2px) 0 0 / 320px 380px;
+  animation:ops-ember 26s linear infinite;
+}
+@keyframes ops-ember{ from{ transform:translateY(0) } to{ transform:translateY(50%) } }
+
+body[data-scene="battle"] .topbar{
+  background:linear-gradient(180deg, rgba(14,20,38,.90), rgba(8,11,22,.90));
+  backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); border-bottom:1px solid #33456f;
+}
+body[data-scene="battle"] .brand{
+  background:linear-gradient(90deg,#ffb27a,#ffe0b8); -webkit-background-clip:text; background-clip:text }
+/* 패널을 충분히 투명하게 — 배경의 도시가 비쳐야 연출이 산다 */
+body[data-scene="battle"] .panel{
+  background:linear-gradient(180deg, rgba(20,28,52,.72), rgba(11,16,32,.78));
+  border:1px solid #38497a; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+  box-shadow:0 14px 40px rgba(0,0,0,.55);
+}
+body[data-scene="battle"] .title{ color:#ffd2a8 }
+body[data-scene="battle"] .title::before{ background:#ff9a4d }
+body[data-scene="battle"] .oppcard .sprite{
+  position:relative;
+  background:radial-gradient(60% 45% at 50% 100%, rgba(255,160,90,.20), transparent 72%),
+             linear-gradient(180deg, rgba(10,15,30,.5), rgba(5,8,18,.8));
+}
+body[data-scene="battle"] .oppcard .sprite::after{
+  content:''; position:absolute; left:16%; right:16%; bottom:5px; height:9px; border-radius:50%;
+  background:radial-gradient(50% 100% at 50% 50%, rgba(0,0,0,.6), transparent 70%);
+}
+body[data-scene="battle"] .btn.big.gold{
+  background:linear-gradient(180deg,#ffb257,#e8802a); color:#2a1505;
+  box-shadow:0 0 24px rgba(255,150,60,.35) }
+
+/* ══════════════════════════════════════════════════════════
+ * C · 콕핏 HUD (전투 아레나 재생 중)
+ * ══════════════════════════════════════════════════════════ */
+body[data-scene="arena"]{
+  --acc:#3fe0f0; --acc2:#b6feff; --line:#1c5a6c;
+  background:
+    radial-gradient(820px 460px at 50% 6%, rgba(60,225,245,.16) 0%, transparent 62%),
+    repeating-linear-gradient(60deg,  rgba(90,230,250,.075) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(-60deg, rgba(90,230,250,.075) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(0deg,   rgba(90,230,250,.05) 0 1px, transparent 1px 22px),
+    linear-gradient(180deg,#03121c 0%,#05202e 48%,#020b12 100%);
+  background-attachment:fixed;
+}
+/* 스캔라인 + 비네트 */
+body[data-scene="arena"]::before{
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.26) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 90% at 50% 50%, transparent 50%, rgba(0,0,0,.66) 100%);
+}
+/* 화면 전체를 훑는 스캔 빔 */
+body[data-scene="arena"]::after{
+  inset:auto 0 auto 0; height:190px; top:-190px;
+  background:linear-gradient(180deg, transparent, rgba(90,235,255,.11) 55%, transparent);
+  animation:hud-scan 5.5s linear infinite;
+}
+@keyframes hud-scan{ to{ transform:translateY(calc(100vh + 190px)) } }
+/* 조준선 — 화면 중앙 십자 */
+body[data-scene="arena"] #fx{
+  background:
+    linear-gradient(90deg, transparent calc(50% - 1px), rgba(63,224,240,.16) 50%, transparent calc(50% + 1px)),
+    linear-gradient(0deg,  transparent calc(50% - 1px), rgba(63,224,240,.10) 50%, transparent calc(50% + 1px));
+}
+/* 좌하단 레이더 스윕 */
+body[data-scene="arena"] #fx::before{
+  inset:auto 24px 24px auto; left:auto; top:auto; width:132px; height:132px; border-radius:50%;
+  border:1px solid rgba(63,224,240,.28);
+  background:
+    conic-gradient(from 0deg, rgba(63,224,240,.30), transparent 26%),
+    radial-gradient(circle, transparent 0 44%, rgba(63,224,240,.14) 45%, transparent 46%),
+    radial-gradient(circle, transparent 0 68%, rgba(63,224,240,.10) 69%, transparent 70%);
+  animation:hud-radar 4s linear infinite; opacity:.5;
+}
+@keyframes hud-radar{ to{ transform:rotate(360deg) } }
+/* 네 모서리 프레임 */
+body[data-scene="arena"] #fx::after{
+  inset:14px;
+  background:
+    linear-gradient(#3fe0f0,#3fe0f0) 0 0 / 34px 2px no-repeat,
+    linear-gradient(#3fe0f0,#3fe0f0) 0 0 / 2px 34px no-repeat,
+    linear-gradient(#3fe0f0,#3fe0f0) 100% 0 / 34px 2px no-repeat,
+    linear-gradient(#3fe0f0,#3fe0f0) 100% 0 / 2px 34px no-repeat,
+    linear-gradient(#3fe0f0,#3fe0f0) 0 100% / 34px 2px no-repeat,
+    linear-gradient(#3fe0f0,#3fe0f0) 0 100% / 2px 34px no-repeat,
+    linear-gradient(#3fe0f0,#3fe0f0) 100% 100% / 34px 2px no-repeat,
+    linear-gradient(#3fe0f0,#3fe0f0) 100% 100% / 2px 34px no-repeat;
+  opacity:.45;
+}
+body[data-scene="arena"] .topbar{
+  background:linear-gradient(180deg, rgba(6,32,46,.94), rgba(2,16,24,.94));
+  border-bottom:1px solid #1f6b80; box-shadow:0 0 30px rgba(60,225,245,.14) }
+body[data-scene="arena"] .brand{
+  background:linear-gradient(90deg,#3fe0f0,#d6ffff); -webkit-background-clip:text; background-clip:text;
+  text-shadow:0 0 20px rgba(60,225,245,.4) }
+body[data-scene="arena"] .brand small{ color:#4d8a9a }
+body[data-scene="arena"] .title{ color:#d6ffff; letter-spacing:1px }
+body[data-scene="arena"] .title::before{ background:#3fe0f0; box-shadow:0 0 12px #3fe0f0 }
+body[data-scene="arena"] .nav button.active{ border-color:#3fe0f0; box-shadow:0 0 18px rgba(60,225,245,.3) }
+
+/* 아레나 자체를 계기 창으로 */
+body[data-scene="arena"] .arena{
+  border:1px solid #2a8ba3;
+  box-shadow:inset 0 0 60px rgba(60,225,245,.10), 0 0 30px rgba(60,225,245,.14);
+}
+body[data-scene="arena"] .arena .grid{
+  background:
+    linear-gradient(rgba(63,224,240,.13) 1px, transparent 1px) 0 0 / 100% 26px,
+    linear-gradient(90deg, rgba(63,224,240,.13) 1px, transparent 1px) 0 0 / 26px 100%,
+    radial-gradient(70% 60% at 50% 100%, rgba(63,224,240,.14), transparent 70%),
+    linear-gradient(180deg,#04141e,#020a10) !important;
+}
+/* 아레나 모서리 브래킷 */
+body[data-scene="arena"] .arena::before,
+body[data-scene="arena"] .arena::after{
+  content:''; position:absolute; width:22px; height:22px; z-index:3; pointer-events:none;
+  border-color:#3fe0f0; border-style:solid;
+}
+body[data-scene="arena"] .arena::before{ top:8px; left:8px; border-width:2px 0 0 2px }
+body[data-scene="arena"] .arena::after { bottom:8px; right:8px; border-width:0 2px 2px 0 }
+
+body[data-scene="arena"] .blog{
+  background:rgba(3,18,26,.85); border:1px solid #1c5a6c;
+  box-shadow:inset 0 0 24px rgba(60,225,245,.06) }
+body[data-scene="arena"] .vs{ color:#3fe0f0; text-shadow:0 0 14px rgba(60,225,245,.6) }
+body[data-scene="arena"] .panel{
+  background:linear-gradient(180deg, rgba(7,32,44,.86), rgba(3,16,24,.9));
+  border:1px solid #1c5a6c; box-shadow:inset 0 0 40px rgba(60,225,245,.06), 0 8px 26px rgba(0,0,0,.5) }
+body[data-scene="arena"] .btn.gold{ background:linear-gradient(180deg,#3fe0f0,#1a9fb5); color:#02222b }

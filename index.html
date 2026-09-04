@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>ROWAR · 로봇 배틀 프로토타입</title>
 <link rel="stylesheet" href="style.css?v=20260903-monsters1">
+<link rel="stylesheet" href="themes/scenes.css?v=20260904-scenes">
 </head>
-<body>
+<body data-scene="hangar">
+<!-- 화면별 배경 연출 레이어. 전부 pointer-events:none 이라 조작을 막지 않는다 -->
+<div id="fx" aria-hidden="true"></div>
 <div id="app">
   <header class="topbar">
     <div class="brand">ROWAR<small>ROBOT · WAR</small></div>

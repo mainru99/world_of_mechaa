@@ -1,0 +1,47 @@
+/* 파츠를 낀 상태에서 '게임이 실제로 붙여 주는 상대'와의 승률.
+   tools/match.mjs 는 맨몸 기준이다 — 이쪽이 실제 플레이에 가깝다. */
+import { ROBOT_TYPES, ROBOT_RARITY, RARITY, SLOTS, SLOT_STATS, STAT_ROLL } from '../data/balance.js';
+import { computeStats, isPct } from '../js/stats.js';
+import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
+import { makeOpponent } from '../js/rewards.js';
+const byR={}; for(const r of ROBOT_RARITY) byR[r.k]=Object.keys(ROBOT_TYPES).filter(i=>ROBOT_TYPES[i].rarity===r.k);
+let S=307; const ns=()=>((S=Math.imul(S,1103515245)+12345|0)>>>0);
+const rnd=()=>ns()/4294967296;
+const pick=a=>a[Math.floor(rnd()*a.length)], rf=(a,b)=>rnd()*(b-a)+a;
+function mkPart(slot,rarK,level,uid,enh){
+  const rar=RARITY.find(r=>r.k===rarK), lv=1+(level||1)*0.03, st={};
+  for(let i=0;i<rar.n;i++){ const k=pick(SLOT_STATS[slot]); const [a,b]=STAT_ROLL[k];
+    let v=rf(a,b)*rar.mul; if(!isPct(k)) v=Math.round(v*lv); st[k]=(st[k]||0)+v; }
+  for(const k in st) if(isPct(k)) st[k]=Math.round(st[k]*1000)/1000;
+  return {uid,slot,name:'P',rarity:rarK,stats:st,enh};
+}
+function kit(rarK,level,enh,n){
+  const parts=[],slots={WEAPON:null,FRAME:null,BOOSTER:null,CORE:null};
+  SLOTS.slice(0,n).forEach((s,i)=>{ const p=mkPart(s,rarK,level,'p'+i,enh); parts.push(p); slots[s]=p.uid; });
+  return {parts,slots};
+}
+function run(myK,lv,rarK,enh,n,owned,trials){
+  let w=0,seq=0;
+  for(const t of byR[myK]) for(let i=0;i<trials;i++){
+    const k=kit(rarK,lv,enh,n);
+    const me={uid:'x',type:t,level:lv,exp:0,fat:0,slots:k.slots};
+    const r=mulberry32(ns());
+    const opp=makeOpponent(owned, lv, r, ()=>'u'+(seq++), false, k.parts);
+    const P=makeUnit('P',t,computeStats(me,k.parts));
+    const E=makeUnit('E',opp.type,computeStats({type:opp.type,level:opp.level,fat:0,slots:opp.slots},opp.parts));
+    if(simulate(P,E,ns()).slice(-1)[0].winner==='P') w++;
+  }
+  return w/(byR[myK].length*trials);
+}
+console.log('생성 상대와의 승률 — 내 파츠 상태별 (50% 근처가 건강하다)');
+console.log('내 장비\t\t\tC보유 Lv.15\tR보유 Lv.30\tEP보유 Lv.60');
+const rows=[
+  ['맨몸','C',0,0],['C 2개 +0','C',0,2],['자연분포급 R 4개 +0','R',0,4],
+  ['SR 4개 +3','SR',3,4],['SSR 4개 +10','SSR',10,4],
+];
+for(const [lab,rar,enh,n] of rows){
+  const a=(run('C',15,rar,enh,n,['C'],40)*100).toFixed(0);
+  const b=(run('R',30,rar,enh,n,['C','UC','R'],40)*100).toFixed(0);
+  const c=(run('EP',60,rar,enh,n,['C','UC','R','UQ','EP'],40)*100).toFixed(0);
+  console.log(`${lab.padEnd(20)}\t${a}%\t\t${b}%\t\t${c}%`);
+}

@@ -76,11 +76,16 @@ async function preparePending(env, accountId, me, now, credits, opts) {
   /* ── 토벌 ── 등급을 골라 몬스터를 사냥한다. 레이팅은 움직이지 않는다.
      비용을 못 내면 조용히 아레나로 되돌린다 — 이 경로는 '다음 판 미리 잡기'에서만
      닿는다. 사용자가 직접 고른 경우는 findMatch 가 먼저 거절한다. */
+  /* 지금 '낀' 파츠만 센다. 인벤토리에 쌓아 둔 것은 전투에 안 나오므로 세면 안 된다.
+     상대를 여기에 맞춰 만든다 — 아레나는 같은 품질의 파츠로, 몬스터는 레벨로. */
+  const wornUids = Object.values(me.robot.slots || {}).filter(Boolean);
+  const worn = (me.parts || []).filter(p => wornUids.includes(p.uid));
+
   const tier = opts && opts.mode === 'hunt' && CONST.HUNT[opts.tier] ? opts.tier : null;
   if (tier) {
     const hcost = huntCost(me.robot, tier);
     if (have >= hcost) {
-      const hopp = makeHuntTarget(tier, me.robot.level, rnd, uid);
+      const hopp = makeHuntTarget(tier, me.robot.level, rnd, uid, worn);
       const hseed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
       const HT = COMBAT[hopp.type];
       return {
@@ -109,7 +114,6 @@ async function preparePending(env, accountId, me, now, credits, opts) {
     const found = await pickOpponentFromArena(env, accountId, power(me.robot, me.parts));
     if (found) opp = found;
   }
-  const worn = Object.values(me.robot.slots || {}).filter(Boolean).length;
   if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid, rescue, worn);
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
 

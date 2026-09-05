@@ -554,7 +554,8 @@ function nextMatch(){
 function makeOpponent(){
   const my=selRobot();
   const owned=[...new Set(S.robots.map(r=>rarOf(r.type)))];
-  const worn=Object.values(my.slots||{}).filter(Boolean).length;
+  const wornUids=Object.values(my.slots||{}).filter(Boolean);
+  const worn=S.parts.filter(p=>wornUids.includes(p.uid));
   const o=_makeOpponent(owned, my.level, R, ()=>'E'+uid(), false, worn);
   const rb={uid:'E'+uid(), type:o.type, level:o.level, slots:o.slots};
   return {kind:o.kind==='monster'?'monster':'robot', robot:rb, parts:o.parts, callsign:o.callsign};

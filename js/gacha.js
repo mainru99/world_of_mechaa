@@ -30,8 +30,12 @@ export const BY_RARITY = (() => {
 /* 자동 분해 대상이면 바꿔 줄 스크랩 양, 아니면 0 */
 export const autoScrapValue = rarity => (CONST.AUTO_SCRAP && CONST.AUTO_SCRAP[rarity]) || 0;
 
-export function genPart(level, rnd, uid) {
-  const slot = pick(SLOTS, rnd), rar = weighted(RARITY, rnd);
+/* forceRar / forceSlot 을 주면 그 등급·그 슬롯으로 만든다.
+   생성 상대의 파츠 품질과 슬롯을 플레이어에 맞출 때 쓴다 —
+   뽑기는 두 인자를 쓰지 않으므로 드랍 확률과 슬롯 분포는 그대로다. */
+export function genPart(level, rnd, uid, forceRar, forceSlot) {
+  const slot = (forceSlot && SLOTS.includes(forceSlot)) ? forceSlot : pick(SLOTS, rnd);
+  const rar = (forceRar && RARITY.find(r => r.k === forceRar)) || weighted(RARITY, rnd);
   const lvScale = 1 + (level || 1) * 0.03, stats = {};
   for (let i = 0; i < rar.n; i++) {
     const st = pick(SLOT_STATS[slot], rnd), [a, b] = STAT_ROLL[st];

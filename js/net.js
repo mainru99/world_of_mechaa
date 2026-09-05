@@ -108,9 +108,17 @@ export async function health() {
  * 조작을 막지는 못한다. 그건 서버가 뽑기·전투를 직접 판정하는 다음 단계의 일이다.
  */
 const REV_KEY = 'rowar.rev';
+const MIG_KEY = 'rowar.mig_closed';
 
 export const syncedRev = () => { const v = parseInt(ls.get(REV_KEY), 10); return Number.isFinite(v) ? v : -1; };
 const setSyncedRev = r => ls.set(REV_KEY, String(r));
+
+/* 서버가 이관을 막았는지. rev 가 0인 새 계정은 아래 syncedRev 검사를 통과해 버리므로
+   이 표시가 없으면 저장할 때마다 403 을 한 번씩 받아 낸다 — 실측으로 첫 접속에 8번이었다.
+   요청 수가 곧 무료 한도인 구조라(하루 10만) 실패할 걸 아는 요청은 보내지 않는다.
+   한 번 닫힌 걸 확인하면 이 브라우저는 다시 시도하지 않는다. */
+const migClosed = () => ls.get(MIG_KEY) === '1';
+const markMigClosed = () => ls.set(MIG_KEY, '1');
 
 export async function pull() {
   const r = await call('/api/state');
@@ -126,6 +134,8 @@ export async function push(state) {
     setSyncedRev(r.data.rev);
     return { ok: false, conflict: true, remote: r.data };
   }
+  /* 403 은 '이관 문이 닫혔다' 또는 '이미 이관했다'다. 둘 다 다시 시도해도 결과가 같다. */
+  if (r.status === 403) markMigClosed();
   return { ok: false, error: (r.data && r.data.error) || r.error || 'push failed' };
 }
 
@@ -137,7 +147,7 @@ export function scheduleSync(getState, delay = 4000) {
   /* 뽑기·전투·격납고가 전부 서버 판정이 된 뒤로, 클라가 상태를 밀어 올릴 일은
      '처음 한 번의 이관'뿐이다. 그 뒤의 업로드는 서버가 403 으로 막으므로
      보내 봐야 실패만 쌓인다. rev 가 올라간 계정에서는 아예 예약하지 않는다. */
-  if (syncedRev() > 0) return;
+  if (syncedRev() > 0 || migClosed()) return;
   pending = getState;
   if (timer) return;
   timer = setTimeout(async () => {
@@ -156,7 +166,7 @@ export async function flush(getState) {
   if (timer) { clearTimeout(timer); timer = null; }
   pending = null;
   if (!state.online) return null;
-  if (syncedRev() > 0) return null;      // 이관이 끝난 계정은 올릴 것이 없다
+  if (syncedRev() > 0 || migClosed()) return null;   // 이관이 끝났거나 막혔으면 올릴 것이 없다
   return push(getState());
 }
 

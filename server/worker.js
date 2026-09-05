@@ -127,15 +127,37 @@ async function guestLogin(request, env) {
   return json({ ok: true, isNew: true, account_id: accountId, ...s });
 }
 
+/* 기체·파츠를 가리키는 클라이언트 식별자.
+   격납고 API 는 전부 이 uid 로 행을 찾는다(robot.uid / part.uid). 서버가 만든 행에
+   uid 가 없으면 클라가 그 기체를 **가리킬 수가 없다** — 장착도 정비도 레벨업도
+   'robot not found' 가 된다. 그래서 서버가 행을 만들 때 반드시 함께 만든다. */
+function newUid(prefix) {
+  return prefix + Date.now().toString(36) + Math.floor(Math.random() * 1679616).toString(36);
+}
+
+/* uid 가 비어 있는 옛 기체를 채운다.
+   시작 기체를 uid 없이 만들던 시절의 계정이 남아 있다. 그때는 클라가 자기 저장본을
+   통째로 올려(이관) 그 과정에서 uid 가 맞춰졌는데, 이관 문을 닫은 뒤로는 그 길이 없어져
+   **새로 만들어진 계정이 전부 격납고를 못 쓰는 상태**가 됐다. 접속할 때 조용히 메운다. */
+async function ensureRobotUids(env, accountId, now) {
+  const rows = (await env.DB.prepare(
+    "SELECT id FROM robot WHERE account_id = ?1 AND COALESCE(uid, '') = ''").bind(accountId).all()).results || [];
+  if (!rows.length) return;
+  await env.DB.batch(rows.map(r => env.DB
+    .prepare('UPDATE robot SET uid = ?1 WHERE id = ?2').bind(newUid('r'), r.id)));
+  await env.DB.prepare('UPDATE player SET rev = rev + 1, updated_at = ?1 WHERE account_id = ?2')
+    .bind(now, accountId).run();
+}
+
 /* 기체가 하나도 없으면 시작 기체를 만들어 준다.
    계정 생성이 중간에 끊긴 경우를 다음 접속 때 스스로 복구한다. */
 async function ensureStarter(env, accountId, now) {
   const cnt = await env.DB.prepare('SELECT COUNT(*) AS n FROM robot WHERE account_id = ?1').bind(accountId).first();
-  if (cnt && cnt.n > 0) return;
+  if (cnt && cnt.n > 0) return ensureRobotUids(env, accountId, now);
   const type = pick(COMMON_IDS);
   const r = await env.DB
-    .prepare('INSERT INTO robot (account_id, type, level, exp, fat, fat_at, created_at) VALUES (?1,?2,1,0,0,?3,?3)')
-    .bind(accountId, type, now).run();
+    .prepare('INSERT INTO robot (account_id, type, level, exp, fat, fat_at, uid, created_at) VALUES (?1,?2,1,0,0,?3,?4,?3)')
+    .bind(accountId, type, now, newUid('r')).run();
   await env.DB.prepare('UPDATE player SET sel_robot = ?1, updated_at = ?2 WHERE account_id = ?3')
     .bind(r.meta.last_row_id, now, accountId).run();
 }

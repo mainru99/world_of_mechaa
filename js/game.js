@@ -843,7 +843,16 @@ async function syncOnConnect(){
 
   if(remote.rev === 0){                     // 서버는 아직 빈 계정 — 내 진행을 올린다
     const r = await net.push(S);
-    if(r && r.ok) toast('진행상황을 서버에 올렸습니다');
+    if(r && r.ok){ toast('진행상황을 서버에 올렸습니다'); return; }
+    /* 올리지 못했다(이관 문이 닫혀 있으면 늘 여기로 온다 — 뽑기·전투·격납고가 전부
+       서버 판정이 된 뒤의 기본값이다). 그럼 **서버 쪽을 따라야 한다.**
+       예전에는 여기서 그냥 돌아가 버려서, 클라는 제 저장본의 기체를 들고 있고 서버는
+       제가 만든 시작 기체를 들고 있는 채로 영영 어긋났다. 그 상태에서는 격납고 API 가
+       전부 'robot not found' 다 — 장착·정비·레벨업·토벌이 통째로 죽는다. */
+    S = normalize(remote.state);
+    save();
+    net.cancelSync();
+    renderAll();
     return;
   }
   if(remote.rev > known || known < 0){      // 서버가 더 최신 — 내려받는다

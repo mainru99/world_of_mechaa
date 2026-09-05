@@ -54,9 +54,11 @@
     <section id="sc-battle" class="screen"></section>
     <section id="sc-hunt" class="screen"></section>
     <section id="sc-rank" class="screen"></section>
-    <div class="panel" style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <div class="hint">프로토타입 v0.5 · 진행상황은 이 브라우저에 자동 저장됩니다.</div>
-      <button class="btn ghost" style="padding:8px 12px;font-size:12px" onclick="ROWAR.reset()">초기화</button>
+    <!-- '초기화' 버튼이 있었다. 로컬 저장본만 지우는 버튼이라, 뽑기·전투·격납고가
+         서버 판정으로 넘어간 뒤로는 해롭기만 했다 — 누르면 서버가 모르는 기체를 든 채가 되어
+         게임이 멈추고, 새로고침하면 서버에서 그대로 되돌아왔다. 지운다. -->
+    <div class="panel" style="margin-top:18px">
+      <div class="hint">프로토타입 v0.5 · 진행상황은 서버에 저장됩니다.</div>
     </div>
   </main>
 </div>

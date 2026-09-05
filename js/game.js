@@ -809,7 +809,12 @@ function renderResult(win,rw,P,E,opp){
 function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$('#spdbtn'); if(b)b.textContent='속도 x'+battleSpeed; }
 
 /* ------------------------------- 초기화/공개 ------------------------------- */
-function resetSave(){ if(confirm('정말 초기화할까요? 모든 진행이 삭제됩니다.')){ S=freshState(); save(); go('hangar'); toast('초기화 완료'); } }
+/* resetSave() 가 있던 자리. 로컬 저장본만 비우는 함수였다.
+   진행이 서버에 있는 지금은 그게 '초기화'가 아니라 '어긋내기'다 — 서버가 모르는
+   기체를 든 채가 되어 장착·정비·레벨업·토벌이 전부 죽고, 새로고침하면 서버에서
+   그대로 되돌아온다. 화면의 버튼과 함께 지웠다.
+   정말로 처음부터 다시 하는 기능이 필요해지면 서버에 지우는 경로를 만들어야 한다
+   (계정 삭제 후 재발급). 클라에서 지우는 것으로는 될 수 없다. */
 window.ROWAR = {
   go,
   selectRobot:async(i)=>{ S.sel=i; renderHangar();
@@ -817,7 +822,7 @@ window.ROWAR = {
     if(net.state.online && rb) await net.hangar('select',{robotUid:rb.uid});
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
   levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
-  pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, hunt, toggleSpeed, reset:resetSave,
+  pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, hunt, toggleSpeed,
   account:accountScreen, doRegister, doLogin, logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화

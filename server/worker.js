@@ -53,18 +53,33 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 /* ── 인증 ──────────────────────────────────────────────── */
 
 /* Authorization: Bearer <token> 을 세션 한 행으로 바꾼다. 만료면 null. */
+/* last_seen 을 다시 찍는 주기. 매 요청 쓰면 비싸고, 안 쓰면 값이 거짓이 된다. */
+const SEEN_THROTTLE_MS = DAY_MS;
+
 async function auth(request, env) {
   const h = request.headers.get('authorization') || '';
   const m = h.match(/^Bearer\s+([0-9a-f]{32,128})$/i);
   if (!m) return null;
   const row = await env.DB
-    .prepare(`SELECT s.token, s.account_id, s.expires_at, a.status
+    .prepare(`SELECT s.token, s.account_id, s.expires_at, a.status, a.last_seen
                 FROM session s JOIN account a ON a.id = s.account_id
                WHERE s.token = ?1`)
     .bind(m[1]).first();
   if (!row) return null;
-  if (row.expires_at < Date.now()) return null;
+  const now = Date.now();
+  if (row.expires_at < now) return null;
   if (row.status !== 'active') return null;
+
+  /* '마지막 접속'을 실제로 갱신한다.
+     예전에는 로그인할 때만 찍었다. 세션이 90일이라, 한 번 로그인하고 두 달 넘게
+     매일 노는 사람도 last_seen 은 첫날에 멈춰 있었다. 그 값을 보고 미접속 계정을
+     지우는 청소가 붙었으므로, 그대로 두면 **한창 하는 사람의 계정을 지운다.**
+     매 요청 쓰면 비용이 크니 하루에 한 번만 쓴다 — 계정당 하루 1행이면 무시할 만하다. */
+  if (!row.last_seen || now - row.last_seen > SEEN_THROTTLE_MS) {
+    await env.DB.prepare('UPDATE account SET last_seen = ?1 WHERE id = ?2')
+      .bind(now, row.account_id).run();
+    row.last_seen = now;
+  }
   return row;
 }
 

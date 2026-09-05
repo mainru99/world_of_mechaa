@@ -841,29 +841,30 @@ async function syncOnConnect(){
   const remote = await net.pull();
   if(!remote) return;
 
-  if(remote.rev === 0){                     // 서버는 아직 빈 계정 — 내 진행을 올린다
-    const r = await net.push(S);
-    if(r && r.ok){ toast('진행상황을 서버에 올렸습니다'); return; }
-    /* 올리지 못했다(이관 문이 닫혀 있으면 늘 여기로 온다 — 뽑기·전투·격납고가 전부
-       서버 판정이 된 뒤의 기본값이다). 그럼 **서버 쪽을 따라야 한다.**
-       예전에는 여기서 그냥 돌아가 버려서, 클라는 제 저장본의 기체를 들고 있고 서버는
-       제가 만든 시작 기체를 들고 있는 채로 영영 어긋났다. 그 상태에서는 격납고 API 가
-       전부 'robot not found' 다 — 장착·정비·레벨업·토벌이 통째로 죽는다. */
-    S = normalize(remote.state);
-    save();
-    net.cancelSync();
-    renderAll();
-    return;
-  }
-  if(remote.rev > known || known < 0){      // 서버가 더 최신 — 내려받는다
+  /* 서버 것을 정본으로 삼는다. 뽑기·전투·격납고가 전부 서버 판정이라
+     서버가 모르는 진행은 애초에 있을 수 없다. */
+  const adopt = msg => {
     S = normalize(remote.state);
     save();
     net.cancelSync();                        // 방금 받은 걸 도로 올릴 필요는 없다
     renderAll();
-    toast('서버에서 진행상황을 불러왔습니다');
-    return;
-  }
-  await net.push(S);
+    if(msg) toast(msg);
+  };
+
+  /* 올려 보고, 거절당하면 서버를 따른다.
+     이관 문이 닫혀 있으면(서버 판정으로 넘어간 뒤의 기본값) 올리기는 늘 실패한다.
+     예전에는 실패를 그냥 삼켜서, 클라는 제 저장본의 기체를 들고 서버는 제가 만든 기체를
+     들고 영영 어긋났다. 그 상태에서는 격납고 API 가 전부 'robot not found' 다 —
+     장착·정비·레벨업·토벌이 통째로 죽는다. 실패하는 길을 하나도 남기지 않는다. */
+  const pushOrAdopt = async ok => {
+    const r = await net.push(S);
+    if(r && r.ok){ if(ok) toast(ok); return; }
+    adopt();
+  };
+
+  if(remote.rev === 0) return pushOrAdopt('진행상황을 서버에 올렸습니다');   // 서버가 빈 계정 — 이관 시도
+  if(remote.rev > known || known < 0) return adopt('서버에서 진행상황을 불러왔습니다');
+  return pushOrAdopt();
 }
 
 /* 계정 화면 — 게스트면 승격/로그인, 정식이면 로그아웃 */

@@ -17,21 +17,54 @@ export const MONSTER_BY_RARITY = (() => {
 const CALLSIGNS = ['NOVA','RAZE','ORCA','KITE','VULT','ZERO','ONYX','HELM','SABLE','ARC','GEIST','ROOK'];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+/* 등급 하나가 레벨 몇 개 값인가. 등급이 위인 상대는 그만큼 낮은 레벨로,
+   아래인 상대는 높은 레벨로 내보내 등급이 달라도 해볼 만한 판을 만든다.
+   위로 얹을 때는 내 레벨을 넘지 않게 묶는다 — Lv.1 이 Lv.17 커먼을 만나면 안 된다. */
+/* 등급 격차를 레벨로 환산할 때 쓰는 배수.
+   TIER_LV 는 Lv.30 에서 잰 값인데, 격차가 레벨에 따라 조금씩 벌어진다 —
+   커먼이 에픽과 대등해지는 지점이 Lv.10 에서 +11, Lv.30 에서 +16, Lv.50 에서 +20 이었다.
+   비례(lv/30)로 두면 저레벨에서 턱없이 덜 갚아 준다. 그 실측선에 맞춘 1차식이다. */
+const tierScale = lv => Math.max(0.5, Math.min(1.4, 0.55 + 0.015 * lv));
+
+export function tierLevelAdjust(myRarities, oppRarity, myLevel) {
+  const T = CONST.TIER_LV || {};
+  const mine = Math.max(0, ...myRarities.map(r => T[r] || 0));
+  /* 위 등급 상대는 격차를 다 깎아 주고(안 그러면 아래 등급이 계속 진다),
+     아래 등급 상대는 7할만 얹는다(다 얹으면 좋은 기체를 가진 이유가 없어진다). */
+  const gap = mine - (T[oppRarity] || 0);
+  const adj = Math.round((gap < 0 ? gap : gap * 0.7) * tierScale(myLevel));
+  return adj < 0 ? Math.max(adj, 1 - myLevel) : Math.min(adj, Math.max(0, myLevel - 1));
+}
+
 /* 상대 등급 — 내가 가진 최고 등급보다 한 단계 위까지만 만난다.
+   다만 '레벨로 갚을 수 있는' 등급까지만이다. 등급이 무거워진 뒤로는 이 단서가 필요하다:
+   Lv.1 은 언커먼의 레벨을 3 깎아 줄 수 없어(1 밑으로 못 간다) 그냥 승률 11% 짜리 판이 된다.
+   그래서 새 플레이어는 한동안 자기 등급만 만나고, 레벨이 쌓이면 위 등급이 열린다.
    후보가 없는 등급이 걸리면(BOSS 처럼 봉인된 것) 커먼으로 떨어뜨린다. */
-export function pickOpponentType(ownedRarities, byRarity, rnd) {
+export function pickOpponentType(ownedRarities, byRarity, rnd, myLevel) {
+  const T = CONST.TIER_LV || {};
+  const mine = Math.max(0, ...ownedRarities.map(r => T[r] || 0));
+  const lv = myLevel == null ? CONST.MAXLV : myLevel;
   const best = Math.max(0, ...ownedRarities.map(r => RIDX[r] ?? 0));
-  const pool = ROBOT_RARITY.filter(r => RIDX[r.k] <= Math.min(4, best + 1));
+  let pool = ROBOT_RARITY.filter(r => RIDX[r.k] <= Math.min(4, best + 1)
+                                   && lv + tierLevelAdjust(ownedRarities, r.k, lv) >= 1
+                                   && lv >= (T[r.k] || 0) - mine);
+  if (!pool.length) pool = ROBOT_RARITY.filter(r => RIDX[r.k] === 0);
   const k = weighted(pool, rnd).k;
   const list = byRarity[k] && byRarity[k].length ? byRarity[k] : byRarity.C;
   return pick(list, rnd);
 }
 
 /* 상대 한 명. 몬스터는 파츠를 갖지 않는다. */
-export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster) {
+export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, myParts) {
   const monster = forceMonster || rnd() < CONST.MONSTER_RATE;
-  const type = pickOpponentType(ownedRarities, monster ? MONSTER_BY_RARITY : BY_RARITY, rnd);
-  const level = clamp(myLevel + ri(-2, 2, rnd), 1, CONST.MAXLV);
+  const type = pickOpponentType(ownedRarities, monster ? MONSTER_BY_RARITY : BY_RARITY, rnd, myLevel);
+  const rar = (monster ? MONSTER_TYPES : ROBOT_TYPES)[type].rarity;
+  /* 레벨 1 차이가 승률 80% 다(스탯 넷이 한꺼번에 오르니 곱으로 겹친다).
+     예전의 ±2 는 그래서 '시작하기 전에 이미 정해진 판'을 절반쯤 만들어 냈다. ±1 로 줄인다.
+     저레벨에서는 그 1 조차 비중이 커서 레벨에 맞춰 더 줄인다. */
+  const jit = Math.round(ri(-1, 1, rnd) * Math.min(1, myLevel / 8));
+  const level = clamp(myLevel + tierLevelAdjust(ownedRarities, rar, myLevel) + jit, 1, CONST.MAXLV);
 
   if (monster) {
     return { kind: 'monster', type, level, parts: [],
@@ -39,7 +72,11 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster) {
              callsign: MONSTER_TYPES[type].name };
   }
   const parts = [], slots = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
-  const np = ri(0, 2, rnd);
+  /* 상대의 파츠 수는 내가 낀 개수를 따라간다.
+     예전에는 늘 0~2개를 물려 줬는데, 파츠 하나가 승률 15%p 쯤 움직인다 —
+     아직 아무것도 못 낀 새 플레이어가 장비를 갖춘 상대를 만나 계속 지고 있었다. */
+  const base = myParts == null ? 1 : clamp(myParts | 0, 0, 4);
+  const np = clamp(base + ri(-1, 1, rnd), 0, 4);
   for (let i = 0; i < np; i++) {
     const p = genPart(level, rnd, uid());
     parts.push(p); slots[p.slot] = p.uid;

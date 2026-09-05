@@ -109,7 +109,8 @@ async function preparePending(env, accountId, me, now, credits, opts) {
     const found = await pickOpponentFromArena(env, accountId, power(me.robot, me.parts));
     if (found) opp = found;
   }
-  if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid, rescue);
+  const worn = Object.values(me.robot.slots || {}).filter(Boolean).length;
+  if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid, rescue, worn);
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
 
   const T = COMBAT[opp.type];

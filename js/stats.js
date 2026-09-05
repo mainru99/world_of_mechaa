@@ -72,12 +72,35 @@ export function computeStats(robot, parts) {
   s.hpFull = s.hp;                                                  // 피로도 0 일 때의 최대 체력
   s.hp = Math.max(1, Math.round(s.hp * (100 - fatOf(robot)) / 100)); // 피로도만큼 최대 체력이 줄어든다
   s.crit = clamp(s.crit, 0, .75); s.eva = clamp(s.eva, 0, .6);
+  s.spread = T.spread != null ? T.spread : CONST.SPREAD;   // 공격력 구간의 폭 (기체 고유)
   return s;
 }
 
+/* 표시용 공격력 구간. 피해는 최종적으로 (1±spread) 배가 되므로
+   공격력을 그 폭으로 늘려 보여 주는 것이 실제 위력과 정확히 같다. */
+export function atkRange(st) {
+  const sp = st.spread != null ? st.spread : CONST.SPREAD;
+  return [Math.round(st.atk * (1 - sp)), Math.round(st.atk * (1 + sp))];
+}
+
+/* 전투력.
+ *
+ * 예전에는 스탯을 가중합했다. 그런데 실제 전투에서 스탯 우위는 더해지지 않고 **곱해진다** —
+ * 공격력이 5% 높고 속도가 5% 높고 내구가 5% 높으면 실질 우위는 15% 가 아니라 16% 를 넘는다.
+ * 그래서 가중합은 격차를 심하게 줄여 보여 줬다. Lv.60 커먼과 언커먼의 표시 차이가 1.7% 인데
+ * 실제 승률은 32:68 이었다 — 숫자가 플레이어에게 거짓말을 하고 있었다.
+ *
+ * 지금은 공격력(공격 × 속도 × 치명타 기대치)과 생존력(내구 × 방어 × 회피)을 각각 곱으로 묶고
+ * 그 기하평균을 쓴다. 전투의 구조와 같은 모양이라, 표시된 격차가 체감 격차와 맞는다.
+ * 매칭도 이 값의 ±15% 로 상대를 찾으므로 이게 맞아야 대전이 공정해진다.
+ *
+ * K 는 눈금일 뿐이다 — 커먼 Lv.30 이 대략 3100 으로 보이게 맞춰 두었다. */
+const POWER_K = 0.115;
 export function power(robot, parts) {
   const s = computeStats(robot, parts);
-  return Math.round(s.hp * 0.5 + s.atk * (3 / ATK_SCALE) + s.def * 2.6 + s.spd * 2.2 + s.crit * 320 + s.eva * 280);
+  const off = s.atk * (1 + s.crit * (CONST.CRIT_MULT - 1)) * s.spd;
+  const sur = s.hp * (1 + s.def / 100) / Math.max(0.4, 1 - s.eva);
+  return Math.round(Math.sqrt(off * sur) * POWER_K);
 }
 
 /* 육성 곡선 */

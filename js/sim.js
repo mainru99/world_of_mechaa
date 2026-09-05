@@ -8,6 +8,13 @@ import { COMBAT_TYPES } from './units.js';
 
 const { CRIT_MULT, DEF_PEN } = CONST;
 
+/* 공격력 구간 — 같은 스탯이라도 매 타격의 실제 위력이 이 폭 안에서 흔들린다.
+   기체마다 다르다: 저격형은 거의 같은 수로 맞히고(±12%), 포격형은 크게 흔들린다(±34%).
+   폭이 넓을수록 약자가 뒤집을 여지가 커지고, 좁을수록 우세한 쪽이 확실히 이긴다.
+   구형 아레나 스냅샷에는 이 값이 없으므로 기체 표에서 되찾는다. */
+export const spreadOf = type =>
+  (COMBAT_TYPES[type] && COMBAT_TYPES[type].spread != null) ? COMBAT_TYPES[type].spread : CONST.SPREAD;
+
 /* 시드 난수 — 전투 안의 모든 판정은 이것만 쓴다 */
 export function mulberry32(a) {
   return function () {
@@ -20,12 +27,14 @@ export function mulberry32(a) {
 
 export function makeUnit(name, type, st) {
   return { name, type, maxhp: st.hp, hp: st.hp, atk: st.atk, def: st.def, spd: st.spd,
-           crit: st.crit, eva: st.eva, sp: 0 };
+           crit: st.crit, eva: st.eva, sp: 0,
+           spread: st.spread != null ? st.spread : spreadOf(type) };
 }
 
-export function dmgCalc(atk, def, rnd, mult) {
+export function dmgCalc(atk, def, rnd, mult, spread) {
+  const sp = spread != null ? spread : CONST.SPREAD;
   let b = atk * 100 / (100 + Math.max(0, def));
-  b *= mult; b *= 0.9 + rnd() * 0.2;
+  b *= mult; b *= 1 - sp + rnd() * 2 * sp;      // 구간 안에서 균등하게 — 기댓값은 그대로 1배
   return Math.max(1, Math.round(b));
 }
 
@@ -35,7 +44,7 @@ export function doHit(A, D, side, dside, ev, rnd, o) {
   const crit = o.alwaysCrit || (!o.noCrit && rnd() < A.crit);
   const pen = o.ignoreDef ? (o.ignoreDef === true ? DEF_PEN : o.ignoreDef) : 0;  // 완전 무시가 아니라 부분 관통
   const m = (o.mult || 1) * (crit ? CRIT_MULT : 1), def = Math.max(0, D.def) * (1 - pen);
-  const dmg = dmgCalc(A.atk, def, rnd, m); D.hp = Math.max(0, D.hp - dmg);
+  const dmg = dmgCalc(A.atk, def, rnd, m, A.spread); D.hp = Math.max(0, D.hp - dmg);
   ev.push({ t:'hit', side, dside, miss:false, dmg, crit, thp:D.hp });
   if (o.drain) {
     const hl = Math.max(1, Math.round(dmg * o.drain));
@@ -61,7 +70,18 @@ export function simulate(P, E, seed) {
     const actors = [];
     if (g.P >= 99.999) actors.push('P');
     if (g.E >= 99.999) actors.push('E');
-    actors.sort((a, b) => (b === 'P' ? P.spd : E.spd) - (a === 'P' ? P.spd : E.spd));
+    /* 둘이 같은 틱에 찼을 때 누가 먼저 때리는가.
+       빠른 쪽이 먼저다 — 여기까지는 의도한 대로다. 문제는 속도가 같을 때였다.
+       예전에는 정렬이 안정 정렬이라 늘 P 가 먼저였고, 첫 턴은 양쪽 게이지가 0에서
+       동시에 차므로 반드시 동률이다. 그래서 완전히 같은 기체끼리 붙여도
+       선공측이 59.5% 를 이겼다. 아레나 수비측은 항상 E 라 늘 손해를 봤다.
+       동률은 시드 난수로 가른다 — 결정적이라 서버와 클라의 재생은 그대로 일치한다. */
+    if (actors.length === 2) {
+      const d = P.spd - E.spd;
+      const pFirst = d !== 0 ? d > 0 : rnd() < 0.5;
+      actors[0] = pFirst ? 'P' : 'E';
+      actors[1] = pFirst ? 'E' : 'P';
+    }
     for (const side of actors) {
       if (P.hp <= 0 || E.hp <= 0) break;
       g[side] -= 100;

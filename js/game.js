@@ -9,12 +9,13 @@
 import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, PULL_TABLE,
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST } from '../data/balance.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
-import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs,
+import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs, atkRange,
          expNeed, battleExp, lvCost, enhCost,
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import * as net from './net.js';
 import { rollPull, genPart as _genPart, autoScrapValue } from './gacha.js';
+import { makeOpponent as _makeOpponent } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN } = CONST;
@@ -22,7 +23,17 @@ const ROBOT_APPEAR = PULL_TABLE.find(t=>t.k==='robot').w/100;   // 화면 표기
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
 const SLOT_KO = {WEAPON:'무장',FRAME:'프레임',BOOSTER:'부스터',CORE:'코어'};
 const STAT_LABEL = { hp:'내구', atk:'공격', def:'방어', spd:'속도', crit:'치명', eva:'회피' };
-const STAT_MAX   = { hp:1500, atk:Math.round(340*ATK_SCALE), def:280, spd:140, crit:.75, eva:.6 };  // atk 는 배율에서 파생
+/* 스탯 바의 상한 — 손으로 적어 두면 밸런스가 바뀔 때마다 어긋난다. 실제로 어긋나 있었다:
+   상한이 내구 1500 인데 Lv.60 내구는 3900 이라, 중반부터는 바가 늘 꽉 차 아무것도 알려주지 않았다.
+   그래서 기체 표에서 '최고 레벨 최댓값'을 뽑고 파츠 몫으로 35% 를 얹는다. */
+const STAT_MAX = (() => {
+  const m = { hp:0, atk:0, def:0, spd:0, crit:.75, eva:.6 };
+  for (const T of Object.values(ROBOT_TYPES))
+    for (const k of ['hp','atk','def','spd'])
+      m[k] = Math.max(m[k], (T.base[k] + (T.grow[k]||0) * (MAXLV-1)) * (k==='atk' ? ATK_SCALE : 1));
+  for (const k of ['hp','atk','def','spd']) m[k] = Math.round(m[k] * 1.35);
+  return m;
+})();
 
 /* ------------------------------- 유틸 ------------------------------- */
 const R = Math.random;
@@ -204,12 +215,16 @@ function dur(ms){
   if(m<60) return m+'분';
   return Math.floor(m/60)+'시간 '+(m%60?m%60+'분':'');
 }
-function statBar(k,v,full){       // full 을 주면 깎여나간 만큼을 붉게 겹쳐 보여준다
+function statBar(k,v,full,range){  // full 을 주면 깎여나간 만큼을 붉게 겹쳐 보여준다
+                                  // range 를 주면 숫자 대신 구간으로 쓴다(공격력)
   const dmg = full!=null && full>v;
   /* 깎였을 때 큰 숫자는 '원래 최대치'다. 바도 full 까지 그려 놓고 그중 붉은 부분이 손실이라
      "494 −222" 로 읽힌다. 현재 유효치(272)를 크게 쓰면 "272에서 222를 또 뺀다"로 오해된다. */
   const shown = dmg ? full : v;
-  const pct=clamp(v/STAT_MAX[k]*100,0,100), val=isPct(k)?(shown*100).toFixed(0)+'%':fmt(shown);
+  const pct=clamp(v/STAT_MAX[k]*100,0,100);
+  /* 공격력은 고정값이 아니라 구간이다. 한 방의 위력은 매번 이 사이에서 정해진다. */
+  const val=range ? `${fmt(range[0])}<span style="opacity:.55">~</span>${fmt(range[1])}`
+                  : isPct(k)?(shown*100).toFixed(0)+'%':fmt(shown);
   const ghost = dmg? `<u style="width:${clamp(full/STAT_MAX[k]*100,0,100)}%"></u>` : '';
   const lost  = dmg? ` <s>−${fmt(full-v)}</s>` : '';
   return `<div class="stat"><div class="row"><b>${STAT_LABEL[k]}</b><span>${val}${lost}</span></div><div class="bar">${ghost}<i style="width:${pct}%"></i></div></div>`; }
@@ -247,8 +262,13 @@ function renderHangar(){
             rb.level>=MAXLV?'MAX':`${fmt(rb.exp||0)} / ${fmt(expNeed(rb.level))}`}</span></div>
             <div class="bar"><i style="width:${rb.level>=MAXLV?100:clamp((rb.exp||0)/expNeed(rb.level)*100,0,100)}%"></i></div></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px;margin-top:6px">
-            ${['hp','atk','def','spd','crit','eva'].map(k=>statBar(k,st[k], k==='hp'?st.hpFull:null)).join('')}
+            ${['hp','atk','def','spd','crit','eva'].map(k=>statBar(k,st[k],
+                k==='hp'?st.hpFull:null, k==='atk'?atkRange(st):null)).join('')}
           </div>
+          <div class="hint" style="margin-top:2px">공격력은 매 타격마다 위 구간 안에서 정해집니다 ·
+            이 기체의 폭 <b>±${Math.round(st.spread*100)}%</b>${
+              st.spread<=.16?' (정밀 — 거의 같은 수로 맞힙니다)'
+            : st.spread>=.28?' (고화력 — 크게 흔들립니다)' : ''}</div>
           <div class="stat fat"><div class="row"><b>피로도</b>
               <span class="${fat?'worn':''}">${fat} / ${FAT_MAX}${fat?` <s>최대 내구 −${fat}%</s>`:''}</span></div>
             <div class="bar"><i style="width:${fat/FAT_MAX*100}%"></i></div>
@@ -527,21 +547,18 @@ function nextMatch(){
   setScene('battle');
   showOpponent(_pendingOpp);
 }
-function oppType(byRarity=BY_RARITY){                       // 내가 가진 최고 등급보다 한 단계 위까지만 만난다
-  const best=Math.max(...S.robots.map(r=>RIDX[rarOf(r.type)]));
-  const pool=ROBOT_RARITY.filter(r=>RIDX[r.k]<=Math.min(4,best+1));
-  return pick(byRarity[weighted(pool).k]);
-}
+/* 연습 대전의 상대. 예전에는 여기에 상대 생성 규칙이 따로 한 벌 있었는데,
+   서버가 js/rewards.js 의 규칙으로 옮겨 간 뒤로 둘이 갈라져 있었다 —
+   연습에서는 아직 ±2 레벨에 등급 보정도 없어서, 같은 화면인데 다른 게임을 하고 있었다.
+   서버와 같은 함수를 부른다. 규칙이 한 곳에만 있어야 갈라지지 않는다. */
 function makeOpponent(){
-  const monster=R()<CONST.MONSTER_RATE;
-  const myLv=selRobot().level, type=oppType(monster?MONSTER_BY_RARITY:BY_RARITY), lv=clamp(myLv+ri(-2,2),1,MAXLV);
-  const rb={uid:'E'+uid(),type,level:lv,slots:emptySlots()}, parts=[];
-  // 몬스터는 고유 스탯/성장률로 싸우며 소유 기체나 파츠를 생성하지 않는다.
-  if(monster) return {kind:'monster',robot:rb,parts,callsign:MONSTER_TYPES[type].name};
-  const np=ri(0,2);
-  for(let i=0;i<np;i++){ const p=genPart(lv); parts.push(p); rb.slots[p.slot]=p.uid; }
-  const callsign=pick(['NOVA','RAZE','ORCA','KITE','VULT','ZERO','ONYX','HELM','SABLE','ARC','GEIST','ROOK'])+'-'+ri(10,99);
-  return {kind:'robot',robot:rb,parts,callsign};
+  const my=selRobot();
+  const owned=[...new Set(S.robots.map(r=>rarOf(r.type)))];
+  const worn=Object.values(my.slots||{}).filter(Boolean).length;
+  let n=0;
+  const o=_makeOpponent(owned, my.level, R, ()=>'E'+uid(), false, worn);
+  const rb={uid:'E'+uid(), type:o.type, level:o.level, slots:o.slots};
+  return {kind:o.kind==='monster'?'monster':'robot', robot:rb, parts:o.parts, callsign:o.callsign};
 }
 function showOpponent(opp, practice){
   const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];

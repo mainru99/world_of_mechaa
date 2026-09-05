@@ -19,8 +19,8 @@ export function balanceVersion() {
   if (_ver) return _ver;
   let h = 2166136261;
   const feed = s => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } };
-  for (const t of Object.values(ROBOT_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + JSON.stringify(t.skill.fx));
-  for (const t of Object.values(MONSTER_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow));
+  for (const t of Object.values(ROBOT_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + JSON.stringify(t.skill.fx) + t.spread);
+  for (const t of Object.values(MONSTER_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + t.spread);
   feed(JSON.stringify(CONST));
   _ver = (h >>> 0).toString(36);
   return _ver;

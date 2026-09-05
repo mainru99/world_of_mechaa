@@ -189,6 +189,20 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on
 /* 배경 연출은 body[data-scene] 하나로 갈린다.
    hangar/gacha = 격납고, battle = 야간작전, arena = 콕핏 HUD */
 function setScene(name){ document.body.dataset.scene = name; }
+/* 대전 화면을 앞으로 꺼낸다. go('battle') 과 달리 **다시 그리지 않는다** —
+   대전은 자체 흐름(찾기 → 발견 → 아레나 → 결과)이라, 여기서 renderBattleHome 을 부르면
+   방금 만든 화면이 날아간다. bg 를 주면 배경만 따로 바꾼다(재생 중에는 콕핏 배경).
+
+   예전에는 이 자리에서 setScene() 만 불렀는데 그건 **배경만** 바꾼다. 대전 탭에서
+   들어오면 sc-battle 이 이미 active 라 우연히 동작했지만, 토벌 탭에서 누르면
+   sc-hunt 가 active 인 채여서 상대 카드가 '보이지 않는 화면 뒤'에 그려졌다.
+   '토벌이 눌리기만 하고 아무 일도 안 일어난다'의 정체가 이것이다. */
+function toBattle(bg){
+  cur = 'battle';
+  setScene(bg || 'battle');
+  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id==='sc-battle'));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.s==='battle'));
+}
 function go(scr){ cur=scr; setScene(scr); document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.s===scr));
   renderWallet();
@@ -483,7 +497,7 @@ async function renderRank(){
 /* 상대는 서버가 고른다. 상대 레벨이 보상에 들어가므로 클라가 고르게 두면
    만렙 상대만 잡아 경험치를 부풀릴 수 있다. */
 async function findMatch(opts){
-  setScene('battle');
+  toBattle();
   $('#sc-battle').innerHTML = `<h2 class="title">대전</h2><div class="panel"><div class="mm">
     <div class="spinner"></div><div style="font-weight:800">상대를 검색하는 중...</div>
     <div class="hint">상대 로봇과 야생 몬스터의 신호를 탐색합니다.</div></div></div>`;
@@ -544,7 +558,7 @@ function hunt(tier){ findMatch({ mode:'hunt', tier }); }
    미리 받은 게 없거나 만료됐으면 그때만 다시 찾는다. */
 function nextMatch(){
   if(!_pendingOpp) return findMatch();
-  setScene('battle');
+  toBattle();
   showOpponent(_pendingOpp);
 }
 /* 연습 대전의 상대. 예전에는 여기에 상대 생성 규칙이 따로 한 벌 있었는데,
@@ -599,7 +613,7 @@ function showOpponent(opp, practice){
 let _practiceOpp=null;
 
 function practiceFind(){
-  setScene('battle');
+  toBattle();
   const o=makeOpponent();
   _practiceOpp={ ...o, rating:null, seed:(Math.random()*0xffffffff)>>>0 };
   showOpponent(_practiceOpp, true);
@@ -622,7 +636,7 @@ async function practiceStart(){
 }
 
 function renderPracticeResult(win,P,E){
-  setScene('battle');
+  toBattle();
   $('#sc-battle').innerHTML = `
     <div class="panel result">
       <div class="big ${win?'win':'lose'}">${win?'VICTORY':'DEFEAT'}</div>
@@ -699,7 +713,7 @@ function battleRewards(win,enemyLv){
 
 /* ---- 대전 아레나 & 재생 ---- */
 function renderArena(pType,eType,pName,eName){
-  setScene('arena');                    // 전투 재생 동안만 콕핏 HUD
+  toBattle('arena');                    // 전투 재생 동안만 콕핏 HUD
   $('#sc-battle').innerHTML = `
     <h2 class="title">${MONSTER_TYPES[eType]?'몬스터 대전':'자동 대전'}</h2>
     <div class="arena" id="arena">
@@ -768,7 +782,7 @@ async function playBattle(events,P,E){
   return 'P';
 }
 function renderResult(win,rw,P,E,opp){
-  setScene('battle');                   // 전투가 끝나면 야간작전으로 돌아온다
+  toBattle();                   // 전투가 끝나면 야간작전으로 돌아온다
   const rewards = [];
   if(rw.rescue) rewards.push(`<div class="r" style="color:var(--bad)">비상 출격 · 크레딧만 지급</div>`);
   else if(rw.cost) rewards.push(`<div class="r" style="color:var(--dim)">출격비 −${rw.cost}</div>`);

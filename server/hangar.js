@@ -21,7 +21,6 @@ const getPart = (env, acc, uid) => env.DB
 const getPlayer = (env, acc) => env.DB
   .prepare('SELECT credits, cores, scrap, rev, sel_robot, level, exp, squad1, squad2, pending_match FROM player WHERE account_id = ?1')
   .bind(acc).first();
-const pilotLv = p => Math.max(1, (p && p.level) | 0 || 1);
 
 /* 재화를 깎고 rev 를 올린다. 두 곳에서 같은 문장을 쓰지 않으려고 묶었다. */
 const spend = (env, acc, p, { credits = 0, scrap = 0 }, now) => env.DB
@@ -87,20 +86,20 @@ export async function hangarAction(env, acc, body, now) {
   }
 
   /* ── 즉시 레벨업 (크레딧) ── */
-  /* 레벨은 파일럿의 것이다(006). 올리면 보유한 기체가 전부 함께 강해진다 —
-     그래야 두 번째 기체를 데려갈 수 있고, 상대를 보고 고르는 판단이 생긴다.
-     기체를 지정할 필요가 없으므로 robotUid 를 받지 않는다. */
+  /* 레벨은 기체마다 따로다(007). 키우는 과정이 곧 보상이라, 새로 뽑은 기체는
+     Lv.1 부터 시작해 제 또래 상대와 싸우며 큰다. */
   if (action === 'levelup') {
-    const lv = pilotLv(p);
-    if (lv >= CONST.MAXLV) return err(400, 'max level');
-    const cost = lvCost(lv);
+    const rb = await getRobot(env, acc, body.robotUid);
+    if (!rb) return err(404, 'robot not found');
+    if (rb.level >= CONST.MAXLV) return err(400, 'max level');
+    const cost = lvCost(rb.level);
     if (p.credits < cost) return err(400, 'not enough credits');
     await env.DB.batch([
-      env.DB.prepare('UPDATE player SET level = ?1, exp = 0 WHERE account_id = ?2').bind(lv + 1, acc),
+      env.DB.prepare('UPDATE robot SET level = ?1, exp = 0 WHERE id = ?2').bind(rb.level + 1, rb.id),
       spend(env, acc, p, { credits: cost }, now),
     ]);
     await registerArena(env, acc, now);
-    return { ok: true, rev: p.rev + 1, credits: p.credits - cost, level: lv + 1, cost };
+    return { ok: true, rev: p.rev + 1, credits: p.credits - cost, level: rb.level + 1, cost };
   }
 
   /* ── 정비 (크레딧) ── */
@@ -108,9 +107,9 @@ export async function hangarAction(env, acc, body, now) {
     const rb = await getRobot(env, acc, body.robotUid);
     if (!rb) return err(404, 'robot not found');
     /* 서버 시각으로 자연 회복부터 정산한다. 그래야 '이미 회복된 만큼'을 돈 주고 사지 않는다. */
-    const r = { level: pilotLv(p), fat: rb.fat, fatAt: rb.fat_at };
+    const r = { level: rb.level, fat: rb.fat, fatAt: rb.fat_at };
     decayFat(r, now);
-    const cost = serviceCost({ type: rb.type, level: pilotLv(p), fat: r.fat });
+    const cost = serviceCost({ type: rb.type, level: rb.level, fat: r.fat });
     if (cost <= 0) return err(400, 'already serviced');
     if (p.credits < cost) return err(400, 'not enough credits');
     await env.DB.batch([

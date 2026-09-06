@@ -6,7 +6,7 @@
  * 난수는 인자로 받는다. 클라는 Math.random, 서버는 crypto 기반을 넣는다.
  * 그래야 서버가 판정할 때 클라의 난수에 의존하지 않는다.
  */
-import { ROBOT_TYPES, ROBOT_RARITY, PULL_TABLE, RARITY, SLOTS, SLOT_STATS, PART_NAMES, STAT_ROLL, CONST } from '../data/balance.js';
+import { ROBOT_TYPES, ROBOT_RARITY, PULL_TABLE, RARITY, SLOTS, SLOT_STATS, SLOT_COST, COST_ROLL, PART_NAMES, STAT_ROLL, CONST } from '../data/balance.js';
 
 export const isPct = s => s === 'crit' || s === 'eva';
 
@@ -42,6 +42,14 @@ export function genPart(level, rnd, uid, forceRar, forceSlot) {
     let v = rf(a, b, rnd) * rar.mul;
     if (!isPct(st)) v = Math.round(v * lvScale);
     stats[st] = (stats[st] || 0) + v;
+  }
+  /* 대가 — 슬롯마다 정해진 스탯 하나를 반드시 깎는다. 상승분과 같은 배수를 타므로
+     등급이 높을수록 더 크게 올리고 더 크게 깎는다. 세지는 게 아니라 뾰족해진다. */
+  const cst = SLOT_COST[slot], cr = cst && COST_ROLL[cst];
+  if (cr) {
+    let c = rf(cr[0], cr[1], rnd) * rar.mul;
+    if (!isPct(cst)) c = Math.round(c * lvScale);
+    stats[cst] = (stats[cst] || 0) - c;
   }
   for (const k in stats) if (isPct(k)) stats[k] = Math.round(stats[k] * 1000) / 1000;
   return { uid, slot, name: pick(PART_NAMES[slot], rnd), rarity: rar.k, ko: rar.ko, stats, enh: 0 };

@@ -29,11 +29,11 @@ export function balanceVersion() {
 /* 출전 기체의 '피로도 없는' 스냅샷을 만들어 등록한다. */
 export async function registerArena(env, accountId, now) {
   const p = await env.DB.prepare(
-    'SELECT nickname, rating, sel_robot, level FROM player WHERE account_id = ?1').bind(accountId).first();
+    'SELECT nickname, rating, sel_robot FROM player WHERE account_id = ?1').bind(accountId).first();
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
-    'SELECT id, uid, type, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
+    'SELECT id, uid, type, level, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(accountId).all()).results || [];
   if (!robots.length) return null;
   const row = robots.find(r => r.id === p.sel_robot) || robots[0];
@@ -49,8 +49,7 @@ export async function registerArena(env, accountId, now) {
     if (q) used.push({ uid: q.uid, slot: q.slot, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
   }
 
-  /* 레벨은 파일럿 것이다(006) — 방어 기체도 내 레벨로 선다 */
-  const lv = Math.max(1, p.level | 0 || 1);
+  const lv = row.level;
   const defRobot = { type: row.type, level: lv, fat: 0, slots };   // 피로도 0 으로 고정
   const stats = computeStats(defRobot, used);
   const pw = power(defRobot, used);

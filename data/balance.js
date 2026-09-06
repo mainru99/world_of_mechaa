@@ -205,8 +205,20 @@ export const MONSTER_TYPES = {
 
 /* 파츠 */
 export const SLOTS = ['WEAPON','FRAME','BOOSTER','CORE'];
-export const SLOT_STATS = { WEAPON:['atk','atk','crit','spd'], FRAME:['hp','def','def','hp'],
+export const SLOT_STATS = { WEAPON:['atk','atk','atk','crit'], FRAME:['hp','def','def','hp'],
                      BOOSTER:['spd','eva','spd','crit'], CORE:['hp','atk','def','crit'] };
+
+/* 파츠의 **대가**. 슬롯마다 하나씩, 반드시 깎인다.
+   예전에는 파츠 스탯이 전부 양수라 '좋은 걸 끼면 끝'이었다 — 고를 것이 없었다.
+   대가가 붙으면 빌드가 갈리고, 상대를 보고 바꿔 낄 이유가 생긴다.
+     무장  → 속도  (크고 무거운 화기를 달았다)
+     프레임 → 회피  (장갑이 두꺼워 못 피한다)
+     부스터 → 방어  (가볍게 깎아 낸 기동부라 얇다)
+     코어  → 속도  (출력을 끌어올린 만큼 무겁다)
+   대가 스탯은 그 슬롯의 상승 목록(SLOT_STATS)에 들어 있지 않다. 한 파츠가 같은 값을
+   올리고 동시에 깎으면 상쇄돼 아무 의미가 없어진다. */
+export const SLOT_COST = { WEAPON:'spd', FRAME:'eva', BOOSTER:'def', CORE:'spd' };
+export const COST_ROLL = { spd:[2,6], def:[3,9], eva:[.012,.030], hp:[16,40], atk:[4,11], crit:[.012,.030] };
 export const PART_NAMES = {
   WEAPON:['빔 세이버','발칸포','레일건','포톤 랜스','채프 런처','브레이커'],
   FRAME:['합금 장갑','리액티브 아머','실드 프레임','경량 골격','나노 코팅'],

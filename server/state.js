@@ -9,7 +9,7 @@
  * 검증은 '모양과 범위'까지만 한다. 클라가 보낸 값이 정당하게 얻은 것인지는
  * 아직 확인하지 않는다 — 그건 서버가 뽑기·전투를 직접 판정하는 다음 단계의 일이다.
  */
-import { ROBOT_TYPES, RARITY, SLOTS, STAT_ROLL, CONST } from '../data/balance.js';
+import { ROBOT_TYPES, RARITY, SLOTS, STAT_ROLL, COST_ROLL, CONST } from '../data/balance.js';
 
 const PART_RARITIES = new Set(RARITY.map(r => r.k));
 const SLOT_SET = new Set(SLOTS);
@@ -25,14 +25,19 @@ const isPct = k => k === 'crit' || k === 'eva';
    이다. 상수를 베껴 두지 않고 여기서 계산하므로, ChatGPT 가 수치를 바꾸면
    상한도 같이 움직인다. (강화 enh 는 스탯에 굽지 않고 계산할 때 곱하므로 무관) */
 const LV_SCALE_MAX = 1 + CONST.MAXLV * 0.03;
-const STAT_CAP = {};
+const STAT_CAP = {}, STAT_FLOOR = {};
+/* 파츠는 이제 대가로 한 스탯을 깎는다(SLOT_COST). 그래서 하한도 같이 유도한다 —
+   음수를 통째로 버리면 정상 파츠의 대가가 사라져 오히려 더 센 파츠가 된다. */
 for (const r of RARITY) {
-  const cap = {};
+  const cap = {}, floor = {};
   for (const st of STAT_LIST) {
     const hi = STAT_ROLL[st] ? STAT_ROLL[st][1] : 0;
     cap[st] = r.n * hi * r.mul * (isPct(st) ? 1 : LV_SCALE_MAX) * 1.02;   // 반올림 여유 2%
+    /* 대가는 슬롯당 한 번뿐이라 굴림 수 n 을 곱하지 않는다 */
+    const lo = COST_ROLL[st] ? COST_ROLL[st][1] : 0;
+    floor[st] = -lo * r.mul * (isPct(st) ? 1 : LV_SCALE_MAX) * 1.02;
   }
-  STAT_CAP[r.k] = cap;
+  STAT_CAP[r.k] = cap; STAT_FLOOR[r.k] = floor;
 }
 
 /* 이관 상한 — 오래 논 저장본보다는 넉넉하되 무한은 아니게.
@@ -82,10 +87,13 @@ export function sanitize(raw) {
       for (const k of Object.keys(p.stats)) {
         if (!STAT_KEYS.has(k)) continue;
         const v = Number(p.stats[k]);
-        if (!Number.isFinite(v) || v < 0) continue;
-        // 등급이 낼 수 있는 최댓값을 넘으면 잘라 낸다. 여기가 예전에 뚫려 있던 자리다.
-        const cap = STAT_CAP[p.rarity][k];
-        if (v > cap) { clamped.push(`${p.uid}.${k} ${v}→${cap.toFixed(3)}`); stats[k] = cap; }
+        if (!Number.isFinite(v)) continue;
+        // 등급이 낼 수 있는 범위를 넘으면 잘라 낸다. 여기가 예전에 뚫려 있던 자리다.
+        // 아래쪽도 막는다 — 대가를 실제보다 크게 적어 넣는 것은 막을 이유가 없지만,
+        // 터무니없는 음수로 다른 계산을 흔드는 것은 막아야 한다.
+        const cap = STAT_CAP[p.rarity][k], floor = STAT_FLOOR[p.rarity][k];
+        if (v > cap)        { clamped.push(`${p.uid}.${k} ${v}→${cap.toFixed(3)}`);   stats[k] = cap; }
+        else if (v < floor) { clamped.push(`${p.uid}.${k} ${v}→${floor.toFixed(3)}`); stats[k] = floor; }
         else stats[k] = v;
       }
     }
@@ -157,12 +165,12 @@ export async function noteMigration(env, accountId, clamped, now) {
 export async function loadState(env, accountId) {
   const p = await env.DB.prepare(
     `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev,
-            sel_robot, level, exp, squad1, squad2
+            sel_robot, squad1, squad2
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, fat, fat_at, s_weapon, s_frame, s_booster, s_core
+    `SELECT id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
   const parts = (await env.DB.prepare(
     `SELECT id, uid, slot, name, rarity, stats, enh
@@ -172,7 +180,6 @@ export async function loadState(env, accountId) {
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 
   const sel = Math.max(0, robots.findIndex(r => r.id === p.sel_robot));
-  const lv = Math.max(1, p.level | 0 || 1);
   const uidOf = id => (robots.find(r => r.id === id) || {}).uid || null;
   return {
     rev: p.rev,
@@ -181,17 +188,13 @@ export async function loadState(env, accountId) {
     state: {
       v: 2, credits: p.credits, cores: p.cores, scrap: p.scrap,
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },
-      /* 레벨·경험치는 파일럿의 것이다(006). 보유한 기체는 전부 이 레벨로 싸운다. */
-      level: lv, exp: p.exp | 0,
       /* 출격 편성 — 데려갈 수 있는 두 기. uid 로 내려 클라가 그대로 쓴다. */
       squad: [uidOf(p.squad1), uidOf(p.squad2)].filter(Boolean),
       sel,
       robots: robots.map(r => {
         const slots = {};
         for (const sl of SLOTS) slots[sl] = byId.get(r[col[sl]]) ?? null;
-        /* level 을 기체마다 얹어 둔다 — computeStats 가 예전 모양 그대로 돌게 하려고.
-           정본은 위의 state.level 이다. */
-        return { uid: r.uid, type: r.type, level: lv, exp: 0, fat: r.fat, fatAt: r.fat_at, slots };
+        return { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at, slots };
       }),
       parts: parts.map(x => ({
         uid: x.uid, slot: x.slot, name: x.name, rarity: x.rarity,

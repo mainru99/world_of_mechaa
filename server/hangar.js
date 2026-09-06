@@ -81,7 +81,12 @@ export async function hangarAction(env, acc, body, now) {
       env.DB.prepare('UPDATE part SET enh = ?1 WHERE id = ?2').bind(pt.enh + 1, pt.id),
       spend(env, acc, p, { scrap: cost }, now),
     ]);
-    await registerArena(env, acc, now);   // 강화한 파츠를 끼고 있을 수 있다
+    /* 방어 스냅샷은 '나가는 기체가 낀 파츠'만 반영한다. 인벤토리에 있는 파츠를
+       강화한 것이면 스냅샷이 달라질 리 없으므로 다시 쓰지 않는다. */
+    const worn = await env.DB.prepare(
+      `SELECT 1 FROM robot WHERE account_id = ?1 AND id = ?2
+         AND ?3 IN (s_weapon, s_frame, s_booster, s_core)`).bind(acc, p.sel_robot, pt.id).first();
+    if (worn) await registerArena(env, acc, now);
     return { ok: true, rev: p.rev + 1, scrap: p.scrap - cost, enh: pt.enh + 1, cost };
   }
 

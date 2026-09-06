@@ -150,9 +150,14 @@ function selRobot(){ return S.robots[S.sel]; }
 /* 격납고 조작도 서버가 판정한다. 비용 계산과 가능 여부를 클라가 하면
    크레딧을 쓰지 않고 레벨을 올리는 식의 조작이 가능하다.
    클라는 '무엇을 하겠다'만 보내고, 확정된 값을 받아 적는다. */
+/* 서버가 내는 오류를 사람 말로. 여기 없으면 영문이 그대로 화면에 뜬다 —
+   서버에 새 오류를 더하면 여기도 함께 채울 것. */
 const ERR_KO = { 'not enough credits':'크레딧이 부족합니다', 'not enough scrap':'스크랩이 부족합니다',
   'max level':'최대 레벨입니다', 'max enhanced':'최대 강화입니다', 'already serviced':'이미 정비된 상태입니다',
-  'slot mismatch':'그 슬롯에 넣을 수 없는 파츠입니다', 'part not found':'파츠를 찾을 수 없습니다' };
+  'slot mismatch':'그 슬롯에 넣을 수 없는 파츠입니다', 'part not found':'파츠를 찾을 수 없습니다',
+  'bad slot':'알 수 없는 슬롯입니다', 'robot not found':'그 기체를 찾을 수 없습니다',
+  'not in squad':'출격 편성에 없는 기체입니다', 'squad cannot be empty':'최소 한 기는 편성해야 합니다',
+  'no player':'계정 정보를 찾을 수 없습니다', 'unknown action':'알 수 없는 요청입니다' };
 
 async function srvHangar(action, args){
   if(!net.state.online){ toast('격납고 조작은 서버 연결이 필요합니다'); return null; }
@@ -498,6 +503,13 @@ function renderBattleHome(){
 /* ------------------------------- 랭킹 ------------------------------- */
 /* 순위는 서버 크론이 미리 계산해 둔 값을 받아 오기만 한다.
    여기서 세면 하위권일수록 거의 전원을 읽어 무료 한도가 마른다. */
+/* 순위는 30분 크론이 미리 계산해 둔 값이다. 화면을 열 때마다 다시 부르면
+   같은 답을 받으려고 요청만 쓴다(요청 수가 곧 무료 한도다). 잠깐 들고 있는다.
+   전투로 내 레이팅이 움직였으면 캐시를 버린다 — 그때는 값이 실제로 달라진다. */
+let _rankCache=null, _rankAt=0;
+const RANK_TTL = 90000;
+function dropRankCache(){ _rankCache=null; _rankAt=0; }
+
 async function renderRank(){
   const el=$('#sc-rank');
   const wrap = inner => `<h2 class="title">랭킹</h2>${inner}`;
@@ -505,10 +517,12 @@ async function renderRank(){
     el.innerHTML = wrap(`<div class="panel"><div class="hint">랭킹은 서버 연결이 필요합니다.</div></div>`);
     return;
   }
-  el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
+  const fresh = _rankCache && (Date.now()-_rankAt) < RANK_TTL;
+  if(!fresh) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
     <div style="font-weight:800">순위를 불러오는 중...</div></div></div>`);
 
-  const r=await net.ranking();
+  const r = fresh ? _rankCache : await net.ranking();
+  if(r && !r.error){ _rankCache=r; _rankAt=Date.now(); }
   if(!r || r.error){
     el.innerHTML = wrap(`<div class="panel"><div class="hint">순위를 불러오지 못했습니다${r&&r.error?' · '+r.error:''}</div></div>`);
     return;
@@ -763,6 +777,7 @@ function applyServerBattle(r, rb){
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
                 lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
                 ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue };
+  if(r.ratingDelta) dropRankCache();     // 내 순위가 실제로 움직였다
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();                              // 서버가 이미 최신이다
   renderWallet();
@@ -892,6 +907,9 @@ window.ROWAR = {
   /* 나갈 기체 고르기 — 편성에 든 기체만. 편성 밖을 누르면 편성에 넣는 것으로 받아 준다. */
   selectRobot:async(i)=>{ const rb=S.robots[i]; if(!rb) return;
     if(!S.squad.includes(rb.uid)) return toggleSquad(rb.uid);
+    /* 이미 나가기로 되어 있는 기체를 또 누르면 서버에 보낼 것이 없다.
+       예전에는 누를 때마다 보냈다 — 요청도, 아레나 재등록(쓰기)도 헛돌았다. */
+    if(S.sel===i) return;
     S.sel=i; renderHangar();
     if(net.state.online) await net.hangar('select',{robotUid:rb.uid});
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
@@ -951,6 +969,9 @@ async function syncOnConnect(){
      들고 영영 어긋났다. 그 상태에서는 격납고 API 가 전부 'robot not found' 다 —
      장착·정비·레벨업·토벌이 통째로 죽는다. 실패하는 길을 하나도 남기지 않는다. */
   const pushOrAdopt = async ok => {
+    /* 이관이 막힌 걸 이미 아는 브라우저는 보내 봐야 403 이다. 바로 서버를 따른다.
+       (이 한 줄이 없으면 브라우저마다 첫 부팅에서 요청 하나를 버린다) */
+    if(net.migrationBlocked()) return adopt();
     const r = await net.push(S);
     if(r && r.ok){ if(ok) toast(ok); return; }
     adopt();

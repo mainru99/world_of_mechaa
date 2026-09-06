@@ -127,6 +127,9 @@ export async function pull() {
   return r.data;                      // { rev, nickname, rating, state, server_now }
 }
 
+/* 이관이 막혀 있는 줄 이미 아는가. 알면 보내지 않는다. */
+export const migrationBlocked = () => migClosed();
+
 export async function push(state) {
   const r = await call('/api/state', { method: 'PUT', body: { state, rev: syncedRev() } });
   if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return { ok: true, rev: r.data.rev, wrote: r.data.wrote }; }

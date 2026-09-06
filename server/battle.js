@@ -22,14 +22,24 @@ function cryptoRnd() {
 }
 const COMBAT = { ...ROBOT_TYPES, ...MONSTER_TYPES };
 
-/* 출전 기체를 DB 에서 읽어 클라 저장본과 같은 모양으로 만든다 */
+/* 출전 기체를 DB 에서 읽어 클라 저장본과 같은 모양으로 만든다.
+   레벨은 기체가 아니라 파일럿의 것이다(006). 여기서 robot.level 에 얹어 두면
+   computeStats·sortieCost·시뮬이 예전 모양 그대로 돈다 — 정본은 player 다.
+   나갈 수 있는 것은 편성(squad1/squad2)에 든 두 기뿐이다. */
 async function loadFighter(env, accountId) {
-  const p = await env.DB.prepare('SELECT sel_robot, credits FROM player WHERE account_id = ?1').bind(accountId).first();
+  const p = await env.DB.prepare(
+    'SELECT sel_robot, credits, level, exp, squad1, squad2 FROM player WHERE account_id = ?1')
+    .bind(accountId).first();
   const robots = (await env.DB.prepare(
-    'SELECT id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
+    'SELECT id, uid, type, fat, fat_at, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(accountId).all()).results || [];
   if (!robots.length) return null;
-  const row = robots.find(r => r.id === (p && p.sel_robot)) || robots[0];
+  const squad = [p && p.squad1, p && p.squad2].filter(Boolean);
+  const inSquad = id => !squad.length || squad.includes(id);
+  const row = robots.find(r => r.id === (p && p.sel_robot) && inSquad(r.id))
+           || robots.find(r => inSquad(r.id))
+           || robots[0];
+  const pilotLv = Math.max(1, (p && p.level) | 0 || 1);
 
   const parts = (await env.DB.prepare('SELECT id, uid, slot, stats, enh FROM part WHERE account_id = ?1')
     .bind(accountId).all()).results || [];
@@ -45,8 +55,11 @@ async function loadFighter(env, accountId) {
   return {
     row,
     credits: p ? p.credits : 0,
-    robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, slots },
+    /* 경험치는 파일럿이 받는다. 이 객체를 gainExp 에 넘긴다. */
+    pilot: { level: pilotLv, exp: (p && p.exp) | 0 },
+    robot: { uid: row.uid, type: row.type, level: pilotLv, exp: 0, fat: row.fat, fatAt: row.fat_at, slots },
     parts: used,
+    /* 상대 등급 보정은 '보유한' 기체 전부를 본다 — 편성에 없어도 내 전력이다 */
     allRarities: robots.map(r => (COMBAT[r.type] || ROBOT_TYPES.mule).rarity),
   };
 }
@@ -215,7 +228,9 @@ export async function startBattle(env, accountId, now) {
   if (rescue) rw = { win, sc: 0, core: 0, part: null, expGain: 0, fatAdd: rw.fatAdd,
                      cr: win ? CONST.RESCUE.crWin : CONST.RESCUE.crLose };
 
-  const lv = gainExp(me.robot, rw.expGain);
+  /* 레벨은 파일럿이 올린다. 보유한 기체가 전부 함께 강해진다 —
+     그래야 두 번째 기체를 데려갈 수 있고, 상대에 맞춰 고르는 판단이 생긴다. */
+  const lv = gainExp(me.pilot, rw.expGain);
   const fatAdd = addFat(me.robot, rw.fatAdd);
 
   const credits = prow.credits - cost + rw.cr;
@@ -237,12 +252,14 @@ export async function startBattle(env, accountId, now) {
       'INSERT INTO part (account_id, uid, slot, name, rarity, stats, enh, created_at) VALUES (?1,?2,?3,?4,?5,?6,0,?7)')
       .bind(accountId, rw.part.uid, rw.part.slot, rw.part.name, rw.part.rarity, JSON.stringify(rw.part.stats), now));
   }
-  stmts.push(env.DB.prepare('UPDATE robot SET level=?1, exp=?2, fat=?3, fat_at=?4 WHERE id=?5')
-    .bind(me.robot.level, me.robot.exp, me.robot.fat, me.robot.fatAt, me.row.id));
+  /* 기체에는 피로도만 남는다. 레벨·경험치는 파일럿 것이다. */
+  stmts.push(env.DB.prepare('UPDATE robot SET fat=?1, fat_at=?2 WHERE id=?3')
+    .bind(me.robot.fat, me.robot.fatAt, me.row.id));
   stmts.push(env.DB.prepare(
     `UPDATE player SET credits=?1, cores=?2, scrap=?3, wins=?4, losses=?5, rev=?6,
-       pending_match=?7, updated_at=?8 WHERE account_id=?9`)
-    .bind(credits, cores, scrap, wins, losses, rev, next.json, now, accountId));
+       pending_match=?7, level=?8, exp=?9, updated_at=?10 WHERE account_id=?11`)
+    .bind(credits, cores, scrap, wins, losses, rev, next.json,
+          me.pilot.level, me.pilot.exp, now, accountId));
 
   /* 사람 상대 전투만 기록한다. 몬스터·생성 상대는 다툴 상대가 없고, 쓰기 예산도 아낀다. */
   let delta = 0;
@@ -278,8 +295,9 @@ export async function startBattle(env, accountId, now) {
     cost, rescue, mode, tier,              // 이번 판에 실제로 낸 출격비와 모드
     next: { opponent: next.opponent, cost: next.cost, rescue: next.rescue,
             mode: next.mode, tier: next.tier },
-    player: { credits, cores, scrap, wins, losses },
-    robot: { uid: me.robot.uid, level: me.robot.level, exp: me.robot.exp, fat: me.robot.fat, fatAt: me.robot.fatAt },
+    /* 레벨·경험치는 파일럿 것이라 player 에 실어 보낸다. robot 에는 피로도만 남는다. */
+    player: { credits, cores, scrap, wins, losses, level: me.pilot.level, exp: me.pilot.exp },
+    robot: { uid: me.robot.uid, fat: me.robot.fat, fatAt: me.robot.fatAt },
     rev,
   };
 }

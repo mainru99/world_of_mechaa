@@ -158,14 +158,29 @@ async function ensureStarter(env, accountId, now) {
   const r = await env.DB
     .prepare('INSERT INTO robot (account_id, type, level, exp, fat, fat_at, uid, created_at) VALUES (?1,?2,1,0,0,?3,?4,?3)')
     .bind(accountId, type, now, newUid('r')).run();
-  await env.DB.prepare('UPDATE player SET sel_robot = ?1, updated_at = ?2 WHERE account_id = ?3')
+  /* 시작 기체는 편성 1번이자 이번에 나갈 기체다. squad1 이 비어 있으면
+     클라가 '편성 없음'으로 읽어 아무것도 못 내보낸다. */
+  await env.DB.prepare('UPDATE player SET sel_robot = ?1, squad1 = ?1, updated_at = ?2 WHERE account_id = ?3')
     .bind(r.meta.last_row_id, now, accountId).run();
+}
+
+/* 편성이 비어 있으면 채운다. 006 이전 계정과, 편성 기체를 잃은 경우를 스스로 복구한다. */
+async function ensureSquad(env, accountId, now) {
+  const p = await env.DB.prepare('SELECT squad1, squad2, sel_robot FROM player WHERE account_id = ?1')
+    .bind(accountId).first();
+  if (!p || p.squad1) return;
+  const r = await env.DB.prepare('SELECT id FROM robot WHERE account_id = ?1 ORDER BY id LIMIT 1')
+    .bind(accountId).first();
+  if (!r) return;
+  await env.DB.prepare('UPDATE player SET squad1 = ?1, sel_robot = COALESCE(sel_robot, ?1), updated_at = ?2 WHERE account_id = ?3')
+    .bind(r.id, now, accountId).run();
 }
 
 /* 현재 계정 상태. 클라가 서버 상태를 확인하는 용도. */
 async function me(env, sess) {
   const now = Date.now();
   await ensureStarter(env, sess.account_id, now);   // 반쪽 계정 자가 복구
+  await ensureSquad(env, sess.account_id, now);    // 편성이 비어 있으면 채운다
 
   const player = await env.DB
     .prepare(`SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rank_cached, sel_robot

@@ -156,12 +156,13 @@ export async function noteMigration(env, accountId, clamped, now) {
 /* ── 읽기 ──────────────────────────────────────────────── */
 export async function loadState(env, accountId) {
   const p = await env.DB.prepare(
-    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev, sel_robot
+    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev,
+            sel_robot, level, exp, squad1, squad2
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core
+    `SELECT id, uid, type, fat, fat_at, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
   const parts = (await env.DB.prepare(
     `SELECT id, uid, slot, name, rarity, stats, enh
@@ -171,6 +172,8 @@ export async function loadState(env, accountId) {
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 
   const sel = Math.max(0, robots.findIndex(r => r.id === p.sel_robot));
+  const lv = Math.max(1, p.level | 0 || 1);
+  const uidOf = id => (robots.find(r => r.id === id) || {}).uid || null;
   return {
     rev: p.rev,
     nickname: p.nickname,
@@ -178,11 +181,17 @@ export async function loadState(env, accountId) {
     state: {
       v: 2, credits: p.credits, cores: p.cores, scrap: p.scrap,
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },
+      /* 레벨·경험치는 파일럿의 것이다(006). 보유한 기체는 전부 이 레벨로 싸운다. */
+      level: lv, exp: p.exp | 0,
+      /* 출격 편성 — 데려갈 수 있는 두 기. uid 로 내려 클라가 그대로 쓴다. */
+      squad: [uidOf(p.squad1), uidOf(p.squad2)].filter(Boolean),
       sel,
       robots: robots.map(r => {
         const slots = {};
         for (const sl of SLOTS) slots[sl] = byId.get(r[col[sl]]) ?? null;
-        return { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at, slots };
+        /* level 을 기체마다 얹어 둔다 — computeStats 가 예전 모양 그대로 돌게 하려고.
+           정본은 위의 state.level 이다. */
+        return { uid: r.uid, type: r.type, level: lv, exp: 0, fat: r.fat, fatAt: r.fat_at, slots };
       }),
       parts: parts.map(x => ({
         uid: x.uid, slot: x.slot, name: x.name, rarity: x.rarity,

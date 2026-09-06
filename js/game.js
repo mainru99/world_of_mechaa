@@ -18,7 +18,7 @@ import { rollPull, genPart as _genPart, autoScrapValue } from './gacha.js';
 import { makeOpponent as _makeOpponent } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js';
 
-const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN } = CONST;
+const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
 const ROBOT_APPEAR = PULL_TABLE.find(t=>t.k==='robot').w/100;   // 화면 표기는 뽑기 표에서 파생
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
 const SLOT_KO = {WEAPON:'무장',FRAME:'프레임',BOOSTER:'부스터',CORE:'코어'};
@@ -57,9 +57,12 @@ const SAVE_KEY = 'rowar.save.v2';   // v1(로봇 3기 체제)은 로스터가 �
 let S = null;
 function emptySlots(){ return {WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}; }
 function freshState(){         // 시작: 커먼 1기, Lv.1 — 나머지 기체는 뽑기로만 얻는다
-  return { v:2, credits:600, cores:12, scrap:30,
-    robots:[{uid:uid(),type:pick(BY_RARITY.C),level:1,exp:0,fat:0,slots:emptySlots()}],
-    parts:[], sel:0, stat:{wins:0,losses:0,pulls:0} };
+  const u = uid();
+  /* level/exp 는 파일럿의 것이다. 보유한 기체는 전부 이 레벨로 싸운다.
+     squad 는 이번에 데려갈 기체(최대 CONST.SQUAD_MAX 기)의 uid 목록. */
+  return { v:2, credits:600, cores:12, scrap:30, level:1, exp:0,
+    robots:[{uid:u,type:pick(BY_RARITY.C),level:1,exp:0,fat:0,slots:emptySlots()}],
+    parts:[], sel:0, squad:[u], stat:{wins:0,losses:0,pulls:0} };
 }
 /* 저장본은 언제든 망가져 들어올 수 있다(다른 탭, 손수 편집, 예전 버전, 저장 중 오류).
    여기서 걸러내지 못하면 격납고가 통째로 렌더 실패해 '빈 화면 + 복구 불가'가 된다.
@@ -88,7 +91,23 @@ function normalize(j){         // 저장본에 빠진 필드 보정
       else if(u === undefined) rb.slots[sl] = null;
     }
   }
-  j.sel = clamp(Math.round(num(j.sel,0)), 0, j.robots.length-1); j.v = 2; return j;
+  /* 레벨은 파일럿 것이다. 기체마다 얹어 두는 것은 computeStats 가 예전 모양대로
+     돌게 하려는 투영일 뿐이라, 여기서 항상 덮어써 둘이 어긋나지 않게 한다. */
+  j.level = clamp(Math.round(num(j.level, num(j.robots[0] && j.robots[0].level, 1))), 1, MAXLV);
+  j.exp   = Math.max(0, Math.round(num(j.exp, 0)));
+  for(const rb of j.robots){ rb.level = j.level; rb.exp = 0; }
+
+  /* 편성 — 보유한 기체만, 중복 없이, 최대 SQUAD_MAX 기. 비면 첫 기체를 넣는다. */
+  const own = new Set(j.robots.map(r=>r.uid));
+  const seen = new Set();
+  j.squad = (Array.isArray(j.squad)? j.squad : []).filter(u=>{
+    if(!own.has(u) || seen.has(u)) return false; seen.add(u); return true; }).slice(0, SQUAD_MAX);
+  if(!j.squad.length) j.squad = [j.robots[0].uid];
+
+  /* 나갈 기체는 편성 안에 있어야 한다 */
+  j.sel = clamp(Math.round(num(j.sel,0)), 0, j.robots.length-1);
+  if(!j.squad.includes(j.robots[j.sel].uid)) j.sel = j.robots.findIndex(r=>r.uid===j.squad[0]);
+  j.v = 2; return j;
 }
 function load(){
   try{ localStorage.removeItem('rowar.save.v1'); }catch(e){}      // 옛 저장본 정리
@@ -115,7 +134,9 @@ const autoScrap = p => autoScrapValue(p.rarity);
    '누가 굴렸든' 반영 방식은 한 곳뿐이다. */
 function applyPull(res){
   if(!res) return null;
-  if(res.kind==='robot'){ S.robots.push({uid:uid(),type:res.type,level:1,exp:0,fat:0,slots:emptySlots()}); }
+  /* 새로 뽑은 기체도 파일럿 레벨로 선다. Lv.1 로 두면 뽑아도 못 쓰고,
+     그러면 '기체를 늘려 답을 늘린다'는 구조가 성립하지 않는다. */
+  if(res.kind==='robot'){ S.robots.push({uid:uid(),type:res.type,level:S.level,exp:0,fat:0,slots:emptySlots()}); }
   else if(res.kind==='dupe'){ const g=res.gain; S.credits+=g.cr; S.scrap+=g.sc; S.cores+=g.co; }
   else if(res.kind==='core'){ S.cores+=res.n; }
   else if(res.kind==='credit'){ S.credits+=res.cr; }
@@ -176,11 +197,27 @@ async function service(){
   S.credits=r.credits; rb.fat=0; rb.fatAt=Date.now(); commitLocal();
   toast(ROBOT_TYPES[rb.type].name+' 정비 완료');
 }
+/* 레벨은 파일럿이 올린다 — 보유한 기체가 전부 함께 강해진다. 기체를 지정하지 않는다. */
 async function levelUp(){
-  const rb=selRobot();
-  const r=await srvHangar('levelup',{robotUid:rb.uid}); if(!r) return;
-  S.credits=r.credits; rb.level=r.level; rb.exp=0; commitLocal();
-  toast(ROBOT_TYPES[rb.type].name+' Lv.'+rb.level);
+  const r=await srvHangar('levelup',{}); if(!r) return;
+  S.credits=r.credits; S.level=r.level; S.exp=0;
+  for(const rb of S.robots){ rb.level=r.level; rb.exp=0; }
+  commitLocal();
+  toast('파일럿 Lv.'+r.level+' · 보유 기체 전부 적용');
+}
+
+/* 출격 편성에 넣고 뺀다. 상대를 잡아 둔 상태면 서버가 그 상대를 놓는다(dropped). */
+async function toggleSquad(u){
+  const has=S.squad.includes(u);
+  let next = has ? S.squad.filter(x=>x!==u) : [...S.squad, u];
+  if(!next.length){ toast('최소 한 기는 편성해야 합니다'); return; }
+  if(next.length>SQUAD_MAX) next = [...S.squad.slice(1), u];   // 가장 오래된 것을 밀어낸다
+  const r=await srvHangar('squad',{robotUids:next}); if(!r) return;
+  S.squad = r.squad || next;
+  if(!S.squad.includes(S.robots[S.sel].uid)) S.sel = S.robots.findIndex(x=>x.uid===S.squad[0]);
+  _pendingOpp = null;                       // 서버가 놓았으므로 클라도 잊는다
+  commitLocal(); renderHangar();
+  toast(r.dropped ? '편성 변경 · 잡아 둔 상대를 놓았습니다' : '편성 변경');
 }
 
 /* ------------------------------- UI 기본 ------------------------------- */
@@ -246,13 +283,18 @@ function statBar(k,v,full,range){  // full 을 주면 깎여나간 만큼을 붉
 /* ------------------------------- 격납고 화면 ------------------------------- */
 function renderHangar(){
   const rb=selRobot(), T=ROBOT_TYPES[rb.type], st=computeStats(rb);
+  /* 레벨은 전부 같으므로(파일럿 레벨) 카드에 Lv 를 반복하지 않는다.
+     대신 '지금 데려가는 두 기'가 한눈에 보이게 한다 — 그게 이 화면의 판단이다. */
   const roster = S.robots.map((r,i)=>{ const t=ROBOT_TYPES[r.type];
-    return `<div class="rcard ${i===S.sel?'sel':''}" data-t="${t.rarity}" onclick="ROWAR.selectRobot(${i})">
-      <span class="badge">Lv.${r.level}</span>
+    const inSq=S.squad.indexOf(r.uid), out=inSq>=0;
+    return `<div class="rcard ${i===S.sel?'sel':''}${out?' squad':''}" data-t="${t.rarity}" onclick="ROWAR.selectRobot(${i})">
+      <span class="badge">${out?(i===S.sel?'출격':'대기'):'격납'}</span>
       <span class="badge rt rr-${t.rarity}">${RR[t.rarity].ko}</span>
       <div class="sprite" data-t="${t.rarity}">${sprite(r.type,false)}</div>
       <div class="rn">${t.name}</div><div class="rl">전투력 ${fmt(power(r))}</div>
-      ${fatOf(r)?`<div class="rd">피로 ${fatOf(r)}</div>`:''}</div>`; }).join('');
+      ${fatOf(r)?`<div class="rd">피로 ${fatOf(r)}</div>`:''}
+      <button class="sqbtn${out?' on':''}" onclick="event.stopPropagation();ROWAR.toggleSquad('${r.uid}')"
+        >${out?'편성 해제':'편성'}</button></div>`; }).join('');
   const slotsHtml = SLOTS.map(slot=>{ const u=rb.slots[slot]; const p=u&&findPart(u,S.parts);
     return `<div class="slot ${p?'filled':''}" onclick="ROWAR.openSlot('${slot}')">
       <div class="sl">${SLOT_KO[slot]}</div>
@@ -262,19 +304,24 @@ function renderHangar(){
       <div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]} · ${partStatLine(p)}</div>
       <div class="ps" style="color:var(--gold)">클릭 → 강화 (스크랩 ${enhCost(p.enh||0)})</div></div>`).join('')
     : `<div class="empty">보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.</div>`;
-  const cost=lvCost(rb.level), fat=fatOf(rb), scost=serviceCost(rb);
+  const cost=lvCost(S.level), fat=fatOf(rb), scost=serviceCost(rb);
   $('#sc-hangar').innerHTML = `
-    <h2 class="title">격납고 · 보유 로봇 ${S.robots.length}기</h2>
-    <div class="panel"><div class="roster">${roster}</div></div>
+    <h2 class="title">격납고 · 파일럿 Lv.${S.level} · 보유 ${S.robots.length}기</h2>
+    <div class="panel">
+      <div class="hint" style="margin-bottom:8px">레벨은 <b>파일럿</b>의 것입니다 —
+        보유한 기체는 전부 Lv.${S.level} 로 싸웁니다. 다만 <b>한 번에 데려갈 수 있는 것은 ${SQUAD_MAX}기</b>이고,
+        상대를 잡아 둔 상태에서 편성을 바꾸면 <b>그 상대를 놓칩니다.</b></div>
+      <div class="roster">${roster}</div></div>
     <div class="panel">
       <div class="detail">
         <div><div class="sprite" data-t="${T.rarity}">${sprite(rb.type,false)}</div></div>
         <div>
-          <div class="rname">${T.name} ${robRarTag(rb.type)} <span class="lv">Lv.${rb.level}</span></div>
+          <div class="rname">${T.name} ${robRarTag(rb.type)} <span class="lv">Lv.${S.level}</span>${
+            S.squad.includes(rb.uid)?'':' <span class="tag" style="color:var(--bad)">편성 밖</span>'}</div>
           <div class="rrole">${T.role} · 전투력 ${fmt(power(rb))}</div>
           <div class="stat exp"><div class="row"><b>EXP</b><span>${
-            rb.level>=MAXLV?'MAX':`${fmt(rb.exp||0)} / ${fmt(expNeed(rb.level))}`}</span></div>
-            <div class="bar"><i style="width:${rb.level>=MAXLV?100:clamp((rb.exp||0)/expNeed(rb.level)*100,0,100)}%"></i></div></div>
+            S.level>=MAXLV?'MAX':`${fmt(S.exp||0)} / ${fmt(expNeed(S.level))}`}</span></div>
+            <div class="bar"><i style="width:${S.level>=MAXLV?100:clamp((S.exp||0)/expNeed(S.level)*100,0,100)}%"></i></div></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px;margin-top:6px">
             ${['hp','atk','def','spd','crit','eva'].map(k=>statBar(k,st[k],
                 k==='hp'?st.hpFull:null, k==='atk'?atkRange(st):null)).join('')}
@@ -291,8 +338,8 @@ function renderHangar(){
               : '피로 없음 · 정상 가동'}</div></div>
           <div class="skill"><b>스킬 · ${T.skill.name}</b><p>${T.skill.desc}</p></div>
           <div class="row-btns" style="margin-top:10px">
-            <button class="btn big" ${(rb.level>=MAXLV||!net.state.online)?'disabled':''} onclick="ROWAR.levelUp()">
-              ${rb.level>=MAXLV?'최대 레벨':`즉시 레벨업 (크레딧 ${fmt(cost)})`}</button>
+            <button class="btn big" ${(S.level>=MAXLV||!net.state.online)?'disabled':''} onclick="ROWAR.levelUp()">
+              ${S.level>=MAXLV?'최대 레벨':`파일럿 레벨업 (크레딧 ${fmt(cost)})`}</button>
             <button class="btn big ${scost>0?'gold':''}" ${(scost>0&&net.state.online)?'':'disabled'} onclick="ROWAR.service()">
               ${scost>0?`정비 (크레딧 ${fmt(scost)})`:'정비 완료'}</button>
           </div>
@@ -686,7 +733,11 @@ let _lastReward=null;
 function applyServerBattle(r, rb){
   S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;
   S.stat.wins=r.player.wins; S.stat.losses=r.player.losses;
-  rb.level=r.robot.level; rb.exp=r.robot.exp; rb.fat=r.robot.fat; rb.fatAt=r.robot.fatAt;
+  /* 레벨·경험치는 파일럿 것이라 player 로 온다. 기체에는 피로도만 남는다.
+     레벨이 올랐으면 보유한 기체 전부에 반영한다 — 전부 이 레벨로 싸운다. */
+  if(r.player.level!=null){ S.level=r.player.level; S.exp=r.player.exp|0;
+    for(const x of S.robots){ x.level=S.level; x.exp=0; } }
+  rb.fat=r.robot.fat; rb.fatAt=r.robot.fatAt;
   if(r.reward.part) S.parts.push(r.reward.part);
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
                 lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
@@ -817,10 +868,13 @@ function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$(
    (계정 삭제 후 재발급). 클라에서 지우는 것으로는 될 수 없다. */
 window.ROWAR = {
   go,
-  selectRobot:async(i)=>{ S.sel=i; renderHangar();
-    const rb=S.robots[i];
-    if(net.state.online && rb) await net.hangar('select',{robotUid:rb.uid});
+  /* 나갈 기체 고르기 — 편성에 든 기체만. 편성 밖을 누르면 편성에 넣는 것으로 받아 준다. */
+  selectRobot:async(i)=>{ const rb=S.robots[i]; if(!rb) return;
+    if(!S.squad.includes(rb.uid)) return toggleSquad(rb.uid);
+    S.sel=i; renderHangar();
+    if(net.state.online) await net.hangar('select',{robotUid:rb.uid});
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
+  toggleSquad,
   levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
   pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, hunt, toggleSpeed,
   account:accountScreen, doRegister, doLogin, logout:doLogout,

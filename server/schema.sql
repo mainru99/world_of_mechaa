@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS robot (
   id          INTEGER PRIMARY KEY,
   account_id  INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
   type        TEXT NOT NULL,                   -- ROBOT_TYPES 키 (seraph, nemesis …)
+  -- 아래 두 값은 006 이후 쓰이지 않는다. 레벨은 player 로 옮겼다(파일럿 레벨).
+  -- SQLite 에서 컬럼을 지우려면 표를 다시 만들어야 해서 남겨 둔다.
   level       INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
   exp         INTEGER NOT NULL DEFAULT 0 CHECK (exp >= 0),
   fat         INTEGER NOT NULL DEFAULT 0 CHECK (fat >= 0),
@@ -122,7 +124,18 @@ CREATE TABLE IF NOT EXISTS player (
   pending_match TEXT,                        -- /battle/find 가 고른 상대와 시드 (서버가 정한다)
   rank_cached INTEGER,                         -- 주기 계산된 순위 (NULL = 아직 없음)
   rank_at     INTEGER,                         -- 그 순위를 계산한 시각
-  sel_robot   INTEGER REFERENCES robot(id) ON DELETE SET NULL,
+
+  -- 레벨은 기체가 아니라 **파일럿**의 것이다. 보유한 기체는 전부 이 레벨로 싸운다.
+  -- 예전에는 기체별이었는데, 경험치가 출전한 기체에만 들어가 두 번째 기체를 키울 수가
+  -- 없었다(Lv.30 하나에 84판). 그래서 기체 30종과 그 대항 스킬이 전부 죽어 있었다.
+  level       INTEGER NOT NULL DEFAULT 1,
+  exp         INTEGER NOT NULL DEFAULT 0,
+
+  -- 출격 편성. 데려갈 수 있는 것은 두 기뿐이라, '무엇을 만날지에 대한 베팅'이 된다.
+  -- (피로도는 기체별로 남는다 — 그래야 둘을 번갈아 쓸 이유가 생긴다)
+  squad1      INTEGER REFERENCES robot(id) ON DELETE SET NULL,
+  squad2      INTEGER REFERENCES robot(id) ON DELETE SET NULL,
+  sel_robot   INTEGER REFERENCES robot(id) ON DELETE SET NULL,   -- 이번에 나갈 기체(편성 안)
   updated_at  INTEGER NOT NULL
 );
 -- 랭킹 정렬용. account_id 를 뒤에 붙여 동점 순서를 고정한다.
@@ -204,7 +217,7 @@ CREATE INDEX IF NOT EXISTS ix_login_attempt_blocked ON login_attempt(blocked_unt
 
 -- ── 메타 ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '5');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '6');
 
 
 -- =========================================================

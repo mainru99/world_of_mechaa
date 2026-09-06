@@ -620,8 +620,32 @@ function makeOpponent(){
   const rb={uid:'E'+uid(), type:o.type, level:o.level, slots:o.slots};
   return {kind:o.kind==='monster'?'monster':'robot', robot:rb, parts:o.parts, callsign:o.callsign};
 }
+/* 상대 카드.
+   전투력만 보여 주면 '이길지 질지'만 알 뿐 **무엇을 바꿀지**를 알 수 없다.
+   방어·회피·속도를 내 값과 나란히 놓고, 상대 스킬도 함께 보여 준다.
+   그래야 편성한 두 기 중 무엇을 낼지, 어떤 파츠를 낄지가 판단이 된다. */
 function showOpponent(opp, practice){
   const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];
+  const my=selRobot(), myst=computeStats(my), est=computeStats(opp.robot, opp.parts||[]);
+  const num=(k,v)=> isPct(k) ? (v*100).toFixed(0)+'%' : fmt(Math.round(v));
+  /* 상대가 더 높은 값은 붉게, 내가 높으면 푸르게. 눈으로 훑어서 바로 읽히게 한다. */
+  const cmp=k=>{ const a=est[k], b=myst[k], hi=a>b*1.02, lo=a<b*0.98;
+    return `<div class="os"><b>${STAT_LABEL[k]}</b>
+      <span class="${hi?'up':(lo?'dn':'')}">${num(k,a)}</span>
+      <i>나 ${num(k,b)}</i></div>`; };
+
+  /* 대항 관계를 한 줄로. 기체마다 다른 스킬이 여기서 의미를 갖는다. */
+  const myFx=(COMBAT_TYPES[my.type].skill.fx)||{}, notes=[];
+  if(est.eva >= myst.eva + 0.06)
+    notes.push(myFx.noMiss ? '상대 회피가 높지만 <b>내 스킬은 빗나가지 않습니다</b>'
+                           : '상대 <b>회피가 높습니다</b> — 빗나가지 않는 스킬이 유리합니다');
+  if(est.def >= myst.def * 1.25)
+    notes.push(myFx.ignoreDef ? '장갑이 두껍지만 <b>내 스킬이 관통합니다</b>'
+                              : '<b>장갑이 두껍습니다</b> — 관통 스킬이 유리합니다');
+  const myPow=power(my), oPow=power(opp.robot,opp.parts||[]);
+  if(oPow > myPow*1.10) notes.push('전투력이 밀립니다 — 공격력 <b>구간이 넓은</b> 편성이 뒤집을 여지가 큽니다');
+  else if(oPow < myPow*0.90) notes.push('전투력이 앞섭니다 — 구간이 <b>좁을수록</b> 확실합니다');
+
   $('#sc-battle').innerHTML = `
     <h2 class="title">${monster?'몬스터 출현':(opp.kind==='player'?'플레이어 발견':'상대 발견')}</h2>
     <div class="panel">
@@ -632,10 +656,12 @@ function showOpponent(opp, practice){
             opp.kind==='player'?' <span class="tag" style="color:var(--acc2)">플레이어</span>':''}</div>
           <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}${
             opp.kind==='player'&&opp.rating!=null?' · 레이팅 '+opp.rating:''}</div>
-          <div style="margin-top:6px;font-weight:800;color:var(--bad)">전투력 ${fmt(power(opp.robot,opp.parts))}</div>
+          <div style="margin-top:6px;font-weight:800;color:var(--bad)">전투력 ${fmt(oPow)} <span style="color:var(--dim);font-weight:600">/ 나 ${fmt(myPow)}</span></div>
         </div>
       </div>
-      ${monster?`<div class="monster-skill"><strong>${T.skill.name}</strong><span>${T.skill.desc}</span></div>`:''}
+      <div class="oppstats">${['def','eva','spd'].map(cmp).join('')}</div>
+      <div class="monster-skill"><strong>${T.skill.name}</strong><span>${T.skill.desc}</span></div>
+      ${notes.length?`<div class="oppnote">${notes.map(n=>`<div>· ${n}</div>`).join('')}</div>`:''}
       ${practice
         ? '<div class="hint" style="margin-top:10px;color:var(--gold)">연습 대전 · 보상 없음</div>'
         : opp.rescue

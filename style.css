@@ -370,3 +370,21 @@ table.rank tr.mine .tag{background:#0e1526;color:var(--gold);border-color:#3d4b7
 }
 .rcard .sqbtn:hover{ border-color:var(--gold); color:var(--gold); }
 .rcard .sqbtn.on{ background:var(--gold); border-color:var(--gold); color:#1a1206; }
+
+/* ── 상대 카드의 스탯 비교 ────────────────────────────────
+   전투력만으로는 '무엇을 바꿀지'를 알 수 없다. 내 값과 나란히 놓아야 판단이 된다. */
+.oppstats{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+.oppstats .os{
+  background:rgba(255,255,255,.03); border:1px solid var(--line);
+  border-radius:10px; padding:8px 10px; text-align:center;
+}
+.oppstats .os b{ display:block; font-size:11px; color:var(--dim); font-weight:700; letter-spacing:.04em; }
+.oppstats .os span{ display:block; font-size:19px; font-weight:800; margin-top:2px; }
+.oppstats .os span.up{ color:var(--bad); }     /* 상대가 높다 */
+.oppstats .os span.dn{ color:var(--acc2); }    /* 내가 높다 */
+.oppstats .os i{ display:block; font-style:normal; font-size:11px; color:var(--dim); margin-top:1px; }
+.oppnote{
+  margin-top:10px; padding:9px 12px; border-radius:10px;
+  background:rgba(255,190,80,.07); border:1px solid rgba(255,190,80,.25);
+  font-size:12px; line-height:1.7; color:var(--gold);
+}

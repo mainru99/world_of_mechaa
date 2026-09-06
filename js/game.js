@@ -91,6 +91,9 @@ function normalize(j){         // 저장본에 빠진 필드 보정
       else if(u === undefined) rb.slots[sl] = null;
     }
   }
+  /* 원정 — 서버가 준 그대로 들고 있는다. endsAt 은 서버 시각이라 클라가 남은 시간을 센다. */
+  if(j.expd && !(j.expd.endsAt > 0)) j.expd = null;
+
   /* 편성 — 보유한 기체만, 중복 없이, 최대 SQUAD_MAX 기. 비면 첫 기체를 넣는다. */
   const own = new Set(j.robots.map(r=>r.uid));
   const seen = new Set();
@@ -157,7 +160,10 @@ const ERR_KO = { 'not enough credits':'크레딧이 부족합니다', 'not enoug
   'slot mismatch':'그 슬롯에 넣을 수 없는 파츠입니다', 'part not found':'파츠를 찾을 수 없습니다',
   'bad slot':'알 수 없는 슬롯입니다', 'robot not found':'그 기체를 찾을 수 없습니다',
   'not in squad':'출격 편성에 없는 기체입니다', 'squad cannot be empty':'최소 한 기는 편성해야 합니다',
-  'no player':'계정 정보를 찾을 수 없습니다', 'unknown action':'알 수 없는 요청입니다' };
+  'no player':'계정 정보를 찾을 수 없습니다', 'unknown action':'알 수 없는 요청입니다',
+  'expedition in progress':'이미 원정 중입니다', 'no expedition':'나가 있는 원정이 없습니다',
+  'expedition not done':'아직 귀환 전입니다', 'no robot left':'남은 기체가 없어 보낼 수 없습니다',
+  'robot on expedition':'원정 나간 기체입니다', 'unknown expedition':'알 수 없는 원정입니다' };
 
 async function srvHangar(action, args){
   if(!net.state.online){ toast('격납고 조작은 서버 연결이 필요합니다'); return null; }
@@ -584,10 +590,104 @@ function setPending(o, cost, rescue, tier){
    등급이 곧 관문이다 — 비용이 오르고 상대 레벨도 올라간다.
    BOSS 는 내 레벨 +12 라, 잡히기 시작하면 파밍 효율이 가장 좋다. */
 const HUNT_KO = { C:'일반', UC:'정예', R:'희귀', UQ:'초희귀', EP:'전설', BOSS:'보스' };
+/* ── 원정 ──────────────────────────────────────────────
+   기체를 얼마간 내보내 두고 재화를 받아 온다. 보낸 기체는 그동안 못 싸운다 —
+   편성이 두 기뿐이라 주력을 보내면 대전이 눈에 띄게 불편해진다. 그게 이 기능의 대가다.
+   남은 시간은 서버가 준 endsAt 으로 여기서 센다. 진행을 물으러 서버에 가지 않는다. */
+function expedReward(tier, lv){
+  const T=CONST.EXPED[tier];
+  return { cr: Math.round(T.crH*T.h*lv), sc: Math.round(T.scH*T.h*lv),
+           coreP: T.coreP, partP: T.partP, h: T.h };
+}
+function renderExped(){
+  if(!net.state.online)
+    return `<div class="panel"><h2 class="title" style="margin-top:0">원정</h2>
+      <div class="hint">원정은 서버 연결이 필요합니다. 보상을 서버가 판정합니다.</div></div>`;
+
+  const e=S.expd;
+  if(e){
+    const T=CONST.EXPED[e.tier]||{}, rb=S.robots.find(r=>r.uid===e.uid);
+    const left=e.endsAt-Date.now(), done=left<=0;
+    const rw=expedReward(e.tier, e.level||1);
+    return `<div class="panel expd ${done?'done':''}">
+      <h2 class="title" style="margin-top:0">원정 · ${T.ko||e.tier}</h2>
+      <div class="expd-row">
+        <div>
+          <div class="rname">${rb?ROBOT_TYPES[rb.type].name:'기체'} <span class="lv">Lv.${e.level}</span></div>
+          <div class="rrole">${done?'귀환 완료':'귀환까지 '+dur(left)}</div>
+        </div>
+        <div class="expd-rw">크레딧 ${fmt(rw.cr)} · 스크랩 ${fmt(rw.sc)}${
+          rw.coreP?` · 코어 ${Math.round(rw.coreP*100)}%`:''}${rw.partP?` · 파츠 ${Math.round(rw.partP*100)}%`:''}</div>
+      </div>
+      <button class="btn big ${done?'gold':''}" ${done?'':'disabled'} onclick="ROWAR.claimExped()"
+        >${done?'보상 받기':'원정 중 — 이 기체는 출격할 수 없습니다'}</button>
+    </div>`;
+  }
+
+  const rows=Object.keys(CONST.EXPED).map(t=>{
+    const T=CONST.EXPED[t], rw=expedReward(t, selRobot().level);
+    return `<button class="hunt-row" onclick="ROWAR.pickExped('${t}')">
+      <div class="ht"><span class="tag" style="color:var(--acc2)">${T.ko}</span><b>${T.h}시간</b></div>
+      <div class="hn">크레딧 ${fmt(rw.cr)} · 스크랩 ${fmt(rw.sc)}${
+        T.coreP?` · 코어 ${Math.round(T.coreP*100)}%`:''}${T.partP?` · 파츠 ${Math.round(T.partP*100)}%`:''}</div>
+      <div class="hd">보상은 보내는 기체의 레벨에 비례합니다</div>
+    </button>`; }).join('');
+  return `<div class="panel">
+    <h2 class="title" style="margin-top:0">원정</h2>
+    <div class="hint">기체 하나를 정해진 시간 동안 내보내 재화를 받아 옵니다.
+      <b>보낸 기체는 그동안 출격할 수 없습니다.</b> 한 번에 하나만 나갑니다.
+      위 수치는 지금 고른 기체(Lv.${selRobot().level}) 기준이고, 보낼 기체는 다음 화면에서 고릅니다.</div>
+    <div class="hunt-list" style="margin-top:10px">${rows}</div>
+  </div>`;
+}
+
+/* 어느 기체를 보낼지 — 여기가 이 기능의 판단이다.
+   보상이 레벨에 비례하므로 주력을 보내면 많이 받지만 그만큼 대전이 불편해진다. */
+function pickExped(tier){
+  const T=CONST.EXPED[tier];
+  const list=S.robots.map(r=>{
+    const rw=expedReward(tier, r.level), out=S.squad.includes(r.uid);
+    return `<button class="pchip" style="width:100%;text-align:left" onclick="ROWAR.sendExped('${tier}','${r.uid}')">
+      <div class="pn">${ROBOT_TYPES[r.type].name} <span class="lv">Lv.${r.level}</span>${
+        out?' <span class="tag" style="color:var(--gold)">편성 중</span>':''}</div>
+      <div class="ps">크레딧 ${fmt(rw.cr)} · 스크랩 ${fmt(rw.sc)}</div>
+      ${out?'<div class="ps" style="color:var(--bad)">보내면 편성에서 빠집니다</div>':''}
+    </button>`; }).join('');
+  openModal(`<div class="mhead">${T.ko} · ${T.h}시간 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <div class="hint" style="margin-bottom:8px">보낼 기체를 고르세요. 보상은 레벨에 비례합니다.</div>
+    <div style="display:grid;gap:8px">${list}</div>`);
+}
+async function sendExped(tier, uid){
+  closeModal();
+  const r=await net.expedition('send',{tier, robotUid:uid});
+  if(!r) return;
+  if(r.error){ toast(ERR_KO[r.error]||('실패: '+r.error)); return; }
+  const rb=S.robots.find(x=>x.uid===uid);
+  S.expd={ tier, level:rb?rb.level:1, endsAt:r.endsAt, uid, ready:false };
+  S.squad=S.squad.filter(u=>u!==uid);
+  if(!S.squad.length){ const alt=S.robots.find(x=>x.uid!==uid); if(alt) S.squad=[alt.uid]; }
+  if(!S.squad.includes(S.robots[S.sel].uid)) S.sel=S.robots.findIndex(x=>x.uid===S.squad[0]);
+  _pendingOpp=null;                       // 서버가 잡아 둔 상대를 놓았다
+  commitLocal(); renderHunt();
+  toast(CONST.EXPED[tier].ko+' 출발 · '+CONST.EXPED[tier].h+'시간 뒤 귀환');
+}
+async function claimExped(){
+  const r=await net.expedition('claim',{});
+  if(!r) return;
+  if(r.error){ toast(ERR_KO[r.error]||('실패: '+r.error)); return; }
+  S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;
+  if(r.reward.part) S.parts.push(r.reward.part);
+  S.expd=null; commitLocal(); renderHunt(); renderWallet();
+  const g=[`크레딧 +${fmt(r.reward.cr)}`,`스크랩 +${fmt(r.reward.sc)}`];
+  if(r.reward.core) g.push(`코어 +${r.reward.core}`);
+  if(r.reward.part) g.push(`파츠 ${r.reward.part.name}`);
+  toast('원정 귀환 · '+g.join(' · '));
+}
+
 function renderHunt(){
   const rb=selRobot();
   if(!net.state.online){
-    $('#sc-hunt').innerHTML = `<h2 class="title">토벌</h2>
+    $('#sc-hunt').innerHTML = `${renderExped()}<h2 class="title">토벌</h2>
       <div class="panel"><div class="hint">토벌은 서버 연결이 필요합니다. 보상을 서버가 판정합니다.</div></div>`;
     return;
   }
@@ -603,7 +703,7 @@ function renderHunt(){
       <div class="hc ${poor?'bad':''}">${fmt(cost)}</div>
     </button>`;
   }).join('');
-  $('#sc-hunt').innerHTML = `<h2 class="title">토벌 · 사냥터</h2>
+  $('#sc-hunt').innerHTML = `${renderExped()}<h2 class="title">토벌 · 사냥터</h2>
     <div class="panel">
       <div class="hint">몬스터를 사냥해 <b>스크랩과 파츠</b>를 캡니다. 크레딧은 아레나의 절반이 안 되고,
         레이팅은 움직이지 않습니다. 등급이 높을수록 비싸고 상대가 강합니다.</div>
@@ -916,6 +1016,7 @@ window.ROWAR = {
   toggleSquad,
   levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
   pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, hunt, toggleSpeed,
+  pickExped, sendExped, claimExped,
   account:accountScreen, doRegister, doLogin, logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화
@@ -1100,6 +1201,7 @@ setInterval(()=>{
   if(modalOpen) return;                       // 모달을 보고 있으면 건드리지 않는다
   if(changed) renderWallet();
   if(cur==='hangar' && (changed || S.robots.some(r=>fatOf(r)>0))) renderHangar();
+  if(cur==='hunt' && S.expd) renderHunt();     // 남은 시간만 다시 그린다. 서버에 묻지 않는다.
 }, 20000);
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);

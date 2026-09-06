@@ -20,6 +20,7 @@ const DAILY_CRON = '17 4 * * *';
 import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
+import { sendExped, claimExped } from './expedition.js';
 import { registerArena, balanceVersion } from './arena.js';
 import { hashPassword, verifyPassword, checkCredentials,
          attemptKeys, checkBlocked, noteFailure, clearAttempts } from './auth.js';
@@ -324,6 +325,29 @@ async function handleApi(request, env, url) {
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
     let body; try { body = await request.json(); } catch { body = {}; }
     const r = await hangarAction(env, sess.account_id, body, Date.now());
+    return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 400);
+  }
+
+  /* ── 원정 ────────────────────────────────────────────
+     보낼 때와 받을 때 두 번만 부른다. 남은 시간은 클라가 /api/state 로 받은
+     endsAt(서버 시각)으로 계산하므로, 진행 상황을 물으러 다시 오지 않는다. */
+  if (path === '/expedition' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let body; try { body = await request.json(); } catch { body = {}; }
+    const now = Date.now();
+    let r;
+    if (body.action === 'send') {
+      r = await sendExped(env, sess.account_id, now, body.robotUid, body.tier);
+    } else if (body.action === 'claim') {
+      /* 보상 난수는 서버가 만든다 — 클라 난수를 받으면 좋은 결과가 나올 때까지 다시 부를 수 있다. */
+      let seq = 0;
+      r = await claimExped(env, sess.account_id, now,
+                           () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296,
+                           () => 'x' + now.toString(36) + (seq++).toString(36));
+    } else {
+      r = { ok: false, status: 400, error: 'unknown action' };
+    }
     return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 400);
   }
 

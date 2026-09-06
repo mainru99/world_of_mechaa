@@ -388,3 +388,10 @@ table.rank tr.mine .tag{background:#0e1526;color:var(--gold);border-color:#3d4b7
   background:rgba(255,190,80,.07); border:1px solid rgba(255,190,80,.25);
   font-size:12px; line-height:1.7; color:var(--gold);
 }
+
+/* ── 원정 ──────────────────────────────────────────────
+   나가 있는 동안은 조용히, 귀환하면 눈에 띄게. */
+.panel.expd .expd-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+.panel.expd .expd-rw{ font-size:12px; color:var(--dim); text-align:right; }
+.panel.expd.done{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
+.panel.expd.done .rrole{ color:var(--gold); font-weight:800; }

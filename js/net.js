@@ -199,6 +199,15 @@ export async function battleStart() {
 }
 
 /* 랭킹 — 순위 자체는 크론이 미리 계산해 둔다. 여기서는 읽기만 한다. */
+/* 원정 — 보낼 때와 받을 때 두 번만 부른다.
+   남은 시간은 /api/state 로 받은 endsAt(서버 시각)으로 클라가 세므로 물으러 오지 않는다. */
+export async function expedition(action, args) {
+  if (!state.online) return null;
+  const r = await call('/api/expedition', { method: 'POST', body: { action, ...args } });
+  if (r.ok && r.data && r.data.ok) return r.data;
+  return { error: (r.data && r.data.error) || r.error || 'expedition failed' };
+}
+
 export async function ranking() {
   if (!state.online) return null;
   const r = await call('/api/ranking');

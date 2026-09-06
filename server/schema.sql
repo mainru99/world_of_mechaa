@@ -135,6 +135,14 @@ CREATE TABLE IF NOT EXISTS player (
   -- (피로도는 기체별로 남는다 — 그래야 둘을 번갈아 쓸 이유가 생긴다)
   squad1      INTEGER REFERENCES robot(id) ON DELETE SET NULL,
   squad2      INTEGER REFERENCES robot(id) ON DELETE SET NULL,
+
+  -- 원정. 한 번에 하나만 나간다 — 여럿이면 '누구를 보낼까'가 판단이 아니게 된다.
+  -- expd_lv 는 보낼 때의 레벨을 박아 둔다(보내 놓고 키운 뒤 받는 이득을 막는다).
+  -- expd_end 는 서버 시각. 남은 시간은 클라가 이 값으로 계산하므로 폴링이 없다.
+  expd_robot  INTEGER REFERENCES robot(id) ON DELETE SET NULL,
+  expd_tier   TEXT,
+  expd_lv     INTEGER,
+  expd_end    INTEGER,
   sel_robot   INTEGER REFERENCES robot(id) ON DELETE SET NULL,   -- 이번에 나갈 기체(편성 안)
   updated_at  INTEGER NOT NULL
 );

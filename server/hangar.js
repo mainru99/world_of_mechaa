@@ -19,7 +19,7 @@ const getRobot = (env, acc, uid) => env.DB
 const getPart = (env, acc, uid) => env.DB
   .prepare('SELECT * FROM part WHERE account_id = ?1 AND uid = ?2').bind(acc, uid).first();
 const getPlayer = (env, acc) => env.DB
-  .prepare('SELECT credits, cores, scrap, rev, sel_robot, level, exp, squad1, squad2, pending_match FROM player WHERE account_id = ?1')
+  .prepare('SELECT credits, cores, scrap, rev, sel_robot, squad1, squad2, pending_match, expd_robot FROM player WHERE account_id = ?1')
   .bind(acc).first();
 
 /* 재화를 깎고 rev 를 올린다. 두 곳에서 같은 문장을 쓰지 않으려고 묶었다. */
@@ -128,6 +128,7 @@ export async function hangarAction(env, acc, body, now) {
   if (action === 'select') {
     const rb = await getRobot(env, acc, body.robotUid);
     if (!rb) return err(404, 'robot not found');
+    if (rb.id === p.expd_robot) return err(400, 'robot on expedition');
     const squad = [p.squad1, p.squad2].filter(Boolean);
     if (squad.length && !squad.includes(rb.id)) return err(400, 'not in squad');
     await env.DB.prepare('UPDATE player SET sel_robot = ?1, rev = ?2, updated_at = ?3 WHERE account_id = ?4')
@@ -148,6 +149,8 @@ export async function hangarAction(env, acc, body, now) {
     for (const u of uids) {
       const rb = await getRobot(env, acc, u);
       if (!rb) return err(404, 'robot not found');
+      /* 원정 나간 기체는 데려갈 수 없다. 막지 않으면 보내 놓고 그대로 싸울 수 있다. */
+      if (rb.id === p.expd_robot) return err(400, 'robot on expedition');
       if (!ids.includes(rb.id)) ids.push(rb.id);
     }
     const dropped = !!p.pending_match;

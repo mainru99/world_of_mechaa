@@ -10,6 +10,7 @@
  * 아직 확인하지 않는다 — 그건 서버가 뽑기·전투를 직접 판정하는 다음 단계의 일이다.
  */
 import { ROBOT_TYPES, RARITY, SLOTS, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
+import { expedView } from './expedition.js';
 
 const PART_RARITIES = new Set(RARITY.map(r => r.k));
 const SLOT_SET = new Set(SLOTS);
@@ -168,7 +169,7 @@ export async function noteMigration(env, accountId, clamped, now) {
 export async function loadState(env, accountId) {
   const p = await env.DB.prepare(
     `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev,
-            sel_robot, squad1, squad2
+            sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!p) return null;
 
@@ -193,6 +194,8 @@ export async function loadState(env, accountId) {
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },
       /* 출격 편성 — 데려갈 수 있는 두 기. uid 로 내려 클라가 그대로 쓴다. */
       squad: [uidOf(p.squad1), uidOf(p.squad2)].filter(Boolean),
+      /* 원정. endsAt 은 서버 시각이다 — 클라가 이걸로 남은 시간을 세므로 물으러 오지 않는다. */
+      expd: (() => { const v = expedView(p, Date.now()); return v ? { ...v, uid: uidOf(p.expd_robot) } : null; })(),
       sel,
       robots: robots.map(r => {
         const slots = {};

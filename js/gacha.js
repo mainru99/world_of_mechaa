@@ -6,9 +6,10 @@
  * 난수는 인자로 받는다. 클라는 Math.random, 서버는 crypto 기반을 넣는다.
  * 그래야 서버가 판정할 때 클라의 난수에 의존하지 않는다.
  */
-import { ROBOT_TYPES, ROBOT_RARITY, PULL_TABLE, RARITY, SLOTS, SLOT_STATS, SLOT_COST, COST_ROLL, PART_NAMES, STAT_ROLL, CONST } from '../data/balance.js';
+import { ROBOT_TYPES, ROBOT_RARITY, PULL_TABLE, RARITY, SLOTS, SLOT_STATS, SLOT_COST, COST_ROLL, SLOT_SPREAD, SPREAD_ROLL, PART_NAMES, STAT_ROLL, CONST } from '../data/balance.js';
 
-export const isPct = s => s === 'crit' || s === 'eva';
+/* 0~1 비율로 다루는 스탯. 레벨 배수를 타지 않고, 강화 배수도 다르게 먹는다. */
+export const isPct = s => s === 'crit' || s === 'eva' || s === 'spread';
 
 export const pick = (a, rnd) => a[Math.floor(rnd() * a.length)];
 export const rf = (a, b, rnd) => a + rnd() * (b - a);
@@ -51,6 +52,9 @@ export function genPart(level, rnd, uid, forceRar, forceSlot) {
     if (!isPct(cst)) c = Math.round(c * lvScale);
     stats[cst] = (stats[cst] || 0) - c;
   }
+  /* 성향 — 무장은 구간을 넓히고 부스터는 좁힌다. 좋고 나쁨이 아니라 축이다. */
+  const sgn = SLOT_SPREAD[slot];
+  if (sgn) stats.spread = sgn * rf(SPREAD_ROLL[0], SPREAD_ROLL[1], rnd) * rar.mul;
   for (const k in stats) if (isPct(k)) stats[k] = Math.round(stats[k] * 1000) / 1000;
   return { uid, slot, name: pick(PART_NAMES[slot], rnd), rarity: rar.k, ko: rar.ko, stats, enh: 0 };
 }

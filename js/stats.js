@@ -6,7 +6,8 @@ import { COMBAT_TYPES, rarOf } from './units.js';
 
 const { ATK_SCALE, FAT_MAX, MAXLV, SERVICE_RATE } = CONST;
 
-export const isPct = s => s === 'crit' || s === 'eva';
+/* 0~1 비율로 다루는 스탯. 레벨 배수를 타지 않고, 강화 배수도 다르게 먹는다. */
+export const isPct = s => s === 'crit' || s === 'eva' || s === 'spread';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export const SLOT_ORDER = ['WEAPON', 'FRAME', 'BOOSTER', 'CORE'];
@@ -63,6 +64,8 @@ export function computeStats(robot, parts) {
   for (const k of ['hp', 'atk', 'def', 'spd']) s[k] = T.base[k] + (T.grow[k] || 0) * (lv - 1);
   s.atk *= ATK_SCALE;                     // 기체 공격력 배율
   s.crit = T.base.crit; s.eva = T.base.eva;
+  /* 기체 고유 구간을 먼저 깔아 두면 아래 파츠 합산이 그대로 얹힌다 */
+  s.spread = T.spread != null ? T.spread : CONST.SPREAD;
   for (const slot of SLOT_ORDER) {
     const u = robot.slots[slot]; if (!u) continue;
     const p = findPart(u, parts); if (!p) continue;
@@ -72,7 +75,7 @@ export function computeStats(robot, parts) {
   s.hpFull = s.hp;                                                  // 피로도 0 일 때의 최대 체력
   s.hp = Math.max(1, Math.round(s.hp * (100 - fatOf(robot)) / 100)); // 피로도만큼 최대 체력이 줄어든다
   s.crit = clamp(s.crit, 0, .75); s.eva = clamp(s.eva, 0, .6);
-  s.spread = T.spread != null ? T.spread : CONST.SPREAD;   // 공격력 구간의 폭 (기체 고유)
+  s.spread = clamp(s.spread, CONST.SPREAD_MIN, CONST.SPREAD_MAX);
   return s;
 }
 

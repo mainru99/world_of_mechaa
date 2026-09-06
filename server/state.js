@@ -9,13 +9,13 @@
  * 검증은 '모양과 범위'까지만 한다. 클라가 보낸 값이 정당하게 얻은 것인지는
  * 아직 확인하지 않는다 — 그건 서버가 뽑기·전투를 직접 판정하는 다음 단계의 일이다.
  */
-import { ROBOT_TYPES, RARITY, SLOTS, STAT_ROLL, COST_ROLL, CONST } from '../data/balance.js';
+import { ROBOT_TYPES, RARITY, SLOTS, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
 
 const PART_RARITIES = new Set(RARITY.map(r => r.k));
 const SLOT_SET = new Set(SLOTS);
-const STAT_LIST = ['hp', 'atk', 'def', 'spd', 'crit', 'eva'];
+const STAT_LIST = ['hp', 'atk', 'def', 'spd', 'crit', 'eva', 'spread'];
 const STAT_KEYS = new Set(STAT_LIST);
-const isPct = k => k === 'crit' || k === 'eva';
+const isPct = k => k === 'crit' || k === 'eva' || k === 'spread';
 
 /* 파츠 스탯 상한을 밸런스 데이터에서 유도한다.
    genPart 는 등급 k 마다 n_k 번 굴리고 각 굴림에 mul_k 를 곱한다.
@@ -31,10 +31,13 @@ const STAT_CAP = {}, STAT_FLOOR = {};
 for (const r of RARITY) {
   const cap = {}, floor = {};
   for (const st of STAT_LIST) {
-    const hi = STAT_ROLL[st] ? STAT_ROLL[st][1] : 0;
-    cap[st] = r.n * hi * r.mul * (isPct(st) ? 1 : LV_SCALE_MAX) * 1.02;   // 반올림 여유 2%
+    /* spread 는 SLOT_STATS 로 굴려지지 않고 슬롯마다 한 번 붙는 '성향'이라
+       상·하한 모두 SPREAD_ROLL 에서 유도한다. 양쪽으로 다 갈 수 있다. */
+    const hi = st === 'spread' ? SPREAD_ROLL[1] : (STAT_ROLL[st] ? STAT_ROLL[st][1] : 0);
+    const n  = st === 'spread' ? 1 : r.n;
+    cap[st] = n * hi * r.mul * (isPct(st) ? 1 : LV_SCALE_MAX) * 1.02;   // 반올림 여유 2%
     /* 대가는 슬롯당 한 번뿐이라 굴림 수 n 을 곱하지 않는다 */
-    const lo = COST_ROLL[st] ? COST_ROLL[st][1] : 0;
+    const lo = st === 'spread' ? SPREAD_ROLL[1] : (COST_ROLL[st] ? COST_ROLL[st][1] : 0);
     floor[st] = -lo * r.mul * (isPct(st) ? 1 : LV_SCALE_MAX) * 1.02;
   }
   STAT_CAP[r.k] = cap; STAT_FLOOR[r.k] = floor;

@@ -22,7 +22,7 @@ const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
 const ROBOT_APPEAR = PULL_TABLE.find(t=>t.k==='robot').w/100;   // 화면 표기는 뽑기 표에서 파생
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
 const SLOT_KO = {WEAPON:'무장',FRAME:'프레임',BOOSTER:'부스터',CORE:'코어'};
-const STAT_LABEL = { hp:'내구', atk:'공격', def:'방어', spd:'속도', crit:'치명', eva:'회피' };
+const STAT_LABEL = { hp:'내구', atk:'공격', def:'방어', spd:'속도', crit:'치명', eva:'회피', spread:'구간' };
 /* 스탯 바의 상한 — 손으로 적어 두면 밸런스가 바뀔 때마다 어긋난다. 실제로 어긋나 있었다:
    상한이 내구 1500 인데 Lv.60 내구는 3900 이라, 중반부터는 바가 늘 꽉 차 아무것도 알려주지 않았다.
    그래서 기체 표에서 '최고 레벨 최댓값'을 뽑고 파츠 몫으로 35% 를 얹는다. */
@@ -248,10 +248,14 @@ function openModal(html){ const m=$('#modal'); m.innerHTML=`<div class="modal-ca
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal').innerHTML=''; }
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
-/* 파츠 한 줄. 대가(음수)는 붉게 따로 보여 준다 — 그게 이 파츠를 고를지 말지의 근거다. */
+/* 파츠 한 줄. 세 가지를 다르게 보여 준다.
+     상승  그대로
+     대가  붉게 (−) — 이 파츠를 낄지 말지의 근거
+     구간  금색 (±) — 좋고 나쁨이 아니라 성향이다. 약자는 넓히고 강자는 좁힌다. */
 function partStatLine(p){ const ps=partStat(p);
   return Object.keys(ps).map(k=>{
     const v=ps[k], t=isPct(k)?(Math.abs(v)*100).toFixed(1)+'%':Math.abs(Math.round(v));
+    if(k==='spread') return `<b style="color:var(--gold)">구간 ${v<0?'−':'+'}${t}</b>`;
     return v<0 ? `<s style="color:var(--bad)">${STAT_LABEL[k]} −${t}</s>`
                : `${STAT_LABEL[k]} +${t}`;
   }).join(' · '); }

@@ -820,7 +820,8 @@ async function practiceStart(){
   const events=simulate(P,E,opp.seed);
   renderArena(my.type, opp.robot.type, P.name, E.name);
 
-  playBattle(events,P,E).then(winner=>{
+  (rarOf(opp.robot.type)==='BOSS' ? bossEntrance() : Promise.resolve())
+   .then(()=>playBattle(events,P,E)).then(winner=>{
     if(!winner) return;
     renderPracticeResult(events[events.length-1].winner==='P', P, E);
   });
@@ -865,7 +866,8 @@ async function startBattle(){
   const events=simulate(P,E,r.seed);
   renderArena(my.type, r.opponent.type, P.name, E.name);
 
-  playBattle(events,P,E).then(winner=>{
+  (rarOf(r.opponent.type)==='BOSS' ? bossEntrance() : Promise.resolve())
+   .then(()=>playBattle(events,P,E)).then(winner=>{
     if(!winner) return;                          // 중간에 나갔으면 화면만 접는다(보상은 이미 서버에 반영됨)
     applyServerBattle(r, my);
     renderResult(r.win, _lastReward, P, E, opp);
@@ -915,7 +917,7 @@ function renderArena(pType,eType,pName,eName){
       <div class="hpwrap e"><div class="nm"><small id="hpn-e"></small><span>${eName}</span></div>
         <div class="hpbar" id="hp-e"><i></i></div><div class="spbar" id="sp-e"><i></i></div></div>
       <div class="fighter left" id="fighter-p">${sprite(pType,true)}</div>
-      <div class="fighter right" id="fighter-e">${sprite(eType,false)}</div>
+      <div class="fighter right${rarOf(eType)==='BOSS'?' big':''}" id="fighter-e">${sprite(eType,false)}</div>
       <div class="flash" id="flash"></div>
       <div class="skillbanner" id="skillbanner"></div>
     </div>
@@ -942,6 +944,25 @@ function flash(){
   _lastFlash = now;
   f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
 }
+/* 보스 등장.
+   프레임 애니메이션을 붙여 봤다가 걷어냈다 — 아레나에서 기체는 제자리에 서 있어서
+   걷기 순환이 '제자리걸음'으로 보였고, 원본 밀도가 낮아 정지 그림보다 흐렸다.
+   대신 **등장하는 그 몇 초만** 움직인다. 그때는 실제로 걸어 들어오므로 자연스럽고,
+   정지 그림을 그대로 쓰니 가장 선명한 순간이 첫인상이 된다. */
+async function bossEntrance(){
+  const host=AR('#fighter-e'); if(!host) return;
+  const ar=document.querySelector('#arena');       // AR() 은 아레나 '안'을 찾는다
+  host.classList.add('entering');
+  for(let i=0;i<3;i++){                            // 무거운 발걸음 세 번
+    await sleep(400/battleSpeed);
+    if(arenaGone()) return;
+    if(ar){ ar.classList.remove('quake'); void ar.offsetWidth; ar.classList.add('quake'); }
+    flash();
+  }
+  await sleep(320/battleSpeed);
+  if(!arenaGone()) host.classList.remove('entering');
+}
+
 function shakeF(side){ const el=AR('#fighter-'+side); if(!el) return; el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
 async function lunge(side){ const el=AR('#fighter-'+side); if(!el) return; el.classList.add(side==='p'?'lungeL':'lungeR'); await sleep(110/battleSpeed); el.classList.remove('lungeL','lungeR'); }
 function floatDmg(side,text,cls){ const host=AR('#fighter-'+side); if(!host) return; const d=document.createElement('div'); d.className='dmg '+cls; d.textContent=text; d.style.left=(side==='p'?'30px':'70px'); d.style.top='24px'; host.appendChild(d); setTimeout(()=>d.remove(),1000); }

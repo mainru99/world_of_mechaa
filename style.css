@@ -397,3 +397,26 @@ table.rank tr.mine .tag{background:#0e1526;color:var(--gold);border-color:#3d4b7
 .panel.expd .expd-rw{ font-size:12px; color:var(--dim); text-align:right; }
 .panel.expd.done{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
 .panel.expd.done .rrole{ color:var(--gold); font-weight:800; }
+
+/* ── 보스 등장 ──────────────────────────────────────────
+   새 그림 없이 정지 그림만으로 위엄을 낸다.
+   크게 서고, 오른쪽에서 무겁게 걸어 들어오고, 발을 디딜 때마다 화면이 흔들린다.
+   (프레임 애니메이션을 붙여 봤다가 걷어냈다 — 제자리에 선 기체에 걷기 순환은 겉돈다) */
+.fighter.big{ width:252px; height:240px; bottom:8px; z-index:2; }
+.fighter.entering{ animation:bossWalkIn 1.5s cubic-bezier(.22,.7,.3,1) both; }
+@keyframes bossWalkIn{
+  from{ transform:translateX(130px) scale(1.12); opacity:0; }
+  to  { transform:none; opacity:1; }
+}
+.fighter.entering .mecha{ animation:bossStep .40s ease-in-out infinite; transform-origin:50% 100%; }
+@keyframes bossStep{
+  0%,100%{ transform:translateY(0)    scaleY(1);    }
+  45%    { transform:translateY(-8px) scaleY(1.02); }
+  60%    { transform:translateY(0)    scaleY(.985); }   /* 착지 — 무게가 실린다 */
+}
+#arena.quake{ animation:quake .30s ease-out; }
+@keyframes quake{
+  0%  { transform:translate(0,0) }     20% { transform:translate(-4px,3px) }
+  40% { transform:translate(4px,-3px) } 60% { transform:translate(-3px,-2px) }
+  80% { transform:translate(2px,2px) }  100%{ transform:translate(0,0) }
+}

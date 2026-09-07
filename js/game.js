@@ -132,7 +132,10 @@ const autoScrap = p => autoScrapValue(p.rarity);
 function applyPull(res){
   if(!res) return null;
   /* 새 기체는 Lv.1 부터다. 키우는 과정이 뽑기의 보상이다. */
-  if(res.kind==='robot'){ S.robots.push({uid:uid(),type:res.type,level:1,exp:0,fat:0,slots:emptySlots()}); }
+  /* uid 는 서버가 실제로 넣은 값을 쓴다. 여기서 새로 만들면 서버 행과 어긋나
+     그 기체로는 편성·선택·정비·원정이 전부 'robot not found' 가 된다.
+     res.uid 가 없는 것은 서버 없이 굴리는 경로뿐이라 그때만 만든다. */
+  if(res.kind==='robot'){ S.robots.push({uid:res.uid||uid(),type:res.type,level:1,exp:0,fat:0,slots:emptySlots()}); }
   else if(res.kind==='dupe'){ const g=res.gain; S.credits+=g.cr; S.scrap+=g.sc; S.cores+=g.co; }
   else if(res.kind==='core'){ S.cores+=res.n; }
   else if(res.kind==='credit'){ S.credits+=res.cr; }
@@ -263,13 +266,15 @@ function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh
      상승  그대로
      대가  붉게 (−) — 이 파츠를 낄지 말지의 근거
      구간  금색 (±) — 좋고 나쁨이 아니라 성향이다. 약자는 넓히고 강자는 좁힌다. */
+/* 옵션은 한 줄에 하나씩 적는다. 페널티를 빨간 취소선으로 두었더니 '적용되지 않는
+   옵션'처럼 보였다. 색과 취소선을 빼고 부호(+/−)로만 구분한다 — 구간도 같은 색이다. */
 function partStatLine(p){ const ps=partStat(p);
   return Object.keys(ps).map(k=>{
     const v=ps[k], t=isPct(k)?(Math.abs(v)*100).toFixed(1)+'%':Math.abs(Math.round(v));
-    if(k==='spread') return `<b style="color:var(--gold)">구간 ${v<0?'−':'+'}${t}</b>`;
-    return v<0 ? `<s style="color:var(--bad)">${STAT_LABEL[k]} −${t}</s>`
-               : `${STAT_LABEL[k]} +${t}`;
-  }).join(' · '); }
+    const sign = v<0 ? '−' : '+';
+    const name = k==='spread' ? '구간' : STAT_LABEL[k];
+    return `<div class="pstat">${name} ${sign}${t}</div>`;
+  }).join(''); }
 /* 12분 34초 / 1시간 20분 형태로. 회복 안내는 분 단위면 충분하다 */
 function dur(ms){
   const s=Math.max(0,Math.round(ms/1000));
@@ -311,7 +316,7 @@ function renderHangar(){
       ${p?`<div class="pn">${p.name}</div><div class="pp">${rarTag(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
   const invParts = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
   const inv = invParts.length? invParts.map(p=>`<div class="pchip" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
-      <div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]} · ${partStatLine(p)}</div>
+      <div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
       <div class="ps" style="color:var(--gold)">클릭 → 강화 (스크랩 ${enhCost(p.enh||0)})</div></div>`).join('')
     : `<div class="empty">보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.</div>`;
   const cost=lvCost(rb.level), fat=fatOf(rb), scost=serviceCost(rb);
@@ -443,7 +448,7 @@ function revealCardHtml(res){
   if(res.kind==='credit') return `<div class="pchip"><div class="pn" style="color:var(--gold)">크레딧 +${fmt(res.cr)}</div><div class="ps">레벨업·정비에 쓰세요</div></div>`;
   if(res.kind==='bust') return `<div class="pchip" style="opacity:.6"><div class="pn" style="color:var(--dim)">꽝</div><div class="ps">아무것도 나오지 않았습니다</div></div>`;
   if(res.kind==='scrap') return `<div class="pchip"><div class="pn">${res.part.name} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
-  const p=res.part; return `<div class="pchip"><div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]} · ${partStatLine(p)}</div></div>`;
+  const p=res.part; return `<div class="pchip"><div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
 }
 function showReveal(results){
   const best=results.reduce((a,b)=> rankOf(b)>rankOf(a)?b:a, results[0]);

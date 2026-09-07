@@ -41,7 +41,14 @@ export async function serverPull(env, accountId, count, now) {
   for (let i = 0; i < n; i++) {
     cores -= CONST.PULL_COST;
     const r = rollPull(owned, level, rnd, uid);
-    if (r.kind === 'robot') { owned.add(r.type); newRobots.push(r.type); }
+    if (r.kind === 'robot') {
+      owned.add(r.type);
+      /* uid 는 여기서 정해 **결과에 실어 보낸다.** 클라가 따로 만들면 서버 행과 uid 가
+         달라져, 그 기체로는 편성·선택·정비·원정이 전부 'robot not found' 가 된다.
+         (원정 목록처럼 클라 상태만 보고 그리는 화면에는 멀쩡히 보여 더 헷갈린다) */
+      r.uid = 'r' + now.toString(36) + (seq++).toString(36);
+      newRobots.push(r);
+    }
     else if (r.kind === 'dupe') { credits += r.gain.cr; scrap += r.gain.sc; cores += r.gain.co; }
     else if (r.kind === 'core') cores += r.n;
     else if (r.kind === 'credit') credits += r.cr;
@@ -57,10 +64,10 @@ export async function serverPull(env, accountId, count, now) {
       'INSERT INTO part (account_id, uid, slot, name, rarity, stats, enh, created_at) VALUES (?1,?2,?3,?4,?5,?6,0,?7)')
       .bind(accountId, p.uid, p.slot, p.name, p.rarity, JSON.stringify(p.stats), now));
   }
-  for (const t of newRobots) {
+  for (const rb of newRobots) {
     stmts.push(env.DB.prepare(
       'INSERT INTO robot (account_id, uid, type, level, exp, fat, fat_at, created_at) VALUES (?1,?2,?3,1,0,0,?4,?4)')
-      .bind(accountId, 'r' + now.toString(36) + (seq++).toString(36), t, now));
+      .bind(accountId, rb.uid, rb.type, now));
   }
   const rev = player.rev + 1;
   stmts.push(env.DB.prepare(

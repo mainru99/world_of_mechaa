@@ -225,7 +225,11 @@ CREATE INDEX IF NOT EXISTS ix_login_attempt_blocked ON login_attempt(blocked_unt
 
 -- ── 메타 ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '6');
+-- 이 숫자는 이 파일이 만들어 내는 스키마의 버전이다. **마이그레이션을 추가하면 같이 올린다.**
+-- 006~008 의 모양은 이미 위 정의에 반영되어 있는데 이 값만 '6' 으로 남아 있었다.
+-- 새로 클론한 PC 가 v8 짜리 DB 를 만들어 놓고 '6' 이라고 말해, 마이그레이션이 필요한지
+-- 판단할 수 없었다(`/api/health` 의 schema_version 도 이 값을 읽는다).
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '8');
 
 
 -- =========================================================

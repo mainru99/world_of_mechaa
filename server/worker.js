@@ -21,6 +21,7 @@ import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
 import { sendExped, claimExped } from './expedition.js';
+import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion } from './arena.js';
 import { hashPassword, verifyPassword, checkCredentials,
          attemptKeys, checkBlocked, noteFailure, clearAttempts } from './auth.js';
@@ -351,6 +352,23 @@ async function handleApi(request, env, url) {
     return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 400);
   }
 
+
+  /* ── 점령전 ──────────────────────────────────────────
+     요청 셋뿐이다. 지도 보기 / 한 칸 치기 / 수입 받기.
+     한 칸의 방어선 전부를 attack 한 번에서 판정하고, 재생 자료를 함께 내려보낸다 —
+     방어선마다 왕복하면 한 칸에 요청을 네 번 쓴다(요청 수가 곧 무료 한도다). */
+  if (path === '/territory' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let body; try { body = await request.json(); } catch { body = {}; }
+    const now = Date.now();
+    let r;
+    if (body.action === 'view')        r = await territoryView(env, sess.account_id, now);
+    else if (body.action === 'attack') r = await attackNode(env, sess.account_id, now, body.node);
+    else if (body.action === 'claim')  r = await claimTerritory(env, sess.account_id, now);
+    else r = { ok: false, status: 400, error: 'unknown action' };
+    return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 400);
+  }
   /* ── 정식 계정 ───────────────────────────────────────
      승격은 새 계정을 만드는 게 아니라 지금 쓰던 계정에 로그인 수단을 붙이는 것이다.
      그래서 진행상황이 그대로 이어진다. */

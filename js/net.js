@@ -208,6 +208,16 @@ export async function expedition(action, args) {
   return { error: (r.data && r.data.error) || r.error || 'expedition failed' };
 }
 
+
+/* 점령전 — 지도 보기 / 한 칸 치기 / 수입 받기, 셋뿐이다.
+   지도는 클라가 잠깐 들고 있고, 한 칸의 방어선 전부는 attack 한 번에서 판정된다.
+   진행 중인 것을 물으러 가는 경로는 없다. */
+export async function territory(action, args = {}) {
+  if (!state.online) return null;
+  const r = await call('/api/territory', { method: 'POST', body: { action, ...args } });
+  if (r.ok && r.data && r.data.ok) { if (r.data.rev != null) setSyncedRev(r.data.rev); return r.data; }
+  return { error: (r.data && r.data.error) || r.error || 'territory failed' };
+}
 export async function ranking() {
   if (!state.online) return null;
   const r = await call('/api/ranking');

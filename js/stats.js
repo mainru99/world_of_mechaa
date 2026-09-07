@@ -99,12 +99,13 @@ export function atkRange(st) {
  *
  * K 는 눈금일 뿐이다 — 커먼 Lv.30 이 대략 3100 으로 보이게 맞춰 두었다. */
 const POWER_K = 0.115;
-export function power(robot, parts) {
-  const s = computeStats(robot, parts);
+/* 계산된 스탯 하나로 전투력. 점령전 방어자처럼 robot+parts 원본이 없는 쪽이 쓴다. */
+export function powerOf(s) {
   const off = s.atk * (1 + s.crit * (CONST.CRIT_MULT - 1)) * s.spd;
   const sur = s.hp * (1 + s.def / 100) / Math.max(0.4, 1 - s.eva);
   return Math.round(Math.sqrt(off * sur) * POWER_K);
 }
+export const power = (robot, parts) => powerOf(computeStats(robot, parts));
 
 /* 육성 곡선 */
 export const expNeed   = lv => Math.round(60 + lv * lv * 1.6 + lv * 22);  // lv → lv+1 에 필요한 경험치

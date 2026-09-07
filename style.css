@@ -63,6 +63,14 @@ body{
 .nav button.active{color:#fff;border-color:var(--acc);
   background:linear-gradient(180deg,#274a86,#1a2f57);box-shadow:0 0 0 1px var(--acc) inset}
 .nav button:hover{color:#fff}
+.nav button em{font-style:normal}
+/* 탭이 여섯 개가 되면서 375px 에서 글자가 잘렸다. 좁으면 이모지를 접는다 —
+   글자가 잘리는 것보다 그림이 없는 편이 낫다. */
+@media (max-width:520px){
+  .nav{gap:4px;padding:9px 8px}
+  .nav button{padding:10px 2px;font-size:12.5px;letter-spacing:-.3px}
+  .nav button em{display:none}
+}
 
 /* ---- screens ---- */
 main{flex:1;padding:14px;padding-bottom:40px}
@@ -161,6 +169,7 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .rr-C{color:var(--tC);border-color:#3c4763}   .rr-UC{color:var(--tUC);border-color:#2c6b45}
 .rr-R{color:var(--tR);border-color:#2e5a8f}   .rr-UQ{color:var(--tUQ);border-color:#5a3a8f}
 .rr-EP{color:var(--tEP);border-color:#8f6a2e;box-shadow:0 0 12px -4px var(--tEP)}
+.rr-BOSS{color:#ffaca5;border-color:#95505a;box-shadow:0 0 12px -4px var(--bad)}
 
 /* skill box */
 .skill{background:#0e1526;border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px}
@@ -420,3 +429,70 @@ table.rank tr.mine .tag{background:#0e1526;color:var(--gold);border-color:#3d4b7
   40% { transform:translate(4px,-3px) } 60% { transform:translate(-3px,-2px) }
   80% { transform:translate(2px,2px) }  100%{ transform:translate(0,0) }
 }
+
+/* ── 점령전 ───────────────────────────────────────────── */
+/* 지도는 3열 4행 고정이다. 375px 에서도 한 화면에 다 들어와야 '지도'로 읽힌다 —
+   스크롤해야 전체가 보이면 어느 칸을 칠지 고르는 화면이 아니라 목록이 된다. */
+.tmap{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}
+.tnode{position:relative;display:flex;flex-direction:column;gap:3px;padding:8px 7px;
+  background:linear-gradient(180deg,#141d33,#101828);border:1px solid var(--line);
+  border-radius:12px;color:var(--ink);text-align:left;cursor:pointer;transition:.14s;font:inherit}
+.tnode:hover{border-color:var(--acc);transform:translateY(-1px)}
+.tnode.mine{border-color:#2f7a52;background:linear-gradient(180deg,#12281f,#0e1a16);
+  box-shadow:0 0 0 1px rgba(73,224,138,.25) inset}
+.tnode.foe{border-color:#7a3046;background:linear-gradient(180deg,#25141c,#170f14)}
+.tn-top{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.tn-top b{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.tn-name{font-weight:800;font-size:12px;line-height:1.25}
+.tn-terr{display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:10px;color:var(--acc2)}
+/* 편성 제한. 오른쪽 위에 절대배치했더니 Lv 표시와 겹쳤다 — 지형 줄 끝이 늘 비어 있어 여기로 옮겼다 */
+.tn-terr em{font-style:normal;font-size:9px;font-weight:800;color:var(--gold);flex:none}
+.tn-own{font-size:10px;color:var(--sub);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tnode.mine .tn-own{color:var(--good);font-weight:800}
+.tnode.foe .tn-own{color:var(--bad);font-weight:800}
+.tnode .tag{font-size:9px;padding:1px 5px}
+
+/* 방어선별 남은 체력. 하나로 뭉친 막대는 '두 겹 남았다'를 못 보여 준다. */
+.tpips{display:flex;gap:3px;align-items:flex-end;height:16px;margin-top:2px}
+.tpips i{position:relative;flex:1;height:100%;background:#0d1424;border:1px solid #23305a;
+  border-radius:3px;overflow:hidden}
+.tpips i b{position:absolute;left:0;right:0;bottom:0;background:var(--bad);display:block}
+.tpips i.hurt b{background:var(--gold)}
+.tpips i.dead{border-color:#1a2340}
+.tpips i.dead b{background:#1a2340}
+
+/* 지도 머리 — 점령 수와 쌓인 수입 */
+.trow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin-bottom:10px}
+.trow .big{font-size:19px;font-weight:900;margin-top:2px}
+.trow .hint{font-size:11px}
+
+/* 칸 상세 */
+.tdet{display:flex;flex-direction:column;gap:5px;font-size:12px}
+.tdrow{display:flex;gap:8px;align-items:baseline}
+.tdrow span{width:64px;flex:none;color:var(--dim)}
+.tdrow i{color:var(--acc2);font-style:normal;font-size:11px}
+.tdrow b.bad{color:var(--bad)}
+.tlines{display:flex;flex-direction:column;gap:4px}
+.tline{display:flex;align-items:center;gap:7px;padding:6px 8px;background:#111a30;
+  border:1px solid var(--line);border-radius:9px;font-size:12px}
+.tline.foe{border-color:#7a3046;background:#1d1219}
+.tline .ti{width:17px;height:17px;flex:none;display:grid;place-items:center;font-size:10px;
+  font-weight:900;color:var(--dim);background:#0d1424;border-radius:5px}
+.tline b{flex:1;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tline .lv{font-size:11px;color:var(--dim)}
+.tline i{font-style:normal;font-size:11px;font-weight:800;color:var(--gold)}
+.tline i.dead{color:var(--dim);font-weight:400}
+.tmechs{display:flex;flex-direction:column;gap:4px}
+.tmech{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#111a30;
+  border:1px solid var(--line);border-radius:9px;font-size:12px;font-weight:700}
+.tmech.no{opacity:.55;border-style:dashed}
+.tmech .lv{font-size:11px;color:var(--dim);font-weight:400}
+.tmech i{margin-left:auto;font-style:normal;font-size:11px;color:var(--sub);font-weight:400}
+.tmech i.bad{color:var(--bad)}
+
+.tn-pw{font-size:10px;color:var(--sub);font-variant-numeric:tabular-nums}
+.tn-pw.hi{color:var(--bad)} .tn-pw.lo{color:var(--good)}
+/* 선봉·예비. 순서만으로는 안 읽혀서 글자로 적는다 */
+.tmech .th{font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;flex:none;
+  color:var(--gold);background:#0d1424;border:1px solid #3d4b7a}
+.tmech.no .th{color:var(--dim);border-color:var(--line)}

@@ -211,6 +211,30 @@ CREATE INDEX IF NOT EXISTS ix_battle_def ON battle(defender_id, created_at DESC)
 --   DELETE FROM battle WHERE attacker_id = ?1 AND id NOT IN (
 --     SELECT id FROM battle WHERE attacker_id = ?1 ORDER BY created_at DESC LIMIT 50);
 
+-- ── 점령전 지도 ─────────────────────────────────────────
+-- 지도는 서버에 하나뿐이다. 계정마다 사본을 두지 않는다 — 그래야 사람이 늘면
+-- 같은 칸을 두고 다투게 되고, 지금처럼 혼자일 때는 몬스터가 그 자리를 대신 지킨다.
+-- 행은 칸 수(12)로 고정이라 표가 커지지 않는다.
+--
+-- 칸의 정의(이름·등급·레벨·방어선·지형·수입)는 data/balance.js 의 TERRITORY 에 있다.
+-- 여기에는 '지금 누가 들고 있고 얼마나 깎였는가'만 둔다. 정의를 DB 에 넣으면
+-- 밸런스를 고칠 때마다 마이그레이션을 써야 한다.
+--
+-- hp_left  방어선별 남은 체력 비율 JSON. 실패해도 깎아 둔 만큼은 남는다.
+--          hp_at 이후 흐른 시간만큼 스스로 회복한다(TERR.LINE_REGEN) — 계산은 읽을 때 한다.
+--          매 시간 표를 훑어 회복시키면 쓰기만 쓰고 얻는 것이 없다.
+CREATE TABLE IF NOT EXISTS territory (
+  node        TEXT PRIMARY KEY,                -- data/balance.js TERRITORY[].id
+  owner_id    INTEGER REFERENCES account(id) ON DELETE SET NULL,
+  owner_name  TEXT,                            -- 표시용. 조인 없이 지도를 그리려고 둔다
+  hp_left     TEXT,                            -- JSON [0~1, ...] 방어선별 남은 체력
+  hp_at       INTEGER,                         -- hp_left 를 적은 시각(서버 시각)
+  taken_at    INTEGER,                         -- 점령한 시각. 되찾기가 오래된 순으로 고른다
+  claimed_at  INTEGER,                         -- 마지막 수입 수령 시각
+  updated_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_territory_owner ON territory(owner_id, taken_at);
+
 -- ── 로그인 시도 제한 ────────────────────────────────────
 -- 비밀번호를 무한히 시도할 수 있으면 PBKDF2 로 늦추는 것만으로는 부족하다.
 -- 아이디별·IP별로 실패를 세고 일정 횟수를 넘으면 잠시 막는다.
@@ -229,7 +253,7 @@ CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 -- 006~008 의 모양은 이미 위 정의에 반영되어 있는데 이 값만 '6' 으로 남아 있었다.
 -- 새로 클론한 PC 가 v8 짜리 DB 를 만들어 놓고 '6' 이라고 말해, 마이그레이션이 필요한지
 -- 판단할 수 없었다(`/api/health` 의 schema_version 도 이 값을 읽는다).
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '8');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '9');
 
 
 -- =========================================================

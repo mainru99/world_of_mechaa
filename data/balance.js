@@ -292,6 +292,24 @@ export const CONST = {
     DEEP:  { ko: '심층 원정', h: 8, crH: 12, scH: 2.6, coreP: 0.42, partP: 0.22 },
   },
 
+
+  /* ── 점령전 ────────────────────────────────────────────
+     세계 지도는 서버에 하나뿐이다. 칸 12개를 몬스터나 사람이 지키고, 뚫으면 내 것이 된다.
+     전투 규칙은 '돌파' 하나다 — 자세한 규칙과 그 근거는 js/breach.js 머리말에 적었다.
+       · 한 칸 = 방어선 여러 겹. 편성 두 기로 연속으로 뚫는다
+       · 체력과 스킬 게이지가 다음 방어선으로 이어진다. 중간 회복이 없다
+       · 실패해도 깎아 둔 방어선은 남는다. 시간이 지나면 스스로 회복한다
+     ※ 값 조정은 ChatGPT 담당. */
+  TERR: {
+    LINE_REGEN: 0.10,   // 깎아 둔 방어선이 시간당 되돌아오는 비율 (0.10 = 10시간이면 원상복구)
+    INCOME_CAP_H: 12,   // 수입은 12시간치까지만 쌓인다 — 하루 한 번은 들어와야 한다
+    CAPTURE_H: 6,       // 점령 보너스 = 몇 시간치 수입인가
+    FAT_DOWN: 11,       // 쓰러진 기체에 붙는 피로도 (대전 1패가 7~10)
+    FAT_LIVE: 4,        // 살아남았지만 싸운 기체에 붙는 피로도
+    COST_X: 2.2,        // 출격비 배수 — 아레나 한 판 기준
+    EXP_LINE: 0.55,     // 방어선 하나를 뚫을 때마다 받는 경험치 (대전 1승 기준)
+    RETAKE_MIN: 6,      // 내 칸이 이 수를 넘을 때만 몬스터가 하루 한 칸을 되찾는다
+  },
   /* 비상 출격 — 크레딧이 출격비보다 적을 때만 열린다.
      비용 0, 상대는 몬스터 고정, 보상은 크레딧만(파츠·코어·경험치 없음), 레이팅 변동 없음.
      막힌 판을 만들지 않기 위한 구제 장치라 일부러 맛이 없다. 피로도는 정상으로 쌓인다. */
@@ -360,3 +378,69 @@ export const CONST = {
      (기체 등급 C/UC/… 가 아니라 파츠 등급 C/R/SR/SSR 이다) */
   AUTO_SCRAP: { C: 14 },
 };
+
+/* ── 지형 ────────────────────────────────────────────────
+   보정은 **양쪽 모두에** 걸린다. 한쪽에만 걸면 그냥 난이도 조절이 되어,
+   칸이 달라도 하는 일이 같아진다. 양쪽에 걸어야 '이 칸엔 누구를 데려갈까'가 판단이 된다.
+   협곡에서는 회피형이 무의미해지고, 폐허에서는 치명 편중이 크게 이기거나 크게 진다.
+
+   워게임의 지형 보정(산 +3, 도시 +2 …)에서 가져왔다. 같은 부대도 서 있는 곳에 따라
+   다르게 싸운다는 것 하나만 빌려 왔고, 이동·점유 같은 나머지는 가져오지 않았다. */
+export const TERRAIN = {
+  plain:    { ko: '평원',     desc: '보정 없음' },
+  canyon:   { ko: '협곡',     desc: '회피 −45%',             eva: 0.55 },
+  highland: { ko: '고지',     desc: '방어 +25% · 속도 −12%', def: 1.25, spd: 0.88 },
+  ruins:    { ko: '폐허',     desc: '치명 +60%',             crit: 1.60 },
+  storm:    { ko: '자기폭풍', desc: '공격 구간 +0.12',        spreadAdd: 0.12 },
+  furnace:  { ko: '용광로',   desc: '공격 +25% · 내구 −15%',  atk: 1.25, hp: 0.85 },
+};
+
+/* ── 세계 지도 ───────────────────────────────────────────
+   칸 12개. 서버에 딱 하나 있는 공용 지도다 — 사람이 늘면 같은 칸을 두고 다투게 된다.
+   지금은 혼자라 빈 칸을 몬스터가 지킨다. 사람이 점령하면 그 사람의 방어 스냅샷이
+   방어선 맨 뒤에 한 겹 더 붙는다(사람에게서 뺏는 쪽이 더 어렵다).
+
+     col/row   3열 4행. row 4 가 입구, row 1 이 안쪽이다
+     rar/lv    칸의 난이도. 내 레벨과 무관한 절대값이다 — 지도는 세계지 내 사정이 아니다
+     mon       기본 방어선. 순서대로 뚫는다. 배열 길이가 곧 방어선 수다
+     maxRar    편성 제한. 이 등급을 넘는 기체는 못 데려간다
+               (서머너즈워 점령전의 '4성 이하 거점'에서 가져왔다 — 주력 하나로 지도를
+                다 먹지 못하게 막는 장치이자, 뽑은 기체를 키울 이유다)
+     crH/scH   점령해 두면 들어오는 시간당 수입. TERR.INCOME_CAP_H 시간까지만 쌓인다
+   ※ 값 조정은 ChatGPT 담당. */
+export const TERRITORY = [
+  /* ── row 4 · 입구 ── */
+  { id:'n01', ko:'폐공장 지구', col:1, row:4, rar:'C',  lv: 8, terrain:'plain',
+    mon:['enemy_razorwing','enemy_jackal'],                          crH: 40, scH:  8, maxRar:null },
+  { id:'n02', ko:'침수 부두',   col:2, row:4, rar:'C',  lv: 9, terrain:'storm',
+    mon:['enemy_jackal','enemy_razorwing'],                          crH: 40, scH:  8, maxRar:null },
+  { id:'n03', ko:'관측소 능선', col:3, row:4, rar:'UC', lv:14, terrain:'highland',
+    mon:['enemy_strix','enemy_angler'],                              crH: 70, scH: 14, maxRar:'UC' },
+
+  /* ── row 3 ── */
+  { id:'n04', ko:'붉은 협곡',   col:1, row:3, rar:'R',  lv:20, terrain:'canyon',
+    mon:['enemy_reaper','enemy_scorpio','enemy_reaper'],             crH:120, scH: 24, maxRar:null },
+  { id:'n05', ko:'구시가 폐허', col:2, row:3, rar:'R',  lv:22, terrain:'ruins',
+    mon:['enemy_scorpio','enemy_reaper','enemy_scorpio'],            crH:120, scH: 24, maxRar:'R' },
+  { id:'n06', ko:'송전 철탑',   col:3, row:3, rar:'UC', lv:15, terrain:'plain',
+    mon:['enemy_angler','enemy_strix'],                              crH: 70, scH: 14, maxRar:null },
+
+  /* ── row 2 ── */
+  { id:'n07', ko:'지하 격납고', col:1, row:2, rar:'UQ', lv:28, terrain:'plain',
+    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:200, scH: 40, maxRar:null },
+  { id:'n08', ko:'용광로 심부', col:2, row:2, rar:'UQ', lv:30, terrain:'furnace',
+    mon:['enemy_megalodon','enemy_lich','enemy_megalodon'],          crH:200, scH: 40, maxRar:'UQ' },
+  { id:'n09', ko:'검은 호수',   col:3, row:2, rar:'UQ', lv:29, terrain:'canyon',
+    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:200, scH: 40, maxRar:null },
+
+  /* ── row 1 · 안쪽 ── */
+  { id:'n10', ko:'강철 성문',   col:1, row:1, rar:'EP', lv:38, terrain:'highland',
+    mon:['enemy_goliath','enemy_kabuto','enemy_goliath','enemy_kabuto'],
+                                                                     crH:320, scH: 64, maxRar:null },
+  { id:'n11', ko:'왕좌의 방',   col:2, row:1, rar:'BOSS', lv:48, terrain:'ruins',
+    mon:['enemy_kabuto','enemy_goliath','boss_astraea','boss_bael_fortress'],
+                                                                     crH:500, scH:100, maxRar:null },
+  { id:'n12', ko:'관제 첨탑',   col:3, row:1, rar:'EP', lv:40, terrain:'storm',
+    mon:['enemy_kabuto','enemy_goliath','enemy_kabuto','enemy_goliath'],
+                                                                     crH:320, scH: 64, maxRar:'UQ' },
+];

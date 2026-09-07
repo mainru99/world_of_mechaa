@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>ROWAR · 로봇 배틀 프로토타입</title>
-<link rel="stylesheet" href="style.css?v=20260903-monsters1">
+<link rel="stylesheet" href="style.css?v=20260907-terr">
 <link rel="stylesheet" href="themes/scenes.css?v=20260904-scenes">
 </head>
 <body data-scene="hangar">
@@ -41,11 +41,12 @@
   </header>
 
   <nav class="nav">
-    <button data-s="hangar" class="active">🛠️ 격납고</button>
-    <button data-s="gacha">🎁 뽑기</button>
-    <button data-s="battle">⚔️ 대전</button>
-    <button data-s="hunt">🎯 파견</button>
-    <button data-s="rank">🏆 랭킹</button>
+    <button data-s="hangar" class="active"><em>🛠️</em> 격납고</button>
+    <button data-s="gacha"><em>🎁</em> 뽑기</button>
+    <button data-s="battle"><em>⚔️</em> 대전</button>
+    <button data-s="hunt"><em>🎯</em> 파견</button>
+    <button data-s="terr"><em>🗺️</em> 점령</button>
+    <button data-s="rank"><em>🏆</em> 랭킹</button>
   </nav>
 
   <main>
@@ -53,6 +54,7 @@
     <section id="sc-gacha" class="screen"></section>
     <section id="sc-battle" class="screen"></section>
     <section id="sc-hunt" class="screen"></section>
+    <section id="sc-terr" class="screen"></section>
     <section id="sc-rank" class="screen"></section>
     <!-- '초기화' 버튼이 있었다. 로컬 저장본만 지우는 버튼이라, 뽑기·전투·격납고가
          서버 판정으로 넘어간 뒤로는 해롭기만 했다 — 누르면 서버가 모르는 기체를 든 채가 되어
@@ -68,6 +70,6 @@
 
 <!-- ES 모듈이라 file:// 로 직접 열면 동작하지 않는다. README 의 로컬 서버 안내 참고.
      인라인 onclick="ROWAR.x()" 는 js/game.js 가 window.ROWAR 를 대입하므로 그대로 동작한다. -->
-<script type="module" src="js/game.js?v=20260904-split"></script>
+<script type="module" src="js/game.js?v=20260907-terr"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@
  * 그래서 `WHERE <키> IN (SELECT <키> ... LIMIT n)` 으로 돌려 쓴다.
  */
 import { balanceVersion } from './arena.js';
+import { retakeOne } from './territory.js';
 
 const CAP = 500;                 // 표 하나당 한 번에 지우는 상한
 const DAY = 24 * 60 * 60 * 1000;
@@ -137,5 +138,11 @@ export async function cleanup(env, now) {
      맨 마지막에 둔다 — 위의 정리로 이 계정들의 전투·세션이 이미 줄어 있으면
      여기서 지울 행도 그만큼 적어진다. */
   out.purged = await purgeInactive(env, now);
+
+  /* ⑦ 점령전 되찾기. 한 사람이 지도의 절반을 넘게 들고 있을 때만,
+     가장 오래 들고 있던 칸 하나를 몬스터가 되찾는다.
+     혼자 노는 동안 지도를 다 먹으면 그걸로 끝이라, 다시 나갈 이유를 하루에 하나씩 만든다.
+     절반을 넘기 전에는 아무 일도 일어나지 않는다 — 초반부터 뺏지는 않는다. */
+  out.territory = await retakeOne(env, now);
   return out;
 }

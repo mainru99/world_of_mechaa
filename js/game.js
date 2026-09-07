@@ -7,12 +7,14 @@
  * 이 파일만 DOM 을 만진다 — 나머지는 서버(Worker)에서도 그대로 import 된다.
  * ================================================================== */
 import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, PULL_TABLE,
-         SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST } from '../data/balance.js';
+         SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST,
+         TERRITORY, TERRAIN } from '../data/balance.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
 import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs, atkRange,
          expNeed, battleExp, lvCost, enhCost,
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
+import { runBreach, rarAllowed } from './breach.js';
 import * as net from './net.js';
 import { rollPull, genPart as _genPart, autoScrapValue } from './gacha.js';
 import { makeOpponent as _makeOpponent } from './rewards.js';
@@ -166,7 +168,12 @@ const ERR_KO = { 'not enough credits':'크레딧이 부족합니다', 'not enoug
   'no player':'계정 정보를 찾을 수 없습니다', 'unknown action':'알 수 없는 요청입니다',
   'expedition in progress':'이미 원정 중입니다', 'no expedition':'나가 있는 원정이 없습니다',
   'expedition not done':'아직 귀환 전입니다', 'no robot left':'남은 기체가 없어 보낼 수 없습니다',
-  'robot on expedition':'원정 나간 기체입니다', 'unknown expedition':'알 수 없는 원정입니다' };
+  'robot on expedition':'원정 나간 기체입니다', 'unknown expedition':'알 수 없는 원정입니다',
+  'unknown node':'없는 칸입니다', 'already yours':'이미 내 점령지입니다',
+  'squad blocked':'편성 제한에 걸려 데려갈 기체가 없습니다',
+  'no territory':'점령한 칸이 없습니다', 'nothing to claim':'아직 쌓인 수입이 없습니다',
+  'node has no defense':'칸 정보를 읽지 못했습니다',
+  'no robot':'출격할 수 있는 기체가 없습니다' };
 
 async function srvHangar(action, args){
   if(!net.state.online){ toast('격납고 조작은 서버 연결이 필요합니다'); return null; }
@@ -252,7 +259,8 @@ function go(scr){ cur=scr; setScene(scr); document.querySelectorAll('.screen').f
   else if(scr==='gacha') renderGacha();
   else if(scr==='battle') renderBattleHome();     // 대전은 여기서만 처음부터 그린다
   else if(scr==='rank') renderRank();
-  else if(scr==='hunt') renderHunt(); }
+  else if(scr==='hunt') renderHunt();
+  else if(scr==='terr') renderTerr(); }
 function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); }
 /* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
@@ -701,7 +709,9 @@ function renderHunt(){
     const lv=Math.max(1,Math.min(MAXLV, rb.level+H.lv));
     const names=(MONSTER_BY_RARITY[t]||[]).map(id=>MONSTER_TYPES[id].name).join(' · ');
     return `<button class="hunt-row${poor?' poor':''}" ${poor?'disabled':''} onclick="ROWAR.hunt('${t}')">
-      <div class="ht"><span class="tag rar-${t==='BOSS'?'SSR':t}">${HUNT_KO[t]}</span>
+      <!-- 등급 색은 .rr-* 다. .rar-* 는 파츠 등급(C/R/SR/SSR)이라 UC·UQ·EP 규칙이 아예 없어,
+           정예·초희귀·전설 세 줄만 색 없이 회색으로 떴다. -->
+      <div class="ht"><span class="tag rr-${t}">${HUNT_KO[t]}</span>
         <b>Lv.${lv}</b></div>
       <div class="hn">${names}</div>
       <div class="hd">스크랩 ×${H.scX} · 파츠 ${Math.round(H.partP*100)}%${H.coreP?` · 코어 ${Math.round(H.coreP*100)}%`:''}</div>
@@ -906,10 +916,10 @@ function battleRewards(win,enemyLv){
 }
 
 /* ---- 대전 아레나 & 재생 ---- */
-function renderArena(pType,eType,pName,eName){
+function renderArena(pType,eType,pName,eName,label){
   toBattle('arena');                    // 전투 재생 동안만 콕핏 HUD
   $('#sc-battle').innerHTML = `
-    <h2 class="title">${MONSTER_TYPES[eType]?'몬스터 대전':'자동 대전'}</h2>
+    <h2 class="title">${label || (MONSTER_TYPES[eType]?'몬스터 대전':'자동 대전')}</h2>
     <div class="arena" id="arena">
       <div class="grid"></div><div class="vs">VS</div>
       <div class="hpwrap p"><div class="nm"><span>${pName}</span><small id="hpn-p"></small></div>
@@ -968,9 +978,13 @@ async function lunge(side){ const el=AR('#fighter-'+side); if(!el) return; el.cl
 function floatDmg(side,text,cls){ const host=AR('#fighter-'+side); if(!host) return; const d=document.createElement('div'); d.className='dmg '+cls; d.textContent=text; d.style.left=(side==='p'?'30px':'70px'); d.style.top='24px'; host.appendChild(d); setTimeout(()=>d.remove(),1000); }
 function banner(txt){ const b=AR('#skillbanner'); if(!b) return; b.textContent=txt; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); }
 function blog(html){ const l=document.getElementById('blog'); if(!l) return; const d=document.createElement('div'); d.innerHTML=html; l.appendChild(d); l.scrollTop=l.scrollHeight; }
-async function playBattle(events,P,E){
+async function playBattle(events,P,E,o){
   const nameOf=s=> s==='P'?`<span class="k">${P.name}</span>`:`<span style="color:var(--bad);font-weight:700">${E.name}</span>`;
-  setHP('p',P.maxhp,P.maxhp); setHP('e',E.maxhp,E.maxhp); setSP('p',0); setSP('e',0);
+  /* 아레나는 simulate 가 끝난 뒤에 재생하므로 P.hp 가 이미 최종값이다 — 그래서 만땅으로 시작한다.
+     점령전은 방어선 사이에 체력이 이어지므로 '들어갈 때의 값'을 따로 받는다. */
+  setHP('p', o&&o.pHp!=null?o.pHp:P.maxhp, P.maxhp);
+  setHP('e', o&&o.eHp!=null?o.eHp:E.maxhp, E.maxhp);
+  setSP('p', (o&&o.pSp)||0); setSP('e', (o&&o.eSp)||0);
   blog(`전투 개시! <b>${P.name}</b> vs <b>${E.name}</b>`);
   const sl=ms=>sleep(ms/battleSpeed);
   await sl(400);
@@ -1028,6 +1042,261 @@ function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$(
    그대로 되돌아온다. 화면의 버튼과 함께 지웠다.
    정말로 처음부터 다시 하는 기능이 필요해지면 서버에 지우는 경로를 만들어야 한다
    (계정 삭제 후 재발급). 클라에서 지우는 것으로는 될 수 없다. */
+/* ------------------------------ 점령전 ------------------------------
+   지도는 서버에 하나뿐이다. 여기서는 그리고 보여 주기만 한다 — 판정은 전부 서버다.
+   요청은 셋(view/attack/claim)뿐이고, 지도는 잠깐 들고 있는다. 화면을 열 때마다
+   같은 답을 받으려고 요청을 쓰면 요청 수가 곧 무료 한도인 구조가 무너진다. */
+const NODE_BY = Object.fromEntries(TERRITORY.map(n=>[n.id,n]));
+const TERR_TTL = 60000;
+let _terr=null, _terrAt=0;
+function dropTerrCache(){ _terr=null; _terrAt=0; }
+
+/* 방어선 하나하나의 남은 체력. 평균 막대 하나로 뭉치면 '두 겹 남았다'가 안 보인다. */
+function linePips(hp){
+  return `<div class="tpips">${(hp||[]).map(v=>{
+    const p=Math.round(clamp(v,0,1)*100);
+    return `<i class="${p<=0?'dead':(p<100?'hurt':'')}"><b style="height:${p}%"></b></i>`;
+  }).join('')}</div>`;
+}
+
+async function renderTerr(){
+  const el=$('#sc-terr');
+  const wrap = inner => `<h2 class="title">점령전 · 세계 지도</h2>${inner}`;
+  if(!net.state.online){
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">점령전은 서버 연결이 필요합니다.
+      지도는 서버에 하나뿐이라 누가 어느 칸을 들고 있는지도 서버가 압니다.</div></div>`);
+    return;
+  }
+  const fresh = _terr && (Date.now()-_terrAt) < TERR_TTL;
+  if(!fresh) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
+    <div style="font-weight:800">지도를 불러오는 중...</div></div></div>`);
+
+  const r = fresh ? _terr : await net.territory('view');
+  if(r && !r.error){ _terr=r; _terrAt=Date.now(); }
+  if(!r || r.error){
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">지도를 불러오지 못했습니다${r&&r.error?' · '+r.error:''}</div></div>`);
+    return;
+  }
+  drawTerr(r);
+}
+
+function drawTerr(r){
+  const st = Object.fromEntries(r.nodes.map(n=>[n.id,n]));
+  /* 내 편성 중 가장 센 기체를 기준으로 삼는다 — 돌파는 선봉이 얼마나 버티느냐로 갈린다. */
+  const myPw = Math.max(1, ...S.squad.map(u=>S.robots.find(x=>x.uid===u)).filter(Boolean).map(x=>power(x)));
+  /* row 1 이 안쪽, row 4 가 입구다. 위에서 아래로 그린다. */
+  const cells = [...TERRITORY].sort((a,b)=> a.row-b.row || a.col-b.col).map(n=>{
+    const s = st[n.id] || { owner:null, lines:n.mon.length, hp:[] };
+    const TE = TERRAIN[n.terrain]||{};
+    const own = s.owner==='me' ? 'mine' : (s.owner==='other' ? 'foe' : '');
+    return `<button class="tnode ${own}" onclick="ROWAR.openNode('${n.id}')">
+      <div class="tn-top"><span class="tag rr-${n.rar}">${n.rar==='BOSS'?'보스':n.rar}</span>
+        <b>Lv.${n.lv}</b></div>
+      <div class="tn-name">${n.ko}</div>
+      <div class="tn-terr"><span>${TE.ko||''}</span>${n.maxRar?`<em>${n.maxRar}↓</em>`:''}</div>
+      <div class="tn-pw ${s.pw>myPw*1.05?'hi':(s.pw<myPw*0.8?'lo':'')}">방어 ${fmt(s.pw||0)}</div>
+      ${linePips(s.hp)}
+      <div class="tn-own">${s.owner==='me' ? '내 점령지'
+        : (s.owner==='other' ? (s.ownerName||'적') : `방어선 ${s.lines}`)}</div>
+    </button>`;
+  }).join('');
+
+  const p=r.pending||{cr:0,sc:0};
+  const has = p.cr>0 || p.sc>0;
+  $('#sc-terr').innerHTML = `<h2 class="title">점령전 · 세계 지도</h2>
+    <div class="panel">
+      <div class="trow">
+        <div><div class="hint">점령</div><div class="big">${r.mine} / ${TERRITORY.length}</div></div>
+        <div><div class="hint">쌓인 수입</div><div class="big" style="color:var(--gold)">${fmt(p.cr)}</div></div>
+        <div><div class="hint">스크랩</div><div class="big">${fmt(p.sc)}</div></div>
+      </div>
+      <button class="btn big ${has?'gold':''}" ${has?'':'disabled'} onclick="ROWAR.claimTerr()"
+        >${has?'수입 받기':'아직 쌓인 수입이 없습니다'}</button>
+      <div class="hint" style="margin-top:6px">수입은 ${CONST.TERR.INCOME_CAP_H}시간치까지만 쌓입니다.</div>
+    </div>
+    <div class="tmap">${cells}</div>
+    <div class="panel"><div class="hint">
+      칸을 누르면 방어선과 지형을 볼 수 있습니다. <b>한 칸은 방어선을 전부 뚫어야</b> 점령됩니다 —
+      편성한 두 기가 <b>체력을 이어받은 채</b> 연속으로 싸우고, 둘 다 쓰러지면 실패합니다.
+      실패해도 <b>깎아 둔 방어선은 남습니다</b>(시간이 지나면 스스로 회복).
+    </div></div>`;
+}
+
+/* 칸 상세. 여기서 '이 칸에 무엇을 데려갈까'가 정해진다 — 그래서 지형과 편성 제한을
+   내 기체와 나란히 놓고 보여 준다. 상대 카드에서 하던 것과 같은 이유다. */
+function openNode(id){
+  const n=NODE_BY[id]; if(!n) return;
+  const s=(_terr&&_terr.nodes.find(x=>x.id===id))||{owner:null,lines:n.mon.length,hp:[]};
+  const TE=TERRAIN[n.terrain]||{};
+  /* 여기서 쓰는 기준은 server/territory.js 의 attackNode 와 **같아야 한다.**
+     서버는 '편성 제한을 통과한 첫 기체'로 출격비를 걷는다. 예전에 클라가 '지금 선택된
+     기체'로 보여 줘서, 화면의 금액과 실제로 빠지는 금액이 달랐다(크레딧이 아슬아슬하면
+     '부족' 판정까지 어긋난다). 원정 나간 기체도 서버가 빼므로 여기서도 뺀다. */
+  const squad=S.squad.map(u=>S.robots.find(x=>x.uid===u))
+                     .filter(x=>x && !(S.expd && S.expd.uid===x.uid));
+  /* 선봉을 맨 앞으로 — server/territory.js 의 loadSquad 와 같은 순서여야 한다 */
+  { const sel=selRobot(), i=sel?squad.findIndex(x=>x.uid===sel.uid):-1;
+    if(i>0) squad.unshift(squad.splice(i,1)[0]); }
+  const ok=squad.filter(x=>rarAllowed(rarOf(x.type), n.maxRar));
+  const cost=ok.length?Math.ceil(sortieCost(ok[0])*CONST.TERR.COST_X):0;
+  const myPw=Math.max(1, ...(ok.length?ok:squad).map(x=>power(x)));
+
+  const defs=n.mon.map((t,i)=>{
+    const M=COMBAT_TYPES[t]||{}, left=(s.hp&&s.hp[i]!=null)?s.hp[i]:1;
+    return `<div class="tline"><span class="ti">${i+1}</span>
+      <b>${M.name||t}</b><span class="lv">Lv.${n.lv}</span>
+      <i class="${left<=0?'dead':''}">${left<=0?'무너짐':Math.round(left*100)+'%'}</i></div>`;
+  }).join('') + (s.owner ? `<div class="tline foe"><span class="ti">${n.mon.length+1}</span>
+      <b>${s.ownerName||'주둔 기체'}</b><span class="lv">주둔</span><i>${
+        (s.hp&&s.hp[n.mon.length]!=null)?Math.round(s.hp[n.mon.length]*100)+'%':'100%'}</i></div>` : '');
+
+  /* 편성 제한에 걸리는 기체를 미리 보여 준다. 눌러 보고 나서 거절당하면 늦다. */
+  const roster=squad.map(x=>{
+    const good=rarAllowed(rarOf(x.type), n.maxRar);
+    /* 누가 먼저 나가는지가 이 규칙의 핵심이라 글자로 적는다 */
+    const head=good && ok[0] && ok[0].uid===x.uid;
+    return `<div class="tmech ${good?'':'no'}"><span class="th">${head?'선봉':'예비'}</span>${ROBOT_TYPES[x.type].name}
+      <span class="lv">Lv.${x.level}</span> ${robRarTag(x.type)}
+      ${good?`<i>피로 ${fatOf(x)}</i>`:'<i class="bad">편성 제한 초과</i>'}</div>`;
+  }).join('') || '<div class="hint">편성된 기체가 없습니다.</div>';
+
+  const mine = s.owner==='me';
+  const poor = S.credits < cost;
+  openModal(`<div class="mhead">${n.ko} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <div class="tdet">
+      <div class="tdrow"><span>등급</span><b>${n.rar==='BOSS'?'보스':n.rar} · Lv.${n.lv}</b></div>
+      <div class="tdrow"><span>지형</span><b>${TE.ko}</b> <i>${TE.desc||''}</i></div>
+      <div class="tdrow"><span>전력</span><b class="${s.pw>myPw*1.05?'bad':''}">방어 ${fmt(s.pw||0)}</b>
+        <i>내 최고 ${fmt(myPw)} · ${s.pw>myPw*1.05?'열세':(s.pw<myPw*0.8?'우세':'호각')}</i></div>
+      <div class="tdrow"><span>수입</span><b>시간당 크레딧 ${fmt(n.crH)} · 스크랩 ${fmt(n.scH)}</b></div>
+      <div class="tdrow"><span>점령 보너스</span><b>크레딧 ${fmt(n.crH*CONST.TERR.CAPTURE_H)} · 스크랩 ${fmt(n.scH*CONST.TERR.CAPTURE_H)}</b></div>
+      ${n.maxRar?`<div class="tdrow"><span>편성 제한</span><b class="bad">${n.maxRar} 등급 이하만</b></div>`:''}
+    </div>
+    <div class="hint" style="margin:10px 0 4px">방어선 — 순서대로 뚫습니다. 지형 보정은 <b>양쪽 모두</b>에 걸립니다.</div>
+    <div class="tlines">${defs}</div>
+    <div class="hint" style="margin:10px 0 4px">데려갈 기체 — 체력은 방어선 사이에 회복되지 않습니다.</div>
+    <div class="tmechs">${roster}</div>
+    ${mine
+      ? `<div class="hint" style="margin-top:10px;color:var(--gold)">이미 내 점령지입니다. 수입은 지도에서 한꺼번에 받습니다.</div>`
+      : !ok.length
+        ? `<div class="hint" style="margin-top:10px;color:var(--bad)">편성 제한에 걸려 데려갈 기체가 없습니다. 격납고에서 편성을 바꾸세요.</div>`
+        : `<button class="btn big ${poor?'':'gold'}" ${poor?'disabled':''} onclick="ROWAR.attackTerr('${id}')"
+             style="margin-top:12px">${poor?`크레딧 부족 (${fmt(cost)} 필요)`:`공격 · ${fmt(cost)} 크레딧`}</button>`}
+  `);
+}
+
+async function attackTerr(id){
+  closeModal();
+  if(!net.state.online){ toast('점령전은 서버 연결이 필요합니다'); return; }
+  const n=NODE_BY[id];
+  toBattle();
+  $('#sc-battle').innerHTML = `<h2 class="title">점령전</h2><div class="panel"><div class="mm">
+    <div class="spinner"></div><div style="font-weight:800">${n?n.ko:'거점'} 진입 중...</div>
+    <div class="hint">방어선을 확인하고 있습니다.</div></div></div>`;
+  const [r]=await Promise.all([net.territory('attack',{node:id}), sleep(700)]);
+  if(!r || r.error){
+    toast(ERR_KO[r&&r.error]||('공격하지 못했습니다'+(r&&r.error?': '+r.error:'')));
+    go('terr'); return;
+  }
+  dropTerrCache();
+  applyTerrAttack(r);
+  playBreach(r);
+}
+
+/* 서버가 확정한 결과를 로컬에 받아 적는다. 클라는 계산하지 않는다. */
+function applyTerrAttack(r){
+  S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;
+  for(const e of (r.reward.exp||[])){
+    const rb=S.robots.find(x=>x.uid===e.uid);
+    if(rb){ rb.level=e.to; if(e.exp!=null) rb.exp=e.exp; }
+  }
+  for(const f of (r.reward.fat||[])){
+    const rb=S.robots.find(x=>x.uid===f.uid);
+    if(rb){ rb.fat=f.now; if(f.fatAt!=null) rb.fatAt=f.fatAt; }
+  }
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  net.cancelSync();                 // 서버가 이미 최신이다
+  renderWallet();
+}
+
+/* 돌파 재생.
+   서버가 준 편성·방어선·시드로 **같은 함수를 다시 돌려** 판별을 그대로 얻는다.
+   전투마다 결과를 따로 받아 오지 않는 이유가 이것이다 — 그러면 재생과 결과가 갈린다. */
+async function playBreach(r){
+  const out=runBreach({ mechs:r.mechs, lines:r.lines, seeds:r.seeds, hpLeft:r.hpLeft0 });
+  const node=NODE_BY[r.node];
+  const total=r.lines.length;
+
+  for(let i=0;i<out.rounds.length;i++){
+    const rd=out.rounds[i];
+    const M=r.mechs[rd.mi], L=r.lines[rd.li];
+    const P=makeUnit(M.name,M.type,M.stats); P.hp=rd.pHp; P.sp=rd.pSp;
+    const E=makeUnit(L.name,L.type,L.stats); E.hp=rd.eHp; E.sp=rd.eSp;
+
+    renderArena(M.type,L.type,M.name,L.name,
+      `${node?node.ko:'거점'} · 방어선 ${rd.li+1}/${total}`);
+    if(arenaGone()) return;
+    /* 두 번째 기체가 들어오는 순간이 이 규칙의 핵심이라 말로도 한 줄 남긴다. */
+    if(i>0 && rd.mi!==out.rounds[i-1].mi)
+      blog(`<b style="color:var(--bad)">선봉 격추</b> — <span class="k">${M.name}</span> 투입`);
+    else if(i>0)
+      blog(`<b class="k">방어선 ${rd.li} 돌파</b> — 체력 ${Math.round(rd.pHp)} 로 이어서 진입`);
+
+    if(rarOf(L.type)==='BOSS') await bossEntrance();
+    const w=await playBattle(rd.events,P,E,{ pHp:rd.pHp, eHp:rd.eHp, pSp:rd.pSp, eSp:rd.eSp });
+    if(!w) return;                       // 화면을 떠났다. 보상은 이미 서버에 반영됨
+    await sleep(320/battleSpeed);
+  }
+  renderBreachResult(r);
+}
+
+function renderBreachResult(r){
+  toBattle();
+  const node=NODE_BY[r.node];
+  const rw=r.reward||{};
+  const lines=[];
+  if(r.win){
+    if(rw.cr) lines.push(`<div class="r">점령 보너스 · 크레딧 <b>+${fmt(rw.cr)}</b></div>`);
+    if(rw.sc) lines.push(`<div class="r">스크랩 <b>+${fmt(rw.sc)}</b></div>`);
+    if(rw.core) lines.push(`<div class="r" style="color:var(--acc2)">코어 <b>+${rw.core}</b></div>`);
+    lines.push(`<div class="r" style="color:var(--gold)">시간당 크레딧 ${fmt(node.crH)} · 스크랩 ${fmt(node.scH)} 이 쌓입니다</div>`);
+  }else{
+    const left=(r.hpLeft||[]).filter(v=>v>0).length;
+    lines.push(`<div class="r">방어선 <b>${r.cleared}</b>겹 돌파 · <b>${left}</b>겹 남음</div>`);
+    lines.push(`<div class="r" style="color:var(--dim)">깎아 둔 방어선은 남습니다 — 시간이 지나면 스스로 회복합니다</div>`);
+  }
+  for(const e of (rw.exp||[])){
+    const rb=S.robots.find(x=>x.uid===e.uid); if(!rb||!e.amt) continue;
+    lines.push(`<div class="r">${ROBOT_TYPES[rb.type].name} 경험치 <b>+${fmt(e.amt)}</b>${
+      e.to>e.from?` · <b style="color:var(--gold)">Lv.${e.from}→${e.to}</b>`:''}</div>`);
+  }
+  for(const f of (rw.fat||[])){
+    const rb=S.robots.find(x=>x.uid===f.uid); if(!rb||!f.add) continue;
+    lines.push(`<div class="r" style="color:var(--bad)">${ROBOT_TYPES[rb.type].name} 피로도 +${f.add} (${f.now})</div>`);
+  }
+  lines.push(`<div class="r" style="color:var(--dim)">출격비 −${fmt(r.cost)} 크레딧</div>`);
+
+  $('#sc-battle').innerHTML = `
+    <div class="panel result">
+      <div class="big ${r.win?'win':'lose'}">${r.win?'점령 성공':'돌파 실패'}</div>
+      <div class="hint">${node?node.ko:''} · ${r.win?'이 칸은 이제 내 것입니다':'다음에 이어서 칠 수 있습니다'}</div>
+      <div class="reward">${lines.join('')}</div>
+      <div class="row-btns">
+        <button class="btn big gold" onclick="ROWAR.go('terr')">지도로</button>
+        <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
+      </div>
+    </div>`;
+}
+
+async function claimTerr(){
+  const r=await net.territory('claim');
+  if(!r) return;
+  if(r.error){ toast(ERR_KO[r.error]||('실패: '+r.error)); return; }
+  S.credits=r.player.credits; S.scrap=r.player.scrap;
+  commitLocal(); dropTerrCache(); renderWallet(); renderTerr();
+  toast(`점령지 ${r.nodes}칸 · 크레딧 +${fmt(r.cr)} · 스크랩 +${fmt(r.sc)}`);
+}
+
 window.ROWAR = {
   go,
   /* 나갈 기체 고르기 — 편성에 든 기체만. 편성 밖을 누르면 편성에 넣는 것으로 받아 준다. */
@@ -1043,6 +1312,7 @@ window.ROWAR = {
   levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
   pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, hunt, toggleSpeed,
   pickExped, sendExped, claimExped,
+  openNode, attackTerr, claimTerr,
   account:accountScreen, doRegister, doLogin, logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화

@@ -34,9 +34,10 @@ import { computeStats, power, powerOf, gainExp, addFat, fatOf, decayFat,
          sortieCost, serviceCost, lvCost, enhCost, findPart } from '../js/stats.js';
 import { rollPull, genPart, BY_RARITY, PULL_CUR, scrapValue } from '../js/gacha.js';
 import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards } from '../js/rewards.js';
+import { ratingDelta } from '../server/arena.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 import { applyTerrain, runBreach, regenLines, maxRounds, rarAllowed } from '../js/breach.js';
-import { monsterLine, effLevel } from '../server/territory.js';
+import { monsterLine, effLevel, unlockedBy } from '../server/territory.js';
 
 /* 밸런스 상수를 바꿔 보고 싶을 때 — 파일을 고치지 않고 환경변수로 덮어쓴다.
    ChatGPT 가 '이 값이면 어떻게 되나'를 파일 수정 없이 재 볼 수 있게 하려는 것이다.
@@ -83,6 +84,7 @@ function newAccount(pol, rnd) {
                slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null } };
   return { pol, credits: 600, cores: 12, scrap: 30,
            robots: [rb], parts: [], sel: rb.uid, squad: [rb.uid],
+           rating: 1000,        // 아레나 성적. 상대 장비가 이 값을 따라온다
            expd: null,          // { uid, tier, lv, endsAt }
            terr: {},            // nodeId -> { hp, hpAt, takenAt, claimedAt }
            ev: [], pulls: [], firstRar: {}, firstLv: {},
@@ -204,8 +206,8 @@ function fight(P, now, rnd, mode, tier, day) {
   if (!rescue) P.credits -= cost;
 
   const opp = mode === 'hunt'
-    ? makeHuntTarget(tier, rb.level, rnd, uid, worn)
-    : makeOpponent(ownedRars(P), rb.level, rnd, uid, rescue, worn);
+    ? makeHuntTarget(tier, rb.level, rnd, uid)                       // 내 파츠를 보지 않는다
+    : makeOpponent(ownedRars(P), rb.level, rnd, uid, rescue, P.rating);
   if (!opp) { P.blocked++; return null; }
 
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
@@ -223,6 +225,14 @@ function fight(P, now, rnd, mode, tier, day) {
   else if (mode === 'hunt') rw = rollHuntRewards(win, tier, opp.level, rnd, uid);
   else rw = rollBattleRewards(win, opp.level, rnd, uid);
 
+  /* 레이팅은 아레나에서만, 그리고 몬스터·비상 출격을 뺀 판에서만 움직인다.
+     서버(server/battle.js)와 같은 규칙이어야 시뮬이 실제와 같은 곡선을 그린다. */
+  let dRating = 0;
+  if (mode === 'arena' && !rescue && opp.kind !== 'monster') {
+    dRating = ratingDelta(P.rating, P.rating, win, CONST.RATING_K.pve);
+    P.rating = Math.max(0, P.rating + dRating);
+  }
+
   P.credits += rw.cr; P.scrap += rw.sc; P.cores += rw.core || 0;
   if (rw.part) takePart(P, rw.part);
   const lv = gainExp(rb, rw.expGain || 0);
@@ -235,7 +245,7 @@ function fight(P, now, rnd, mode, tier, day) {
   P.ev.push({ day, mode: rescue ? 'rescue' : mode, tier: tier || null, win,
               cost: rescue ? 0 : cost, cr: rw.cr, sc: rw.sc, core: rw.core || 0,
               part: rw.part ? rw.part.rarity : null, secs,
-              myLv: rb.level, oppLv: opp.level, fat: fatOf(rb),
+              myLv: rb.level, oppLv: opp.level, fat: fatOf(rb), rating: P.rating,
               myPw: Math.round(powerOf(statP)), oppPw: Math.round(powerOf(statE)) });
   return { win, secs };
 }
@@ -403,8 +413,10 @@ function playDay(P, day, dayStart, rnd, avgPower) {
       const mine = new Set(Object.keys(P.terr).filter(id => P.terr[id].takenAt));
       const myPw = Math.max(...P.squad.map(u => pwOf(P, rbOf(P, u) || P.robots[0])));
       const worth = n => n.crH + n.scH * 5 + (n.coreH || 0) * CONST.PULL_CR_COST;
+      const myTop = Math.max(1, ...P.squad.map(u => (rbOf(P, u) || {}).level || 1));
       const cand = TERRITORY
         .filter(n => !mine.has(n.id))
+        .filter(n => unlockedBy(n, myTop))          // 해금 레벨을 넘겨야 들어간다
         .filter(n => P.squad.some(u => rarAllowed(rarOf((rbOf(P, u) || {}).type), n.maxRar)))
         .filter(n => nodePw(n, avgPower) < myPw * 0.95)   // 이길 가망이 있는 칸만
         .sort((a, b) => worth(b) - worth(a));
@@ -430,7 +442,7 @@ function snapshot(P, day) {
   const rb = selRb(P);
   const todays = P.ev.filter(e => e.day === day);
   const bat = todays.filter(e => ['arena', 'hunt', 'rescue', 'terr'].includes(e.mode));
-  const o = { day, lv: rb.level, pw: Math.round(pwOf(P, rb)),
+  const o = { day, lv: rb.level, pw: Math.round(pwOf(P, rb)), rating: Math.round(P.rating),
               credits: P.credits, cores: P.cores, scrap: P.scrap,
               robots: P.robots.length, parts: P.parts.length,
               nodes: Object.values(P.terr).filter(t => t.takenAt).length,
@@ -497,7 +509,7 @@ function main() {
   fs.writeFileSync(path.join(OUT, 'content.csv'), csv(cont));
 
   /* ③ 난이도 — 10일 구간별 승률과 전력비 */
-  const band = [['policy', 'days', 'content', 'attempts', 'winrate', 'my_pw', 'opp_pw', 'pw_ratio', 'avg_fatigue']];
+  const band = [['policy', 'days', 'content', 'attempts', 'winrate', 'my_pw', 'opp_pw', 'pw_ratio', 'avg_fatigue', 'avg_rating']];
   const BANDS = [];
   for (let s = 1; s <= DAYS; s += 10) BANDS.push([s, Math.min(DAYS, s + 9)]);
   for (const pol of POLICIES)
@@ -509,8 +521,9 @@ function main() {
         const mp = mean(per.flatMap(x => x.map(e => e.myPw)));
         const op = mean(per.flatMap(x => x.map(e => e.oppPw)));
         const ft = mean(per.flatMap(x => x.map(e => e.fat || 0)));
+        const rt = mean(per.flatMap(x => x.map(e => e.rating || 0)));
         band.push([pol.id, `${a}-${b}`, m, r1(n), r1(wr * 100), Math.round(mp), Math.round(op),
-                   r1(op ? mp / op : 0), r1(ft)]);
+                   r1(op ? mp / op : 0), r1(ft), Math.round(rt)]);
       }
   fs.writeFileSync(path.join(OUT, 'difficulty.csv'), csv(band));
 
@@ -579,12 +592,13 @@ function writeReport(runs) {
   L.push('');
 
   L.push('## 도달 지점', '');
-  L.push('| 정책 | 최종 Lv | 최종 전투력 | 보유 기체 | 점령 칸 | 하루 평균 | 총 플레이 |');
-  L.push('|---|---|---|---|---|---|---|');
+  L.push('| 정책 | 최종 Lv | 최종 전투력 | 최종 레이팅 | 보유 기체 | 점령 칸 | 하루 평균 | 총 플레이 |');
+  L.push('|---|---|---|---|---|---|---|---|');
   for (const p of P0) {
     const rs = runs[p.id], last = rs.map(r => r.snaps[DAYS - 1]);
     const mins = mean(rs.map(r => r.snaps.reduce((s, x) => s + x.mins, 0)));
     L.push(`| ${p.ko} | ${r1(mean(last.map(x => x.lv)))} | ${Math.round(mean(last.map(x => x.pw)))} | `
+         + `${Math.round(mean(last.map(x => x.rating)))} | `
          + `${r1(mean(last.map(x => x.robots)))}기 | ${r1(mean(last.map(x => x.nodes)))} | `
          + `${r1(mean(rs.map(r => mean(r.snaps.map(x => x.mins)))))}분 | ${Math.round(mins / 60)}시간 |`);
   }

@@ -371,8 +371,8 @@ async function handleApi(request, env, url) {
     /* 보호 거절에는 남은 시각과 가진 코어를 함께 실어 보낸다 —
        클라가 '몇 분 남았고, 강행하려면 코어가 몇 개 필요한지'를 그 자리에서 보여 준다. */
     return r.ok ? json(r)
-                : json({ ok: false, error: r.error, protectUntil: r.protectUntil, cores: r.cores },
-                       r.status || 400);
+                : json({ ok: false, error: r.error, protectUntil: r.protectUntil,
+                         cores: r.cores, minLv: r.minLv, myLv: r.myLv }, r.status || 400);
   }
 
   /* ── 정식 계정 ───────────────────────────────────────

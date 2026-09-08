@@ -59,12 +59,14 @@ export function pickOpponentType(ownedRarities, byRarity, rnd, myLevel) {
   return pick(list, rnd);
 }
 
-/* 내가 낀 파츠의 '평균 품질'. 상대를 여기에 맞춰 만든다.
-   myParts 로는 낀 파츠 배열을 받는다(개수만 담긴 숫자도 받아 준다 — 예전 호출부 호환). */
+/* 파츠 '품질' 하나로 뭉친 값. 상대를 여기에 맞춰 만든다.
+   배열(낀 파츠)·숫자(개수)·품질 객체를 모두 받아 준다. */
 const PART_RAR = RARITY.map(r => r.k);          // ['C','R','SR','SSR']
 export function partQuality(myParts) {
   if (myParts == null) return { n: 1, rar: 'C', enh: 0 };
   if (typeof myParts === 'number') return { n: clamp(myParts | 0, 0, 4), rar: 'C', enh: 0 };
+  if (!Array.isArray(myParts)) return { n: clamp(myParts.n | 0, 0, 4),
+                                        rar: myParts.rar || 'C', enh: myParts.enh | 0 };
   const list = myParts.filter(Boolean);
   if (!list.length) return { n: 0, rar: 'C', enh: 0 };
   const ri_ = list.reduce((s, p) => s + Math.max(0, PART_RAR.indexOf(p.rarity)), 0) / list.length;
@@ -82,8 +84,26 @@ export function partLevelValue(myParts, myLevel) {
   return Math.round(per * (q.n / 4) * (1 + q.enh * (CONST.PART_ENH_LV || 0)) * tierScale(myLevel));
 }
 
-/* 상대 한 명. 몬스터는 파츠를 갖지 않는다. */
-export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, myParts) {
+/* 레이팅 → 상대가 낄 장비. **내 장비를 보지 않는다.**
+   왜 이렇게 바꿨는지는 data/balance.js 의 RATING_GEAR 주석에 적었다. */
+export function gearFromRating(rating) {
+  const T = CONST.RATING_GEAR;
+  if (!T || !T.length) return { n: 0, rar: 'C', enh: 0 };
+  const r = Number.isFinite(rating) ? rating : 1000;   // 모르면 시작 레이팅으로 본다
+  let out = T[0];
+  for (const row of T) if (r >= row.at) out = row;
+  return { n: out.n, rar: out.rar, enh: out.enh };
+}
+
+/* 상대 한 명. 몬스터는 파츠를 갖지 않는다.
+   여섯 번째 인자는 **레이팅**이다. 예전에는 '내가 낀 파츠'였는데, 그러면 장비를 갖출수록
+   상대도 같이 세져 이득이 즉시 상쇄됐다(거울 대치). 배열이 들어오면 예전 방식으로
+   품질을 뽑아 쓴다 — 레이팅을 모르는 호출부(오프라인 연습·옛 도구)를 위한 길이다. */
+export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rating) {
+  /* 배열이면 '내가 낀 파츠'로 본다 — 레이팅을 모르는 옛 호출부(검증 도구)를 위한 길이다.
+     그 밖에는 레이팅으로 본다. 레이팅 0 이면 장비 없음이 되므로 tools/match.mjs 가
+     '맨몸 플레이어'로 쓰는 0 도 그대로 맞는다. */
+  const myParts = Array.isArray(rating) ? rating : gearFromRating(rating);
   const monster = forceMonster || rnd() < CONST.MONSTER_RATE;
   const type = pickOpponentType(ownedRarities, monster ? MONSTER_BY_RARITY : BY_RARITY, rnd, myLevel);
   const rar = (monster ? MONSTER_TYPES : ROBOT_TYPES)[type].rarity;
@@ -123,15 +143,18 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, myP
 }
 
 /* 토벌 상대. 등급을 직접 골라 그 등급의 몬스터를 낸다.
-   아레나 매칭과 달리 '내가 가진 등급'에 묶이지 않는다 — 비용이 곧 관문이다. */
-export function makeHuntTarget(tier, myLevel, rnd, uid, myParts) {
+   아레나 매칭과 달리 '내가 가진 등급'에 묶이지 않는다 — 비용이 곧 관문이다.
+
+   **내 파츠를 보지 않는다.** 예전에는 파츠만큼 상대 레벨을 얹었는데, 그러면 장비를
+   갖출수록 어느 등급이든 똑같이 버거워져 '등급을 고른다'가 의미를 잃는다.
+   토벌은 난이도를 내가 고르는 콘텐츠다 — 세지면 아래 등급이 밭이 되고 위로 올라간다.
+   그 올라가는 것이 곧 보상이다. */
+export function makeHuntTarget(tier, myLevel, rnd, uid) {
   const list = MONSTER_BY_RARITY[tier];
   if (!list || !list.length) return null;
   const type = pick(list, rnd);
   const off = (CONST.HUNT[tier] || {}).lv || 0;
-  /* 토벌 상대도 몬스터라 파츠가 없다. 아레나와 같은 규칙으로 갚아 준다 —
-     안 그러면 장비를 맞출수록 토벌만 쉬워져 등급을 고르는 의미가 사라진다. */
-  const level = clamp(myLevel + off + partLevelValue(myParts, myLevel), 1, oppLvMax());
+  const level = clamp(myLevel + off, 1, oppLvMax());
   return { kind: 'monster', type, level, parts: [],
            slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null },
            callsign: MONSTER_TYPES[type].name };

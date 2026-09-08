@@ -29,7 +29,7 @@ const COMBAT = { ...ROBOT_TYPES, ...MONSTER_TYPES };
    나갈 수 있는 것은 편성(squad1/squad2)에 든 두 기뿐이다. */
 async function loadFighter(env, accountId) {
   const p = await env.DB.prepare(
-    'SELECT sel_robot, credits, squad1, squad2 FROM player WHERE account_id = ?1')
+    'SELECT sel_robot, credits, rating, squad1, squad2 FROM player WHERE account_id = ?1')
     .bind(accountId).first();
   const robots = (await env.DB.prepare(
     'SELECT id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
@@ -55,6 +55,7 @@ async function loadFighter(env, accountId) {
   return {
     row,
     credits: p ? p.credits : 0,
+    rating: p && p.rating != null ? p.rating : 1000,   // 상대 장비를 여기에 맞춘다
     robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, slots },
     parts: used,
     /* 상대 등급 보정은 '보유한' 기체 전부를 본다 — 편성에 없어도 내 전력이다 */
@@ -96,7 +97,7 @@ async function preparePending(env, accountId, me, now, credits, opts) {
   if (tier) {
     const hcost = huntCost(me.robot, tier);
     if (have >= hcost) {
-      const hopp = makeHuntTarget(tier, me.robot.level, rnd, uid, worn);
+      const hopp = makeHuntTarget(tier, me.robot.level, rnd, uid);
       const hseed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
       const HT = COMBAT[hopp.type];
       return {
@@ -125,7 +126,9 @@ async function preparePending(env, accountId, me, now, credits, opts) {
     const found = await pickOpponentFromArena(env, accountId, power(me.robot, me.parts));
     if (found) opp = found;
   }
-  if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid, rescue, worn);
+  /* 상대 장비는 **내 레이팅**에 맞춘다. 내가 낀 파츠를 따라가면 좋은 파츠를 껴도
+     상대가 같이 세져 이득이 즉시 상쇄된다(data/balance.js 의 RATING_GEAR 주석 참고). */
+  if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid, rescue, me.rating);
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
 
   const T = COMBAT[opp.type];
@@ -256,14 +259,24 @@ export async function startBattle(env, accountId, now) {
        pending_match=?7, updated_at=?8 WHERE account_id=?9`)
     .bind(credits, cores, scrap, wins, losses, rev, next.json, now, accountId));
 
-  /* 사람 상대 전투만 기록한다. 몬스터·생성 상대는 다툴 상대가 없고, 쓰기 예산도 아낀다. */
+  /* 레이팅은 **아레나에서만** 움직인다.
+       · 사람 상대      — 겨루기의 본체라 폭이 크다 (K = RATING_K.pvp)
+       · 생성 로봇 상대 — 이쪽도 움직여야 한다. 안 그러면 사람이 적은 지금 레이팅이
+                          영영 1000 에 머물고, 상대 장비도 바닥에 굳는다 (K = pve)
+       · 몬스터·비상 출격·토벌·점령 — 움직이지 않는다. 구제 장치가 벌이 되면 안 되고,
+                          토벌·점령은 난이도를 내가 고르는 콘텐츠라 성적으로 볼 수 없다.
+     기록(battle 표)은 사람 상대만 남긴다 — 다툴 상대가 있는 것만 남기면 되고 쓰기도 아낀다. */
   let delta = 0;
-  if (opp.kind === 'player') {
+  const ranked = mode === 'arena' && !rescue && opp.kind !== 'monster';
+  if (ranked) {
     const myRating = (await env.DB.prepare('SELECT rating FROM player WHERE account_id = ?1')
       .bind(accountId).first())?.rating ?? 1000;
-    delta = ratingDelta(myRating, opp.rating ?? 1000, win);
+    const K = opp.kind === 'player' ? CONST.RATING_K.pvp : CONST.RATING_K.pve;
+    delta = ratingDelta(myRating, opp.rating ?? myRating, win, K);
     stmts.push(env.DB.prepare('UPDATE player SET rating = MAX(0, rating + ?1) WHERE account_id = ?2')
       .bind(delta, accountId));
+  }
+  if (opp.kind === 'player') {
     stmts.push(env.DB.prepare(
       `INSERT INTO battle (attacker_id, def_kind, defender_id, seed, atk_snap, def_snap, winner_id, atk_delta, created_at)
        VALUES (?1,'player',?2,?3,?4,?5,?6,?7,?8)`)

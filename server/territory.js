@@ -168,6 +168,13 @@ function pendingIncome(node, row, now) {
            core: Math.floor((node.coreH || 0) * h), h };
 }
 
+/* 칸이 열렸는가 — 출격 편성의 **가장 높은 레벨**로 본다. 그 기체가 실제로 싸우므로.
+   나중에 '특정 아이템이 있어야 열린다'가 붙을 자리도 여기다. 조건을 한 곳에만 두면
+   화면 표시와 서버 판정이 갈릴 수 없다(클라는 같은 규칙을 js/game.js 에서 쓴다). */
+export function unlockedBy(node, level) {
+  return !node.minLv || (level | 0) >= node.minLv;
+}
+
 /* 점령 직후 보호. 남은 밀리초를 돌려준다(0 이면 보호 없음). */
 function protectLeft(row, now) {
   if (!row || !row.owner_id || !row.taken_at) return 0;
@@ -181,6 +188,15 @@ export async function territoryView(env, accountId, now) {
     .all()).results || [];
   const byId = new Map(rows.map(r => [r.node, r]));
 
+  /* 해금 판정에 쓸 내 최고 레벨. 편성이 비어 있으면 보유 기체 중 최고로 본다. */
+  const lvRow = await env.DB.prepare(
+    `SELECT MAX(r.level) AS lv FROM robot r
+       JOIN player p ON p.account_id = r.account_id
+      WHERE r.account_id = ?1 AND (p.squad1 = r.id OR p.squad2 = r.id)`).bind(accountId).first();
+  const fallback = await env.DB.prepare(
+    'SELECT MAX(level) AS lv FROM robot WHERE account_id = ?1').bind(accountId).first();
+  const myLv = (lvRow && lvRow.lv) || (fallback && fallback.lv) || 1;
+
   const avgPower = await worldAvgPower(env, now);
 
   let cr = 0, sc = 0, core = 0, mine = 0;
@@ -193,6 +209,7 @@ export async function territoryView(env, accountId, now) {
     const out = { id: n.id, owner, ownerName: row ? row.owner_name : null,
                   lines: nLines, hp: liveHp(n, row, now, nLines),
                   pw: nodePower(n.id, avgPower), lv: effLevel(n, avgPower),
+                  minLv: n.minLv || 0, locked: !unlockedBy(n, myLv),
                   /* 보호가 남아 있으면 끝나는 시각을 준다. 남은 시간은 클라가 센다. */
                   protectUntil: left > 0 ? now + left : null };
     if (owner === 'me') {
@@ -205,7 +222,7 @@ export async function territoryView(env, accountId, now) {
     return out;
   });
   return { ok: true, nodes, mine, pending: { cr, sc, core },
-           world: { avgPower }, at: now };
+           world: { avgPower }, myLv, at: now };
 }
 
 /* ── 편성 읽기 ─────────────────────────────────────────── */
@@ -271,6 +288,12 @@ export async function attackNode(env, accountId, now, nodeId, wantRaid) {
 
   const me = await loadSquad(env, accountId);
   if (!me || !me.mechs.length) return err(400, 'no robot');
+
+  /* 해금 검사. 편성의 가장 높은 레벨로 본다 — 그 기체가 실제로 싸운다. */
+  const myLv = Math.max(1, ...me.mechs.map(m => m.robot.level));
+  if (!unlockedBy(node, myLv))
+    return { ok: false, status: 400, error: 'locked', minLv: node.minLv, myLv };
+
   if (raid && me.p.cores < T.RAID_CORE)
     return { ok: false, status: 400, error: 'not enough cores', cores: me.p.cores };
 

@@ -383,8 +383,41 @@ export const CONST = {
      강화는 여기에 곱으로 붙는다(SR 4개 +5 강화 = 실측 +21 ≈ 14 × 1.5).
      몬스터는 파츠를 낄 수 없으므로 이 값만큼 레벨을 얹어 준다 — 안 그러면 장비를 갖출수록
      상대의 40%(MONSTER_RATE)가 공짜 승리가 된다. */
-  PART_LV: { C: 3, R: 6, SR: 14, SSR: 22 },
+  /* 2026-09-08 실측으로 3/6/14/22 → 1/3/7/11 로 내렸다. 예전 값은 **실측의 2배**였다.
+     그 값을 정한 tools/partlv.mjs 가 대가(SLOT_COST)가 생기기 전 코드로 파츠를 만들어
+     상승분만 굴리고 있었기 때문이다. 두 배로 얹어 주니 장비를 갖출수록 상대만 세져서,
+     실제로는 **파츠를 낄수록 지고 있었다**(커먼 Lv.15 맨몸 54% → R 4개 33%).
+     지금 값은 Lv.30 실측(C 1.2 · R 2.5 · SR 7.3 · SSR 10.5)에 맞춘 것이다. */
+  PART_LV: { C: 1, R: 3, SR: 7, SSR: 11 },
   PART_ENH_LV: 0.10,      // 강화 1당 파츠 가치 배수 증가분
+
+  /* ── 아레나 상대의 장비를 무엇에 맞출 것인가 ────────────
+     예전에는 **내가 낀 파츠를 그대로 따라갔다**(거울 대치). 그러면 좋은 파츠를 껴도
+     상대가 같이 세져서 이득이 즉시 상쇄된다 — 실제로 파츠를 낄수록 승률이 떨어졌다.
+     장비를 갖추는 것이 이 게임의 보상인데, 그 보상이 아레나에서만 사라지는 셈이었다.
+
+     그래서 기준을 **내 장비가 아니라 내 성적(레이팅)** 으로 옮긴다.
+       · 좋은 파츠를 끼면 → 한동안 이긴다(진짜 보상) → 레이팅이 오른다
+       · 레이팅이 오르면 → 상대 장비가 따라 올라와 다시 팽팽해진다
+     상쇄가 '즉시'에서 '이긴 다음'으로 바뀐다. 그 사이가 곧 성장의 체감이다.
+
+     at 은 그 줄이 적용되기 시작하는 레이팅이다(시작 레이팅 1000).
+     한 판에 ±10~12 움직이므로 한 칸 오르는 데 대략 스무 판쯤 걸린다.
+     ※ 값 조정은 ChatGPT 담당. */
+  RATING_GEAR: [
+    { at:    0, n: 0, rar: 'C',   enh:  0 },
+    { at: 1060, n: 2, rar: 'C',   enh:  0 },
+    { at: 1150, n: 4, rar: 'C',   enh:  0 },
+    { at: 1260, n: 4, rar: 'R',   enh:  0 },
+    { at: 1400, n: 4, rar: 'R',   enh:  3 },
+    { at: 1560, n: 4, rar: 'SR',  enh:  3 },
+    { at: 1740, n: 4, rar: 'SR',  enh:  7 },
+    { at: 1950, n: 4, rar: 'SSR', enh:  5 },
+    { at: 2200, n: 4, rar: 'SSR', enh: 10 },
+  ],
+  /* 레이팅이 움직이는 폭. 사람 상대가 더 크다 — 그쪽이 진짜 겨루기다.
+     몬스터전과 비상 출격은 움직이지 않는다(구제 장치가 벌이 되면 안 된다). */
+  RATING_K: { pvp: 24, pve: 20 },
 
   /* 생성 상대는 최대 레벨을 넘길 수 있다.
      레벨 상한에서는 등급도 파츠도 레벨로 갚아 줄 자리가 없어진다 — Lv.60 에서 전부
@@ -467,6 +500,10 @@ export const TERRAIN = {
      col/row   3열 4행. row 4 가 입구, row 1 이 안쪽이다
      rar/lv    칸의 난이도. 내 레벨과 무관한 절대값이다 — 지도는 세계지 내 사정이 아니다
      mon       기본 방어선. 순서대로 뚫는다. 배열 길이가 곧 방어선 수다
+     minLv     해금 레벨. 출격 편성의 가장 높은 레벨이 이 값을 넘어야 칠 수 있다.
+               지도가 절대 난이도라, 새 플레이어가 첫날에 안쪽 칸을 눌러 보고 전멸하는 것을
+               막는다. 눌러 볼 수는 있어야 하므로 칸의 레벨보다 조금 낮게 잡았다.
+               (나중에 '특정 아이템이 있어야 열린다'를 여기에 item 필드로 더할 예정)
      maxRar    편성 제한. 이 등급을 넘는 기체는 못 데려간다
                (서머너즈워 점령전의 '4성 이하 거점'에서 가져왔다 — 주력 하나로 지도를
                 다 먹지 못하게 막는 장치이자, 뽑은 기체를 키울 이유다)
@@ -480,37 +517,37 @@ export const TERRAIN = {
 export const TERRITORY = [
   /* ── row 4 · 입구 ── */
   { id:'n01', ko:'폐공장 지구', col:1, row:4, rar:'C',  lv: 8, terrain:'plain',
-    mon:['enemy_razorwing','enemy_jackal'],                          crH: 55, scH:  4, coreH:0, maxRar:null },
+    mon:['enemy_razorwing','enemy_jackal'],                          crH: 55, scH:  4, coreH:0, minLv: 5, maxRar:null },
   { id:'n02', ko:'침수 부두',   col:2, row:4, rar:'C',  lv: 9, terrain:'storm',
-    mon:['enemy_jackal','enemy_razorwing'],                          crH: 18, scH: 14, coreH:0, maxRar:null },
+    mon:['enemy_jackal','enemy_razorwing'],                          crH: 18, scH: 14, coreH:0, minLv: 5, maxRar:null },
   { id:'n03', ko:'관측소 능선', col:3, row:4, rar:'UC', lv:14, terrain:'highland',
-    mon:['enemy_strix','enemy_angler'],                              crH: 70, scH: 14, coreH:0, maxRar:'UC' },
+    mon:['enemy_strix','enemy_angler'],                              crH: 70, scH: 14, coreH:0, minLv:10, maxRar:'UC' },
 
   /* ── row 3 ── */
   { id:'n04', ko:'붉은 협곡',   col:1, row:3, rar:'R',  lv:20, terrain:'canyon',
-    mon:['enemy_reaper','enemy_scorpio','enemy_reaper'],             crH: 60, scH: 40, coreH:0, maxRar:null },
+    mon:['enemy_reaper','enemy_scorpio','enemy_reaper'],             crH: 60, scH: 40, coreH:0, minLv:16, maxRar:null },
   { id:'n05', ko:'구시가 폐허', col:2, row:3, rar:'R',  lv:22, terrain:'ruins',
-    mon:['enemy_scorpio','enemy_reaper','enemy_scorpio'],            crH:175, scH: 10, coreH:0, maxRar:'R' },
+    mon:['enemy_scorpio','enemy_reaper','enemy_scorpio'],            crH:175, scH: 10, coreH:0, minLv:16, maxRar:'R' },
   { id:'n06', ko:'송전 철탑',   col:3, row:3, rar:'UC', lv:15, terrain:'plain',
-    mon:['enemy_angler','enemy_strix'],                              crH: 95, scH:  6, coreH:0, maxRar:null },
+    mon:['enemy_angler','enemy_strix'],                              crH: 95, scH:  6, coreH:0, minLv:10, maxRar:null },
 
   /* ── row 2 ── */
   { id:'n07', ko:'지하 격납고', col:1, row:2, rar:'UQ', lv:28, terrain:'plain',
-    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:110, scH: 68, coreH:0,    maxRar:null },
+    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:110, scH: 68, coreH:0,    minLv:24, maxRar:null },
   { id:'n08', ko:'용광로 심부', col:2, row:2, rar:'UQ', lv:30, terrain:'furnace',
-    mon:['enemy_megalodon','enemy_lich','enemy_megalodon'],          crH:290, scH: 16, coreH:0,    maxRar:'UQ' },
+    mon:['enemy_megalodon','enemy_lich','enemy_megalodon'],          crH:290, scH: 16, coreH:0,    minLv:24, maxRar:'UQ' },
   { id:'n09', ko:'검은 호수',   col:3, row:2, rar:'UQ', lv:29, terrain:'canyon',
-    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:150, scH: 30, coreH:0.08, maxRar:null },
+    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:150, scH: 30, coreH:0.08, minLv:24, maxRar:null },
 
   /* ── row 1 · 안쪽 ── */
   { id:'n10', ko:'강철 성문',   col:1, row:1, rar:'EP', lv:38, terrain:'highland',
     mon:['enemy_goliath','enemy_kabuto','enemy_goliath','enemy_kabuto'],
-                                                                     crH:520, scH: 30, coreH:0,    maxRar:null },
+                                                                     crH:520, scH: 30, coreH:0,    minLv:34, maxRar:null },
   { id:'n11', ko:'왕좌의 방',   col:2, row:1, rar:'BOSS', lv:48, terrain:'ruins',
     mon:['enemy_kabuto','enemy_goliath','boss_astraea','boss_bael_fortress'],
-                                                                     crH:620, scH: 90, coreH:0.25, maxRar:null },
+                                                                     crH:620, scH: 90, coreH:0.25, minLv:45, maxRar:null },
   { id:'n12', ko:'관제 첨탑',   col:3, row:1, rar:'EP', lv:40, terrain:'storm',
     mon:['enemy_kabuto','enemy_goliath','enemy_kabuto','enemy_goliath'],
-                                                                     crH:220, scH:120, coreH:0.12, maxRar:'UQ' },
+                                                                     crH:220, scH:120, coreH:0.12, minLv:34, maxRar:'UQ' },
 ];
 

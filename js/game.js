@@ -169,6 +169,7 @@ const ERR_KO = { 'not enough credits':'크레딧이 부족합니다', 'not enoug
   'expedition not done':'아직 귀환 전입니다', 'no robot left':'남은 기체가 없어 보낼 수 없습니다',
   'part equipped':'장착 중인 파츠는 분해할 수 없습니다', 'cannot scrap':'분해할 수 없는 파츠입니다',
   'protected':'점령 직후 보호 중인 칸입니다', 'not protected':'보호 중인 칸이 아닙니다',
+  'locked':'아직 열리지 않은 칸입니다',
   'not enough cores':'코어가 부족합니다',
   'robot on expedition':'원정 나간 기체입니다', 'unknown expedition':'알 수 없는 원정입니다',
   'unknown node':'없는 칸입니다', 'already yours':'이미 내 점령지입니다',
@@ -587,6 +588,11 @@ function renderBattleHome(){
    같은 답을 받으려고 요청만 쓴다(요청 수가 곧 무료 한도다). 잠깐 들고 있는다.
    전투로 내 레이팅이 움직였으면 캐시를 버린다 — 그때는 값이 실제로 달라진다. */
 let _rankCache=null, _rankAt=0;
+/* 내 레이팅. 랭킹을 한 번이라도 열었으면 그 값을, 아니면 시작값을 쓴다. */
+function myRating(){
+  const me = _rankCache && _rankCache.me;
+  return (me && Number.isFinite(me.rating)) ? me.rating : 1000;
+}
 const RANK_TTL = 90000;
 function dropRankCache(){ _rankCache=null; _rankAt=0; }
 
@@ -804,9 +810,10 @@ function nextMatch(){
 function makeOpponent(){
   const my=selRobot();
   const owned=[...new Set(S.robots.map(r=>rarOf(r.type)))];
-  const wornUids=Object.values(my.slots||{}).filter(Boolean);
-  const worn=S.parts.filter(p=>wornUids.includes(p.uid));
-  const o=_makeOpponent(owned, my.level, R, ()=>'E'+uid(), false, worn);
+  /* 상대 장비는 **내 레이팅**에 맞춘다 — 내가 낀 파츠가 아니라.
+     연습 대전이라 서버에 묻지 않고, 랭킹 화면이 받아 둔 값이 있으면 쓴다.
+     없으면 시작 레이팅(1000)으로 본다. 규칙은 서버와 같은 함수(js/rewards.js)다. */
+  const o=_makeOpponent(owned, my.level, R, ()=>'E'+uid(), false, myRating());
   const rb={uid:'E'+uid(), type:o.type, level:o.level, slots:o.slots};
   return {kind:o.kind==='monster'?'monster':'robot', robot:rb, parts:o.parts, callsign:o.callsign};
 }
@@ -1159,14 +1166,16 @@ function drawTerr(r){
     /* 칸 레벨은 서버가 준다 — 세계 평균 전투력만큼 얹혀 있어 데이터의 값과 다르다. */
     const lv = s.lv || n.lv;
     const prot = protLeft(s);
-    return `<button class="tnode ${own}${prot?' prot':''}" onclick="ROWAR.openNode('${n.id}')">
+    const lock = !!s.locked;
+    return `<button class="tnode ${own}${prot?' prot':''}${lock?' locked':''}" onclick="ROWAR.openNode('${n.id}')">
       <div class="tn-top"><span class="tag rr-${n.rar}">${n.rar==='BOSS'?'보스':n.rar}</span>
         <b>Lv.${lv}${lv>n.lv?`<em class="up">+${lv-n.lv}</em>`:''}</b></div>
       <div class="tn-name">${n.ko}</div>
       <div class="tn-terr"><span>${TE.ko||''}</span>${n.maxRar?`<em>${n.maxRar}↓</em>`:''}</div>
       <div class="tn-pw ${s.pw>myPw*1.05?'hi':(s.pw<myPw*0.8?'lo':'')}">방어 ${fmt(s.pw||0)}</div>
       ${linePips(s.hp)}
-      <div class="tn-own">${prot?`🛡 보호 ${dur(prot)}`
+      <div class="tn-own">${lock?`🔒 Lv.${s.minLv} 필요`
+        : prot?`🛡 보호 ${dur(prot)}`
         : s.owner==='me' ? '내 점령지'
         : (s.owner==='other' ? (s.ownerName||'적') : `방어선 ${s.lines}`)}</div>
     </button>`;
@@ -1222,6 +1231,9 @@ function openNode(id){
 
   const lv = s.lv || n.lv;
   const prot = protLeft(s);
+  const lock = !!s.locked;
+  /* 해금 기준은 서버(server/territory.js unlockedBy)와 같아야 한다 — 편성의 최고 레벨 */
+  const myTop = Math.max(1, ...S.squad.map(u=>S.robots.find(x=>x.uid===u)).filter(Boolean).map(x=>x.level));
   const defs=n.mon.map((t,i)=>{
     const M=COMBAT_TYPES[t]||{}, left=(s.hp&&s.hp[i]!=null)?s.hp[i]:1;
     return `<div class="tline"><span class="ti">${i+1}</span>
@@ -1261,12 +1273,17 @@ function openNode(id){
           n.coreH?` · 코어 ${Math.floor(n.coreH*CONST.TERR.INCOME_CAP_H)}`:''}</i></div>
       <div class="tdrow"><span>점령 보너스</span><b>크레딧 ${fmt(n.crH*CONST.TERR.CAPTURE_H)} · 스크랩 ${fmt(n.scH*CONST.TERR.CAPTURE_H)}</b></div>
       ${n.maxRar?`<div class="tdrow"><span>편성 제한</span><b class="bad">${n.maxRar} 등급 이하만</b></div>`:''}
+      ${n.minLv?`<div class="tdrow"><span>해금</span><b class="${lock?'bad':''}">Lv.${n.minLv} 이상</b>
+        <i>${lock?`지금 편성 최고 Lv.${myTop}`:'열림'}</i></div>`:''}
     </div>
     <div class="hint" style="margin:10px 0 4px">방어선 — 순서대로 뚫습니다. 지형 보정은 <b>양쪽 모두</b>에 걸립니다.</div>
     <div class="tlines">${defs}</div>
     <div class="hint" style="margin:10px 0 4px">데려갈 기체 — 체력은 방어선 사이에 회복되지 않습니다.</div>
     <div class="tmechs">${roster}</div>
-    ${mine
+    ${lock
+      ? `<div class="hint" style="margin-top:10px;color:var(--bad)">🔒 <b>Lv.${n.minLv} 이상</b>이어야 들어갈 수 있습니다.
+          지금 출격 편성의 최고 레벨은 <b>Lv.${myTop}</b> 입니다. 기체를 더 키우세요.</div>`
+      : mine
       ? `<div class="hint" style="margin-top:10px;color:var(--gold)">이미 내 점령지입니다. 수입은 지도에서 한꺼번에 받습니다.${
           prot?`<br>지금은 <b>보호 중</b>입니다 — ${dur(prot)} 뒤에 풀립니다.`:''}</div>`
       : !ok.length
@@ -1301,7 +1318,9 @@ async function attackTerr(id, raid){
   const [r]=await Promise.all([net.territory('attack',{node:id, raid:!!raid}), sleep(700)]);
   if(!r || r.error){
     /* 보호 거절은 남은 시간을 함께 준다. 그냥 '실패'라고만 하면 왜 막혔는지 알 수 없다. */
-    if(r && r.error==='protected' && r.protectUntil)
+    if(r && r.error==='locked')
+      toast(`Lv.${r.minLv} 이상이어야 들어갈 수 있습니다 (지금 Lv.${r.myLv})`);
+    else if(r && r.error==='protected' && r.protectUntil)
       toast(`점령 직후 보호 중입니다 · ${dur(Math.max(0,r.protectUntil-Date.now()))} 남음`);
     else toast(ERR_KO[r&&r.error]||('공격하지 못했습니다'+(r&&r.error?': '+r.error:'')));
     dropTerrCache(); go('terr'); return;

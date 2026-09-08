@@ -517,3 +517,6 @@ table.rank tr.mine .tag{background:#0e1526;color:var(--gold);border-color:#3d4b7
 .tn-top b em.up{font-style:normal;font-size:10px;color:var(--bad);margin-left:3px}
 .tline.raid{border-style:dashed;opacity:.9}
 .tline.raid .bad{color:var(--acc2)}
+
+.tnode.locked{opacity:.55;filter:grayscale(.5)}
+.tnode.locked .tn-own{color:var(--dim)}

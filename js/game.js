@@ -366,7 +366,7 @@ function renderHangar(){
   $('#sc-hangar').innerHTML = `
     <h2 class="title">격납고 · 보유 로봇 ${S.robots.length}기</h2>
     <div class="panel">
-      <div class="hint" style="margin-bottom:8px">기체마다 레벨이 따로입니다 — 뽑은 기체는 Lv.1 부터 키웁니다.
+      <div class="hint" style="margin-bottom:8px">기체마다 레벨이 따로 매겨집니다. 새로 뽑은 기체는 Lv.1부터 키웁니다.
         <b>한 번에 데려갈 수 있는 것은 ${SQUAD_MAX}기</b>이고,
         상대를 잡아 둔 상태에서 편성을 바꾸면 <b>그 상대를 놓칩니다.</b></div>
       <div class="roster">${roster}</div></div>
@@ -411,8 +411,8 @@ function renderHangar(){
     </div>
     <div class="panel">
       <h2 class="title" style="margin-top:0">파츠 인벤토리</h2>
-      <div class="hint">파츠를 클릭하면 <b>강화</b>됩니다(스크랩 소모). 장착은 위의 슬롯을 눌러 선택하세요.
-        쓰지 않을 파츠는 <b>분해</b>해 스크랩으로 바꿉니다 — 뽑기로 얻은 파츠는 자동으로 사라지지 않습니다.</div>
+      <div class="hint">파츠를 누르면 <b>강화</b>됩니다(스크랩을 씁니다). 장착하려면 위의 슬롯을 누르세요.
+        쓰지 않을 파츠는 <b>분해</b>해 스크랩으로 바꿀 수 있습니다. 뽑기로 얻은 파츠는 자동으로 사라지지 않습니다.</div>
       <div class="inv">${inv}</div>
     </div>`;
 }
@@ -478,7 +478,7 @@ function renderGacha(){
            나오더라도 낮은 등급으로 크게 쏠립니다. 코어가 마른 동안 돌리는 창구입니다.`
         : `코어는 대전 승리와 안쪽 점령지에서 조금씩 얻습니다.`}
         로봇은 ${ROBOT_RARITY.length}등급 ${ROBOT_IDS.length}종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.
-        <b>뽑은 파츠는 자동으로 분해되지 않습니다</b> — 격납고에서 직접 정하세요.</div>
+        <b>뽑은 파츠는 자동으로 분해되지 않으니</b> 격납고에서 직접 정하세요.</div>
     </div>`;
 }
 /* 뽑기는 서버가 판정한다.
@@ -580,7 +580,7 @@ function renderBattleHome(){
              승패와 보상은 서버만 판정합니다.
            </div>`}
       <div class="hint" style="margin-top:8px">전적 · ${S.stat.wins}승 ${S.stat.losses}패
-        <span style="color:var(--dim)"> · (지금은 서버 대신 로컬에서 상대를 생성하는 임시 매칭입니다)</span></div>
+        <span style="color:var(--dim)"> · 상대와 승패는 서버가 정합니다</span></div>
     </div>`;
 }
 /* ------------------------------- 랭킹 ------------------------------- */
@@ -722,8 +722,8 @@ function renderExped(){
     </button>`; }).join('');
   return `<div class="panel">
     <h2 class="title" style="margin-top:0">원정</h2>
-    <div class="hint">기체 하나를 정해진 시간 동안 내보내 재화를 받아 옵니다.
-      <b>보낸 기체는 그동안 출격할 수 없습니다.</b> 한 번에 하나만 나갑니다.
+    <div class="hint">기체 한 기를 정해진 시간 동안 내보내 재화를 받아 옵니다.
+      <b>보낸 기체는 그동안 출격할 수 없으며, 한 번에 한 기만 내보낼 수 있습니다.</b>
       위 수치는 지금 고른 기체(Lv.${selRobot().level}) 기준이고, 보낼 기체는 다음 화면에서 고릅니다.</div>
     <div class="hunt-list" style="margin-top:10px">${rows}</div>
   </div>`;
@@ -742,7 +742,7 @@ function pickExped(tier){
       ${out?'<div class="ps" style="color:var(--bad)">보내면 편성에서 빠집니다</div>':''}
     </button>`; }).join('');
   openModal(`<div class="mhead">${T.ko} · ${T.h}시간 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
-    <div class="hint" style="margin-bottom:8px">보낼 기체를 고르세요. 보상은 레벨에 비례합니다.</div>
+    <div class="hint" style="margin-bottom:8px">보낼 기체를 고르세요. 보상은 기체의 레벨에 비례합니다.</div>
     <div style="display:grid;gap:8px">${list}</div>`);
 }
 async function sendExped(tier, uid){
@@ -795,8 +795,8 @@ function renderHunt(){
   }).join('');
   $('#sc-hunt').innerHTML = `${renderExped()}<h2 class="title">토벌 · 사냥터</h2>
     <div class="panel">
-      <div class="hint">몬스터를 사냥해 <b>스크랩과 파츠</b>를 캡니다. 크레딧은 아레나의 절반이 안 되고,
-        순위에도 반영되지 않습니다. 등급이 높을수록 비싸고 상대가 강합니다.</div>
+      <div class="hint">몬스터를 사냥해 <b>스크랩과 파츠</b>를 얻습니다. 크레딧은 대전의 절반에 못 미치고,
+        순위에도 반영되지 않습니다. 등급이 높을수록 출격비가 비싸고 상대도 강합니다.</div>
       <div class="hunt-list" style="margin-top:10px">${rows}</div>
       <div class="hint" style="margin-top:8px">출전 · ${ROBOT_TYPES[rb.type].name} Lv.${rb.level} · 보유 ${fmt(S.credits)} 크레딧</div>
     </div>`;
@@ -1319,7 +1319,7 @@ async function attackTerr(id, raid){
   const n=NODE_BY[id];
   toBattle();
   $('#sc-battle').innerHTML = `<h2 class="title">점령전</h2><div class="panel"><div class="mm">
-    <div class="spinner"></div><div style="font-weight:800">${n?n.ko:'거점'} ${raid?'강행 진입':'진입'} 중...</div>
+    <div class="spinner"></div><div style="font-weight:800">${n?n.ko:'점령지'} ${raid?'강행 진입':'진입'} 중...</div>
     <div class="hint">${raid?'점령자의 편성까지 확인하고 있습니다.':'방어선을 확인하고 있습니다.'}</div></div></div>`;
   const [r]=await Promise.all([net.territory('attack',{node:id, raid:!!raid}), sleep(700)]);
   if(!r || r.error){
@@ -1368,7 +1368,7 @@ async function playBreach(r){
     const E=makeUnit(L.name,L.type,L.stats); E.hp=rd.eHp; E.sp=rd.eSp;
 
     renderArena(M.type,L.type,M.name,L.name,
-      `${node?node.ko:'거점'} · 방어선 ${rd.li+1}/${total}`);
+      `${node?node.ko:'점령지'} · 방어선 ${rd.li+1}/${total}`);
     if(arenaGone()) return;
     /* 두 번째 기체가 들어오는 순간이 이 규칙의 핵심이라 말로도 한 줄 남긴다. */
     if(i>0 && rd.mi!==out.rounds[i-1].mi)
@@ -1495,7 +1495,7 @@ function renderAcct(){
     el.className='coin acct '+(s.guest?'on guest':'on');
   } else {
     el.textContent='오프라인';
-    el.dataset.tip='서버에 연결하지 못했습니다. 진행상황은 이 브라우저에만 저장됩니다.'
+    el.dataset.tip='서버에 연결하지 못했습니다. 진행 상황은 이 브라우저에만 저장됩니다.'
       + (s.error?' ('+s.error+')':'');
     el.className='coin acct off';
   }
@@ -1537,8 +1537,8 @@ async function syncOnConnect(){
     adopt();
   };
 
-  if(remote.rev === 0) return pushOrAdopt('진행상황을 서버에 올렸습니다');   // 서버가 빈 계정 — 이관 시도
-  if(remote.rev > known || known < 0) return adopt('서버에서 진행상황을 불러왔습니다');
+  if(remote.rev === 0) return pushOrAdopt('진행 상황을 서버에 올렸습니다');   // 서버가 빈 계정 — 이관 시도
+  if(remote.rev > known || known < 0) return adopt('서버에서 진행 상황을 불러왔습니다');
   return pushOrAdopt();
 }
 
@@ -1561,64 +1561,81 @@ function guide(){
   openModal(`<div class="mhead">게임 설명 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
   <div class="guide">
 
-    ${sec('한 줄로', `<p><b>기체를 뽑고 → 키우고 → 내보낸다.</b> 전투는 자동입니다.
-      플레이어가 하는 일은 <b>무엇을 데려가고 무엇을 끼울지 고르는 것</b>입니다.</p>`)}
+    ${sec('한 줄로 말하면', `
+      <p>기체를 뽑아 키운 뒤 전장으로 내보내는 게임입니다. 전투는 자동으로 진행되므로,
+        플레이어가 할 일은 <b>어떤 기체를 데려가고 어떤 파츠를 장착할지 고르는 것</b>입니다.</p>`)}
 
-    ${sec('격납고 — 데려갈 수 있는 건 ' + CONST.SQUAD_MAX + '기뿐', `
-      <p>보유 기체가 몇 기든 한 번에 데려가는 것은 <b>${CONST.SQUAD_MAX}기</b>입니다.
-        그중 <b>출격</b>으로 고른 기체가 선봉입니다.</p>
-      <p class="gwarn">두 기를 <b>번갈아 쓰는 것이 핵심</b>입니다. 한 기만 계속 내보내면
-        피로도가 쌓여 승률이 무너집니다.</p>`)}
+    ${sec('격납고 — 한 번에 데려가는 기체는 ' + CONST.SQUAD_MAX + '기입니다', `
+      <p>기체를 아무리 많이 보유해도 한 번에 데려갈 수 있는 것은 <b>${CONST.SQUAD_MAX}기</b>입니다.
+        그중 <b>출격</b>으로 지정한 기체가 선봉으로 나섭니다.</p>
+      <p class="gwarn">두 기를 <b>번갈아 출전시키는 것이 중요합니다.</b>
+        한 기만 계속 내보내면 피로도가 쌓여 승률이 크게 떨어집니다.</p>`)}
 
-    ${sec('피로도 — 이 게임에서 가장 무거운 것', `
-      <p>전투마다 쌓이고, 쌓인 만큼 <b>최대 내구가 줄어듭니다</b>(최대 ${CONST.FAT_MAX} = 내구 −${CONST.FAT_MAX}%).
-        피로 ${CONST.FAT_MAX}인 기체는 사실상 못 싸웁니다.</p>
-      <p>시간이 지나면 <b>저절로 풀립니다</b>. 레벨이 높을수록 느립니다
-        (피로 1당 Lv.1 ${fatMin.toFixed(1)}분 → Lv.${CONST.MAXLV} ${(fatMin+CONST.MAXLV*fatLv).toFixed(1)}분).
-        급하면 크레딧으로 <b>정비</b>하세요. 쉬게 하는 동안 다른 기체를 굴리는 것이 정석입니다.</p>`)}
+    ${sec('피로도 — 가장 신경 써야 할 값입니다', `
+      <p>전투를 치를 때마다 피로도가 쌓이고, 쌓인 만큼 <b>최대 내구가 줄어듭니다.</b>
+        피로도가 최대치인 ${CONST.FAT_MAX}에 이르면 최대 내구가 ${CONST.FAT_MAX}% 줄어들어
+        사실상 전투가 어렵습니다.</p>
+      <p>피로도는 시간이 지나면 <b>저절로 회복됩니다.</b> 다만 레벨이 높을수록 회복이 느립니다
+        (피로도 1을 회복하는 데 Lv.1은 ${fatMin.toFixed(1)}분,
+        Lv.${CONST.MAXLV}은 ${(fatMin+CONST.MAXLV*fatLv).toFixed(1)}분이 걸립니다).
+        급할 때는 크레딧을 들여 정비하고, 한 기가 쉬는 동안 다른 기체를 출전시키세요.</p>`)}
 
-    ${sec('파츠 — 좋기만 한 파츠는 없다', `
-      <p>파츠는 <b>올려 주는 값</b>과 <b>반드시 깎는 값(대가)</b>을 함께 가집니다.
-        무장·코어는 속도를, 프레임은 회피를, 부스터는 방어를 깎습니다.</p>
-      <p><b>구간</b>은 좋고 나쁨이 아니라 <b>성향</b>입니다. 넓으면 크게 흔들리고(약자에게 유리),
-        좁으면 늘 비슷하게 맞힙니다(강자에게 유리). 무장·코어는 넓히고 프레임·부스터는 좁힙니다.</p>
-      <p>강화하면 올려 주는 값도, <b>대가도 같이 커집니다.</b>
-        그래서 풀강 최고등급이 늘 정답은 아닙니다 — 다른 파츠로 보완하세요.</p>`)}
+    ${sec('파츠 — 이점만 있는 파츠는 없습니다', `
+      <p>파츠에는 능력치를 올려 주는 값과 <b>반드시 깎아 내리는 값(대가)</b>이 함께 붙습니다.
+        무장과 코어는 속도를, 프레임은 회피를, 부스터는 방어를 깎습니다.</p>
+      <p><b>구간</b>은 좋고 나쁨이 아니라 성향입니다. 구간이 넓으면 피해량이 크게 흔들려
+        열세인 쪽에 유리하고, 좁으면 일정하게 들어가 우세한 쪽에 유리합니다.
+        무장과 코어는 구간을 넓히고, 프레임과 부스터는 좁힙니다.</p>
+      <p>강화하면 올려 주는 값과 함께 <b>대가도 같이 커집니다.</b> 그래서 가장 높은 등급을
+        최대까지 강화한 조합이 언제나 정답은 아닙니다. 다른 파츠로 약점을 보완하세요.</p>`)}
 
-    ${sec('대전 — 상대는 내 성적에 맞춰 온다', `
-      <p>출격비(크레딧)를 내고 싸웁니다. 크레딧이 모자라면 <b>비상 출격</b>으로 돌려 주므로
-        막히지 않습니다(보상은 크레딧만).</p>
-      <p>상대의 장비는 <b>내가 낀 파츠가 아니라 내 성적</b>을 따라옵니다.
-        좋은 파츠를 끼면 <b>한동안 이깁니다.</b> 이기면 순위가 오르고, 그만큼 상대도 세집니다.</p>`)}
+    ${sec('대전 — 상대는 내 성적에 맞춰 나타납니다', `
+      <p>출격비로 크레딧을 내고 싸웁니다. 크레딧이 부족하면 <b>비상 출격</b>으로 바뀌므로
+        진행이 막히지는 않습니다. 다만 이때는 보상으로 크레딧만 받습니다.</p>
+      <p>상대의 장비는 <b>내가 장착한 파츠가 아니라 내 성적</b>에 따라 정해집니다.
+        좋은 파츠를 갖추면 <b>한동안 승리가 이어지고</b>, 승리가 쌓이면 순위가 오르는 대신
+        상대도 그만큼 강해집니다.</p>`)}
 
     ${sec('파견 — 토벌과 원정', `
-      <p><b>토벌</b>은 등급을 직접 골라 사냥합니다. <b>스크랩과 파츠</b>가 본체이고 크레딧은 적습니다.
-        세지면 아래 등급이 밭이 되니 위 등급으로 올라가세요.</p>
-      <p><b>원정</b>은 편성 밖의 기체를 내보내 두고 시간이 지나면 받아 옵니다.
-        전투를 안 하므로 <b>시간당 효율이 가장 좋습니다</b> — 놀리는 기체는 내보내 두세요.</p>`)}
+      <p><b>토벌</b>은 사냥할 등급을 직접 골라 몬스터와 싸웁니다.
+        <b>스크랩과 파츠</b>가 주된 보상이고 크레딧은 적습니다.
+        기체가 강해지면 낮은 등급은 손쉬운 사냥터가 되니 위 등급으로 올라가세요.</p>
+      <p><b>원정</b>은 편성에 들지 않은 기체를 일정 시간 내보내 두었다가 보상을 받는 방식입니다.
+        전투를 치르지 않으므로 <b>들인 시간에 견주면 효율이 가장 좋습니다.</b>
+        쉬고 있는 기체는 원정을 보내 두세요.</p>`)}
 
-    ${sec('점령전 — 져도 남는다', `
-      <p>세계 지도는 <b>서버에 하나뿐</b>입니다. 한 칸은 방어선 여러 겹이고, 전부 뚫어야 점령됩니다.</p>
-      <p>편성 ${CONST.SQUAD_MAX}기가 <b>체력을 이어받은 채</b> 연속으로 싸웁니다 — 중간 회복이 없습니다.
-        목표가 '이기기'가 아니라 <b>'덜 깎이고 이기기'</b>가 됩니다.</p>
-      <p class="ggood">실패해도 <b>깎아 둔 방어선은 남습니다.</b> 며칠에 걸쳐 큰 칸을 깨는 것이 정상입니다.
-        (시간당 ${Math.round(T.LINE_REGEN*100)}%씩 스스로 회복하니 너무 미루지는 마세요)</p>
-      <p>칸마다 <b>해금 레벨</b>과 <b>편성 제한</b>이 있고, 지형 보정은 <b>양쪽 모두</b>에 걸립니다.
-        점령된 칸은 ${T.PROTECT_MIN}분간 보호되며, 코어 ${T.RAID_CORE}개를 내면 그 안에도 칠 수 있습니다
-        — 대신 점령자의 기체 ${CONST.SQUAD_MAX}기가 방어선 뒤에 더 붙습니다.</p>
-      <p>수입은 칸마다 나오는 재화가 다릅니다. ${T.INCOME_CAP_H}시간치까지만 쌓이니 하루 한 번은 받으세요.</p>`)}
+    ${sec('점령전 — 실패해도 성과가 남습니다', `
+      <p>세계 지도는 <b>서버에 하나뿐</b>이며, 모든 플레이어가 같은 지도를 두고 다툽니다.
+        칸 하나는 여러 겹의 방어선으로 이루어져 있고, 이를 모두 뚫어야 점령됩니다.</p>
+      <p>편성한 ${CONST.SQUAD_MAX}기가 <b>체력을 이어받은 채</b> 연이어 싸웁니다.
+        방어선 사이에 회복이 없으므로, 목표가 '이기는 것'에서
+        <b>'덜 소모하고 이기는 것'</b>으로 바뀝니다.</p>
+      <p class="ggood">실패해도 <b>깎아 놓은 방어선은 그대로 남습니다.</b>
+        며칠에 걸쳐 큰 칸을 공략하는 것이 정상입니다.
+        다만 방어선은 시간당 ${Math.round(T.LINE_REGEN*100)}%씩 스스로 회복하니
+        너무 오래 미루지는 마세요.</p>
+      <p>칸마다 <b>해금 레벨</b>과 <b>편성 제한</b>이 있으며, 지형 보정은
+        <b>양쪽 모두</b>에 적용됩니다. 점령된 칸은 ${T.PROTECT_MIN}분 동안 보호되고,
+        코어 ${T.RAID_CORE}개를 쓰면 보호 중에도 공격할 수 있습니다.
+        대신 점령자의 기체 ${CONST.SQUAD_MAX}기가 방어선 뒤에 더해집니다.</p>
+      <p>수입은 칸마다 나오는 재화가 다릅니다. ${T.INCOME_CAP_H}시간치까지만 쌓이니
+        하루에 한 번은 받는 것이 좋습니다.</p>`)}
 
-    ${sec('뽑기 — 창구가 둘', `
-      <p><b>코어 캡슐</b>(코어 ${CONST.PULL_COST}개) — 기체 ${robotP}%, 에픽 ${epCore.toFixed(2)}%.<br>
-         <b>크레딧 캡슐</b>(${fmt(CONST.PULL_CR_COST)} 크레딧) — 기체 ${robotCr}%, 에픽 ${epCr.toFixed(3)}%.</p>
-      <p>코어는 벌기 어렵고 크레딧은 꾸준히 들어옵니다. 코어가 마른 동안 돌리는 창구입니다.</p>
-      <p><b>뽑은 파츠는 자동으로 분해되지 않습니다.</b> 한 번 껴 보고, 쓰지 않겠다 싶으면
-        격납고에서 직접 분해하세요.</p>`)}
+    ${sec('뽑기 — 창구는 두 가지입니다', `
+      <p><b>코어 캡슐</b>은 코어 ${CONST.PULL_COST}개를 씁니다.
+        기체가 나올 확률은 ${robotP}%, 그중 에픽은 ${epCore.toFixed(2)}%입니다.<br>
+        <b>크레딧 캡슐</b>은 ${fmt(CONST.PULL_CR_COST)} 크레딧을 씁니다.
+        기체가 나올 확률은 ${robotCr}%, 그중 에픽은 ${epCr.toFixed(3)}%입니다.</p>
+      <p>코어는 모으기 어렵고 크레딧은 꾸준히 들어옵니다.
+        크레딧 캡슐은 코어가 떨어졌을 때 쓰는 창구입니다.</p>
+      <p><b>뽑은 파츠는 자동으로 분해되지 않습니다.</b> 한번 장착해 보고
+        쓰지 않겠다고 판단되면 격납고에서 직접 분해하세요.</p>`)}
 
-    ${sec('계정 — 게스트는 브라우저에 묶여 있다', `
-      <p class="gwarn">게스트 계정은 <b>이 브라우저에만</b> 묶여 있습니다.
-        브라우저 데이터를 지우거나 다른 기기로 가면 <b>되찾을 수 없습니다.</b></p>
-      <p>상단의 계정 칩을 눌러 <b>정식 계정</b>을 만들어 두세요. 지금 진행상황을 그대로 가지고 갑니다.</p>`)}
+    ${sec('계정 — 게스트 계정은 브라우저에 묶여 있습니다', `
+      <p class="gwarn">게스트 계정은 <b>지금 쓰는 브라우저에만</b> 저장됩니다.
+        브라우저 데이터를 지우거나 다른 기기에서 접속하면 <b>되찾을 수 없습니다.</b></p>
+      <p>화면 위쪽의 계정 항목을 눌러 <b>정식 계정</b>을 만들어 두세요.
+        지금까지의 진행 상황을 그대로 이어받습니다.</p>`)}
 
   </div>
   <button class="btn big" style="margin-top:12px" onclick="ROWAR.closeModal()">닫기</button>`);
@@ -1634,7 +1651,7 @@ function accountScreen(){
       <div class="acctbox">
         <div class="arow"><b>아이디</b><span>${s.loginId}</span></div>
         <div class="arow"><b>계정 번호</b><span>#${String(s.accountId).padStart(4,'0')}</span></div>
-        <p class="hint">다른 기기에서도 이 아이디로 로그인하면 진행상황이 이어집니다.</p>
+        <p class="hint">다른 기기에서도 이 아이디로 로그인하면 진행 상황이 이어집니다.</p>
         <button class="btn big" style="margin-top:10px" onclick="ROWAR.logout()">로그아웃</button>
       </div>`);
     return;
@@ -1643,11 +1660,11 @@ function accountScreen(){
   openModal(`<div class="mhead">계정 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="acctbox">
       <p class="hint" style="color:var(--gold)">지금은 <b>게스트 #${String(s.accountId).padStart(4,'0')}</b> 입니다.
-        진행상황이 이 브라우저에만 묶여 있어, 브라우저 데이터를 지우면 계정을 잃습니다.</p>
+        진행 상황이 이 브라우저에만 저장되어, 브라우저 데이터를 지우면 계정을 잃습니다.</p>
 
       <div class="asec">
         <div class="atitle">정식 계정 만들기</div>
-        <p class="hint">지금 진행상황을 그대로 가지고 갑니다. 새로 시작하지 않습니다.</p>
+        <p class="hint">지금까지의 진행 상황을 그대로 이어받습니다. 처음부터 다시 시작하지 않습니다.</p>
         <input id="rg-id" class="ainput" placeholder="아이디 (영문·숫자·밑줄 4~20자)" maxlength="20" autocomplete="username">
         <input id="rg-pw" class="ainput" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="new-password">
         <button class="btn big gold" onclick="ROWAR.doRegister()">정식 계정으로 만들기</button>
@@ -1655,8 +1672,8 @@ function accountScreen(){
 
       <div class="asec">
         <div class="atitle">이미 계정이 있다면</div>
-        <p class="hint" style="color:var(--bad)">로그인하면 그 계정의 진행상황을 따릅니다.
-          지금 이 게스트 진행은 이 브라우저에서 더 이상 보이지 않습니다.</p>
+        <p class="hint" style="color:var(--bad)">로그인하면 그 계정의 진행 상황을 따릅니다.
+          지금 이 게스트 계정의 진행 상황은 이 브라우저에서 더 이상 보이지 않습니다.</p>
         <input id="lg-id" class="ainput" placeholder="아이디" maxlength="20" autocomplete="username">
         <input id="lg-pw" class="ainput" type="password" placeholder="비밀번호" autocomplete="current-password">
         <button class="btn big" onclick="ROWAR.doLogin()">로그인</button>

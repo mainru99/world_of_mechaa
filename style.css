@@ -598,7 +598,11 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 
   /* ── 본문 — 넓게 쓰되 글줄이 늘어지지 않게 위쪽만 여유를 준다 ── */
   main{grid-area:main;overflow:auto;padding:14px 26px 22px;min-height:0}
-  main > .panel:last-child{max-width:1180px}
+  /* 예전 레이아웃에서 본문 맨 아래에 붙어 있던 안내 상자.
+     .screen 의 형제라 폭(1180)도 정렬도 위 화면(1280, 가운데)과 따로 놀아
+     모든 화면에서 혼자 어긋나 보였다. 데스크톱에는 하단 티커가 있으므로
+     그쪽으로 옮기고 여기서는 감춘다. 모바일에서는 그대로 쓴다. */
+  main > .panel:last-child{display:none}
 
   /* ── 하단 티커 ── */
   .ticker{grid-area:tick;display:flex;align-items:center;gap:24px;height:50px;padding:0 26px;
@@ -676,6 +680,12 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   /* 화면을 가로지르는 버튼 띠를 막는다 */
   .screen > .panel > .btn.big{max-width:420px}
   .screen > .panel > .row-btns{max-width:640px}
+  /* 대전은 '이 상대와 싸울까'를 정하는 화면이다. 표가 아니라 카드 하나이므로
+     폭을 다 쓰면 버튼만 왼쪽에 몰려 균형이 깨진다. 좁혀서 가운데로 모으고,
+     그 안에서 버튼은 카드 폭을 꽉 채우게 둔다. */
+  #sc-battle{max-width:1000px}
+  #sc-battle .row-btns{max-width:none}
+  #sc-battle .row-btns .btn{flex:1}
 
   /* 요약 줄 — 숫자 셋이 1,200px 에 흩어져 있었다 */
   .trow{max-width:560px}

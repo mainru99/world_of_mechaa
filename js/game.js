@@ -326,7 +326,8 @@ function renderTicker(){
   if(!net.state.online) out.push(`<div class="tk off">서버에 연결되지 않았습니다</div>`);
 
   el.innerHTML = out.join('') + '<div class="sp"></div>'
-    + `<div class="tk off">전적 ${S.stat.wins}승 ${S.stat.losses}패</div>`;
+    + `<div class="tk off">전적 ${S.stat.wins}승 ${S.stat.losses}패</div>`
+    + `<div class="tk off">프로토타입 v0.5 · 진행 상황은 서버에 저장됩니다</div>`;
 }
 
 function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); renderTicker(); }
@@ -1015,6 +1016,12 @@ async function startBattle(){
   }
   setPending(r.next && r.next.opponent, r.next && r.next.cost, r.next && r.next.rescue, r.next && r.next.tier);
 
+  /* 출격비는 **지금** 깎는다. 서버는 이미 걷었는데 화면은 전투가 끝나야 반영돼서,
+     싸우는 내내 없는 크레딧이 지갑에 남아 있었다.
+     보상은 여기서 건드리지 않는다 — 미리 반영하면 재생하기도 전에 승패가 새어 나간다.
+     끝나면 applyServerBattle 이 서버가 확정한 값으로 덮어쓴다. */
+  if(r.cost){ S.credits=Math.max(0, S.credits-r.cost); renderWallet(); }
+
   const P=makeUnit(r.nameP, my.type, r.statP);
   const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE);
   const events=simulate(P,E,r.seed);
@@ -1029,7 +1036,9 @@ async function startBattle(){
   renderResult(r.win, _lastReward, P, E, opp);
 }
 
-/* 서버가 확정한 결과를 로컬 상태에 받아 적는다. 클라가 계산하지 않는다. */
+/* 서버가 확정한 결과를 로컬 상태에 받아 적는다. 클라가 계산하지 않는다.
+   (점령전은 applyTerrAttack 이 재생 전에 불려 출격비가 바로 반영된다 —
+    대전만 재생이 끝난 뒤에 반영돼서, 거기만 출격비를 따로 먼저 깎아 준다) */
 let _lastReward=null;
 function applyServerBattle(r, rb){
   S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;

@@ -23,7 +23,7 @@
     <button class="btn ghost gate-acct" id="gate-acct">계정 · 로그인</button>
 
     <div class="gate-foot">
-      <span>프로토타입 v0.5</span>
+      <a href="#" class="gate-help" onclick="ROWAR.guide();return false">게임 설명 보기</a>
       <span class="dot">·</span>
       <span>진행상황은 서버에 저장됩니다</span>
     </div>
@@ -37,6 +37,8 @@
       <span class="coin" data-tip="코어 · 뽑기 1회에 1개" title="코어"><i class="ic ic-core"></i><b id="w-core">0</b></span>
       <span class="coin" data-tip="스크랩 · 파츠 강화에 사용" title="스크랩"><i class="ic ic-scrap"></i><b id="w-scrap">0</b></span>
       <span class="coin acct" id="acct" data-tip="확인 중">···</span>
+      <button class="coin help" id="helpbtn" data-tip="게임 설명" title="게임 설명"
+        onclick="ROWAR.guide()">?</button>
     </div>
   </header>
 

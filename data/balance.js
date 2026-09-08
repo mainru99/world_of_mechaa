@@ -510,44 +510,46 @@ export const TERRAIN = {
      crH/scH/coreH
                점령해 두면 들어오는 시간당 수입. TERR.INCOME_CAP_H 시간까지만 쌓인다.
                **칸마다 나오는 재화가 다르다.** 크레딧만 나오는 칸, 스크랩이 두꺼운 칸,
-               안쪽의 세 칸에서만 조금씩 나오는 코어. 한 칸만 붙들고 있으면 한 재화만
-               모이므로, 무엇이 모자란지에 따라 어느 칸을 지킬지가 갈린다.
-               코어는 뽑기 재화라 아주 인색하게 잡았다 — 12시간을 꽉 채워도 n11 이 3개다
+                안쪽의 세 칸에서만 조금씩 나오는 코어. 한 칸만 붙들고 있으면 한 재화만
+                모이므로, 무엇이 모자란지에 따라 어느 칸을 지킬지가 갈린다.
+                코어는 뽑기 재화라 아주 인색하게 잡았다 — 12시간을 꽉 채워도 n11 이 3개다
+               2026-09-08 30일 플레이 실측에서 기존 수입은 아레나 순익의 2.5배, 스크랩은
+               수만 개가 남아 점령전이 사실상 필수였다. 크레딧은 기존의 약 25%, 스크랩은
+               약 10%로 낮췄다. 점령지는 여전히 큰 보너스지만 주력 콘텐츠를 대신하지 않는다.
    ※ 값 조정은 ChatGPT 담당. */
 export const TERRITORY = [
   /* ── row 4 · 입구 ── */
   { id:'n01', ko:'폐공장 지구', col:1, row:4, rar:'C',  lv: 8, terrain:'plain',
-    mon:['enemy_razorwing','enemy_jackal'],                          crH: 55, scH:  4, coreH:0, minLv: 5, maxRar:null },
+    mon:['enemy_razorwing','enemy_jackal'],                          crH: 14, scH:  1, coreH:0, minLv: 5, maxRar:null },
   { id:'n02', ko:'침수 부두',   col:2, row:4, rar:'C',  lv: 9, terrain:'storm',
-    mon:['enemy_jackal','enemy_razorwing'],                          crH: 18, scH: 14, coreH:0, minLv: 5, maxRar:null },
+    mon:['enemy_jackal','enemy_razorwing'],                          crH:  5, scH:  1, coreH:0, minLv: 5, maxRar:null },
   { id:'n03', ko:'관측소 능선', col:3, row:4, rar:'UC', lv:14, terrain:'highland',
-    mon:['enemy_strix','enemy_angler'],                              crH: 70, scH: 14, coreH:0, minLv:10, maxRar:'UC' },
+    mon:['enemy_strix','enemy_angler'],                              crH: 18, scH:  1, coreH:0, minLv:10, maxRar:'UC' },
 
   /* ── row 3 ── */
   { id:'n04', ko:'붉은 협곡',   col:1, row:3, rar:'R',  lv:20, terrain:'canyon',
-    mon:['enemy_reaper','enemy_scorpio','enemy_reaper'],             crH: 60, scH: 40, coreH:0, minLv:16, maxRar:null },
+    mon:['enemy_reaper','enemy_scorpio','enemy_reaper'],             crH: 15, scH:  4, coreH:0, minLv:16, maxRar:null },
   { id:'n05', ko:'구시가 폐허', col:2, row:3, rar:'R',  lv:22, terrain:'ruins',
-    mon:['enemy_scorpio','enemy_reaper','enemy_scorpio'],            crH:175, scH: 10, coreH:0, minLv:16, maxRar:'R' },
+    mon:['enemy_scorpio','enemy_reaper','enemy_scorpio'],            crH: 44, scH:  1, coreH:0, minLv:16, maxRar:'R' },
   { id:'n06', ko:'송전 철탑',   col:3, row:3, rar:'UC', lv:15, terrain:'plain',
-    mon:['enemy_angler','enemy_strix'],                              crH: 95, scH:  6, coreH:0, minLv:10, maxRar:null },
+    mon:['enemy_angler','enemy_strix'],                              crH: 24, scH:  1, coreH:0, minLv:10, maxRar:null },
 
   /* ── row 2 ── */
   { id:'n07', ko:'지하 격납고', col:1, row:2, rar:'UQ', lv:28, terrain:'plain',
-    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:110, scH: 68, coreH:0,    minLv:24, maxRar:null },
+    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH: 28, scH:  7, coreH:0,    minLv:24, maxRar:null },
   { id:'n08', ko:'용광로 심부', col:2, row:2, rar:'UQ', lv:30, terrain:'furnace',
-    mon:['enemy_megalodon','enemy_lich','enemy_megalodon'],          crH:290, scH: 16, coreH:0,    minLv:24, maxRar:'UQ' },
+    mon:['enemy_megalodon','enemy_lich','enemy_megalodon'],          crH: 73, scH:  2, coreH:0,    minLv:24, maxRar:'UQ' },
   { id:'n09', ko:'검은 호수',   col:3, row:2, rar:'UQ', lv:29, terrain:'canyon',
-    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:150, scH: 30, coreH:0.08, minLv:24, maxRar:null },
+    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH: 38, scH:  3, coreH:0.08, minLv:24, maxRar:null },
 
   /* ── row 1 · 안쪽 ── */
   { id:'n10', ko:'강철 성문',   col:1, row:1, rar:'EP', lv:38, terrain:'highland',
     mon:['enemy_goliath','enemy_kabuto','enemy_goliath','enemy_kabuto'],
-                                                                     crH:520, scH: 30, coreH:0,    minLv:34, maxRar:null },
+                                                                     crH:130, scH:  3, coreH:0,    minLv:34, maxRar:null },
   { id:'n11', ko:'왕좌의 방',   col:2, row:1, rar:'BOSS', lv:48, terrain:'ruins',
     mon:['enemy_kabuto','enemy_goliath','boss_astraea','boss_bael_fortress'],
-                                                                     crH:620, scH: 90, coreH:0.25, minLv:45, maxRar:null },
+                                                                     crH:155, scH:  9, coreH:0.25, minLv:45, maxRar:null },
   { id:'n12', ko:'관제 첨탑',   col:3, row:1, rar:'EP', lv:40, terrain:'storm',
     mon:['enemy_kabuto','enemy_goliath','enemy_kabuto','enemy_goliath'],
-                                                                     crH:220, scH:120, coreH:0.12, minLv:34, maxRar:'UQ' },
+                                                                     crH: 55, scH: 12, coreH:0.12, minLv:34, maxRar:'UQ' },
 ];
-

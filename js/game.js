@@ -6,7 +6,7 @@
  * 데이터는 data/balance.js, 스탯 계산은 js/stats.js, 전투는 js/sim.js 에 있다.
  * 이 파일만 DOM 을 만진다 — 나머지는 서버(Worker)에서도 그대로 import 된다.
  * ================================================================== */
-import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, PULL_TABLE,
+import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR,
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST,
          TERRITORY, TERRAIN } from '../data/balance.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
@@ -1470,7 +1470,7 @@ window.ROWAR = {
   toggleSquad: guard(toggleSquad),
   levelUp: guard(levelUp), service: guard(service), enhance: guard(enhancePart),
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
-  openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode,
+  openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode, guide,
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch), nextMatch: guard(nextMatch), startBattle: guard(startBattle),
   practiceFind: guard(practiceFind), practiceStart: guard(practiceStart), hunt: guard(hunt),
@@ -1540,6 +1540,88 @@ async function syncOnConnect(){
   if(remote.rev === 0) return pushOrAdopt('진행상황을 서버에 올렸습니다');   // 서버가 빈 계정 — 이관 시도
   if(remote.rev > known || known < 0) return adopt('서버에서 진행상황을 불러왔습니다');
   return pushOrAdopt();
+}
+
+/* ── 게임 설명 ────────────────────────────────────────────
+   규칙이 늘면서 '눌러 보기 전에는 모르는 것'이 많아졌다 — 특히 편성 두 기를 번갈아
+   쓴다는 것, 파츠에 대가가 붙는다는 것, 점령전은 져도 남는다는 것.
+   시뮬레이션에서도 교대를 안 하면 승률이 20%대로 주저앉는 것이 확인됐다.
+   그래서 '조작법'이 아니라 **모르면 손해 보는 것**을 골라 적는다.
+
+   숫자는 전부 CONST 에서 끌어온다. 글에 박아 두면 밸런스를 고칠 때마다 설명이 거짓이 된다. */
+function guide(){
+  const T = CONST.TERR, fatMin = CONST.FAT_RECOVER_MIN, fatLv = CONST.FAT_RECOVER_LV;
+  const robotP = PULL_TABLE.find(t=>t.k==='robot').w;
+  const robotCr = PULL_TABLE_CR.find(t=>t.k==='robot').w;
+  const epCore = (robotP/100) * (ROBOT_RARITY.find(r=>r.k==='EP').w / ROBOT_RARITY.reduce((a,b)=>a+b.w,0)) * 100;
+  const epCr   = (robotCr/100) * (ROBOT_RARITY_CR.find(r=>r.k==='EP').w / ROBOT_RARITY_CR.reduce((a,b)=>a+b.w,0)) * 100;
+
+  const sec = (t, body) => `<div class="gsec"><div class="gh">${t}</div>${body}</div>`;
+
+  openModal(`<div class="mhead">게임 설명 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+  <div class="guide">
+
+    ${sec('한 줄로', `<p><b>기체를 뽑고 → 키우고 → 내보낸다.</b> 전투는 자동입니다.
+      플레이어가 하는 일은 <b>무엇을 데려가고 무엇을 끼울지 고르는 것</b>입니다.</p>`)}
+
+    ${sec('격납고 — 데려갈 수 있는 건 ' + CONST.SQUAD_MAX + '기뿐', `
+      <p>보유 기체가 몇 기든 한 번에 데려가는 것은 <b>${CONST.SQUAD_MAX}기</b>입니다.
+        그중 <b>출격</b>으로 고른 기체가 선봉입니다.</p>
+      <p class="gwarn">두 기를 <b>번갈아 쓰는 것이 핵심</b>입니다. 한 기만 계속 내보내면
+        피로도가 쌓여 승률이 무너집니다.</p>`)}
+
+    ${sec('피로도 — 이 게임에서 가장 무거운 것', `
+      <p>전투마다 쌓이고, 쌓인 만큼 <b>최대 내구가 줄어듭니다</b>(최대 ${CONST.FAT_MAX} = 내구 −${CONST.FAT_MAX}%).
+        피로 ${CONST.FAT_MAX}인 기체는 사실상 못 싸웁니다.</p>
+      <p>시간이 지나면 <b>저절로 풀립니다</b>. 레벨이 높을수록 느립니다
+        (피로 1당 Lv.1 ${fatMin.toFixed(1)}분 → Lv.${CONST.MAXLV} ${(fatMin+CONST.MAXLV*fatLv).toFixed(1)}분).
+        급하면 크레딧으로 <b>정비</b>하세요. 쉬게 하는 동안 다른 기체를 굴리는 것이 정석입니다.</p>`)}
+
+    ${sec('파츠 — 좋기만 한 파츠는 없다', `
+      <p>파츠는 <b>올려 주는 값</b>과 <b>반드시 깎는 값(대가)</b>을 함께 가집니다.
+        무장·코어는 속도를, 프레임은 회피를, 부스터는 방어를 깎습니다.</p>
+      <p><b>구간</b>은 좋고 나쁨이 아니라 <b>성향</b>입니다. 넓으면 크게 흔들리고(약자에게 유리),
+        좁으면 늘 비슷하게 맞힙니다(강자에게 유리). 무장·코어는 넓히고 프레임·부스터는 좁힙니다.</p>
+      <p>강화하면 올려 주는 값도, <b>대가도 같이 커집니다.</b>
+        그래서 풀강 최고등급이 늘 정답은 아닙니다 — 다른 파츠로 보완하세요.</p>`)}
+
+    ${sec('대전 — 상대는 내 성적에 맞춰 온다', `
+      <p>출격비(크레딧)를 내고 싸웁니다. 크레딧이 모자라면 <b>비상 출격</b>으로 돌려 주므로
+        막히지 않습니다(보상은 크레딧만).</p>
+      <p>상대의 장비는 <b>내가 낀 파츠가 아니라 내 성적</b>을 따라옵니다.
+        좋은 파츠를 끼면 <b>한동안 이깁니다.</b> 이기면 순위가 오르고, 그만큼 상대도 세집니다.</p>`)}
+
+    ${sec('파견 — 토벌과 원정', `
+      <p><b>토벌</b>은 등급을 직접 골라 사냥합니다. <b>스크랩과 파츠</b>가 본체이고 크레딧은 적습니다.
+        세지면 아래 등급이 밭이 되니 위 등급으로 올라가세요.</p>
+      <p><b>원정</b>은 편성 밖의 기체를 내보내 두고 시간이 지나면 받아 옵니다.
+        전투를 안 하므로 <b>시간당 효율이 가장 좋습니다</b> — 놀리는 기체는 내보내 두세요.</p>`)}
+
+    ${sec('점령전 — 져도 남는다', `
+      <p>세계 지도는 <b>서버에 하나뿐</b>입니다. 한 칸은 방어선 여러 겹이고, 전부 뚫어야 점령됩니다.</p>
+      <p>편성 ${CONST.SQUAD_MAX}기가 <b>체력을 이어받은 채</b> 연속으로 싸웁니다 — 중간 회복이 없습니다.
+        목표가 '이기기'가 아니라 <b>'덜 깎이고 이기기'</b>가 됩니다.</p>
+      <p class="ggood">실패해도 <b>깎아 둔 방어선은 남습니다.</b> 며칠에 걸쳐 큰 칸을 깨는 것이 정상입니다.
+        (시간당 ${Math.round(T.LINE_REGEN*100)}%씩 스스로 회복하니 너무 미루지는 마세요)</p>
+      <p>칸마다 <b>해금 레벨</b>과 <b>편성 제한</b>이 있고, 지형 보정은 <b>양쪽 모두</b>에 걸립니다.
+        점령된 칸은 ${T.PROTECT_MIN}분간 보호되며, 코어 ${T.RAID_CORE}개를 내면 그 안에도 칠 수 있습니다
+        — 대신 점령자의 기체 ${CONST.SQUAD_MAX}기가 방어선 뒤에 더 붙습니다.</p>
+      <p>수입은 칸마다 나오는 재화가 다릅니다. ${T.INCOME_CAP_H}시간치까지만 쌓이니 하루 한 번은 받으세요.</p>`)}
+
+    ${sec('뽑기 — 창구가 둘', `
+      <p><b>코어 캡슐</b>(코어 ${CONST.PULL_COST}개) — 기체 ${robotP}%, 에픽 ${epCore.toFixed(2)}%.<br>
+         <b>크레딧 캡슐</b>(${fmt(CONST.PULL_CR_COST)} 크레딧) — 기체 ${robotCr}%, 에픽 ${epCr.toFixed(3)}%.</p>
+      <p>코어는 벌기 어렵고 크레딧은 꾸준히 들어옵니다. 코어가 마른 동안 돌리는 창구입니다.</p>
+      <p><b>뽑은 파츠는 자동으로 분해되지 않습니다.</b> 한 번 껴 보고, 쓰지 않겠다 싶으면
+        격납고에서 직접 분해하세요.</p>`)}
+
+    ${sec('계정 — 게스트는 브라우저에 묶여 있다', `
+      <p class="gwarn">게스트 계정은 <b>이 브라우저에만</b> 묶여 있습니다.
+        브라우저 데이터를 지우거나 다른 기기로 가면 <b>되찾을 수 없습니다.</b></p>
+      <p>상단의 계정 칩을 눌러 <b>정식 계정</b>을 만들어 두세요. 지금 진행상황을 그대로 가지고 갑니다.</p>`)}
+
+  </div>
+  <button class="btn big" style="margin-top:12px" onclick="ROWAR.closeModal()">닫기</button>`);
 }
 
 /* 계정 화면 — 게스트면 승격/로그인, 정식이면 로그아웃 */

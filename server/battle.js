@@ -180,6 +180,20 @@ export async function startBattle(env, accountId, now) {
     return { ok: false, status: 400, error: 'match expired' };
   }
 
+  /* ── 잡아 둔 상대를 '선점'한다 ──────────────────────────
+     전투 시작을 여러 번 누르면 요청도 그만큼 온다. 그대로 두면 셋 다 같은 pending_match 를
+     읽어 **같은 전투를 세 번 치르고 보상도 세 번** 준다(실제로 제보된 버그다).
+
+     그래서 여기서 조건부로 비운다. D1 은 문장 하나가 원자적이므로, 동시에 와도
+     changes=1 은 한 번뿐이다 — 나머지는 0 을 받고 물러난다.
+     클라에도 문지기를 두었지만(js/game.js 의 guard) 그것만으로는 손댄 클라이언트에
+     그대로 뚫린다. 값을 지키는 쪽은 여기다. */
+  const claim = await env.DB.prepare(
+    'UPDATE player SET pending_match = NULL WHERE account_id = ?1 AND pending_match = ?2')
+    .bind(accountId, prow.pending_match).run();
+  if ((claim.meta?.changes ?? 0) !== 1)
+    return { ok: false, status: 409, error: 'battle already started' };
+
   const me = await loadFighter(env, accountId);
   if (!me) return { ok: false, status: 400, error: 'no robot' };
 
@@ -192,11 +206,10 @@ export async function startBattle(env, accountId, now) {
   const cost = rescue ? 0
              : mode === 'hunt' ? huntCost(me.robot, tier)
              : sortieCost(me.robot);
-  if (!rescue && prow.credits < cost) {
-    await env.DB.prepare('UPDATE player SET pending_match = NULL WHERE account_id = ?1')
-      .bind(accountId).run();
+  /* 여기 오면 pending 은 이미 비워 둔 상태다(위 선점). 다시 비울 필요가 없다.
+     클라는 이 오류를 받으면 상대를 새로 찾는다 — 그때 비상 출격이 잡힌다. */
+  if (!rescue && prow.credits < cost)
     return { ok: false, status: 400, error: 'not enough credits' };
-  }
 
   /* 피로도 자연 회복을 서버 시각으로 먼저 정산한다. 클라 시계는 믿지 않는다. */
   decayFat(me.robot, now);

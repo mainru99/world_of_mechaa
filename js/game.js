@@ -169,6 +169,8 @@ const ERR_KO = { 'not enough credits':'크레딧이 부족합니다', 'not enoug
   'expedition not done':'아직 귀환 전입니다', 'no robot left':'남은 기체가 없어 보낼 수 없습니다',
   'part equipped':'장착 중인 파츠는 분해할 수 없습니다', 'cannot scrap':'분해할 수 없는 파츠입니다',
   'protected':'점령 직후 보호 중인 칸입니다', 'not protected':'보호 중인 칸이 아닙니다',
+  'busy':'앞선 요청이 아직 처리 중입니다', 'expedition already claimed':'이미 받은 원정입니다',
+  'battle already started':'이미 시작된 전투입니다',
   'locked':'아직 열리지 않은 칸입니다',
   'not enough cores':'코어가 부족합니다',
   'robot on expedition':'원정 나간 기체입니다', 'unknown expedition':'알 수 없는 원정입니다',
@@ -548,7 +550,7 @@ function bigPartArt(p){ const c={C:'#8a97b5',R:'#4aa3ff',SR:'#c07bff',SSR:'#ffb0
   return `<div style="width:120px;height:120px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:34px;color:${c};background:radial-gradient(circle at 40% 30%,#233a63,#0c1220);border:2px solid ${c}">${SLOT_KO[p.slot][0]}</div>`; }
 
 /* ------------------------------- 대전 ------------------------------- */
-let _pendingOpp=null, _battleRobot=null, battleSpeed=2;   // 공격력 너프로 턴이 길어져 기본 x2
+let _pendingOpp=null, _battleRobot=null, battleSpeed=1;   // 기본은 등속. 빠르게 보고 싶으면 x2~x8 로 올린다
 function renderBattleHome(){
   const rb=selRobot(), T=ROBOT_TYPES[rb.type];
   $('#sc-battle').innerHTML = `
@@ -903,11 +905,10 @@ async function practiceStart(){
   const events=simulate(P,E,opp.seed);
   renderArena(my.type, opp.robot.type, P.name, E.name);
 
-  (rarOf(opp.robot.type)==='BOSS' ? bossEntrance() : Promise.resolve())
-   .then(()=>playBattle(events,P,E)).then(winner=>{
-    if(!winner) return;
-    renderPracticeResult(events[events.length-1].winner==='P', P, E);
-  });
+  if(rarOf(opp.robot.type)==='BOSS') await bossEntrance();
+  const winner = await playBattle(events,P,E);
+  if(!winner) return;
+  renderPracticeResult(events[events.length-1].winner==='P', P, E);
 }
 
 function renderPracticeResult(win,P,E){
@@ -939,7 +940,7 @@ async function startBattle(){
     /* 미리 잡아 둔 상대는 10분이 지나면 서버가 무효로 돌린다.
        결과 화면에 오래 머물다 '한 판 더'를 누른 경우가 여기 걸린다 — 막다른 길로 두지 않는다. */
     /* 출격비가 모자라면 다시 찾는다 — 서버가 그때 비상 출격을 잡아 준다. */
-    if(r && /expired|no pending|not enough credits/i.test(r.error||'')){ _pendingOpp=null; return findMatch(); }
+    if(r && /expired|no pending|already started|not enough credits/i.test(r.error||'')){ _pendingOpp=null; return findMatch(); }
     toast('전투를 시작하지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
   }
   setPending(r.next && r.next.opponent, r.next && r.next.cost, r.next && r.next.rescue, r.next && r.next.tier);
@@ -949,12 +950,13 @@ async function startBattle(){
   const events=simulate(P,E,r.seed);
   renderArena(my.type, r.opponent.type, P.name, E.name);
 
-  (rarOf(r.opponent.type)==='BOSS' ? bossEntrance() : Promise.resolve())
-   .then(()=>playBattle(events,P,E)).then(winner=>{
-    if(!winner) return;                          // 중간에 나갔으면 화면만 접는다(보상은 이미 서버에 반영됨)
-    applyServerBattle(r, my);
-    renderResult(r.win, _lastReward, P, E, opp);
-  });
+  /* **재생이 끝날 때까지 기다린다.** 예전에는 여기서 바로 함수가 끝나, 재생이 도는 동안
+     전투 시작을 또 누를 수 있었다(문지기가 이미 풀린 뒤라 막지 못한다). */
+  if(rarOf(r.opponent.type)==='BOSS') await bossEntrance();
+  const winner = await playBattle(events,P,E);
+  if(!winner) return;                            // 중간에 나갔으면 화면만 접는다(보상은 이미 서버에 반영됨)
+  applyServerBattle(r, my);
+  renderResult(r.win, _lastReward, P, E, opp);
 }
 
 /* 서버가 확정한 결과를 로컬 상태에 받아 적는다. 클라가 계산하지 않는다. */
@@ -1331,7 +1333,7 @@ async function attackTerr(id, raid){
   }
   dropTerrCache();
   applyTerrAttack(r);
-  playBreach(r);
+  await playBreach(r);   // 재생이 끝날 때까지 문지기를 붙든다
 }
 const raidTerr = id => attackTerr(id, true);
 
@@ -1430,24 +1432,51 @@ async function claimTerr(){
   toast(`점령지 ${r.nodes}칸 · 크레딧 +${fmt(r.cr)} · 스크랩 +${fmt(r.sc)}${r.core?` · 코어 +${r.core}`:''}`);
 }
 
+/* ── 겹쳐 도는 조작 막기 ──────────────────────────────────
+   전투 시작을 여러 번 누르면 요청이 그 수만큼 서버로 나갔다. 서버는 각각을 진짜 전투로
+   처리하므로 **출격비도 보상도 그 수만큼 중복**되고, 재생 루프도 여러 개가 같은 화면을
+   돌려 '각자 세 번씩 때리는' 그림이 나온다. 실제로 제보된 버그다.
+
+   그래서 서버로 나가거나 화면을 오래 물고 있는 조작은 전부 이 문지기를 지나게 한다.
+   하나가 도는 동안 들어온 같은 종류의 호출은 **조용히 버린다** — 큐에 쌓으면 손을 뗀 뒤에
+   밀린 것이 우수수 실행돼 같은 문제가 늦게 터진다.
+
+   서버 쪽에도 따로 잠금을 걸어 두었다(server/battle.js 의 pending_match 선점).
+   클라만 막으면 손댄 클라이언트에는 그대로 뚫린다. */
+let _busy = false;
+function guard(fn){
+  return async function(...a){
+    if(_busy) return;
+    _busy = true;
+    document.body.classList.add('busy');
+    try { return await fn.apply(this, a); }
+    finally { _busy = false; document.body.classList.remove('busy'); }
+  };
+}
+/* 속도 토글·화면 이동·모달 닫기는 문지기를 지나지 않는다 —
+   전투가 재생되는 동안에도 눌러야 하는 것들이다. */
+
 window.ROWAR = {
   go,
   /* 나갈 기체 고르기 — 편성에 든 기체만. 편성 밖을 누르면 편성에 넣는 것으로 받아 준다. */
-  selectRobot:async(i)=>{ const rb=S.robots[i]; if(!rb) return;
+  selectRobot: guard(async(i)=>{ const rb=S.robots[i]; if(!rb) return;
     if(!S.squad.includes(rb.uid)) return toggleSquad(rb.uid);
     /* 이미 나가기로 되어 있는 기체를 또 누르면 서버에 보낼 것이 없다.
        예전에는 누를 때마다 보냈다 — 요청도, 아레나 재등록(쓰기)도 헛돌았다. */
     if(S.sel===i) return;
     S.sel=i; renderHangar();
     if(net.state.online) await net.hangar('select',{robotUid:rb.uid});
-    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
-  toggleSquad,
-  levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
-  setGacha, scrapPart, doScrap,
-  pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, hunt, toggleSpeed,
-  pickExped, sendExped, claimExped,
-  openNode, attackTerr, raidTerr, claimTerr,
-  account:accountScreen, doRegister, doLogin, logout:doLogout,
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); }),
+  toggleSquad: guard(toggleSquad),
+  levelUp: guard(levelUp), service: guard(service), enhance: guard(enhancePart),
+  equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
+  openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode,
+  pull1: guard(pull1), pull10: guard(pull10),
+  findMatch: guard(findMatch), nextMatch: guard(nextMatch), startBattle: guard(startBattle),
+  practiceFind: guard(practiceFind), practiceStart: guard(practiceStart), hunt: guard(hunt),
+  sendExped: guard(sendExped), claimExped: guard(claimExped),
+  attackTerr: guard(attackTerr), raidTerr: guard(raidTerr), claimTerr: guard(claimTerr),
+  account:accountScreen, doRegister: guard(doRegister), doLogin: guard(doLogin), logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화
 };

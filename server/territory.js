@@ -306,6 +306,15 @@ export async function attackNode(env, accountId, now, nodeId, wantRaid) {
   if (me.p.credits < cost)
     return err(400, 'not enough credits');
 
+  /* 공격을 '선점'한다. 여러 번 눌러 요청이 겹치면 셋 다 같은 방어선 상태를 읽어
+     같은 판을 세 번 치른다 — 출격비도 피로도도 그만큼 나간다.
+     rev 를 조건부로 올려 한 번만 통과시킨다(D1 은 문장 하나가 원자적이다).
+     아래 쓰기들이 rev = me.p.rev + 1 을 적으므로 값은 그대로 맞는다. */
+  const lock = await env.DB.prepare(
+    'UPDATE player SET rev = rev + 1 WHERE account_id = ?1 AND rev = ?2')
+    .bind(accountId, me.p.rev).run();
+  if ((lock.meta?.changes ?? 0) !== 1) return err(409, 'busy');
+
   /* 피로도는 서버 시각으로 먼저 정산한다. 깎인 체력 그대로 싸운다 — 그게 연전의 대가다. */
   for (const m of eligible) decayFat(m.robot, now);
 

@@ -82,6 +82,14 @@ export async function claimExped(env, accountId, now, rnd, uid) {
   /* 시간은 서버 것만 본다 */
   if (now < p.expd_end) return err(400, 'expedition not done');
 
+  /* 귀환을 '선점'한다. 여러 번 눌러 요청이 겹치면 둘 다 보상을 굴려, 재화는 마지막 것만
+     남고 **파츠 행은 두 개가 생긴다.** 조건부로 비워서 한 번만 통과시킨다.
+     (전투의 pending_match 선점과 같은 방식이다 — server/battle.js 참고) */
+  const claim = await env.DB.prepare(
+    `UPDATE player SET expd_robot = NULL, expd_tier = NULL, expd_lv = NULL, expd_end = NULL
+      WHERE account_id = ?1 AND expd_end = ?2`).bind(accountId, p.expd_end).run();
+  if ((claim.meta?.changes ?? 0) !== 1) return err(409, 'expedition already claimed');
+
   const rw = roll(p.expd_tier, p.expd_lv, rnd, uid);
   const credits = p.credits + rw.cr, scrap = p.scrap + rw.sc, cores = p.cores + rw.core;
   const rev = p.rev + 1;
@@ -90,9 +98,9 @@ export async function claimExped(env, accountId, now, rnd, uid) {
   if (rw.part) stmts.push(env.DB.prepare(
     'INSERT INTO part (account_id, uid, slot, name, rarity, stats, enh, created_at) VALUES (?1,?2,?3,?4,?5,?6,0,?7)')
     .bind(accountId, rw.part.uid, rw.part.slot, rw.part.name, rw.part.rarity, JSON.stringify(rw.part.stats), now));
+  /* 원정 칸은 위에서 이미 비웠다. 여기서는 재화와 rev 만 적는다. */
   stmts.push(env.DB.prepare(
     `UPDATE player SET credits = ?1, scrap = ?2, cores = ?3,
-       expd_robot = NULL, expd_tier = NULL, expd_lv = NULL, expd_end = NULL,
        rev = ?4, updated_at = ?5 WHERE account_id = ?6`)
     .bind(credits, scrap, cores, rev, now, accountId));
   await env.DB.batch(stmts);

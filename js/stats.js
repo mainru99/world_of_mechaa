@@ -72,6 +72,14 @@ export function computeStats(robot, parts) {
     const ps = partStat(p); for (const k in ps) s[k] = (s[k] || 0) + ps[k];
   }
   for (const k of ['hp', 'atk', 'def', 'spd']) s[k] = Math.round(s[k]);
+  /* 파츠의 대가(SLOT_COST)가 겹치면 스탯이 0 밑으로 내려간다 —
+     무장과 코어가 둘 다 속도를 깎으므로 느린 기체에 둘을 끼우면 실제로 음수가 된다.
+     그때 simulate 의 게이지 계산 (100 - g) / spd 가 뒤집혀 전투가 성립하지 않고,
+     powerOf 는 음수의 제곱근이라 NaN 을 낸다(실측: 생성 상대 4만 중 133건).
+     여기서 바닥을 깔아 둔다. 대가를 무르게 하는 것이 아니라 계산을 성립시키는 것이다. */
+  s.spd = Math.max(1, s.spd);
+  s.def = Math.max(0, s.def);
+  s.atk = Math.max(1, s.atk);
   s.hpFull = s.hp;                                                  // 피로도 0 일 때의 최대 체력
   s.hp = Math.max(1, Math.round(s.hp * (100 - fatOf(robot)) / 100)); // 피로도만큼 최대 체력이 줄어든다
   s.crit = clamp(s.crit, 0, .75); s.eva = clamp(s.eva, 0, .6);

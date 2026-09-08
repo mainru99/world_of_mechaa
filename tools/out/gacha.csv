@@ -1,0 +1,5 @@
+policy,currency,pulls,robot_pct,dupe_pct,part_pct,core_pct,credit_pct,bust_pct,rob_C,rob_UC,rob_R,rob_UQ,rob_EP,theory_robot_pct,max_dry_streak
+light,core,32,8.3,0.4,45,0.4,26.5,19.4,1.2,1,0.6,0,0,12,16
+steady,core,40,8.3,4.3,47.8,0.7,22.1,16.7,2.4,1,1,0.8,0,12,18
+hard,core,42,8.4,2.1,44.4,2,23,20,1.4,1,1.2,0.6,0.4,12,20
+hard,credit,90,4.6,2,58.7,0.7,0,34,3.8,2.2,1.4,0.2,0,7,24

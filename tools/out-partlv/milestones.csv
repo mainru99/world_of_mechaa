@@ -1,0 +1,34 @@
+policy,milestone,day_avg,reached_runs,of_runs
+light,Lv.10 도달,5.4,5,5
+light,Lv.20 도달,13.8,5,5
+light,Lv.30 도달,26,2,5
+light,Lv.40 도달,,0,5
+light,Lv.50 도달,,0,5
+light,Lv.60 도달,,0,5
+light,UC 기체 첫 획득,3.5,2,5
+light,R 기체 첫 획득,1,1,5
+light,UQ 기체 첫 획득,,0,5
+light,EP 기체 첫 획득,,0,5
+light,점령 칸 수(마지막 날),0,5,5
+steady,Lv.10 도달,2.8,5,5
+steady,Lv.20 도달,6,5,5
+steady,Lv.30 도달,10.2,5,5
+steady,Lv.40 도달,15,5,5
+steady,Lv.50 도달,21.8,5,5
+steady,Lv.60 도달,24.7,3,5
+steady,UC 기체 첫 획득,8.3,4,5
+steady,R 기체 첫 획득,10,3,5
+steady,UQ 기체 첫 획득,1,2,5
+steady,EP 기체 첫 획득,,0,5
+steady,점령 칸 수(마지막 날),5,5,5
+hard,Lv.10 도달,2,5,5
+hard,Lv.20 도달,3.8,5,5
+hard,Lv.30 도달,6.4,5,5
+hard,Lv.40 도달,10.6,5,5
+hard,Lv.50 도달,14.8,5,5
+hard,Lv.60 도달,20.2,5,5
+hard,UC 기체 첫 획득,11.6,5,5
+hard,R 기체 첫 획득,13.4,5,5
+hard,UQ 기체 첫 획득,6.5,2,5
+hard,EP 기체 첫 획득,5,1,5
+hard,점령 칸 수(마지막 날),7.2,5,5

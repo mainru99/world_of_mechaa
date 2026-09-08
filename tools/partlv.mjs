@@ -1,16 +1,17 @@
 /* 파츠 한 세트는 레벨 몇 개 값인가 — 파츠 없는 상대를 몇 레벨 올려야 대등해지나 */
 import { ROBOT_TYPES, RARITY, SLOTS, SLOT_STATS, STAT_ROLL, CONST } from '../data/balance.js';
 import { computeStats, isPct } from '../js/stats.js';
+import { genPart } from '../js/gacha.js';
 import { makeUnit, simulate } from '../js/sim.js';
 let S=911; const ns=()=>((S=Math.imul(S,1103515245)+12345|0)>>>0);
 const rnd=()=>ns()/4294967296;
 const pick=a=>a[Math.floor(rnd()*a.length)], rf=(a,b)=>rnd()*(b-a)+a;
+/* 파츠는 **게임의 genPart 를 그대로 쓴다.**
+   예전에는 도구마다 따로 만들었는데, 그 코드가 대가(SLOT_COST)와 구간(spread)이
+   생기기 전 것이라 상승분만 굴렸다. 그래서 파츠가 순수 이득으로 잡혀 값이 부풀려졌다. */
 function mkPart(slot,rarK,level,uid,enh){
-  const rar=RARITY.find(r=>r.k===rarK), lv=1+(level||1)*0.03, st={};
-  for(let i=0;i<rar.n;i++){ const k=pick(SLOT_STATS[slot]); const [a,b]=STAT_ROLL[k];
-    let v=rf(a,b)*rar.mul; if(!isPct(k)) v=Math.round(v*lv); st[k]=(st[k]||0)+v; }
-  for(const k in st) if(isPct(k)) st[k]=Math.round(st[k]*1000)/1000;
-  return {uid,slot,name:'P',rarity:rarK,stats:st,enh};
+  const p=genPart(level, rnd, uid, rarK, slot);
+  p.enh=enh; return p;
 }
 function kit(rarK,level,enh,n){ const parts=[],slots={WEAPON:null,FRAME:null,BOOSTER:null,CORE:null};
   SLOTS.slice(0,n).forEach((s,i)=>{ const p=mkPart(s,rarK,level,'p'+i,enh); parts.push(p); slots[s]=p.uid; });

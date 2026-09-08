@@ -16,7 +16,23 @@ node tools/parts.mjs     # 파츠 한 세트가 승률·전투력을 얼마나 �
 node tools/parts2.mjs    # 파츠를 낀 상태의 등급 사다리 · 파츠가 등급을 뒤집나
 node tools/partlv.mjs    # 파츠 세트 = 레벨 몇 개 → CONST.PART_LV 의 근거
 node tools/match2.mjs    # 파츠를 낀 상태에서 생성 상대와의 승률
+
+node tools/play.mjs 30 5 # 3계정 30일 플레이 시뮬 — 경제·진행·소모시간·난이도·뽑기
 ```
+
+`play.mjs` 는 한 판이 아니라 **며칠치 플레이 전체**를 굴린다. 결과는 `tools/out/` 에
+CSV 5개와 `REPORT.md` 로 떨어진다. 밸런스 상수를 파일 수정 없이 바꿔 볼 수 있다.
+
+```bash
+ROWAR_PART_LV=1,3,7,11 node tools/play.mjs 30 5 tools/out-partlv
+ROWAR_ATK_SCALE=1.4    node tools/play.mjs 30 5 tools/out-atk
+```
+
+> **2026-09-08 — `parts.mjs` · `parts2.mjs` · `partlv.mjs` · `match2.mjs` 는
+> 파츠를 자체 함수로 만들면서 대가(SLOT_COST)와 구간을 빼먹고 있었다.**
+> 대가가 생기기 전 코드가 남아 있었던 것이다. 넷 다 `genPart` 를 쓰도록 고쳤고,
+> 그래서 예전에 이 도구들로 읽은 값(특히 `CONST.PART_LV`)은 약 2배로 부풀려져 있다.
+> 자세한 내용과 제안은 `CONTRACT.md` 를 본다.
 
 `match.mjs` 는 맨몸, `match2.mjs` 는 파츠를 낀 상태다. **둘 다 봐야 한다** —
 처음에 맨몸으로만 재는 바람에 "파츠를 낄 수 없는 상대(몬스터)가 공짜 승리가 된다"를

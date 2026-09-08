@@ -1,0 +1,14 @@
+# 줄 끝을 LF 로 고정한다.
+#
+# 회사 PC 와 집 PC 를 오가는 리포인데, core.autocrlf 설정이 기계마다 달라
+# 일부 파일이 CRLF 로 커밋되어 있었다. 그러면 한쪽에서 한 줄만 고쳐도 diff 가
+# 파일 전체로 번져 무엇을 바꿨는지 볼 수 없다.
+#
+# text=auto  : 텍스트 파일을 저장소에는 LF 로 넣는다
+# eol=lf     : 받아 쓸 때도 LF 그대로 둔다 (에디터·Node·wrangler 모두 문제없다)
+* text=auto eol=lf
+
+# 이미지·폰트는 손대지 않는다
+*.png binary
+*.jpg binary
+*.ico binary

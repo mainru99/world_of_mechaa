@@ -244,3 +244,52 @@ body[data-scene="arena"] .panel{
   background:linear-gradient(180deg, rgba(7,32,44,.86), rgba(3,16,24,.9));
   border:1px solid #1c5a6c; box-shadow:inset 0 0 40px rgba(60,225,245,.06), 0 8px 26px rgba(0,0,0,.5) }
 body[data-scene="arena"] .btn.gold{ background:linear-gradient(180deg,#3fe0f0,#1a9fb5); color:#02222b }
+
+/* ══ 점령 — 궤도에서 내려다본 지구 ══════════════════════════
+   사용자가 그려 온 그림(assets/backgrounds/territory.webp)에 맞춘다.
+   그림의 **가운데가 비어 있고** 가장자리에 구조물과 발광점이 있다.
+   그래서 12칸 격자를 가운데에 얹고, 카드를 유리처럼 비쳐 보이게 해
+   지구가 카드 사이로 드러나게 한다. 카드를 불투명하게 두면 그림이 통째로 가려진다. */
+body[data-scene="terr"]{
+  background:
+    linear-gradient(180deg,rgba(4,8,20,.78) 0%,rgba(4,8,20,.30) 22%,rgba(4,8,20,.55) 62%,rgba(4,8,20,.92) 100%),
+    url('../assets/backgrounds/territory.webp') center 34%/cover no-repeat fixed,
+    #040814;
+}
+body[data-scene="terr"]::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(120% 60% at 50% 8%,rgba(90,180,255,.16),transparent 62%);
+}
+/* 이 화면에서는 강조색을 그림의 청록 쪽으로 당긴다 */
+body[data-scene="terr"] .title{ color:#bfe6ff }
+body[data-scene="terr"] .title::before{ background:var(--acc2) }
+
+/* 패널 — 유리판. 지구가 뒤로 비쳐야 한다 */
+body[data-scene="terr"] .panel{
+  background:rgba(8,16,34,.56);backdrop-filter:blur(12px);
+  border-color:rgba(120,180,255,.22);box-shadow:0 24px 60px -30px #000;
+}
+/* 칸 카드 — 더 비치게. 테두리는 발광점과 같은 청록 계열로 */
+body[data-scene="terr"] .tnode{
+  background:linear-gradient(180deg,rgba(12,24,48,.62),rgba(6,12,28,.72));
+  backdrop-filter:blur(9px);border-color:rgba(120,180,255,.20);
+}
+body[data-scene="terr"] .tnode:hover{
+  border-color:var(--acc2);box-shadow:0 0 26px -8px rgba(123,240,255,.65);transform:translateY(-2px);
+}
+body[data-scene="terr"] .tnode.mine{
+  border-color:rgba(73,224,138,.55);
+  background:linear-gradient(180deg,rgba(10,38,28,.62),rgba(6,20,16,.74));
+  box-shadow:0 0 0 1px rgba(73,224,138,.22) inset, 0 0 22px -10px rgba(73,224,138,.8);
+}
+body[data-scene="terr"] .tnode.foe{
+  border-color:rgba(255,91,127,.45);
+  background:linear-gradient(180deg,rgba(40,14,26,.62),rgba(22,8,16,.74));
+}
+body[data-scene="terr"] .tnode.locked{opacity:.42}
+body[data-scene="terr"] .tpips i{background:rgba(6,12,28,.72);border-color:rgba(120,180,255,.22)}
+
+/* 격자를 조금 벌려 카드 사이로 지구가 보이게 한다 */
+@media (min-width:900px){
+  body[data-scene="terr"] .tmap{gap:12px}
+}

@@ -33,7 +33,7 @@ export async function registerArena(env, accountId, now) {
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
-    'SELECT id, uid, type, level, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
+    'SELECT id, uid, type, level, skill_lv, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(accountId).all()).results || [];
   if (!robots.length) return null;
   const row = robots.find(r => r.id === p.sel_robot) || robots[0];
@@ -50,11 +50,11 @@ export async function registerArena(env, accountId, now) {
   }
 
   const lv = row.level;
-  const defRobot = { type: row.type, level: lv, fat: 0, slots };   // 피로도 0 으로 고정
+  const defRobot = { type: row.type, level: lv, fat: 0, skillLv: row.skill_lv, slots };   // 피로도 0 으로 고정
   const stats = computeStats(defRobot, used);
   const pw = power(defRobot, used);
 
-  const snapshot = JSON.stringify({ type: row.type, level: lv, slots, parts: used, stats });
+  const snapshot = JSON.stringify({ type: row.type, level: lv, skillLv: row.skill_lv, slots, parts: used, stats });
   const rnd = Math.floor(Math.random() * 0x40000000);   // 무작위 상대를 한 행만 읽고 고르기 위한 열쇠
 
   await env.DB.prepare(

@@ -32,7 +32,7 @@ async function loadFighter(env, accountId) {
     'SELECT sel_robot, credits, rating, squad1, squad2 FROM player WHERE account_id = ?1')
     .bind(accountId).first();
   const robots = (await env.DB.prepare(
-    'SELECT id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
+    'SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(accountId).all()).results || [];
   if (!robots.length) return null;
   const squad = [p && p.squad1, p && p.squad2].filter(Boolean);
@@ -56,7 +56,7 @@ async function loadFighter(env, accountId) {
     row,
     credits: p ? p.credits : 0,
     rating: p && p.rating != null ? p.rating : 1000,   // 상대 장비를 여기에 맞춘다
-    robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, slots },
+    robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots },
     parts: used,
     /* 상대 등급 보정은 '보유한' 기체 전부를 본다 — 편성에 없어도 내 전력이다 */
     allRarities: robots.map(r => (COMBAT[r.type] || ROBOT_TYPES.mule).rarity),

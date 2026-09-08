@@ -91,6 +91,9 @@ CREATE TABLE IF NOT EXISTS robot (
   -- SQLite 에서 컬럼을 지우려면 표를 다시 만들어야 해서 남겨 둔다.
   level       INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
   exp         INTEGER NOT NULL DEFAULT 0 CHECK (exp >= 0),
+  /* 스킬 강화 단계. 배수는 CONST.SKILL_UP.mult 만큼 곱으로 붙는다.
+     첫 강화부터 실패할 수 있고, 실패해도 재화는 나간다. */
+  skill_lv    INTEGER NOT NULL DEFAULT 0 CHECK (skill_lv >= 0),
   fat         INTEGER NOT NULL DEFAULT 0 CHECK (fat >= 0),
   fat_at      INTEGER NOT NULL DEFAULT 0,      -- 피로도 자연 회복 정산 시각(서버 시각)
   uid         TEXT,                            -- 클라이언트가 쓰는 식별자. 동기화 때 행을 짝짓는다
@@ -234,7 +237,8 @@ CREATE TABLE IF NOT EXISTS territory (
   updated_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_territory_owner ON territory(owner_id, taken_at);
-
+
+
 -- ── 로그인 시도 제한 ────────────────────────────────────
 -- 비밀번호를 무한히 시도할 수 있으면 PBKDF2 로 늦추는 것만으로는 부족하다.
 -- 아이디별·IP별로 실패를 세고 일정 횟수를 넘으면 잠시 막는다.
@@ -253,7 +257,7 @@ CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 -- 006~008 의 모양은 이미 위 정의에 반영되어 있는데 이 값만 '6' 으로 남아 있었다.
 -- 새로 클론한 PC 가 v8 짜리 DB 를 만들어 놓고 '6' 이라고 말해, 마이그레이션이 필요한지
 -- 판단할 수 없었다(`/api/health` 의 schema_version 도 이 값을 읽는다).
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '9');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '10');
 
 
 -- =========================================================

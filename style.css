@@ -694,3 +694,24 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 
 /* 데스크톱에서는 도움말이 왼쪽 레일 아래에 있다. 지갑의 ? 는 겹치므로 감춘다. */
 @media (min-width:900px){ .wallet .coin.help{display:none} }
+
+/* ── 강화 단계 표시 ────────────────────────────────────────
+   +5 부터 테두리가 조금 두꺼워지고, +9 부터 은은하게 돈다.
+   숫자(+7 같은)를 읽지 않아도 인벤토리에서 한눈에 골라낼 수 있게 하는 것이 목적이라,
+   색을 바꾸지 않는다 — 색은 이미 파츠 등급이 쓰고 있어서 겹치면 둘 다 안 읽힌다. */
+.pchip.enh-mid,.slot.filled.enh-mid{border-width:2px;border-color:#4a5f96}
+.pchip.enh-hi,.slot.filled.enh-hi{
+  border-width:2px;border-color:#7a8fd0;
+  box-shadow:0 0 0 1px rgba(140,175,255,.16) inset, 0 0 14px -4px rgba(140,175,255,.55);
+}
+/* 아주 옅게 도는 빛. 엣지라이팅까지 가지 않는다 — 인벤토리에 여러 개가 깔리면 시끄럽다 */
+@keyframes enhPulse{ 0%,100%{box-shadow:0 0 0 1px rgba(140,175,255,.14) inset, 0 0 12px -5px rgba(140,175,255,.45)}
+                     50%   {box-shadow:0 0 0 1px rgba(140,175,255,.22) inset, 0 0 18px -3px rgba(140,175,255,.75)} }
+.pchip.enh-hi,.slot.filled.enh-hi{animation:enhPulse 2.8s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){ .pchip.enh-hi,.slot.filled.enh-hi{animation:none} }
+
+/* 스킬 강화 칸 */
+.skup{margin-top:10px;padding-top:10px;border-top:1px solid rgba(120,150,210,.16)}
+.skrow{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0;color:var(--sub)}
+.skrow b{color:var(--ink);font-variant-numeric:tabular-nums}
+.skrow b.bad{color:var(--bad)}

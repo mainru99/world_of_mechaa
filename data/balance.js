@@ -204,19 +204,21 @@ export const MONSTER_TYPES = {
     skill:{"name":"모나크 브레이크","desc":"방어력 60%를 관통하는 1.1배 돌진 공격을 3회.","fx":{"mult":1.1,"hits":3,"ignoreDef":true}} },
   /* ---- 미래 보스 콘텐츠 ----
      전용 위험도 BOSS는 ROBOT_RARITY(C~EP)에 없으므로 현재 일반 매칭 풀에서 선택되지 않는다.
-     향후 보스 진입/보상 UI가 직접 id를 선택할 때만 등장시킨다. */
+     향후 보스 진입/보상 UI가 직접 id를 선택할 때만 등장시킨다.
+     Lv.60 성능은 기존과 같지만 이후 성장률을 1.5배로 올렸다. 토벌에서는 +30레벨로
+     등장하므로 중간 장비로는 벽이고, 최종 장비도 조합에 따라 공략 성공률이 갈린다. */
   boss_bael_fortress:{ id:'boss_bael_fortress', name:'철혈성채 바알', rarity:'BOSS', role:'초중장 섬멸형 · 마왕성채',
-    base:{hp:2686,atk:255,def:197,spd:94,crit:.22,eva:.06}, grow:{hp:75,atk:7.5,def:5.4,spd:2.1}, spread:.26,
+    base:{hp:473.5,atk:33.75,def:37.7,spd:32.05,crit:.22,eva:.06}, grow:{hp:112.5,atk:11.25,def:8.1,spd:3.15}, spread:.26,
     skill:{name:'종말의 일제사격', desc:'1.0배 포격을 3회. 방어력 60%를 관통하며 회피할 수 없다.',
            fx:{mult:1.0,hits:3,ignoreDef:true,noMiss:true}} },
   boss_astraea:{ id:'boss_astraea', name:'성극천사 아스트라이아', rarity:'BOSS', role:'초고기동 심판형 · 성역병기',
-    base:{hp:1890,atk:232,def:178,spd:105,crit:.30,eva:.20}, grow:{hp:45.9,atk:7.2,def:3.6,spd:2.9}, spread:.15,
-    skill:{name:'세라픽 저지먼트', desc:'0.65배 심판광을 3회. 방어력 60%를 관통하고 회피 불가·확정 치명타, 피해의 10%를 흡수한다.',
-           fx:{mult:.65,hits:3,ignoreDef:true,noMiss:true,alwaysCrit:true,drain:.1}} },
+    base:{hp:535.95,atk:19.6,def:71.8,spd:19.45,crit:.30,eva:.20}, grow:{hp:68.85,atk:10.8,def:5.4,spd:4.35}, spread:.15,
+    skill:{name:'세라픽 저지먼트', desc:'0.91배 심판광을 3회. 방어력 60%를 관통하고 회피 불가·확정 치명타, 피해의 10%를 흡수한다.',
+           fx:{mult:.91,hits:3,ignoreDef:true,noMiss:true,alwaysCrit:true,drain:.1}} },
   boss_nihil:{ id:'boss_nihil', name:'공허군주 니힐', rarity:'BOSS', role:'공간침식 연격형 · 공허핵',
-    base:{hp:1691,atk:269,def:145,spd:105,crit:.38,eva:.32}, grow:{hp:37.3,atk:7.5,def:3.3,spd:3}, spread:.24,
-    skill:{name:'이벤트 호라이즌', desc:'방어력 60%를 관통하는 0.85배 침식을 4회. 피해의 25%를 흡수한다.',
-           fx:{mult:.85,hits:4,ignoreDef:true,drain:.25}} }
+    base:{hp:590.65,atk:47.75,def:47.65,spd:16.5,crit:.38,eva:.32}, grow:{hp:55.95,atk:11.25,def:4.95,spd:4.5}, spread:.24,
+    skill:{name:'이벤트 호라이즌', desc:'방어력 60%를 관통하는 0.98배 침식을 4회. 피해의 25%를 흡수한다.',
+           fx:{mult:.98,hits:4,ignoreDef:true,drain:.25}} }
 };
 
 /* 파츠 */
@@ -280,23 +282,25 @@ export const CONST = {
      양쪽 다 할 이유가 생긴다. 레이팅은 움직이지 않는다.
        costX  출격비 배수      lv     내 레벨 대비 상대 레벨
        crX/scX 크레딧·스크랩 배수   partP  파츠가 나올 확률   coreP 코어 확률
-     BOSS 는 레벨을 크게 얹어 '아직 못 잡는 벽'으로 둔다. 잡히면 파밍 효율이 가장 좋다.
-     ※ 값 조정은 ChatGPT 담당. */
+      BOSS 는 레벨을 크게 얹어 '아직 못 잡는 벽'으로 둔다. 잡히면 파밍 효율이 가장 좋다.
+      ※ 값 조정은 ChatGPT 담당. */
   /* lv 는 예전에 -6 ~ +12 였다. 그때는 레벨 1이 거의 의미가 없어 그만큼 벌려야 했지만,
      지금은 레벨 1 차이가 승률 80% 다. 그대로 두면 EP·BOSS 가 영원히 잠긴 문이 된다.
      난이도는 이제 몬스터의 '등급'이 만든다 — 내 등급과 같으면 반반, 한 단계 아래는 사냥터,
      한 단계 위는 벽이다. lv 은 낮은 등급을 확실한 farm 으로 만드는 데만 쓴다.
      (실측 Lv.30: 자기 등급 43~55% / 한 단계 아래 93~100% / 한 단계 위 5~17%) */
+  /* 30일 플레이 실측에서 전 등급 crX 0.45는 고등급 토벌을 많이 돌수록 가난해져
+     집중형의 전투가 막혔다. 승률과 출격비가 다른 만큼 등급별로 보정하되, 30일 누적
+     토벌 수지는 약 -8%로 남겨 크레딧 벌이는 아레나의 역할로 유지한다. */
   HUNT: {
-    C:    { costX: 1.0, lv:  -2, crX: 0.45, scX: 1.6, partP: 0.10, coreP: 0    },
-    UC:   { costX: 1.4, lv:  -1, crX: 0.45, scX: 2.1, partP: 0.13, coreP: 0    },
-    R:    { costX: 2.0, lv:   0, crX: 0.45, scX: 2.8, partP: 0.17, coreP: 0.05 },
-    UQ:   { costX: 3.0, lv:   0, crX: 0.45, scX: 3.6, partP: 0.22, coreP: 0.10 },
-    EP:   { costX: 4.5, lv:   0, crX: 0.45, scX: 4.6, partP: 0.28, coreP: 0.18 },
-    /* 보스는 최종 벽이다. 성장치를 0.40 배로 낮춰 '언젠가는 잡히게' 만들어 두었다 —
-       예전 값으로는 어떤 레벨에서도 승률 0% 라 잠긴 문이었다.
-       실측: 에픽 Lv.60 42% · 에픽 Lv.45 24% · 유니크 Lv.60 0%. 에픽을 끝까지 키워야 열린다. */
-    BOSS: { costX: 8.0, lv:   0, crX: 0.45, scX: 7.0, partP: 0.45, coreP: 0.35 },
+    C:    { costX: 1.0, lv:  -2, crX: 0.65, scX: 1.6, partP: 0.10, coreP: 0    },
+    UC:   { costX: 1.4, lv:  -1, crX: 0.70, scX: 2.1, partP: 0.13, coreP: 0    },
+    R:    { costX: 2.0, lv:   0, crX: 0.60, scX: 2.8, partP: 0.17, coreP: 0.05 },
+    UQ:   { costX: 3.0, lv:   0, crX: 0.90, scX: 3.6, partP: 0.22, coreP: 0.10 },
+    EP:   { costX: 4.5, lv:   0, crX: 1.35, scX: 4.6, partP: 0.28, coreP: 0.18 },
+    /* 보스는 최종 벽이다. 플레이어보다 30레벨 높게 등장하고 위의 보스 전용 성장 곡선을 쓴다.
+       실측: EP Lv.60 + SR 4개 +3강은 0%, SSR 4개 +10강은 평균 23% 승리한다. */
+    BOSS: { costX: 8.0, lv:  30, crX: 2.25, scX: 7.0, partP: 0.45, coreP: 0.35 },
   },
   /* 원정 — 기체를 얼마간 내보내 두고 재화를 받아 온다. 방치형 파밍이다.
      보상은 **서버 시각으로만** 계산한다. 클라 시계를 믿으면 시간을 앞당길 수 있다.
@@ -391,6 +395,26 @@ export const CONST = {
   PART_LV: { C: 1, R: 3, SR: 7, SSR: 11 },
   PART_ENH_LV: 0.10,      // 강화 1당 파츠 가치 배수 증가분
 
+  /* ── 스킬 강화 ────────────────────────────────────────
+     기체의 스킬 위력을 크레딧+스크랩으로 올린다. **첫 강화부터 실패한다.**
+     쉽게 세지면 안 되기 때문이다 — 실패해도 재화는 나간다.
+
+     파츠 강화(스크랩만)와 재화를 다르게 둔 것은, 둘이 같은 자원을 두고 다투게 하면
+     한쪽이 늘 밀리기 때문이다. 스킬은 크레딧까지 함께 든다.
+
+     mult   강화 1당 스킬 배수에 더해지는 값. 곱으로 붙는다
+            (0.05 · 10강이면 스킬 위력 1.5배. 스킬은 4~5턴에 한 번 나오므로
+             전체 화력으로는 그보다 훨씬 작게 움직인다)
+     rate   성공 확률. 배열의 i 번째가 'i강 → i+1강' 확률이다. 첫 칸부터 1 이 아니다
+     ※ 값 조정은 ChatGPT 담당. */
+  SKILL_UP: {
+    max: 10,
+    mult: 0.05,
+    rate: [0.90, 0.82, 0.74, 0.66, 0.58, 0.50, 0.42, 0.34, 0.27, 0.20],
+    crBase: 400, crLv: 260,      // 크레딧 = crBase + 단계 × crLv × (1 + 기체레벨 × 0.02)
+    scBase:  40, scLv:  26,      // 스크랩 = scBase + 단계 × scLv
+  },
+
   /* ── 아레나 상대의 장비를 무엇에 맞출 것인가 ────────────
      예전에는 **내가 낀 파츠를 그대로 따라갔다**(거울 대치). 그러면 좋은 파츠를 껴도
      상대가 같이 세져서 이득이 즉시 상쇄된다 — 실제로 파츠를 낄수록 승률이 떨어졌다.
@@ -399,21 +423,29 @@ export const CONST = {
      그래서 기준을 **내 장비가 아니라 내 성적(레이팅)** 으로 옮긴다.
        · 좋은 파츠를 끼면 → 한동안 이긴다(진짜 보상) → 레이팅이 오른다
        · 레이팅이 오르면 → 상대 장비가 따라 올라와 다시 팽팽해진다
-     상쇄가 '즉시'에서 '이긴 다음'으로 바뀐다. 그 사이가 곧 성장의 체감이다.
+      상쇄가 '즉시'에서 '이긴 다음'으로 바뀐다. 그 사이가 곧 성장의 체감이다.
 
-     at 은 그 줄이 적용되기 시작하는 레이팅이다(시작 레이팅 1000).
-     한 판에 ±10~12 움직이므로 한 칸 오르는 데 대략 스무 판쯤 걸린다.
-     ※ 값 조정은 ChatGPT 담당. */
+      at 은 그 줄이 적용되기 시작하는 레이팅이다(시작 레이팅 1000).
+     예전 9단계 표는 R 4개 +3강에서 SR 4개 +3강으로 한 번에 뛰어 승률이 20.8%→3.0%로
+     꺾였고, 고강화 SSR의 큰 대가 때문에 이후 난이도가 역행했다. 파츠 수와 강화를 나눠
+     올리는 15단계로 바꿔 절벽을 잘게 쪼갰다. 최고 구간은 SSR을 0/3/6/10강 순으로 올린다.
+      ※ 값 조정은 ChatGPT 담당. */
   RATING_GEAR: [
     { at:    0, n: 0, rar: 'C',   enh:  0 },
     { at: 1060, n: 2, rar: 'C',   enh:  0 },
-    { at: 1150, n: 4, rar: 'C',   enh:  0 },
-    { at: 1260, n: 4, rar: 'R',   enh:  0 },
-    { at: 1400, n: 4, rar: 'R',   enh:  3 },
-    { at: 1560, n: 4, rar: 'SR',  enh:  3 },
-    { at: 1740, n: 4, rar: 'SR',  enh:  7 },
-    { at: 1950, n: 4, rar: 'SSR', enh:  5 },
-    { at: 2200, n: 4, rar: 'SSR', enh: 10 },
+    { at: 1160, n: 2, rar: 'R',   enh:  0 },
+    { at: 1280, n: 3, rar: 'R',   enh:  0 },
+    { at: 1400, n: 4, rar: 'R',   enh:  0 },
+    { at: 1500, n: 4, rar: 'R',   enh:  4 },
+    { at: 1620, n: 2, rar: 'SR',  enh:  0 },
+    { at: 1740, n: 2, rar: 'SR',  enh:  3 },
+    { at: 1880, n: 3, rar: 'SR',  enh:  0 },
+    { at: 2020, n: 4, rar: 'SR',  enh:  0 },
+    { at: 2200, n: 4, rar: 'SR',  enh:  3 },
+    { at: 2400, n: 4, rar: 'SSR', enh:  0 },
+    { at: 2550, n: 4, rar: 'SSR', enh:  3 },
+    { at: 2700, n: 4, rar: 'SSR', enh:  6 },
+    { at: 2850, n: 4, rar: 'SSR', enh: 10 },
   ],
   /* 레이팅이 움직이는 폭. 사람 상대가 더 크다 — 그쪽이 진짜 겨루기다.
      몬스터전과 비상 출격은 움직이지 않는다(구제 장치가 벌이 되면 안 된다). */
@@ -510,7 +542,7 @@ export const TERRAIN = {
      crH/scH/coreH
                점령해 두면 들어오는 시간당 수입. TERR.INCOME_CAP_H 시간까지만 쌓인다.
                **칸마다 나오는 재화가 다르다.** 크레딧만 나오는 칸, 스크랩이 두꺼운 칸,
-                안쪽의 세 칸에서만 조금씩 나오는 코어. 한 칸만 붙들고 있으면 한 재화만
+                안쪽의 두 칸에서만 조금씩 나오는 코어. 한 칸만 붙들고 있으면 한 재화만
                 모이므로, 무엇이 모자란지에 따라 어느 칸을 지킬지가 갈린다.
                 코어는 뽑기 재화라 아주 인색하게 잡았다 — 12시간을 꽉 채워도 n11 이 3개다
                2026-09-08 30일 플레이 실측에서 기존 수입은 아레나 순익의 2.5배, 스크랩은
@@ -540,7 +572,7 @@ export const TERRITORY = [
   { id:'n08', ko:'용광로 심부', col:2, row:2, rar:'UQ', lv:30, terrain:'furnace',
     mon:['enemy_megalodon','enemy_lich','enemy_megalodon'],          crH: 73, scH:  2, coreH:0,    minLv:24, maxRar:'UQ' },
   { id:'n09', ko:'검은 호수',   col:3, row:2, rar:'UQ', lv:29, terrain:'canyon',
-    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH: 38, scH:  3, coreH:0.08, minLv:24, maxRar:null },
+    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH: 38, scH:  3, coreH:0,    minLv:24, maxRar:null },
 
   /* ── row 1 · 안쪽 ── */
   { id:'n10', ko:'강철 성문',   col:1, row:1, rar:'EP', lv:38, terrain:'highland',

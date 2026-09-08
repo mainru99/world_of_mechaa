@@ -8,7 +8,7 @@
  *   ② 슬롯 일치 확인   — 컬럼별 UNIQUE 는 A.s_weapon/B.s_frame 교차를 못 막는다
  */
 import { CONST } from '../data/balance.js';
-import { lvCost, enhCost, serviceCost, fatOf, decayFat } from '../js/stats.js';
+import { lvCost, enhCost, serviceCost, fatOf, decayFat, skillCost, skillRate, skillMax } from '../js/stats.js';
 import { scrapValue } from '../js/gacha.js';
 import { registerArena } from './arena.js';
 
@@ -162,6 +162,31 @@ export async function hangarAction(env, acc, body, now) {
       .bind(ids[0], ids[1] ?? null, sel, p.rev + 1, now, acc).run();
     await registerArena(env, acc, now);   // 나갈 기체가 곧 방어 기체다
     return { ok: true, rev: p.rev + 1, squad: uids.slice(0, ids.length), dropped };
+  }
+
+  /* ── 스킬 강화 ── 크레딧과 스크랩을 같이 쓴다. **첫 강화부터 실패한다.**
+     성공 판정은 반드시 서버가 한다 — 클라가 굴리면 될 때까지 다시 보내면 그만이다.
+     실패해도 재화는 나간다. 그게 이 장치의 값이다. */
+  if (action === 'skillup') {
+    const rb = await getRobot(env, acc, body.robotUid);
+    if (!rb) return err(404, 'robot not found');
+    const lv = rb.skill_lv | 0;
+    if (lv >= skillMax()) return err(400, 'max skill');
+    const c = skillCost(lv, rb.level);
+    if (p.credits < c.cr) return err(400, 'not enough credits');
+    if (p.scrap   < c.sc) return err(400, 'not enough scrap');
+
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    const ok = (buf[0] / 4294967296) < skillRate(lv);
+
+    const stmts = [spend(env, acc, p, { credits: c.cr, scrap: c.sc }, now)];
+    if (ok) stmts.push(env.DB.prepare('UPDATE robot SET skill_lv = ?1 WHERE id = ?2').bind(lv + 1, rb.id));
+    await env.DB.batch(stmts);
+    if (ok) await registerArena(env, acc, now);   // 방어 기체의 위력이 달라졌다
+
+    return { ok: true, rev: p.rev + 1, success: ok, skillLv: ok ? lv + 1 : lv,
+             credits: p.credits - c.cr, scrap: p.scrap - c.sc, cost: c, rate: skillRate(lv) };
   }
 
   /* ── 파츠 분해 ── 뽑기가 더 이상 일반 등급을 자동으로 없애지 않으므로,

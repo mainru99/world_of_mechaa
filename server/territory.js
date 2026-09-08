@@ -233,7 +233,7 @@ async function loadSquad(env, accountId) {
     .bind(accountId).first();
   if (!p) return null;
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core
+    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
   if (!robots.length) return null;
   const parts = (await env.DB.prepare('SELECT id, uid, slot, stats, enh FROM part WHERE account_id = ?1')
@@ -261,7 +261,7 @@ async function loadSquad(env, accountId) {
       if (q) used.push({ uid: q.uid, slot: q.slot, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
     }
     return { row, robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp,
-                           fat: row.fat, fatAt: row.fat_at, slots }, parts: used };
+                           fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots }, parts: used };
   });
   return { p, mechs };
 }

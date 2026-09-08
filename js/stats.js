@@ -84,6 +84,9 @@ export function computeStats(robot, parts) {
   s.hp = Math.max(1, Math.round(s.hp * (100 - fatOf(robot)) / 100)); // 피로도만큼 최대 체력이 줄어든다
   s.crit = clamp(s.crit, 0, .75); s.eva = clamp(s.eva, 0, .6);
   s.spread = clamp(s.spread, CONST.SPREAD_MIN, CONST.SPREAD_MAX);
+  /* 스킬 강화는 스탯이 아니라 **스킬 배수**에 붙는다. 여기에 실어 두면
+     makeUnit → doSkill 로 그대로 따라가므로 sim 의 전투 규칙은 손대지 않아도 된다. */
+  s.skillMul = skillMul(robot.skillLv);
   return s;
 }
 
@@ -120,6 +123,23 @@ export const expNeed   = lv => Math.round(60 + lv * lv * 1.6 + lv * 22);  // lv 
 export const battleExp = enemyLv => 26 + enemyLv * 9;                     // 승리 시 획득(패배는 35%)
 export const lvCost    = lv => Math.round(80 + lv * lv * 4 + lv * 40);
 export const enhCost   = e => (e + 1) * 18;
+
+/* 스킬 강화 — 비용과 성공 확률. 서버(판정)와 클라(표시)가 같은 함수를 쓴다.
+   두 벌로 두면 화면에 적힌 확률과 실제로 굴리는 확률이 갈린다. */
+export const skillMax  = () => CONST.SKILL_UP.max;
+export const skillCost = (lv, robotLevel) => {
+  const S = CONST.SKILL_UP;
+  return {
+    cr: Math.round((S.crBase + lv * S.crLv) * (1 + (robotLevel || 1) * 0.02)),
+    sc: Math.round(S.scBase + lv * S.scLv),
+  };
+};
+export const skillRate = lv => {
+  const r = CONST.SKILL_UP.rate;
+  return lv >= r.length ? 0 : r[lv];
+};
+/* 스킬 배수에 곱해지는 값. 0강이면 1 이다. */
+export const skillMul = lv => 1 + Math.max(0, lv | 0) * CONST.SKILL_UP.mult;
 
 export function gainExp(rb, amt) {        // 경험치를 넣고, 차면 자동으로 레벨업
   const from = rb.level;

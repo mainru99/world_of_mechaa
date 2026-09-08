@@ -11,6 +11,7 @@ import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, 
          TERRITORY, TERRAIN } from '../data/balance.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
 import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs, atkRange,
+         skillCost, skillRate, skillMax, skillMul,
          expNeed, battleExp, lvCost, enhCost,
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
@@ -62,7 +63,7 @@ function freshState(){         // 시작: 커먼 1기, Lv.1 — 나머지 기체
   /* squad 는 이번에 데려갈 기체(최대 CONST.SQUAD_MAX 기)의 uid 목록.
      레벨·경험치는 기체마다 따로다 — 뽑아서 키우는 것이 이 게임의 보상이다. */
   return { v:2, credits:600, cores:12, scrap:30,
-    robots:[{uid:u,type:pick(BY_RARITY.C),level:1,exp:0,fat:0,slots:emptySlots()}],
+    robots:[{uid:u,type:pick(BY_RARITY.C),level:1,exp:0,fat:0,skillLv:0,slots:emptySlots()}],
     parts:[], sel:0, squad:[u], stat:{wins:0,losses:0,pulls:0} };
 }
 /* 저장본은 언제든 망가져 들어올 수 있다(다른 탭, 손수 편집, 예전 버전, 저장 중 오류).
@@ -85,6 +86,7 @@ function normalize(j){         // 저장본에 빠진 필드 보정
     rb.exp=Math.max(0,Math.round(num(rb.exp,0)));
     if(rb.fat==null && rb.dur!=null) rb.fat = clamp(100-num(rb.dur,100), 0, FAT_MAX);   // 예전 '내구도' 저장본 이관
     delete rb.dur; rb.fat = fatOf(rb); decayFat(rb);      // 껐던 동안의 자연 회복 정산
+    rb.skillLv = clamp(Math.round(num(rb.skillLv,0)), 0, CONST.SKILL_UP.max);   // 예전 저장본에는 없다
     if(!rb.slots || typeof rb.slots!=='object') rb.slots = emptySlots();
     for(const sl of SLOTS){
       const u = rb.slots[sl];
@@ -136,7 +138,7 @@ function applyPull(res){
   /* uid 는 서버가 실제로 넣은 값을 쓴다. 여기서 새로 만들면 서버 행과 어긋나
      그 기체로는 편성·선택·정비·원정이 전부 'robot not found' 가 된다.
      res.uid 가 없는 것은 서버 없이 굴리는 경로뿐이라 그때만 만든다. */
-  if(res.kind==='robot'){ S.robots.push({uid:res.uid||uid(),type:res.type,level:1,exp:0,fat:0,slots:emptySlots()}); }
+  if(res.kind==='robot'){ S.robots.push({uid:res.uid||uid(),type:res.type,level:1,exp:0,fat:0,skillLv:0,slots:emptySlots()}); }
   else if(res.kind==='dupe'){ const g=res.gain; S.credits+=g.cr; S.scrap+=g.sc; S.cores+=g.co; }
   else if(res.kind==='core'){ S.cores+=res.n; }
   else if(res.kind==='credit'){ S.credits+=res.cr; }
@@ -160,7 +162,7 @@ function selRobot(){ return S.robots[S.sel]; }
 /* 서버가 내는 오류를 사람 말로. 여기 없으면 영문이 그대로 화면에 뜬다 —
    서버에 새 오류를 더하면 여기도 함께 채울 것. */
 const ERR_KO = { 'not enough credits':'크레딧이 부족합니다', 'not enough scrap':'스크랩이 부족합니다',
-  'max level':'최대 레벨입니다', 'max enhanced':'최대 강화입니다', 'already serviced':'이미 정비된 상태입니다',
+  'max level':'최대 레벨입니다', 'max enhanced':'최대 강화입니다', 'max skill':'최대 강화입니다', 'already serviced':'이미 정비된 상태입니다',
   'slot mismatch':'그 슬롯에 넣을 수 없는 파츠입니다', 'part not found':'파츠를 찾을 수 없습니다',
   'bad slot':'알 수 없는 슬롯입니다', 'robot not found':'그 기체를 찾을 수 없습니다',
   'not in squad':'출격 편성에 없는 기체입니다', 'squad cannot be empty':'최소 한 기는 편성해야 합니다',
@@ -229,6 +231,18 @@ async function doScrap(u){
   S.parts=S.parts.filter(x=>x.uid!==u); S.scrap=r.scrap;
   commitLocal(); renderWallet(); renderHangar();
   toast(p.name+' 분해 · 스크랩 +'+fmt(r.gain));
+}
+
+/* 스킬 강화. 성공 판정은 서버가 한다 — 클라가 굴리면 될 때까지 다시 보내면 그만이다.
+   실패해도 재화는 나가므로, 결과를 분명히 알려 준다. */
+async function skillUp(){
+  const rb=selRobot(); if(!rb) return;
+  const slv=rb.skillLv|0;
+  if(slv>=skillMax()){ toast('최대 강화입니다'); return; }
+  const r=await srvHangar('skillup',{robotUid:rb.uid}); if(!r) return;
+  rb.skillLv=r.skillLv; S.credits=r.credits; S.scrap=r.scrap;
+  commitLocal(); renderWallet(); renderHangar();
+  toast(r.success ? `스킬 강화 성공 · +${r.skillLv}` : `강화 실패 · +${r.skillLv} 그대로 (성공률 ${Math.round(r.rate*100)}%)`);
 }
 
 async function enhancePart(u){
@@ -339,6 +353,10 @@ function openModal(html){ shield(); const m=$('#modal'); m.innerHTML=`<div class
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal').innerHTML=''; }
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
+/* 강화 단계 — 숫자를 읽지 않아도 한눈에 보이게 테두리를 바꾼다.
+   0~4 그대로 · 5~8 조금 두껍게 · 9 이상 은은하게 돈다.
+   (최대는 CONST.ENH_MAX. 지금 10 이고, 늘리면 아래 기준도 같이 봐야 한다) */
+const enhClass = p => { const e=p.enh|0; return e>=9?' enh-hi':(e>=5?' enh-mid':''); };
 /* 파츠 한 줄. 세 가지를 다르게 보여 준다.
      상승  그대로
      대가  붉게 (−) — 이 파츠를 낄지 말지의 근거
@@ -388,19 +406,20 @@ function renderHangar(){
       <button class="sqbtn${out?' on':''}" onclick="event.stopPropagation();ROWAR.toggleSquad('${r.uid}')"
         >${out?'편성 해제':'편성'}</button></div>`; }).join('');
   const slotsHtml = SLOTS.map(slot=>{ const u=rb.slots[slot]; const p=u&&findPart(u,S.parts);
-    return `<div class="slot ${p?'filled':''}" onclick="ROWAR.openSlot('${slot}')">
+    return `<div class="slot ${p?'filled':''}${p?enhClass(p):''}" onclick="ROWAR.openSlot('${slot}')">
       <div class="sl">${SLOT_KO[slot]}</div>
       ${p?`<div class="pn">${esc(p.name)}</div><div class="pp">${rarTag(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
   const invParts = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
   /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
-  const inv = invParts.length? invParts.map(p=>`<div class="pchip" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
+  const inv = invParts.length? invParts.map(p=>`<div class="pchip${enhClass(p)}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
       <div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
       <div class="pfoot"><span class="ps" style="color:var(--gold)">클릭 → 강화 (스크랩 ${enhCost(p.enh||0)})</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p))}</button></div></div>`).join('')
     : `<div class="empty">보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.</div>`;
   const cost=lvCost(rb.level), fat=fatOf(rb), scost=serviceCost(rb);
+  const slv=rb.skillLv|0, sk=skillCost(slv, rb.level);
   /* ── 격납고 화면 ──────────────────────────────────────
      넓은 화면에서는 왼쪽에 기체를 크게 세우고(장면), 오른쪽에 정보를 붙인다(도킹).
      좁은 화면에서는 그대로 위아래로 쌓인다 — 레이아웃은 CSS 가 가른다.
@@ -452,7 +471,22 @@ function renderHangar(){
           <div class="slots">${slotsHtml}</div>
         </div>
 
-        <div class="dcard skillcard"><b>스킬 · ${T.skill.name}</b><p>${T.skill.desc}</p></div>
+        <div class="dcard skillcard">
+          <b>스킬 · ${T.skill.name}${slv?` <span class="tag" style="color:var(--acc2);border-color:#2a6b7a">+${slv}</span>`:''}</b>
+          <p>${T.skill.desc}</p>
+          ${slv?`<p style="color:var(--acc2)">강화로 위력 <b>×${skillMul(slv).toFixed(2)}</b></p>`:''}
+          ${slv>=skillMax()
+            ? `<p style="color:var(--gold)">최대 강화입니다.</p>`
+            : `<div class="skup">
+                 <div class="skrow"><span>다음 단계</span><b>+${slv} → +${slv+1}</b></div>
+                 <div class="skrow"><span>성공 확률</span><b class="${skillRate(slv)<0.5?'bad':''}">${Math.round(skillRate(slv)*100)}%</b></div>
+                 <div class="skrow"><span>비용</span><b>크레딧 ${fmt(sk.cr)} · 스크랩 ${fmt(sk.sc)}</b></div>
+                 <button class="btn big" style="margin-top:9px"
+                   ${(!net.state.online||S.credits<sk.cr||S.scrap<sk.sc)?'disabled':''}
+                   onclick="ROWAR.skillUp()">스킬 강화</button>
+                 <div class="hint" style="margin-top:6px;color:var(--bad)">실패해도 재화는 돌아오지 않습니다.</div>
+               </div>`}
+        </div>
 
         <div class="row-btns">
           <button class="btn big" ${(rb.level>=MAXLV||!net.state.online)?'disabled':''} onclick="ROWAR.levelUp()">
@@ -487,7 +521,7 @@ function openSlot(slot){
   const list=S.parts.filter(p=>p.slot===slot);
   const rows = list.length? list.map(p=>{ const equipped = S.robots.some(r=>Object.values(r.slots).includes(p.uid));
     const onMe = equippedHere===p.uid;
-    return `<div class="pchip" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+    return `<div class="pchip${enhClass(p)}" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
       <div><div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${partStatLine(p)}</div>
       ${equipped&&!onMe?`<div class="ps" style="color:var(--bad)">다른 기체 장착중</div>`:''}</div>
       <button class="btn ${onMe?'danger':''}" style="padding:8px 12px;font-size:13px"
@@ -586,7 +620,7 @@ function revealCardHtml(res){
   if(res.kind==='credit') return `<div class="pchip"><div class="pn" style="color:var(--gold)">크레딧 +${fmt(res.cr)}</div><div class="ps">레벨업·정비에 쓰세요</div></div>`;
   if(res.kind==='bust') return `<div class="pchip" style="opacity:.6"><div class="pn" style="color:var(--dim)">꽝</div><div class="ps">아무것도 나오지 않았습니다</div></div>`;
   if(res.kind==='scrap') return `<div class="pchip"><div class="pn">${esc(res.part.name)} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
-  const p=res.part; return `<div class="pchip"><div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
+  const p=res.part; return `<div class="pchip${enhClass(p)}"><div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
 }
 function showReveal(results){
   const best=results.reduce((a,b)=> rankOf(b)>rankOf(a)?b:a, results[0]);
@@ -1579,7 +1613,7 @@ window.ROWAR = {
     if(net.state.online) await net.hangar('select',{robotUid:rb.uid});
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); }),
   toggleSquad: guard(toggleSquad),
-  levelUp: guard(levelUp), service: guard(service), enhance: guard(enhancePart),
+  levelUp: guard(levelUp), service: guard(service), enhance: guard(enhancePart), skillUp: guard(skillUp),
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
   openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode, guide,
   pull1: guard(pull1), pull10: guard(pull10),

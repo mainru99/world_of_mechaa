@@ -28,6 +28,8 @@ export function mulberry32(a) {
 export function makeUnit(name, type, st) {
   return { name, type, maxhp: st.hp, hp: st.hp, atk: st.atk, def: st.def, spd: st.spd,
            crit: st.crit, eva: st.eva, sp: 0,
+           /* 스킬 강화 배수. computeStats 가 넣어 준다. 없으면 1 이라 예전과 같다 */
+           skillMul: st.skillMul != null ? st.skillMul : 1,
            spread: st.spread != null ? st.spread : spreadOf(type) };
 }
 
@@ -57,7 +59,10 @@ export function doSkill(A, D, side, dside, ev, rnd) {   // 기체와 몬스터�
   const sk = (COMBAT_TYPES[A.type] || COMBAT_TYPES.mule).skill, fx = sk.fx || { mult: 1.8 };
   ev.push({ t:'skill', side, name: sk.name });
   const hits = fx.hits || 1;
-  for (let i = 0; i < hits; i++) { if (D.hp <= 0) break; doHit(A, D, side, dside, ev, rnd, fx); }
+  /* 강화한 스킬은 **배수만** 커진다. 타격 수나 판정(관통·확정치명·흡혈)은 그대로다 —
+     거기까지 건드리면 강화가 스킬을 다른 스킬로 바꿔 버린다. */
+  const up = { ...fx, mult: (fx.mult || 1) * (A.skillMul || 1) };
+  for (let i = 0; i < hits; i++) { if (D.hp <= 0) break; doHit(A, D, side, dside, ev, rnd, up); }
 }
 
 export function simulate(P, E, seed) {

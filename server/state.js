@@ -179,7 +179,7 @@ export async function loadState(env, accountId) {
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core
+    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
   const parts = (await env.DB.prepare(
     `SELECT id, uid, slot, name, rarity, stats, enh
@@ -205,7 +205,8 @@ export async function loadState(env, accountId) {
       robots: robots.map(r => {
         const slots = {};
         for (const sl of SLOTS) slots[sl] = byId.get(r[col[sl]]) ?? null;
-        return { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at, slots };
+        return { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at,
+                 skillLv: r.skill_lv | 0, slots };
       }),
       parts: parts.map(x => ({
         uid: x.uid, slot: x.slot, name: x.name, rarity: x.rarity,

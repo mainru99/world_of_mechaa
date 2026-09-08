@@ -618,22 +618,28 @@ async function renderRank(){
   const myRank = me.rank==null ? '집계 중' : me.rank+'위';
   const when = r.ranked_at ? new Date(r.ranked_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '아직 없음';
 
+  /* 레이팅 숫자는 화면에 내지 않는다. 순위를 정하는 값이지만, 사용자가 볼 것은 순위와
+     전적이면 충분하다 — 숫자가 보이면 그 숫자를 올리는 게 목적이 되어 버린다.
+     (서버 응답에는 그대로 있다. 상대 장비를 이 값에 맞추므로 클라도 들고는 있어야 한다) */
+  const wr = (w, l) => (w + l) ? Math.round(w / (w + l) * 100) + '%' : '—';
   const rows = r.top.map(t=>`
     <tr class="${t.me?'mine':''}">
       <td class="rk">${t.rank}</td>
       <td class="nm">${t.nickname}${t.me?' <span class="tag">나</span>':''}</td>
-      <td class="rt">${fmt(t.rating)}</td>
+      <td class="rt">${wr(t.wins, t.losses)}</td>
       <td class="wl">${t.wins}승 ${t.losses}패</td>
     </tr>`).join('');
 
   el.innerHTML = wrap(`
     <div class="panel myrank">
       <div><div class="hint">내 순위</div><div class="big">${myRank}</div></div>
-      <div><div class="hint">레이팅</div><div class="big">${fmt(me.rating)}</div></div>
+      <div><div class="hint">승률</div><div class="big">${wr(me.wins, me.losses)}</div></div>
       <div><div class="hint">전적</div><div class="big">${me.wins}승 ${me.losses}패</div></div>
     </div>
     <div class="panel">
-      <table class="rank"><tbody>${rows||'<tr><td class="hint">아직 아무도 없습니다.</td></tr>'}</tbody></table>
+      <table class="rank">
+        <thead><tr><th class="rk">#</th><th class="nm">이름</th><th class="rt">승률</th><th class="wl">전적</th></tr></thead>
+        <tbody>${rows||'<tr><td class="hint" colspan="4">아직 아무도 없습니다.</td></tr>'}</tbody></table>
       <div class="hint" style="margin-top:8px">
         ${when} 집계 기준 · 전체 ${fmt(r.total)}명${me.live?' · 내 순위는 방금 계산한 값':''}
       </div>
@@ -666,7 +672,7 @@ function setPending(o, cost, rescue, tier){
 }
 
 /* ------------------------------- 토벌 ------------------------------- */
-/* 파밍 자리. 아레나는 크레딧과 레이팅, 토벌은 스크랩과 파츠를 준다.
+/* 파밍 자리. 아레나는 크레딧과 순위, 토벌은 스크랩과 파츠를 준다.
    등급이 곧 관문이다 — 비용이 오르고 상대 레벨도 올라간다.
    BOSS 는 내 레벨 +12 라, 잡히기 시작하면 파밍 효율이 가장 좋다. */
 const HUNT_KO = { C:'일반', UC:'정예', R:'희귀', UQ:'초희귀', EP:'전설', BOSS:'보스' };
@@ -788,7 +794,7 @@ function renderHunt(){
   $('#sc-hunt').innerHTML = `${renderExped()}<h2 class="title">토벌 · 사냥터</h2>
     <div class="panel">
       <div class="hint">몬스터를 사냥해 <b>스크랩과 파츠</b>를 캡니다. 크레딧은 아레나의 절반이 안 되고,
-        레이팅은 움직이지 않습니다. 등급이 높을수록 비싸고 상대가 강합니다.</div>
+        순위에도 반영되지 않습니다. 등급이 높을수록 비싸고 상대가 강합니다.</div>
       <div class="hunt-list" style="margin-top:10px">${rows}</div>
       <div class="hint" style="margin-top:8px">출전 · ${ROBOT_TYPES[rb.type].name} Lv.${rb.level} · 보유 ${fmt(S.credits)} 크레딧</div>
     </div>`;
@@ -851,8 +857,7 @@ function showOpponent(opp, practice){
         <div>
           <div class="rname">${opp.callsign} ${monster?'<span class="tag monster-tag">몬스터</span>':robRarTag(opp.robot.type)}${
             opp.kind==='player'?' <span class="tag" style="color:var(--acc2)">플레이어</span>':''}</div>
-          <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}${
-            opp.kind==='player'&&opp.rating!=null?' · 레이팅 '+opp.rating:''}</div>
+          <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}</div>
           <div style="margin-top:6px;font-weight:800;color:var(--bad)">전투력 ${fmt(oPow)} <span style="color:var(--dim);font-weight:600">/ 나 ${fmt(myPow)}</span></div>
         </div>
       </div>
@@ -873,7 +878,7 @@ function showOpponent(opp, practice){
 
 /* ------------------------------- 연습 대전 ------------------------------- */
 /* 서버가 없어도 게임을 보여 주기 위한 모드.
- * **아무것도 얻지 못한다** — 경험치·크레딧·파츠·피로도·전적·레이팅이 하나도 안 움직인다.
+ * **아무것도 얻지 못한다** — 경험치·크레딧·파츠·피로도·전적·순위가 하나도 안 움직인다.
  * 그래야 '끊고 굴린 뒤 올리기'라는 길이 아예 생기지 않는다.
  * (지금은 PUT /api/state 도 닫혀 있지만, 여기서 상태를 안 건드리는 것이 더 확실하다)
  *
@@ -1085,7 +1090,6 @@ function renderResult(win,rw,P,E,opp){
   if(rw.lv.to>rw.lv.from) rewards.push(`<div class="r" style="color:var(--good)">레벨 업!  ${rw.rname}  Lv.${rw.lv.from} → Lv.${rw.lv.to}</div>`);
   rewards.push(`<div class="r">크레딧 +${rw.cr}</div>`);
   if(!rw.rescue) rewards.push(`<div class="r">스크랩 +${rw.sc}</div>`);
-  if(rw.ratingDelta) rewards.push(`<div class="r" style="color:var(--acc2)">레이팅 ${rw.ratingDelta>0?'+':''}${rw.ratingDelta}</div>`);
   if(rw.fat.add) rewards.push(`<div class="r" style="color:var(--bad)">피로도 +${rw.fat.add}  (누적 ${rw.fat.now} / ${FAT_MAX})</div>`);
   if(rw.core) rewards.push(`<div class="r" style="color:var(--acc2)">코어 +${rw.core}</div>`);
   if(rw.part) rewards.push(`<div class="r">파츠: ${rw.part.name} <span class="tag rar-${rw.part.rarity}">${rw.part.rarity}</span></div>`);

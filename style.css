@@ -540,3 +540,8 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .guide b{color:var(--ink)}
 .guide .gwarn{color:var(--bad)} .guide .gwarn b{color:var(--bad)}
 .guide .ggood{color:var(--good)} .guide .ggood b{color:var(--good)}
+
+/* 아레나 제목 줄 — 속도 버튼을 여기 둔다. 아래쪽(직전 화면의 '전투 시작' 자리)에
+   두었더니 연타한 클릭이 그대로 꽂혀 배속이 저 혼자 올라갔다. */
+.arena-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.arena-head .btn.spd{flex:none;padding:6px 12px;font-size:12px}

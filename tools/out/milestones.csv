@@ -12,23 +12,23 @@ light,EP 기체 첫 획득,21.5,2,5
 light,점령 칸 수(마지막 날),0,5,5
 steady,Lv.10 도달,2.8,5,5
 steady,Lv.20 도달,5.4,5,5
-steady,Lv.30 도달,8.2,5,5
-steady,Lv.40 도달,13,5,5
-steady,Lv.50 도달,18.6,5,5
-steady,Lv.60 도달,25.8,5,5
-steady,UC 기체 첫 획득,6.6,5,5
-steady,R 기체 첫 획득,10.4,5,5
-steady,UQ 기체 첫 획득,5,3,5
-steady,EP 기체 첫 획득,16,1,5
-steady,점령 칸 수(마지막 날),6,5,5
+steady,Lv.30 도달,9.6,5,5
+steady,Lv.40 도달,14.4,5,5
+steady,Lv.50 도달,21.8,5,5
+steady,Lv.60 도달,26.5,2,5
+steady,UC 기체 첫 획득,6.3,4,5
+steady,R 기체 첫 획득,11,5,5
+steady,UQ 기체 첫 획득,1,2,5
+steady,EP 기체 첫 획득,,0,5
+steady,점령 칸 수(마지막 날),6.4,5,5
 hard,Lv.10 도달,2,5,5
 hard,Lv.20 도달,3.4,5,5
-hard,Lv.30 도달,5.8,5,5
-hard,Lv.40 도달,8.2,5,5
-hard,Lv.50 도달,12.2,5,5
-hard,Lv.60 도달,17.2,5,5
-hard,UC 기체 첫 획득,9.2,5,5
-hard,R 기체 첫 획득,16,3,5
-hard,UQ 기체 첫 획득,17.3,3,5
-hard,EP 기체 첫 획득,23.7,3,5
-hard,점령 칸 수(마지막 날),5,5,5
+hard,Lv.30 도달,6,5,5
+hard,Lv.40 도달,8.6,5,5
+hard,Lv.50 도달,14,5,5
+hard,Lv.60 도달,19.8,5,5
+hard,UC 기체 첫 획득,10.4,5,5
+hard,R 기체 첫 획득,11.8,5,5
+hard,UQ 기체 첫 획득,24,1,5
+hard,EP 기체 첫 획득,,0,5
+hard,점령 칸 수(마지막 날),6,5,5

@@ -305,7 +305,7 @@ function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core')
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
    그래서 renderAll 은 대전 화면을 건드리지 않는다. 대전 화면은 go() 가 그린다. */
 function renderAll(){ renderWallet(); if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); }
-function openModal(html){ const m=$('#modal'); m.innerHTML=`<div class="modal-card">${html}</div>`; m.classList.add('on'); m.onclick=e=>{ if(e.target===m) closeModal(); }; }
+function openModal(html){ shield(); const m=$('#modal'); m.innerHTML=`<div class="modal-card">${html}</div>`; m.classList.add('on'); m.onclick=e=>{ if(e.target===m) closeModal(); }; }
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal').innerHTML=''; }
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
@@ -841,6 +841,7 @@ function makeOpponent(){
    방어·회피·속도를 내 값과 나란히 놓고, 상대 스킬도 함께 보여 준다.
    그래야 편성한 두 기 중 무엇을 낼지, 어떤 파츠를 낄지가 판단이 된다. */
 function showOpponent(opp, practice){
+  shield();
   const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];
   const my=selRobot(), myst=computeStats(my), est=computeStats(opp.robot, opp.parts||[]);
   const num=(k,v)=> isPct(k) ? (v*100).toFixed(0)+'%' : fmt(Math.round(v));
@@ -923,6 +924,7 @@ async function practiceStart(){
 }
 
 function renderPracticeResult(win,P,E){
+  shield();
   toBattle();
   $('#sc-battle').innerHTML = `
     <div class="panel result">
@@ -1003,9 +1005,16 @@ function battleRewards(win,enemyLv){
 
 /* ---- 대전 아레나 & 재생 ---- */
 function renderArena(pType,eType,pName,eName,label){
+  shield();
   toBattle('arena');                    // 전투 재생 동안만 콕핏 HUD
   $('#sc-battle').innerHTML = `
-    <h2 class="title">${label || (MONSTER_TYPES[eType]?'몬스터 대전':'자동 대전')}</h2>
+    <!-- 속도 버튼을 제목 줄로 올린다. 예전에는 전투 기록 아래, 즉 **직전 화면의
+         '전투 시작'이 있던 자리**에 있었다. 연타하면 남은 클릭이 그대로 여기 꽂혀
+         배속이 저 혼자 x4 까지 뛰었다 — 같은 자리에 다른 뜻의 버튼을 두지 않는다. -->
+    <div class="arena-head">
+      <h2 class="title" style="margin:0">${label || (MONSTER_TYPES[eType]?'몬스터 대전':'자동 대전')}</h2>
+      <button class="btn ghost spd" id="spdbtn" onclick="ROWAR.toggleSpeed()">속도 x${battleSpeed}</button>
+    </div>
     <div class="arena" id="arena">
       <div class="grid"></div><div class="vs">VS</div>
       <div class="hpwrap p"><div class="nm"><span>${pName}</span><small id="hpn-p"></small></div>
@@ -1017,10 +1026,7 @@ function renderArena(pType,eType,pName,eName,label){
       <div class="flash" id="flash"></div>
       <div class="skillbanner" id="skillbanner"></div>
     </div>
-    <div class="blog" id="blog"></div>
-    <div class="row-btns" style="margin-top:10px">
-      <button class="btn ghost" id="spdbtn" onclick="ROWAR.toggleSpeed()">속도 x${battleSpeed}</button>
-    </div>`;
+    <div class="blog" id="blog"></div>`;
 }
 /* 재생 도중 사용자가 다른 화면으로 가면 아레나가 사라진다 → 모든 헬퍼는 없으면 조용히 무시 */
 const AR = s => document.querySelector('#arena '+s);
@@ -1095,6 +1101,7 @@ async function playBattle(events,P,E,o){
   return 'P';
 }
 function renderResult(win,rw,P,E,opp){
+  shield();
   toBattle();                   // 전투가 끝나면 야간작전으로 돌아온다
   const rewards = [];
   if(rw.rescue) rewards.push(`<div class="r" style="color:var(--bad)">비상 출격 · 크레딧만 지급</div>`);
@@ -1396,6 +1403,7 @@ async function playBreach(r){
 }
 
 function renderBreachResult(r){
+  shield();
   toBattle();
   const node=NODE_BY[r.node];
   const rw=r.reward||{};
@@ -1443,6 +1451,24 @@ async function claimTerr(){
   toast(`점령지 ${r.nodes}칸 · 크레딧 +${fmt(r.cr)} · 스크랩 +${fmt(r.sc)}${r.core?` · 코어 +${r.core}`:''}`);
 }
 
+/* ── 화면이 바뀐 직후의 클릭 막기 ────────────────────────
+   전투 시작을 따다닥 누르면 첫 클릭으로 아레나가 그려지고, **그 자리에 있던 버튼이
+   다른 버튼으로 바뀐다.** 남은 클릭은 새로 온 버튼에 그대로 꽂힌다 — 실측에서
+   전투 시작 자리가 속도 버튼이 되어 배속이 x1→x2→x4 로 뛰었다.
+   "전투 시작을 여러 번 누르면 뭔가 움직인다"의 정체가 이것이다.
+
+   서버 요청이 겹치는 것은 아래 guard 가 막지만, 이건 성격이 다르다 —
+   **이미 손을 뗀 클릭이 엉뚱한 버튼에 도착하는 것**이라 막을 자리도 다르다.
+   화면을 갈아 끼운 직후 잠깐 클릭을 흘려보낸다. 사람이 새 화면을 보고 누르는 데는
+   그보다 오래 걸리므로, 일부러 누르는 것은 막히지 않는다. */
+const CLICK_SHIELD_MS = 600;
+let _shieldUntil = 0;
+const shield = (ms = CLICK_SHIELD_MS) => { _shieldUntil = Date.now() + ms; };
+document.addEventListener('click', e => {
+  if (Date.now() >= _shieldUntil) return;
+  e.stopPropagation(); e.preventDefault();
+}, true);
+
 /* ── 겹쳐 도는 조작 막기 ──────────────────────────────────
    전투 시작을 여러 번 누르면 요청이 그 수만큼 서버로 나갔다. 서버는 각각을 진짜 전투로
    처리하므로 **출격비도 보상도 그 수만큼 중복**되고, 재생 루프도 여러 개가 같은 화면을
@@ -1455,13 +1481,21 @@ async function claimTerr(){
    서버 쪽에도 따로 잠금을 걸어 두었다(server/battle.js 의 pending_match 선점).
    클라만 막으면 손댄 클라이언트에는 그대로 뚫린다. */
 let _busy = false;
-function guard(fn){
+const _cool = new Map();
+function guard(fn, coolMs = 0){
   return async function(...a){
-    if(_busy) return;
+    /* 하나가 도는 동안 들어온 것은 버린다. 끝난 뒤에도 coolMs 동안은 다시 받지 않는다 —
+       동작이 짧게 끝나는 조작(상대 찾기 같은)은 그 사이에 남은 클릭이 도착할 수 있다. */
+    const key = fn.name || String(_cool.size);
+    if(_busy || Date.now() < (_cool.get(key) || 0)) return;
     _busy = true;
     document.body.classList.add('busy');
     try { return await fn.apply(this, a); }
-    finally { _busy = false; document.body.classList.remove('busy'); }
+    finally {
+      _busy = false;
+      if(coolMs) _cool.set(key, Date.now() + coolMs);
+      document.body.classList.remove('busy');
+    }
   };
 }
 /* 속도 토글·화면 이동·모달 닫기는 문지기를 지나지 않는다 —
@@ -1483,10 +1517,10 @@ window.ROWAR = {
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
   openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode, guide,
   pull1: guard(pull1), pull10: guard(pull10),
-  findMatch: guard(findMatch), nextMatch: guard(nextMatch), startBattle: guard(startBattle),
-  practiceFind: guard(practiceFind), practiceStart: guard(practiceStart), hunt: guard(hunt),
+  findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
+  practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
   sendExped: guard(sendExped), claimExped: guard(claimExped),
-  attackTerr: guard(attackTerr), raidTerr: guard(raidTerr), claimTerr: guard(claimTerr),
+  attackTerr: guard(attackTerr, 1000), raidTerr: guard(raidTerr, 1000), claimTerr: guard(claimTerr),
   account:accountScreen, doRegister: guard(doRegister), doLogin: guard(doLogin), logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화

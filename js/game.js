@@ -300,7 +300,36 @@ function go(scr){ cur=scr; setScene(scr); document.querySelectorAll('.screen').f
   else if(scr==='rank') renderRank();
   else if(scr==='hunt') renderHunt();
   else if(scr==='terr') renderTerr(); }
-function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); }
+/* 하단 티커 — 시간이 흐르는 것들만 모아 늘 보이게 한다.
+   화면을 옮겨 다니지 않아도 '지금 무엇이 익어 가는지' 알 수 있어야 한다.
+   **서버에 묻지 않는다** — 원정은 저장본, 점령은 지도 캐시, 피로는 계산이라
+   이미 들고 있는 값뿐이다. 요청 수가 곧 무료 한도인 구조라 그렇다. */
+function renderTicker(){
+  const el=$('#ticker'); if(!el) return;
+  const rb=selRobot(), out=[];
+
+  if(S.expd){
+    const left=S.expd.endsAt-Date.now();
+    out.push(left>0 ? `<div class="tk"><i class="dot b"></i>원정 귀환까지 <b>${dur(left)}</b></div>`
+                    : `<div class="tk"><i class="dot g"></i><b>원정 귀환 완료</b> · 파견에서 받으세요</div>`);
+  }
+  if(_terr && _terr.nodes){
+    const mine=_terr.nodes.filter(n=>n.owner==='me').length;
+    const p=_terr.pending||{};
+    if(mine) out.push(`<div class="tk"><i class="dot y"></i>점령지 <b>${mine}칸</b>${
+      (p.cr||p.sc||p.core)?` · 쌓인 수입 <b>${fmt(p.cr||0)}</b>`:''}</div>`);
+  }
+  const fat=rb?fatOf(rb):0;
+  out.push(fat
+    ? `<div class="tk"><i class="dot g"></i>${ROBOT_TYPES[rb.type].name} 피로 <b>${fat}</b> · 다음 회복까지 <b>${dur(fatNextMs(rb))}</b></div>`
+    : `<div class="tk"><i class="dot g"></i>편성 기체 <b>피로 없음</b></div>`);
+  if(!net.state.online) out.push(`<div class="tk off">서버에 연결되지 않았습니다</div>`);
+
+  el.innerHTML = out.join('') + '<div class="sp"></div>'
+    + `<div class="tk off">전적 ${S.stat.wins}승 ${S.stat.losses}패</div>`;
+}
+
+function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); renderTicker(); }
 /* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
    그래서 renderAll 은 대전 화면을 건드리지 않는다. 대전 화면은 go() 가 그린다. */
@@ -371,27 +400,40 @@ function renderHangar(){
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p))}</button></div></div>`).join('')
     : `<div class="empty">보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.</div>`;
   const cost=lvCost(rb.level), fat=fatOf(rb), scost=serviceCost(rb);
+  /* ── 격납고 화면 ──────────────────────────────────────
+     넓은 화면에서는 왼쪽에 기체를 크게 세우고(장면), 오른쪽에 정보를 붙인다(도킹).
+     좁은 화면에서는 그대로 위아래로 쌓인다 — 레이아웃은 CSS 가 가른다.
+     로스터와 파츠 인벤토리는 아래에 폭을 다 쓰고 깔린다. */
+  const squadMini = S.squad.map(u=>{ const r=S.robots.find(x=>x.uid===u); if(!r) return '';
+    const i=S.robots.indexOf(r);
+    return `<button class="sqm${r.uid===rb.uid?' on':''}" onclick="ROWAR.selectRobot(${i})"
+      title="${ROBOT_TYPES[r.type].name} Lv.${r.level}">${sprite(r.type,false)}
+      <small>${r.uid===rb.uid?'선봉':'예비'}</small></button>`; }).join('')
+    + (S.squad.length<SQUAD_MAX?`<div class="sqm add" title="아래 로스터에서 편성하세요">+</div>`:'');
+
   $('#sc-hangar').innerHTML = `
-    <h2 class="title">격납고 · 보유 로봇 ${S.robots.length}기</h2>
-    <div class="panel">
-      <div class="hint" style="margin-bottom:8px">기체마다 레벨이 따로 매겨집니다. 새로 뽑은 기체는 Lv.1부터 키웁니다.
-        <b>한 번에 데려갈 수 있는 것은 ${SQUAD_MAX}기</b>이고,
-        대전 상대를 찾아 둔 상태에서 편성을 바꾸면 <b>그 상대를 놓칩니다.</b></div>
-      <div class="roster">${roster}</div></div>
-    <div class="panel">
-      <div class="detail">
-        <div><div class="sprite" data-t="${T.rarity}">${sprite(rb.type,false)}</div></div>
-        <div>
+    <div class="hg">
+      <div class="hg-stage">
+        <div class="hg-bigname">${esc(T.name)}</div>
+        <div class="hg-sub">${esc(T.role)} · ${RR[T.rarity].ko}</div>
+        <div class="hg-hero" data-t="${T.rarity}">${sprite(rb.type,false)}</div>
+        <div class="hg-squad">${squadMini}</div>
+      </div>
+
+      <div class="hg-dock">
+        <div class="dcard">
           <div class="rname">${T.name} ${robRarTag(rb.type)} <span class="lv">Lv.${rb.level}</span>${
             S.squad.includes(rb.uid)?'':' <span class="tag" style="color:var(--bad)">편성 밖</span>'}</div>
           <div class="rrole">${T.role} · 전투력 ${fmt(power(rb))}</div>
           <div class="stat exp"><div class="row"><b>EXP</b><span>${
             rb.level>=MAXLV?'MAX':`${fmt(rb.exp||0)} / ${fmt(expNeed(rb.level))}`}</span></div>
             <div class="bar"><i style="width:${rb.level>=MAXLV?100:clamp((rb.exp||0)/expNeed(rb.level)*100,0,100)}%"></i></div></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px;margin-top:6px">
-            ${['hp','atk','def','spd','crit','eva'].map(k=>statBar(k,st[k],
-                k==='hp'?st.hpFull:null, k==='atk'?atkRange(st):null)).join('')}
-          </div>
+        </div>
+
+        <div class="dcard">
+          <div class="dh">능력치</div>
+          ${['hp','atk','def','spd','crit','eva'].map(k=>statBar(k,st[k],
+              k==='hp'?st.hpFull:null, k==='atk'?atkRange(st):null)).join('')}
           <div class="hint" style="margin-top:2px">공격력은 타격할 때마다 위 구간 안에서 정해집니다 ·
             이 기체의 폭 <b>±${Math.round(st.spread*100)}%</b>${
               st.spread<=.16?' (정밀 — 거의 같은 수로 맞힙니다)'
@@ -402,27 +444,42 @@ function renderHangar(){
             <div class="hint" style="margin-top:4px">${fat
               ? `자연 회복 중 · 다음 1까지 ${dur(fatNextMs(rb))}, 전부 풀리기까지 ${dur(fatNextMs(rb)+(fat-1)*fatRecoverMs(rb))}`
               : '피로 없음 · 정상 가동'}</div></div>
-          <div class="skill"><b>스킬 · ${T.skill.name}</b><p>${T.skill.desc}</p></div>
-          <div class="row-btns" style="margin-top:10px">
-            <button class="btn big" ${(rb.level>=MAXLV||!net.state.online)?'disabled':''} onclick="ROWAR.levelUp()">
-              ${rb.level>=MAXLV?'최대 레벨':`즉시 레벨업 (크레딧 ${fmt(cost)})`}</button>
-            <button class="btn big ${scost>0?'gold':''}" ${(scost>0&&net.state.online)?'':'disabled'} onclick="ROWAR.service()">
-              ${scost>0?`정비 (크레딧 ${fmt(scost)})`:'정비 완료'}</button>
-          </div>
-          ${net.state.online?'':'<div class="hint" style="margin-top:6px;color:var(--bad)">서버에 연결되지 않아 장착·강화·정비·레벨업을 할 수 없습니다.</div>'}
-          <div class="hint" style="margin-top:6px">대전에 출전하면 경험치를 얻어 자동으로 레벨업합니다.
-            대신 피로도가 쌓여 최대 내구(체력)가 줄어듭니다. 시간이 지나면 저절로 풀리고,
-            급하면 크레딧으로 정비하세요. 레벨이 높은 기체일수록 자연 회복이 느립니다.</div>
         </div>
+
+        <div class="dcard">
+          <div class="dh">장착</div>
+          <div class="slots">${slotsHtml}</div>
+        </div>
+
+        <div class="dcard skillcard"><b>스킬 · ${T.skill.name}</b><p>${T.skill.desc}</p></div>
+
+        <div class="row-btns">
+          <button class="btn big" ${(rb.level>=MAXLV||!net.state.online)?'disabled':''} onclick="ROWAR.levelUp()">
+            ${rb.level>=MAXLV?'최대 레벨':`즉시 레벨업 (크레딧 ${fmt(cost)})`}</button>
+          <button class="btn big ${scost>0?'gold':''}" ${(scost>0&&net.state.online)?'':'disabled'} onclick="ROWAR.service()">
+            ${scost>0?`정비 (크레딧 ${fmt(scost)})`:'정비 완료'}</button>
+        </div>
+        ${net.state.online?'':'<div class="hint" style="color:var(--bad)">서버에 연결되지 않아 장착·강화·정비·레벨업을 할 수 없습니다.</div>'}
+        <div class="hint">대전에 출전하면 경험치를 얻어 자동으로 레벨업합니다.
+          대신 피로도가 쌓여 최대 내구(체력)가 줄어듭니다. 시간이 지나면 저절로 풀리고,
+          급하면 크레딧으로 정비하세요. 레벨이 높은 기체일수록 자연 회복이 느립니다.</div>
       </div>
-      <div class="slots">${slotsHtml}</div>
     </div>
+
+    <div class="panel">
+      <h2 class="title" style="margin-top:0">보유 기체 ${S.robots.length}기</h2>
+      <div class="hint" style="margin-bottom:8px">기체마다 레벨이 따로 매겨집니다. 새로 뽑은 기체는 Lv.1부터 키웁니다.
+        <b>한 번에 데려갈 수 있는 것은 ${SQUAD_MAX}기</b>이고,
+        대전 상대를 찾아 둔 상태에서 편성을 바꾸면 <b>그 상대를 놓칩니다.</b></div>
+      <div class="roster">${roster}</div></div>
+
     <div class="panel">
       <h2 class="title" style="margin-top:0">파츠 인벤토리</h2>
       <div class="hint">파츠를 누르면 <b>강화</b>됩니다(스크랩을 씁니다). 장착하려면 위의 슬롯을 누르세요.
         쓰지 않을 파츠는 <b>분해</b>해 스크랩으로 바꿀 수 있습니다. 뽑기로 얻은 파츠는 자동으로 사라지지 않습니다.</div>
       <div class="inv">${inv}</div>
     </div>`;
+
 }
 function openSlot(slot){
   const rb=selRobot(); const equippedHere=rb.slots[slot];

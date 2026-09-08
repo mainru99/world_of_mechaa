@@ -545,3 +545,142 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
    두었더니 연타한 클릭이 그대로 꽂혀 배속이 저 혼자 올라갔다. */
 .arena-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .arena-head .btn.spd{flex:none;padding:6px 12px;font-size:12px}
+
+/* ═══════════════════════════════════════════════════════════════
+   데스크톱 골격 — 시안 B(격납고 디오라마)
+   ───────────────────────────────────────────────────────────────
+   예전에는 #app{max-width:760px} 라 넓은 화면에서 가운데만 쓰고 양옆이 비었다.
+   모바일 기준으로 잡아 둔 폭인데, 이 게임은 웹에서 하는 것이라 데스크톱이 기본이다.
+
+   900px 이상에서만 골격을 바꾼다. 그 아래는 지금 쓰던 상단 탭 그대로다 —
+   DOM 은 하나만 두고 CSS 로만 갈라, js 의 [data-s] 바인딩이 두 벌이 되지 않게 했다.
+   ═══════════════════════════════════════════════════════════════ */
+.rlogo,.rfoot{display:none}
+.ticker{display:none}
+
+@media (min-width:900px){
+  #app{
+    max-width:none;margin:0;height:100vh;display:grid;
+    grid-template-columns:96px minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr) auto;
+    grid-template-areas:"rail head" "rail main" "rail tick";
+  }
+
+  /* ── 왼쪽 세로 레일 ── */
+  .nav{
+    grid-area:rail;flex-direction:column;align-items:center;gap:4px;
+    padding:14px 0 12px;position:sticky;top:0;height:100vh;overflow:auto;
+    background:linear-gradient(90deg,rgba(8,11,20,.96),rgba(10,14,26,.80));
+    border-bottom:0;border-right:1px solid rgba(90,160,255,.16);z-index:25;
+  }
+  .rlogo{display:block;writing-mode:vertical-rl;font-weight:900;font-size:12px;letter-spacing:.22em;
+    color:var(--acc2);margin:2px 0 14px;text-shadow:0 0 16px rgba(123,240,255,.45)}
+  .nav button{
+    flex:none;width:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:5px;padding:11px 0 9px;border:1px solid transparent;background:none;
+    border-radius:14px;font-size:10px;letter-spacing:-.2px;line-height:1;
+  }
+  .nav button em{display:block;font-size:19px;line-height:1}
+  .nav button.active{
+    color:#fff;background:linear-gradient(180deg,rgba(90,160,255,.22),rgba(90,160,255,.05));
+    border-color:rgba(90,160,255,.45);box-shadow:0 0 22px -6px var(--acc)}
+  .rfoot{display:block;margin-top:auto;padding-top:10px}
+  .rhelp{width:38px;height:38px;border-radius:12px;cursor:pointer;font:900 15px/1 inherit;
+    background:#0e1526;border:1px solid var(--line);color:var(--sub)}
+  .rhelp:hover{color:var(--ink);border-color:var(--acc)}
+
+  /* ── 상단 — 브랜드는 레일로 갔으므로 지갑만 남긴다 ── */
+  .topbar{grid-area:head;background:none;border-bottom:0;padding:14px 26px 0;position:static}
+  .brand{display:none}
+  .wallet{margin-left:auto}
+  .coin{background:rgba(13,20,36,.72);backdrop-filter:blur(10px);border-color:rgba(120,150,210,.22);
+    border-radius:10px;padding:8px 14px;font-size:12.5px}
+
+  /* ── 본문 — 넓게 쓰되 글줄이 늘어지지 않게 위쪽만 여유를 준다 ── */
+  main{grid-area:main;overflow:auto;padding:14px 26px 22px;min-height:0}
+  main > .panel:last-child{max-width:1180px}
+
+  /* ── 하단 티커 ── */
+  .ticker{grid-area:tick;display:flex;align-items:center;gap:24px;height:50px;padding:0 26px;
+    background:linear-gradient(180deg,rgba(8,11,20,.15),rgba(8,11,20,.92));
+    border-top:1px solid rgba(120,150,210,.14);font-size:12px;color:var(--sub);overflow:hidden}
+  .ticker b{color:var(--ink)}
+  .ticker .tk{display:flex;align-items:center;gap:8px;white-space:nowrap}
+  .ticker .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .ticker .dot.g{background:var(--good);box-shadow:0 0 10px var(--good)}
+  .ticker .dot.y{background:var(--gold);box-shadow:0 0 10px var(--gold)}
+  .ticker .dot.b{background:var(--acc2);box-shadow:0 0 10px var(--acc2)}
+  .ticker .sp{flex:1}
+  .ticker .off{color:var(--dim)}
+}
+
+/* ── 격납고 디오라마 ───────────────────────────────────────
+   좁은 화면에서는 위아래로 쌓이고, 넓으면 왼쪽 장면 + 오른쪽 도킹 패널이 된다. */
+.hg{display:grid;gap:14px;margin-bottom:14px}
+.hg-stage{position:relative;border-radius:16px;overflow:hidden;min-height:300px;
+  border:1px solid var(--line);
+  background:
+    linear-gradient(180deg,rgba(8,11,20,.55) 0%,rgba(8,11,20,.18) 34%,rgba(8,11,20,.86) 84%,#0b0f1a 100%),
+    url('assets/backgrounds/battle-industrial-ruins.webp') center 32%/cover no-repeat;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:18px}
+.hg-bigname{position:absolute;left:20px;top:14px;font-weight:900;line-height:.88;
+  font-size:clamp(38px,7vw,104px);letter-spacing:-.02em;color:transparent;
+  -webkit-text-stroke:1.4px rgba(140,180,255,.20);pointer-events:none;user-select:none}
+.hg-sub{position:absolute;left:23px;top:calc(14px + clamp(38px,7vw,104px)*.82);
+  font-size:11.5px;letter-spacing:.2em;font-weight:800;color:var(--acc2);
+  text-shadow:0 0 18px rgba(123,240,255,.45)}
+.hg-hero{position:relative;z-index:2;width:100%;display:flex;justify-content:center;align-items:flex-end}
+.hg-hero img{height:clamp(180px,34vh,420px);width:auto;object-fit:contain;object-position:50% 100%;
+  image-rendering:pixelated;filter:drop-shadow(0 26px 36px rgba(0,0,0,.78))}
+.hg-hero::after{content:"";position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+  width:min(420px,60%);height:26px;border-radius:50%;
+  background:radial-gradient(50% 50%,rgba(90,160,255,.30),transparent 72%);filter:blur(4px)}
+.hg-squad{position:relative;z-index:3;display:flex;gap:9px;margin-top:14px}
+.sqm{width:60px;height:60px;border-radius:13px;cursor:pointer;position:relative;padding:4px;
+  background:rgba(13,20,36,.74);border:1px solid rgba(120,150,210,.22);display:grid;place-items:center}
+.sqm img{width:44px;height:44px;object-fit:contain;object-position:50% 100%;image-rendering:pixelated}
+.sqm.on{border-color:var(--acc);box-shadow:0 0 22px -8px var(--acc)}
+.sqm small{position:absolute;bottom:-15px;left:0;right:0;text-align:center;font-size:9px;
+  color:var(--dim);font-weight:800}
+.sqm.add{color:var(--dim);font-size:20px;font-weight:800;border-style:dashed;cursor:default}
+
+.hg-dock{display:flex;flex-direction:column;gap:11px;min-width:0}
+.dcard{background:rgba(13,20,36,.74);border:1px solid rgba(120,150,210,.20);
+  border-radius:15px;padding:14px 15px;box-shadow:0 18px 44px -26px #000}
+.dcard .dh{font-size:11px;letter-spacing:.14em;color:var(--dim);font-weight:800;margin-bottom:9px}
+.dcard .slots{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0}
+.dcard.skillcard b{color:var(--acc2);font-size:13px}
+.dcard.skillcard p{margin:5px 0 0;font-size:12px;color:var(--sub);line-height:1.55}
+.hg-dock .row-btns{display:flex;gap:9px}
+.hg-dock .hint{font-size:11.5px;line-height:1.6}
+
+@media (min-width:900px){
+  .hg{grid-template-columns:minmax(0,1fr) 384px;gap:16px;align-items:start}
+  .hg-stage{min-height:calc(100vh - 210px);margin:0}
+  .hg-squad{position:absolute;left:20px;bottom:20px;margin:0}
+  .hg-hero img{height:clamp(240px,52vh,560px)}
+  .hg-dock{position:sticky;top:0}
+}
+
+/* ── 넓은 화면에서 '늘어지면 안 되는 것'만 폭을 잡는다 ────────
+   격자(지도·로스터·인벤토리)는 넓을수록 좋지만, 글줄과 버튼은 아니다.
+   폭을 다 쓰면 한 줄이 120자를 넘어 읽기 어렵고, 버튼은 화면을 가로지르는 띠가 된다. */
+@media (min-width:900px){
+  main > .screen{max-width:1280px;margin:0 auto}
+  #sc-hangar{max-width:none}                       /* 격납고는 장면이라 폭을 다 쓴다 */
+
+  /* 글줄 — 읽는 폭을 넘기지 않는다 */
+  .screen .hint{max-width:78ch}
+  .hg-dock .hint{max-width:none}                   /* 도킹 패널은 이미 좁다 */
+
+  /* 화면을 가로지르는 버튼 띠를 막는다 */
+  .screen > .panel > .btn.big{max-width:420px}
+  .screen > .panel > .row-btns{max-width:640px}
+
+  /* 요약 줄 — 숫자 셋이 1,200px 에 흩어져 있었다 */
+  .trow{max-width:560px}
+  table.rank{max-width:720px}
+}
+
+/* 데스크톱에서는 도움말이 왼쪽 레일 아래에 있다. 지갑의 ? 는 겹치므로 감춘다. */
+@media (min-width:900px){ .wallet .coin.help{display:none} }

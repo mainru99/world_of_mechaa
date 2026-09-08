@@ -43,12 +43,19 @@
   </header>
 
   <nav class="nav">
+    <!-- 데스크톱에서는 이 nav 가 왼쪽 세로 레일이 된다(style.css 의 900px 이상 규칙).
+         모바일에서는 지금처럼 상단 가로 탭 그대로다. DOM 은 하나만 둔다 —
+         둘로 나누면 js 의 [data-s] 바인딩과 active 표시가 두 벌이 된다. -->
+    <div class="rlogo">ROWAR</div>
     <button data-s="hangar" class="active"><em>🛠️</em> 격납고</button>
     <button data-s="gacha"><em>🎁</em> 뽑기</button>
     <button data-s="battle"><em>⚔️</em> 대전</button>
     <button data-s="hunt"><em>🎯</em> 파견</button>
     <button data-s="terr"><em>🗺️</em> 점령</button>
     <button data-s="rank"><em>🏆</em> 랭킹</button>
+    <div class="rfoot">
+      <button class="rhelp" title="게임 설명" onclick="ROWAR.guide()">?</button>
+    </div>
   </nav>
 
   <main>
@@ -65,6 +72,10 @@
       <div class="hint">프로토타입 v0.5 · 진행 상황은 서버에 저장됩니다.</div>
     </div>
   </main>
+
+  <!-- 하단 티커. 화면을 옮기지 않아도 '지금 무엇이 익어 가는지' 보인다.
+       서버에 묻지 않는다 — 클라가 이미 들고 있는 값만 쓴다. -->
+  <div class="ticker" id="ticker"></div>
 </div>
 
 <div id="toast" class="toast"></div>

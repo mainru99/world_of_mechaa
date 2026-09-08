@@ -9,6 +9,7 @@
  */
 import { CONST } from '../data/balance.js';
 import { lvCost, enhCost, serviceCost, fatOf, decayFat } from '../js/stats.js';
+import { scrapValue } from '../js/gacha.js';
 import { registerArena } from './arena.js';
 
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
@@ -161,6 +162,28 @@ export async function hangarAction(env, acc, body, now) {
       .bind(ids[0], ids[1] ?? null, sel, p.rev + 1, now, acc).run();
     await registerArena(env, acc, now);   // 나갈 기체가 곧 방어 기체다
     return { ok: true, rev: p.rev + 1, squad: uids.slice(0, ids.length), dropped };
+  }
+
+  /* ── 파츠 분해 ── 뽑기가 더 이상 일반 등급을 자동으로 없애지 않으므로,
+     치우는 일은 여기서 한다. 끼고 있는 파츠는 먼저 빼야 한다 —
+     장착한 채로 지우면 robot 의 슬롯 컬럼이 없는 행을 가리킨다. */
+  if (action === 'scrap') {
+    const pt = await getPart(env, acc, body.partUid);
+    if (!pt) return err(404, 'part not found');
+    const worn = await env.DB.prepare(
+      `SELECT id FROM robot WHERE account_id = ?1
+        AND (s_weapon = ?2 OR s_frame = ?2 OR s_booster = ?2 OR s_core = ?2)`).bind(acc, pt.id).first();
+    if (worn) return err(400, 'part equipped');
+    /* 강화한 만큼 값을 더 쳐 준다. 안 그러면 잘못 강화한 파츠를 버리는 값이
+       강화에 쓴 스크랩보다 훨씬 적어, 실수 한 번이 그대로 손실로 굳는다. */
+    const gain = Math.round(scrapValue(pt.rarity) * (1 + (pt.enh || 0) * 0.25));
+    if (gain <= 0) return err(400, 'cannot scrap');
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM part WHERE id = ?1').bind(pt.id),
+      env.DB.prepare('UPDATE player SET scrap = ?1, rev = ?2, updated_at = ?3 WHERE account_id = ?4')
+        .bind(p.scrap + gain, p.rev + 1, now, acc),
+    ]);
+    return { ok: true, rev: p.rev + 1, scrap: p.scrap + gain, gain, uid: pt.uid };
   }
 
   return err(400, 'unknown action');

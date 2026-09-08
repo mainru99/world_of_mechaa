@@ -16,12 +16,11 @@ import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, gainExp, add
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed } from './breach.js';
 import * as net from './net.js';
-import { rollPull, genPart as _genPart, autoScrapValue } from './gacha.js';
+import { rollPull, genPart as _genPart, autoScrapValue, scrapValue, PULL_CUR } from './gacha.js';
 import { makeOpponent as _makeOpponent } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
-const ROBOT_APPEAR = PULL_TABLE.find(t=>t.k==='robot').w/100;   // 화면 표기는 뽑기 표에서 파생
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
 const SLOT_KO = {WEAPON:'무장',FRAME:'프레임',BOOSTER:'부스터',CORE:'코어'};
 const STAT_LABEL = { hp:'내구', atk:'공격', def:'방어', spd:'속도', crit:'치명', eva:'회피', spread:'구간' };
@@ -168,6 +167,9 @@ const ERR_KO = { 'not enough credits':'크레딧이 부족합니다', 'not enoug
   'no player':'계정 정보를 찾을 수 없습니다', 'unknown action':'알 수 없는 요청입니다',
   'expedition in progress':'이미 원정 중입니다', 'no expedition':'나가 있는 원정이 없습니다',
   'expedition not done':'아직 귀환 전입니다', 'no robot left':'남은 기체가 없어 보낼 수 없습니다',
+  'part equipped':'장착 중인 파츠는 분해할 수 없습니다', 'cannot scrap':'분해할 수 없는 파츠입니다',
+  'protected':'점령 직후 보호 중인 칸입니다', 'not protected':'보호 중인 칸이 아닙니다',
+  'not enough cores':'코어가 부족합니다',
   'robot on expedition':'원정 나간 기체입니다', 'unknown expedition':'알 수 없는 원정입니다',
   'unknown node':'없는 칸입니다', 'already yours':'이미 내 점령지입니다',
   'squad blocked':'편성 제한에 걸려 데려갈 기체가 없습니다',
@@ -200,6 +202,32 @@ async function unequip(slot){
   const r=await srvHangar('unequip',{robotUid:rb.uid, slot}); if(!r) return;
   rb.slots[slot]=null; commitLocal(); closeModal();
 }
+/* 분해하면 받는 스크랩. 강화한 만큼 더 쳐 준다 — 서버(server/hangar.js)와 같은 식이어야
+   화면의 숫자와 실제로 들어오는 값이 갈리지 않는다. */
+const scrapGain = p => Math.round(scrapValue(p.rarity) * (1 + (p.enh||0) * 0.25));
+
+async function scrapPart(u){
+  const p=findPart(u,S.parts); if(!p) return;
+  const worn = S.robots.some(r=>Object.values(r.slots).includes(u));
+  if(worn){ toast('장착 중인 파츠는 분해할 수 없습니다'); return; }
+  /* 되돌릴 수 없으므로 한 번 묻는다. 강화한 파츠는 특히 실수하기 쉽다. */
+  openModal(`<div class="mhead">파츠 분해 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <div class="pchip"><div class="pn">${p.name} ${rarTag(p)}</div>
+      <div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>
+    <div class="hint" style="margin:10px 0;color:var(--bad)">분해하면 되돌릴 수 없습니다.</div>
+    <div class="row-btns">
+      <button class="btn big gold" onclick="ROWAR.doScrap('${u}')">분해 · 스크랩 +${fmt(scrapGain(p))}</button>
+      <button class="btn big" onclick="ROWAR.closeModal()">그만두기</button></div>`);
+}
+async function doScrap(u){
+  const p=findPart(u,S.parts); if(!p) return;
+  closeModal();
+  const r=await srvHangar('scrap',{partUid:u}); if(!r) return;
+  S.parts=S.parts.filter(x=>x.uid!==u); S.scrap=r.scrap;
+  commitLocal(); renderWallet(); renderHangar();
+  toast(p.name+' 분해 · 스크랩 +'+fmt(r.gain));
+}
+
 async function enhancePart(u){
   const p=findPart(u,S.parts); if(!p) return;
   const r=await srvHangar('enhance',{partUid:u}); if(!r) return;
@@ -323,9 +351,13 @@ function renderHangar(){
       <div class="sl">${SLOT_KO[slot]}</div>
       ${p?`<div class="pn">${p.name}</div><div class="pp">${rarTag(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
   const invParts = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
+  /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
+     칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
   const inv = invParts.length? invParts.map(p=>`<div class="pchip" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
       <div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
-      <div class="ps" style="color:var(--gold)">클릭 → 강화 (스크랩 ${enhCost(p.enh||0)})</div></div>`).join('')
+      <div class="pfoot"><span class="ps" style="color:var(--gold)">클릭 → 강화 (스크랩 ${enhCost(p.enh||0)})</span>
+        <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
+          title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p))}</button></div></div>`).join('')
     : `<div class="empty">보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.</div>`;
   const cost=lvCost(rb.level), fat=fatOf(rb), scost=serviceCost(rb);
   $('#sc-hangar').innerHTML = `
@@ -376,7 +408,8 @@ function renderHangar(){
     </div>
     <div class="panel">
       <h2 class="title" style="margin-top:0">파츠 인벤토리</h2>
-      <div class="hint">파츠를 클릭하면 <b>강화</b>됩니다(스크랩 소모). 장착은 위의 슬롯을 눌러 선택하세요.</div>
+      <div class="hint">파츠를 클릭하면 <b>강화</b>됩니다(스크랩 소모). 장착은 위의 슬롯을 눌러 선택하세요.
+        쓰지 않을 파츠는 <b>분해</b>해 스크랩으로 바꿉니다 — 뽑기로 얻은 파츠는 자동으로 사라지지 않습니다.</div>
       <div class="inv">${inv}</div>
     </div>`;
 }
@@ -395,31 +428,54 @@ function openSlot(slot){
 }
 
 /* ------------------------------- 뽑기 화면 ------------------------------- */
+/* 지금 보고 있는 뽑기 창구. 코어와 크레딧이 확률표를 따로 쓴다. */
+let gCur = 'core';
+const setGacha = c => { gCur = PULL_CUR[c] ? c : 'core'; renderGacha(); };
+
 function renderGacha(){
-  const wsum=ROBOT_RARITY.reduce((s,r)=>s+r.w,0);
+  const C = PULL_CUR[gCur];
+  const table = gCur==='credit' ? PULL_TABLE_CR : PULL_TABLE;
+  const rars  = gCur==='credit' ? ROBOT_RARITY_CR : ROBOT_RARITY;
+  const wsum  = rars.reduce((s,r)=>s+r.w,0);
+  const appear = table.find(t=>t.k==='robot');
+  const appearP = (appear?appear.w:0)/100;
+  const partP = table.find(t=>t.k==='part');
   const tipCol={bust:'var(--dim)',core:'var(--acc2)',credit:'var(--gold)',robot:'var(--acc2)',part:'var(--sub)'};
+
+  const have = gCur==='credit' ? S.credits : S.cores;
+  const cost1 = C.cost, cost10 = C.cost*10;
+  const unit = gCur==='credit' ? '크레딧' : '코어';
+
   const rate=`<div class="rates">
-    ${PULL_TABLE.map(t=>`<span class="tag" style="color:${tipCol[t.k]}">${PULL_KO[t.k]} ${t.w}%</span>`).join('')}</div>
+    ${table.map(t=>`<span class="tag" style="color:${tipCol[t.k]}">${PULL_KO[t.k]} ${t.w}%</span>`).join('')}</div>
     <div class="rates" style="margin-top:6px">
     <span class="tag" style="color:var(--sub)">로봇 등급</span>
-    ${ROBOT_RARITY.map(r=>`<span class="tag rr-${r.k}">${r.ko} ${(ROBOT_APPEAR*r.w/wsum*100).toFixed(2)}%</span>`).join('')}</div>
+    ${rars.map(r=>`<span class="tag rr-${r.k}">${r.ko} ${(appearP*r.w/wsum*100).toFixed(3)}%</span>`).join('')}</div>
     <div class="rates" style="margin-top:6px">
     <span class="tag" style="color:var(--sub)">파츠 등급</span>
-    <span class="tag" style="color:var(--dim)">일반은 자동 분해</span>
     <span class="tag rar-C">일반 52%</span><span class="tag rar-R">정밀 30%</span>
     <span class="tag rar-SR">시제 14%</span><span class="tag rar-SSR">초월 4%</span></div>`;
+
   $('#sc-gacha').innerHTML = `
-    <h2 class="title">뽑기 · 코어 캡슐</h2>
+    <h2 class="title">뽑기</h2>
     <div class="panel">
+      <div class="gtabs">
+        <button class="gtab ${gCur==='core'?'on':''}"   onclick="ROWAR.setGacha('core')">코어 캡슐<span>코어 ${fmt(S.cores)}</span></button>
+        <button class="gtab ${gCur==='credit'?'on':''}" onclick="ROWAR.setGacha('credit')">크레딧 캡슐<span>크레딧 ${fmt(S.credits)}</span></button>
+      </div>
       <div class="gacha-stage" id="stage"><div class="ray" style="opacity:.35"></div><div class="capsule"></div></div>
       ${rate}
       <div class="row-btns" style="margin-top:12px">
-        <button class="btn gold big" onclick="ROWAR.pull1()" ${(S.cores<1||!net.state.online)?'disabled':''}>1회 뽑기 (코어 1)</button>
-        <button class="btn big" onclick="ROWAR.pull10()" ${(S.cores<10||!net.state.online)?'disabled':''}>10회 뽑기 (코어 10)</button>
+        <button class="btn gold big" onclick="ROWAR.pull1()" ${(have<cost1||!net.state.online)?'disabled':''}>1회 뽑기 (${unit} ${fmt(cost1)})</button>
+        <button class="btn big" onclick="ROWAR.pull10()" ${(have<cost10||!net.state.online)?'disabled':''}>10회 뽑기 (${unit} ${fmt(cost10)})</button>
       </div>
       ${net.state.online?'':'<div class="hint" style="margin-top:8px;color:var(--bad)">서버에 연결되지 않아 뽑기를 할 수 없습니다. 뽑기 결과는 서버가 판정합니다.</div>'}
-      <div class="hint" style="margin-top:8px">코어는 대전 승리로 조금씩 얻습니다.
-        로봇은 ${ROBOT_RARITY.length}등급 ${ROBOT_IDS.length}종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.</div>
+      <div class="hint" style="margin-top:8px">${gCur==='credit'
+        ? `크레딧은 대전·점령지에서 꾸준히 들어옵니다. 대신 <b>기체가 나올 확률이 코어보다 낮고</b>,
+           나오더라도 낮은 등급으로 크게 쏠립니다. 코어가 마른 동안 돌리는 창구입니다.`
+        : `코어는 대전 승리와 안쪽 점령지에서 조금씩 얻습니다.`}
+        로봇은 ${ROBOT_RARITY.length}등급 ${ROBOT_IDS.length}종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.
+        <b>뽑은 파츠는 자동으로 분해되지 않습니다</b> — 격납고에서 직접 정하세요.</div>
     </div>`;
 }
 /* 뽑기는 서버가 판정한다.
@@ -427,15 +483,20 @@ function renderGacha(){
    결과를 조작할 수 없다. 대신 연결이 없으면 뽑을 수 없다 — 오프라인에서 로컬로
    굴리게 두면 끊고 굴린 뒤 올리면 그만이라 서버 판정의 의미가 사라진다. */
 async function doPull(count){
-  if(S.cores<count){ toast('코어가 부족합니다'); return; }
+  const C = PULL_CUR[gCur] || PULL_CUR.core;
+  const need = C.cost * count;
+  const have = gCur==='credit' ? S.credits : S.cores;
+  if(have < need){ toast((gCur==='credit'?'크레딧':'코어')+'가 부족합니다'); return; }
   if(!net.state.online){ toast('뽑기는 서버 연결이 필요합니다'); return; }
 
   const stage=$('#stage'); stage.classList.add('rolling');
-  const r = await net.pullServer(count);
+  const r = await net.pullServer(count, gCur);
   await sleep(650); stage.classList.remove('rolling');
 
   if(!r){ toast('뽑기는 서버 연결이 필요합니다'); return; }
-  if(r.error){ toast(r.error==='not enough cores' ? '코어가 부족합니다' : '뽑기 실패: '+r.error); return; }
+  if(r.error){ toast(r.error==='not enough cores' ? '코어가 부족합니다'
+                   : r.error==='not enough credits' ? '크레딧이 부족합니다'
+                   : '뽑기 실패: '+r.error); return; }
 
   /* 서버가 재화까지 확정해서 돌려준다. 클라는 그 값을 그대로 받아 적는다. */
   for(const res of r.results) applyPull(res);
@@ -1080,6 +1141,12 @@ async function renderTerr(){
   drawTerr(r);
 }
 
+/* 남은 보호 시간(ms). 서버가 준 끝 시각을 그대로 쓴다 — 클라 시계로 세면 늦추거나 당길 수 있다. */
+function protLeft(node){
+  if(!node || !node.protectUntil) return 0;
+  return Math.max(0, node.protectUntil - Date.now());
+}
+
 function drawTerr(r){
   const st = Object.fromEntries(r.nodes.map(n=>[n.id,n]));
   /* 내 편성 중 가장 센 기체를 기준으로 삼는다 — 돌파는 선봉이 얼마나 버티느냐로 갈린다. */
@@ -1089,36 +1156,48 @@ function drawTerr(r){
     const s = st[n.id] || { owner:null, lines:n.mon.length, hp:[] };
     const TE = TERRAIN[n.terrain]||{};
     const own = s.owner==='me' ? 'mine' : (s.owner==='other' ? 'foe' : '');
-    return `<button class="tnode ${own}" onclick="ROWAR.openNode('${n.id}')">
+    /* 칸 레벨은 서버가 준다 — 세계 평균 전투력만큼 얹혀 있어 데이터의 값과 다르다. */
+    const lv = s.lv || n.lv;
+    const prot = protLeft(s);
+    return `<button class="tnode ${own}${prot?' prot':''}" onclick="ROWAR.openNode('${n.id}')">
       <div class="tn-top"><span class="tag rr-${n.rar}">${n.rar==='BOSS'?'보스':n.rar}</span>
-        <b>Lv.${n.lv}</b></div>
+        <b>Lv.${lv}${lv>n.lv?`<em class="up">+${lv-n.lv}</em>`:''}</b></div>
       <div class="tn-name">${n.ko}</div>
       <div class="tn-terr"><span>${TE.ko||''}</span>${n.maxRar?`<em>${n.maxRar}↓</em>`:''}</div>
       <div class="tn-pw ${s.pw>myPw*1.05?'hi':(s.pw<myPw*0.8?'lo':'')}">방어 ${fmt(s.pw||0)}</div>
       ${linePips(s.hp)}
-      <div class="tn-own">${s.owner==='me' ? '내 점령지'
+      <div class="tn-own">${prot?`🛡 보호 ${dur(prot)}`
+        : s.owner==='me' ? '내 점령지'
         : (s.owner==='other' ? (s.ownerName||'적') : `방어선 ${s.lines}`)}</div>
     </button>`;
   }).join('');
 
-  const p=r.pending||{cr:0,sc:0};
-  const has = p.cr>0 || p.sc>0;
+  const p=r.pending||{cr:0,sc:0,core:0};
+  const has = p.cr>0 || p.sc>0 || (p.core||0)>0;
+  const avg = (r.world&&r.world.avgPower)||0;
   $('#sc-terr').innerHTML = `<h2 class="title">점령전 · 세계 지도</h2>
     <div class="panel">
       <div class="trow">
         <div><div class="hint">점령</div><div class="big">${r.mine} / ${TERRITORY.length}</div></div>
         <div><div class="hint">쌓인 수입</div><div class="big" style="color:var(--gold)">${fmt(p.cr)}</div></div>
         <div><div class="hint">스크랩</div><div class="big">${fmt(p.sc)}</div></div>
+        <div><div class="hint">코어</div><div class="big" style="color:var(--acc2)">${fmt(p.core||0)}</div></div>
       </div>
       <button class="btn big ${has?'gold':''}" ${has?'':'disabled'} onclick="ROWAR.claimTerr()"
         >${has?'수입 받기':'아직 쌓인 수입이 없습니다'}</button>
-      <div class="hint" style="margin-top:6px">수입은 ${CONST.TERR.INCOME_CAP_H}시간치까지만 쌓입니다.</div>
+      <div class="hint" style="margin-top:6px">수입은 ${CONST.TERR.INCOME_CAP_H}시간치까지만 쌓입니다.
+        <b>칸마다 나오는 재화가 다릅니다</b> — 크레딧이 두꺼운 칸, 스크랩이 두꺼운 칸,
+        안쪽의 세 칸에서만 조금씩 나오는 코어.
+        ${avg?`<br>지도 난이도는 <b>전체 플레이어 평균 전투력 ${fmt(avg)}</b>에 맞춰 올라가 있습니다.`:''}</div>
     </div>
     <div class="tmap">${cells}</div>
     <div class="panel"><div class="hint">
       칸을 누르면 방어선과 지형을 볼 수 있습니다. <b>한 칸은 방어선을 전부 뚫어야</b> 점령됩니다 —
       편성한 두 기가 <b>체력을 이어받은 채</b> 연속으로 싸우고, 둘 다 쓰러지면 실패합니다.
       실패해도 <b>깎아 둔 방어선은 남습니다</b>(시간이 지나면 스스로 회복).
+      점령된 칸은 ${CONST.TERR.PROTECT_MIN}분간 <b>보호</b>됩니다 —
+      코어 ${CONST.TERR.RAID_CORE}개를 내면 그 안에도 칠 수 있지만,
+      그때는 <b>점령자의 편성 ${CONST.SQUAD_MAX}기가 방어선 뒤에 그대로 붙습니다</b>.
     </div></div>`;
 }
 
@@ -1141,14 +1220,20 @@ function openNode(id){
   const cost=ok.length?Math.ceil(sortieCost(ok[0])*CONST.TERR.COST_X):0;
   const myPw=Math.max(1, ...(ok.length?ok:squad).map(x=>power(x)));
 
+  const lv = s.lv || n.lv;
+  const prot = protLeft(s);
   const defs=n.mon.map((t,i)=>{
     const M=COMBAT_TYPES[t]||{}, left=(s.hp&&s.hp[i]!=null)?s.hp[i]:1;
     return `<div class="tline"><span class="ti">${i+1}</span>
-      <b>${M.name||t}</b><span class="lv">Lv.${n.lv}</span>
+      <b>${M.name||t}</b><span class="lv">Lv.${lv}</span>
       <i class="${left<=0?'dead':''}">${left<=0?'무너짐':Math.round(left*100)+'%'}</i></div>`;
   }).join('') + (s.owner ? `<div class="tline foe"><span class="ti">${n.mon.length+1}</span>
       <b>${s.ownerName||'주둔 기체'}</b><span class="lv">주둔</span><i>${
-        (s.hp&&s.hp[n.mon.length]!=null)?Math.round(s.hp[n.mon.length]*100)+'%':'100%'}</i></div>` : '');
+        (s.hp&&s.hp[n.mon.length]!=null)?Math.round(s.hp[n.mon.length]*100)+'%':'100%'}</i></div>` : '')
+    /* 강행에서만 붙는 겹. 실제로 무엇을 더 만나는지 눌러 보기 전에 보여 준다. */
+    + (prot && s.owner==='other' ? `<div class="tline foe raid"><span class="ti">+</span>
+      <b>${s.ownerName||'점령자'}의 편성 ${CONST.SQUAD_MAX}기</b><span class="lv">강행 시</span>
+      <i class="bad">코어 ${CONST.TERR.RAID_CORE}</i></div>` : '');
 
   /* 편성 제한에 걸리는 기체를 미리 보여 준다. 눌러 보고 나서 거절당하면 늦다. */
   const roster=squad.map(x=>{
@@ -1164,11 +1249,16 @@ function openNode(id){
   const poor = S.credits < cost;
   openModal(`<div class="mhead">${n.ko} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="tdet">
-      <div class="tdrow"><span>등급</span><b>${n.rar==='BOSS'?'보스':n.rar} · Lv.${n.lv}</b></div>
+      <div class="tdrow"><span>등급</span><b>${n.rar==='BOSS'?'보스':n.rar} · Lv.${lv}</b>
+        ${lv>n.lv?`<i>기본 Lv.${n.lv} + 세계 난이도 ${lv-n.lv}</i>`:''}</div>
       <div class="tdrow"><span>지형</span><b>${TE.ko}</b> <i>${TE.desc||''}</i></div>
       <div class="tdrow"><span>전력</span><b class="${s.pw>myPw*1.05?'bad':''}">방어 ${fmt(s.pw||0)}</b>
         <i>내 최고 ${fmt(myPw)} · ${s.pw>myPw*1.05?'열세':(s.pw<myPw*0.8?'우세':'호각')}</i></div>
-      <div class="tdrow"><span>수입</span><b>시간당 크레딧 ${fmt(n.crH)} · 스크랩 ${fmt(n.scH)}</b></div>
+      <div class="tdrow"><span>수입</span><b>시간당 크레딧 ${fmt(n.crH)} · 스크랩 ${fmt(n.scH)}${
+          n.coreH?` · 코어 ${n.coreH}`:''}</b>
+        <i>${CONST.TERR.INCOME_CAP_H}시간치 = ${fmt(Math.floor(n.crH*CONST.TERR.INCOME_CAP_H))} · ${
+          fmt(Math.floor(n.scH*CONST.TERR.INCOME_CAP_H))}${
+          n.coreH?` · 코어 ${Math.floor(n.coreH*CONST.TERR.INCOME_CAP_H)}`:''}</i></div>
       <div class="tdrow"><span>점령 보너스</span><b>크레딧 ${fmt(n.crH*CONST.TERR.CAPTURE_H)} · 스크랩 ${fmt(n.scH*CONST.TERR.CAPTURE_H)}</b></div>
       ${n.maxRar?`<div class="tdrow"><span>편성 제한</span><b class="bad">${n.maxRar} 등급 이하만</b></div>`:''}
     </div>
@@ -1177,31 +1267,50 @@ function openNode(id){
     <div class="hint" style="margin:10px 0 4px">데려갈 기체 — 체력은 방어선 사이에 회복되지 않습니다.</div>
     <div class="tmechs">${roster}</div>
     ${mine
-      ? `<div class="hint" style="margin-top:10px;color:var(--gold)">이미 내 점령지입니다. 수입은 지도에서 한꺼번에 받습니다.</div>`
+      ? `<div class="hint" style="margin-top:10px;color:var(--gold)">이미 내 점령지입니다. 수입은 지도에서 한꺼번에 받습니다.${
+          prot?`<br>지금은 <b>보호 중</b>입니다 — ${dur(prot)} 뒤에 풀립니다.`:''}</div>`
       : !ok.length
         ? `<div class="hint" style="margin-top:10px;color:var(--bad)">편성 제한에 걸려 데려갈 기체가 없습니다. 격납고에서 편성을 바꾸세요.</div>`
-        : `<button class="btn big ${poor?'':'gold'}" ${poor?'disabled':''} onclick="ROWAR.attackTerr('${id}')"
+        : prot
+          /* 보호 중 — 보통 공격은 아예 막고, 코어를 내는 강행만 남긴다.
+             강행은 방어선이 두꺼워지므로 무엇이 늘어나는지 버튼 위에 적는다. */
+          ? `<div class="hint" style="margin:10px 0 4px;color:var(--gold)">🛡 점령 직후 <b>보호 중</b> · ${dur(prot)} 남음</div>
+             <div class="hint" style="color:var(--bad)">지금 치려면 <b>강행</b>해야 합니다.
+               코어 ${CONST.TERR.RAID_CORE}개를 쓰고, 몬스터 뒤에
+               <b>${s.ownerName||'점령자'}의 편성 ${CONST.SQUAD_MAX}기</b>를 더 상대합니다.</div>
+             <button class="btn big ${(poor||S.cores<CONST.TERR.RAID_CORE)?'':'gold'}"
+               ${(poor||S.cores<CONST.TERR.RAID_CORE)?'disabled':''} onclick="ROWAR.raidTerr('${id}')"
+               style="margin-top:8px">${
+                 S.cores<CONST.TERR.RAID_CORE ? `코어 부족 (${CONST.TERR.RAID_CORE} 필요)`
+                 : poor ? `크레딧 부족 (${fmt(cost)} 필요)`
+                 : `강행 · 코어 ${CONST.TERR.RAID_CORE} + ${fmt(cost)} 크레딧`}</button>`
+          : `<button class="btn big ${poor?'':'gold'}" ${poor?'disabled':''} onclick="ROWAR.attackTerr('${id}')"
              style="margin-top:12px">${poor?`크레딧 부족 (${fmt(cost)} 필요)`:`공격 · ${fmt(cost)} 크레딧`}</button>`}
   `);
 }
 
-async function attackTerr(id){
+/* raid=true 면 코어를 내고 보호를 뚫는다. 보내는 곳은 한 군데뿐이라 갈릴 일이 없다. */
+async function attackTerr(id, raid){
   closeModal();
   if(!net.state.online){ toast('점령전은 서버 연결이 필요합니다'); return; }
   const n=NODE_BY[id];
   toBattle();
   $('#sc-battle').innerHTML = `<h2 class="title">점령전</h2><div class="panel"><div class="mm">
-    <div class="spinner"></div><div style="font-weight:800">${n?n.ko:'거점'} 진입 중...</div>
-    <div class="hint">방어선을 확인하고 있습니다.</div></div></div>`;
-  const [r]=await Promise.all([net.territory('attack',{node:id}), sleep(700)]);
+    <div class="spinner"></div><div style="font-weight:800">${n?n.ko:'거점'} ${raid?'강행 진입':'진입'} 중...</div>
+    <div class="hint">${raid?'점령자의 편성까지 확인하고 있습니다.':'방어선을 확인하고 있습니다.'}</div></div></div>`;
+  const [r]=await Promise.all([net.territory('attack',{node:id, raid:!!raid}), sleep(700)]);
   if(!r || r.error){
-    toast(ERR_KO[r&&r.error]||('공격하지 못했습니다'+(r&&r.error?': '+r.error:'')));
-    go('terr'); return;
+    /* 보호 거절은 남은 시간을 함께 준다. 그냥 '실패'라고만 하면 왜 막혔는지 알 수 없다. */
+    if(r && r.error==='protected' && r.protectUntil)
+      toast(`점령 직후 보호 중입니다 · ${dur(Math.max(0,r.protectUntil-Date.now()))} 남음`);
+    else toast(ERR_KO[r&&r.error]||('공격하지 못했습니다'+(r&&r.error?': '+r.error:'')));
+    dropTerrCache(); go('terr'); return;
   }
   dropTerrCache();
   applyTerrAttack(r);
   playBreach(r);
 }
+const raidTerr = id => attackTerr(id, true);
 
 /* 서버가 확정한 결과를 로컬에 받아 적는다. 클라는 계산하지 않는다. */
 function applyTerrAttack(r){
@@ -1293,8 +1402,9 @@ async function claimTerr(){
   if(!r) return;
   if(r.error){ toast(ERR_KO[r.error]||('실패: '+r.error)); return; }
   S.credits=r.player.credits; S.scrap=r.player.scrap;
+  if(r.player.cores!=null) S.cores=r.player.cores;
   commitLocal(); dropTerrCache(); renderWallet(); renderTerr();
-  toast(`점령지 ${r.nodes}칸 · 크레딧 +${fmt(r.cr)} · 스크랩 +${fmt(r.sc)}`);
+  toast(`점령지 ${r.nodes}칸 · 크레딧 +${fmt(r.cr)} · 스크랩 +${fmt(r.sc)}${r.core?` · 코어 +${r.core}`:''}`);
 }
 
 window.ROWAR = {
@@ -1310,9 +1420,10 @@ window.ROWAR = {
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); },
   toggleSquad,
   levelUp, service, openSlot, equip, unequip, enhance:enhancePart, closeModal,
+  setGacha, scrapPart, doScrap,
   pull1, pull10, findMatch, nextMatch, startBattle, practiceFind, practiceStart, hunt, toggleSpeed,
   pickExped, sendExped, claimExped,
-  openNode, attackTerr, claimTerr,
+  openNode, attackTerr, raidTerr, claimTerr,
   account:accountScreen, doRegister, doLogin, logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
   sync:()=>net.flush(()=>S)   // 수동으로 즉시 동기화

@@ -6,7 +6,7 @@
  * 난수는 인자로 받는다. 클라는 Math.random, 서버는 crypto 기반을 넣는다.
  * 그래야 서버가 판정할 때 클라의 난수에 의존하지 않는다.
  */
-import { ROBOT_TYPES, ROBOT_RARITY, PULL_TABLE, RARITY, SLOTS, SLOT_STATS, SLOT_COST, COST_ROLL, SLOT_SPREAD, SPREAD_ROLL, PART_NAMES, STAT_ROLL, CONST } from '../data/balance.js';
+import { ROBOT_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR, RARITY, SLOTS, SLOT_STATS, SLOT_COST, COST_ROLL, SLOT_SPREAD, SPREAD_ROLL, PART_NAMES, STAT_ROLL, CONST } from '../data/balance.js';
 
 /* 0~1 비율로 다루는 스탯. 레벨 배수를 타지 않고, 강화 배수도 다르게 먹는다. */
 export const isPct = s => s === 'crit' || s === 'eva' || s === 'spread';
@@ -28,8 +28,19 @@ export const BY_RARITY = (() => {
   return m;
 })();
 
-/* 자동 분해 대상이면 바꿔 줄 스크랩 양, 아니면 0 */
+/* 자동 분해 대상이면 바꿔 줄 스크랩 양, 아니면 0. **대전·토벌 드랍에만 쓴다.** */
 export const autoScrapValue = rarity => (CONST.AUTO_SCRAP && CONST.AUTO_SCRAP[rarity]) || 0;
+
+/* 손으로 분해했을 때 받는 스크랩. 뽑기로 얻은 파츠는 자동으로 없애지 않고
+   플레이어가 이 값을 보고 분해할지 정한다. */
+export const scrapValue = rarity => (CONST.SCRAP_VALUE && CONST.SCRAP_VALUE[rarity]) || 0;
+
+/* 뽑기 창구. 코어와 크레딧이 표를 따로 쓴다 — 같은 표에 배수만 걸면
+   '크레딧으로도 에픽이 코어와 같은 비율로 나오는' 상태가 되어 코어를 쓸 이유가 없어진다. */
+export const PULL_CUR = {
+  core:   { cost: CONST.PULL_COST,    table: PULL_TABLE,    rar: ROBOT_RARITY,    ko: '코어'   },
+  credit: { cost: CONST.PULL_CR_COST, table: PULL_TABLE_CR, rar: ROBOT_RARITY_CR, ko: '크레딧' },
+};
 
 /* forceRar / forceSlot 을 주면 그 등급·그 슬롯으로 만든다.
    생성 상대의 파츠 품질과 슬롯을 플레이어에 맞출 때 쓴다 —
@@ -48,7 +59,9 @@ export function genPart(level, rnd, uid, forceRar, forceSlot) {
      등급이 높을수록 더 크게 올리고 더 크게 깎는다. 세지는 게 아니라 뾰족해진다. */
   const cst = SLOT_COST[slot], cr = cst && COST_ROLL[cst];
   if (cr) {
-    let c = rf(cr[0], cr[1], rnd) * rar.mul;
+    /* costMul 은 대가에만 걸린다. 일반(C)은 상승을 한 번만 굴리므로 대가를 같은 폭으로
+       물리면 끼는 쪽이 손해가 된다(실측 −2.4%). RARITY 의 주석 참고. */
+    let c = rf(cr[0], cr[1], rnd) * rar.mul * (rar.costMul != null ? rar.costMul : 1);
     if (!isPct(cst)) c = Math.round(c * lvScale);
     stats[cst] = (stats[cst] || 0) - c;
   }
@@ -62,20 +75,22 @@ export function genPart(level, rnd, uid, forceRar, forceSlot) {
 /* 뽑기 1회. 소유 상태(ownedTypes)와 평균 레벨을 받아 '무엇이 나왔는지'만 돌려준다.
    재화를 깎거나 상태를 바꾸는 것은 부르는 쪽의 일이다 — 그래야 서버와 클라가
    같은 판정을 쓰면서 저장 방식은 각자 다르게 갈 수 있다. */
-export function rollPull(ownedTypes, level, rnd, uid) {
-  const kind = weighted(PULL_TABLE, rnd).k;
+export function rollPull(ownedTypes, level, rnd, uid, cur) {
+  const C = PULL_CUR[cur] || PULL_CUR.core;
+  const kind = weighted(C.table, rnd).k;
 
   if (kind === 'robot') {
-    const type = pick(BY_RARITY[weighted(ROBOT_RARITY, rnd).k], rnd);
+    const type = pick(BY_RARITY[weighted(C.rar, rnd).k], rnd);
     if (ownedTypes.has(type)) return { kind: 'dupe', type, gain: CONST.DUPE_GAIN[ROBOT_TYPES[type].rarity] };
     return { kind: 'robot', type };
   }
   if (kind === 'core')   return { kind: 'core', n: 1 };
   if (kind === 'credit') return { kind: 'credit', cr: 47 + level * 4 + ri(0, 30, rnd) };
   if (kind === 'part') {
-    const part = genPart(level, rnd, uid());
-    const sc = autoScrapValue(part.rarity);
-    return sc ? { kind: 'scrap', n: sc, part } : { kind: 'part', part };
+    /* 뽑은 파츠는 등급이 낮아도 **그대로 준다.** 예전에는 일반 등급을 즉시 스크랩으로
+       바꿨는데, 뽑아 놓고 한 번 껴 보지도 못하는 것이 아깝다는 지적을 받았다.
+       분해는 인벤토리에서 플레이어가 고른다(scrapValue). */
+    return { kind: 'part', part: genPart(level, rnd, uid()) };
   }
   return { kind: 'bust' };
 }

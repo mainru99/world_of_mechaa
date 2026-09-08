@@ -496,3 +496,24 @@ table.rank tr.mine .tag{background:#0e1526;color:var(--gold);border-color:#3d4b7
 .tmech .th{font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px;flex:none;
   color:var(--gold);background:#0d1424;border:1px solid #3d4b7a}
 .tmech.no .th{color:var(--dim);border-color:var(--line)}
+
+
+/* ---- 뽑기 창구 (코어 / 크레딧) ---- */
+.gtabs{display:flex;gap:8px;margin-bottom:10px}
+.gtab{flex:1;padding:10px 8px;border-radius:12px;cursor:pointer;font-weight:800;font-size:13px;
+  background:#0e1526;border:1px solid var(--line);color:var(--sub);display:flex;flex-direction:column;gap:2px}
+.gtab span{font-weight:600;font-size:11px;color:var(--dim)}
+.gtab.on{border-color:var(--acc);color:var(--ink);background:linear-gradient(180deg,#18223c,#141d34)}
+
+/* ---- 파츠 분해 ---- */
+.pfoot{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:4px}
+.scrapb{flex:none;padding:4px 8px;font-size:11px;font-weight:700;border-radius:8px;cursor:pointer;
+  background:#0a1020;border:1px solid var(--line);color:var(--sub)}
+.scrapb:hover{border-color:var(--bad);color:var(--bad)}
+
+/* ---- 점령전: 보호와 강행 ---- */
+.tnode.prot{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,210,74,.25) inset}
+.tnode.prot .tn-own{color:var(--gold)}
+.tn-top b em.up{font-style:normal;font-size:10px;color:var(--bad);margin-left:3px}
+.tline.raid{border-style:dashed;opacity:.9}
+.tline.raid .bad{color:var(--acc2)}

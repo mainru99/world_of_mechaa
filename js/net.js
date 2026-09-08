@@ -176,11 +176,12 @@ export async function flush(getState) {
 /* 서버 판정 뽑기. 온라인일 때만 쓴다 — 오프라인이면 null 을 돌려주고,
    부르는 쪽이 '연결이 필요하다'고 알린다. 오프라인에서 로컬로 굴리게 두면
    서버 판정을 넣은 의미가 사라진다(끊고 굴린 뒤 올리면 그만이므로). */
-export async function pullServer(count) {
+export async function pullServer(count, cur) {
   if (!state.online) return null;
-  const r = await call('/api/pull', { method: 'POST', body: { count } });
+  const r = await call('/api/pull', { method: 'POST', body: { count, cur } });
   if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return r.data; }
-  return { error: (r.data && r.data.error) || r.error || 'pull failed', cores: r.data && r.data.cores };
+  return { error: (r.data && r.data.error) || r.error || 'pull failed',
+           cores: r.data && r.data.cores, credits: r.data && r.data.credits };
 }
 
 /* 전투 — 서버 판정. find 로 상대를 받고, start 로 결과를 받는다. */
@@ -216,8 +217,11 @@ export async function territory(action, args = {}) {
   if (!state.online) return null;
   const r = await call('/api/territory', { method: 'POST', body: { action, ...args } });
   if (r.ok && r.data && r.data.ok) { if (r.data.rev != null) setSyncedRev(r.data.rev); return r.data; }
-  return { error: (r.data && r.data.error) || r.error || 'territory failed' };
-}
+  /* 보호 거절(protected)은 남은 시각과 가진 코어를 함께 준다 — 그대로 올려보낸다 */
+  return { error: (r.data && r.data.error) || r.error || 'territory failed',
+           protectUntil: r.data && r.data.protectUntil, cores: r.data && r.data.cores };
+}
+
 export async function ranking() {
   if (!state.online) return null;
   const r = await call('/api/ranking');

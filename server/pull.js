@@ -5,7 +5,7 @@
  * 판정 자체는 js/gacha.js 를 클라와 공유한다 — 두 벌로 두면 반드시 어긋난다.
  */
 import { CONST } from '../data/balance.js';
-import { rollPull } from '../js/gacha.js';
+import { rollPull, PULL_CUR } from '../js/gacha.js';
 
 /* 서버 난수. 클라가 보낸 값에 의존하지 않는다. */
 function cryptoRnd() {
@@ -15,14 +15,24 @@ function cryptoRnd() {
 
 const MAX_PULLS = 10;
 
-export async function serverPull(env, accountId, count, now) {
+export async function serverPull(env, accountId, count, now, cur) {
   const n = Math.max(1, Math.min(MAX_PULLS, Math.round(Number(count) || 1)));
+  /* 창구는 서버가 정한다. 클라가 보낸 문자열을 그대로 키로 쓰면 없는 창구를 만들어
+     값이 0 인 뽑기를 돌릴 수 있다. 모르는 값은 코어로 떨어뜨린다. */
+  const kind = PULL_CUR[cur] ? cur : 'core';
+  const C = PULL_CUR[kind];
 
   const player = await env.DB.prepare(
     'SELECT credits, cores, scrap, pulls, rev FROM player WHERE account_id = ?1').bind(accountId).first();
   if (!player) return { ok: false, status: 404, error: 'no player' };
-  if (player.cores < n * CONST.PULL_COST)
+
+  const spend = n * C.cost;
+  if (kind === 'credit') {
+    if (player.credits < spend)
+      return { ok: false, status: 400, error: 'not enough credits', credits: player.credits };
+  } else if (player.cores < spend) {
     return { ok: false, status: 400, error: 'not enough cores', cores: player.cores };
+  }
 
   const robots = (await env.DB.prepare('SELECT uid, type FROM robot WHERE account_id = ?1')
     .bind(accountId).all()).results || [];
@@ -39,8 +49,8 @@ export async function serverPull(env, accountId, count, now) {
   const results = [], newParts = [], newRobots = [];
 
   for (let i = 0; i < n; i++) {
-    cores -= CONST.PULL_COST;
-    const r = rollPull(owned, level, rnd, uid);
+    if (kind === 'credit') credits -= C.cost; else cores -= C.cost;
+    const r = rollPull(owned, level, rnd, uid, kind);
     if (r.kind === 'robot') {
       owned.add(r.type);
       /* uid 는 여기서 정해 **결과에 실어 보낸다.** 클라가 따로 만들면 서버 행과 uid 가
@@ -76,5 +86,5 @@ export async function serverPull(env, accountId, count, now) {
 
   await env.DB.batch(stmts);
 
-  return { ok: true, results, rev, credits, cores, scrap, wrote: stmts.length };
+  return { ok: true, cur: kind, spent: spend, results, rev, credits, cores, scrap, wrote: stmts.length };
 }

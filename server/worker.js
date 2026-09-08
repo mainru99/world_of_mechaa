@@ -287,9 +287,10 @@ async function handleApi(request, env, url) {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
     let body; try { body = await request.json(); } catch { body = {}; }
-    const r = await serverPull(env, sess.account_id, body && body.count, Date.now());
-    if (!r.ok) return json({ ok: false, error: r.error, cores: r.cores }, r.status || 500);
-    return json({ ok: true, results: r.results, rev: r.rev,
+    /* cur 은 창구(코어/크레딧)다. 값 검증은 serverPull 이 한다 — 모르는 값이면 코어로 떨어진다. */
+    const r = await serverPull(env, sess.account_id, body && body.count, Date.now(), body && body.cur);
+    if (!r.ok) return json({ ok: false, error: r.error, cores: r.cores, credits: r.credits }, r.status || 500);
+    return json({ ok: true, cur: r.cur, spent: r.spent, results: r.results, rev: r.rev,
                   credits: r.credits, cores: r.cores, scrap: r.scrap, wrote: r.wrote });
   }
 
@@ -364,11 +365,16 @@ async function handleApi(request, env, url) {
     const now = Date.now();
     let r;
     if (body.action === 'view')        r = await territoryView(env, sess.account_id, now);
-    else if (body.action === 'attack') r = await attackNode(env, sess.account_id, now, body.node);
+    else if (body.action === 'attack') r = await attackNode(env, sess.account_id, now, body.node, body.raid);
     else if (body.action === 'claim')  r = await claimTerritory(env, sess.account_id, now);
     else r = { ok: false, status: 400, error: 'unknown action' };
-    return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 400);
-  }
+    /* 보호 거절에는 남은 시각과 가진 코어를 함께 실어 보낸다 —
+       클라가 '몇 분 남았고, 강행하려면 코어가 몇 개 필요한지'를 그 자리에서 보여 준다. */
+    return r.ok ? json(r)
+                : json({ ok: false, error: r.error, protectUntil: r.protectUntil, cores: r.cores },
+                       r.status || 400);
+  }
+
   /* ── 정식 계정 ───────────────────────────────────────
      승격은 새 계정을 만드는 게 아니라 지금 쓰던 계정에 로그인 수단을 붙이는 것이다.
      그래서 진행상황이 그대로 이어진다. */

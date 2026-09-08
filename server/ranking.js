@@ -32,11 +32,17 @@ export async function refreshRanks(env, now) {
         AND p.rank_cached IS NOT r.rk`).bind(now).run();
 
   const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM player').first();
-  const stats = { count: c ? c.n : 0, at: now };
+  /* 전체 평균 전투력 — 점령전이 지도 난이도를 여기에 맞춘다(server/territory.js).
+     여기서 한 번 재서 meta 에 적어 두면, 지도를 볼 때마다 1행만 읽으면 된다.
+     집계라도 arena_entry 전체를 훑는다. 위 ROW_NUMBER 가 이미 player 전체를 훑으므로
+     자릿수가 달라지지는 않지만, 등록자가 수천을 넘으면 최근 접속자 표본으로 바꿀 것. */
+  const w = await env.DB.prepare('SELECT AVG(power) AS p, COUNT(*) AS n FROM arena_entry').first();
+  const stats = { count: c ? c.n : 0, at: now,
+                  avgPower: Math.round((w && w.p) || 0), avgOf: (w && w.n) || 0 };
   await env.DB.prepare('INSERT OR REPLACE INTO meta (k, v) VALUES (?1, ?2)')
     .bind(STATS_KEY, JSON.stringify(stats)).run();
 
-  return { changed: upd.meta?.changes ?? 0, count: stats.count };
+  return { changed: upd.meta?.changes ?? 0, count: stats.count, avgPower: stats.avgPower };
 }
 
 async function loadStats(env) {

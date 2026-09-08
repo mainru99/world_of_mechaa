@@ -25,6 +25,22 @@ export const ROBOT_RARITY = [
 /* 뽑기 결과 확률(합 100). 파츠만 쏟아지지 않게 크레딧·코어·꽝을 섞었다 */
 export const PULL_TABLE = [ {k:'robot',w:12}, {k:'core',w:1.5}, {k:'credit',w:22}, {k:'part',w:45}, {k:'bust',w:19.5} ];
 
+/* 크레딧 뽑기 — 코어가 없어도 돌릴 수 있는 두 번째 창구.
+   코어는 벌기 어려운 재화라 뽑기가 통째로 멈추는 때가 있다. 크레딧은 대전·점령지에서
+   꾸준히 들어오므로, 확률을 낮추는 대신 '돌릴 수는 있는' 길을 하나 열어 둔다.
+   크레딧으로 크레딧이 나오면 무의미하므로 그 칸은 빼고 꽝을 늘렸다. */
+export const PULL_TABLE_CR = [ {k:'robot',w:7}, {k:'core',w:1}, {k:'part',w:58}, {k:'bust',w:34} ];
+
+/* 크레딧 뽑기에서 기체가 나왔을 때의 등급 분포. 코어 쪽보다 훨씬 아래로 쏠린다.
+   에픽은 7% × 0.8% = 뽑기 1회당 0.056% — 1,800회쯤에 한 번이다.
+   0 으로 두지 않은 것은 '그래도 나올 수는 있다'가 있어야 돌릴 이유가 생기기 때문이다. */
+export const ROBOT_RARITY_CR = [
+  {k:'C',  ko:'커먼',   w:57.7},
+  {k:'UC', ko:'언커먼', w:26  },
+  {k:'R',  ko:'레어',   w:12  },
+  {k:'UQ', ko:'유니크', w: 3.5},
+  {k:'EP', ko:'에픽',   w: 0.8} ];
+
 /* 기체 30종 · 등급마다 6종 */
 /* 성장(grow)은 등급이 낮을수록 '기본값 대비' 크게 잡아, 레벨을 올릴수록 등급 격차가 좁혀지도록 했다.
    Lv.1 에선 인접 등급이 14~20% 차이나지만 Lv.45 에선 5~6% 로 줄어 하위 등급도 끝까지 쓸 만하다. */
@@ -239,8 +255,13 @@ export const PART_NAMES = {
   FRAME:['합금 장갑','리액티브 아머','실드 프레임','경량 골격','나노 코팅'],
   BOOSTER:['스러스터','플로트 팩','부스트 유닛','고기동 백','AMBAC'],
   CORE:['리액터','제너레이터','전술 코어','컨트롤 칩','오버드라이브'] };
+/* costMul — 대가(SLOT_COST)에만 걸리는 배수.
+   일반(C)은 상승을 한 번만 굴리는데 대가는 다른 등급과 같은 폭으로 물었다.
+   그래서 실측 전투력이 **맨몸보다 2.4% 낮았다** — 끼면 손해라 존재 이유가 없었다.
+   대가를 절반 아래로 낮춰 '없는 것보단 나은' 정도(+3% 안팎)로 맞춘다.
+   위 등급은 그대로다. 뾰족해지는 대가를 무르게 하면 파츠를 고르는 재미가 사라진다. */
 export const RARITY = [
-  {k:'C', ko:'일반', w:52, n:1, mul:1.0},
+  {k:'C', ko:'일반', w:52, n:1, mul:1.0, costMul:0.45},
   {k:'R', ko:'정밀', w:30, n:2, mul:1.5},
   {k:'SR',ko:'시제', w:14, n:3, mul:2.2},
   {k:'SSR',ko:'초월',w:4,  n:3, mul:3.4} ];
@@ -309,7 +330,39 @@ export const CONST = {
     COST_X: 2.2,        // 출격비 배수 — 아레나 한 판 기준
     EXP_LINE: 0.55,     // 방어선 하나를 뚫을 때마다 받는 경험치 (대전 1승 기준)
     RETAKE_MIN: 6,      // 내 칸이 이 수를 넘을 때만 몬스터가 하루 한 칸을 되찾는다
-  },
+
+    /* 점령 직후 보호. 뺏은 자리에서 숨 돌릴 틈은 있어야 한다 —
+       없으면 먼저 친 사람이 손해고, 같은 칸을 초 단위로 주고받는 핑퐁이 된다. */
+    PROTECT_MIN: 10,    // 점령한 뒤 이 시간(분) 동안은 보통 공격을 받지 않는다
+
+    /* 강행 — 코어를 내면 보호 중인 칸도 칠 수 있다. 대신 그 칸을 지키는 것이
+       몬스터만이 아니게 된다. 점령자의 **편성 두 기가 방어선 뒤에 그대로 붙는다.**
+       (보통 공격에서는 아레나 스냅샷 한 겹만 붙는다)
+       코어는 뽑기 재화라, 이걸 쓴다는 것은 '뽑기 한 번을 포기하고 저 칸을 갖겠다'는 뜻이다. */
+    RAID_CORE: 1,       // 강행에 드는 코어
+
+    /* 세계 난이도 — 칸의 레벨에 전체 플레이어 평균 전투력만큼을 얹는다.
+       지도는 절대 난이도라 내 사정과 무관해야 하지만, 세계가 세지면 지도도 세져야
+       '어려운 콘텐츠'로 남는다. 안 그러면 어느 시점부터 전부 눌러서 이기는 버튼이 된다.
+
+       지수는 **1보다 작게** 잡았다(0.6). 평균이 두 배가 되어도 보정은 1.5배만 는다 —
+       지수가 1을 넘으면 상위 플레이어가 세질수록 지도가 폭주해 새로 온 사람이 아무 칸도
+       못 들어간다. 처음(평균 300)에는 거의 안 걸리고, 성숙한 세계(평균 6000)에서 크게 걸린다.
+         보정 = LV_K × (평균전투력 / LV_REF) ^ LV_EXP × 등급배수, 최대 LV_CAP
+       등급배수를 둔 것은 지도의 모양(입구는 쉽고 안쪽은 어렵다)을 지키기 위해서다. */
+    LV_REF: 3000,       // 기준 전투력 — Lv.30 맨몸이 대략 이 값이다
+    LV_K: 8,            // 기준 전투력에서 몇 레벨을 얹을 것인가
+    LV_EXP: 0.6,        // 곡선의 지수. 1 보다 작아야 위로 갈수록 완만해진다
+    /* 상한이 왜 둘인가 —
+       레벨 상한이 60 이라 보정에도 천장이 있어야 한다. 특히 **편성 제한이 걸린 칸**은
+       데려갈 수 있는 것 자체가 낮은 등급이라, 같은 폭으로 올리면 그 등급의 만렙으로도
+       못 뚫는 잠긴 문이 된다(실측: 관제 첨탑이 평균 9000 에서 UQ Lv.60 승률 0%).
+       그래서 제한이 있는 칸은 더 일찍 멈춘다. */
+    LV_CAP: 12,         // 아무리 세계가 세져도 이 이상은 얹지 않는다
+    LV_CAP_MAXRAR: 8,   // 편성 제한이 걸린 칸의 상한
+    LV_TIER: { C:0.4, UC:0.6, R:0.8, UQ:1.0, EP:1.15, BOSS:1.3 },
+  },
+
   /* 비상 출격 — 크레딧이 출격비보다 적을 때만 열린다.
      비용 0, 상대는 몬스터 고정, 보상은 크레딧만(파츠·코어·경험치 없음), 레이팅 변동 없음.
      막힌 판을 만들지 않기 위한 구제 장치라 일부러 맛이 없다. 피로도는 정상으로 쌓인다. */
@@ -374,9 +427,20 @@ export const CONST = {
   SERVICE_RATE: { C:3, UC:5, R:8, UQ:11, EP:15 },
 
   /* 자동 분해 — 여기 적힌 '파츠 등급'은 인벤토리에 넣지 않고 바로 스크랩으로 바꾼다.
-     파츠의 52%가 일반 등급이라 잡템이 금방 쌓인다. 값을 {} 로 비우면 기능이 꺼진다.
+     **대전·토벌 드랍에만 적용된다.** 뽑기는 더 이상 여기를 보지 않는다 —
+     뽑아 놓고 못 써 보는 것이 아깝다는 지적을 받아, 뽑기 결과는 인벤토리에 넣고
+     분해할지를 플레이어가 고른다(아래 SCRAP_VALUE).
+     전투 드랍까지 남기면 파츠 행이 계속 쌓여 D1 쓰기 예산이 그쪽으로 샌다.
      (기체 등급 C/UC/… 가 아니라 파츠 등급 C/R/SR/SSR 이다) */
   AUTO_SCRAP: { C: 14 },
+
+  /* 손으로 분해했을 때 받는 스크랩. 등급이 높을수록 많지만, 강화 비용에 견주면
+     '쓰지 않을 것을 치우는' 값이지 '분해가 이득'인 값은 아니다. */
+  SCRAP_VALUE: { C: 14, R: 30, SR: 70, SSR: 150 },
+
+  /* 크레딧 뽑기 1회 값. 대전 1승(Lv.30 기준 약 560)의 두 판 조금 넘는다.
+     새 계정의 시작 크레딧이 600 이라 '언젠가 한 번은 돌릴 수 있다'가 보인다. */
+  PULL_CR_COST: 1200,
 };
 
 /* ── 지형 ────────────────────────────────────────────────
@@ -406,41 +470,47 @@ export const TERRAIN = {
      maxRar    편성 제한. 이 등급을 넘는 기체는 못 데려간다
                (서머너즈워 점령전의 '4성 이하 거점'에서 가져왔다 — 주력 하나로 지도를
                 다 먹지 못하게 막는 장치이자, 뽑은 기체를 키울 이유다)
-     crH/scH   점령해 두면 들어오는 시간당 수입. TERR.INCOME_CAP_H 시간까지만 쌓인다
+     crH/scH/coreH
+               점령해 두면 들어오는 시간당 수입. TERR.INCOME_CAP_H 시간까지만 쌓인다.
+               **칸마다 나오는 재화가 다르다.** 크레딧만 나오는 칸, 스크랩이 두꺼운 칸,
+               안쪽의 세 칸에서만 조금씩 나오는 코어. 한 칸만 붙들고 있으면 한 재화만
+               모이므로, 무엇이 모자란지에 따라 어느 칸을 지킬지가 갈린다.
+               코어는 뽑기 재화라 아주 인색하게 잡았다 — 12시간을 꽉 채워도 n11 이 3개다
    ※ 값 조정은 ChatGPT 담당. */
 export const TERRITORY = [
   /* ── row 4 · 입구 ── */
   { id:'n01', ko:'폐공장 지구', col:1, row:4, rar:'C',  lv: 8, terrain:'plain',
-    mon:['enemy_razorwing','enemy_jackal'],                          crH: 40, scH:  8, maxRar:null },
+    mon:['enemy_razorwing','enemy_jackal'],                          crH: 55, scH:  4, coreH:0, maxRar:null },
   { id:'n02', ko:'침수 부두',   col:2, row:4, rar:'C',  lv: 9, terrain:'storm',
-    mon:['enemy_jackal','enemy_razorwing'],                          crH: 40, scH:  8, maxRar:null },
+    mon:['enemy_jackal','enemy_razorwing'],                          crH: 18, scH: 14, coreH:0, maxRar:null },
   { id:'n03', ko:'관측소 능선', col:3, row:4, rar:'UC', lv:14, terrain:'highland',
-    mon:['enemy_strix','enemy_angler'],                              crH: 70, scH: 14, maxRar:'UC' },
+    mon:['enemy_strix','enemy_angler'],                              crH: 70, scH: 14, coreH:0, maxRar:'UC' },
 
   /* ── row 3 ── */
   { id:'n04', ko:'붉은 협곡',   col:1, row:3, rar:'R',  lv:20, terrain:'canyon',
-    mon:['enemy_reaper','enemy_scorpio','enemy_reaper'],             crH:120, scH: 24, maxRar:null },
+    mon:['enemy_reaper','enemy_scorpio','enemy_reaper'],             crH: 60, scH: 40, coreH:0, maxRar:null },
   { id:'n05', ko:'구시가 폐허', col:2, row:3, rar:'R',  lv:22, terrain:'ruins',
-    mon:['enemy_scorpio','enemy_reaper','enemy_scorpio'],            crH:120, scH: 24, maxRar:'R' },
+    mon:['enemy_scorpio','enemy_reaper','enemy_scorpio'],            crH:175, scH: 10, coreH:0, maxRar:'R' },
   { id:'n06', ko:'송전 철탑',   col:3, row:3, rar:'UC', lv:15, terrain:'plain',
-    mon:['enemy_angler','enemy_strix'],                              crH: 70, scH: 14, maxRar:null },
+    mon:['enemy_angler','enemy_strix'],                              crH: 95, scH:  6, coreH:0, maxRar:null },
 
   /* ── row 2 ── */
   { id:'n07', ko:'지하 격납고', col:1, row:2, rar:'UQ', lv:28, terrain:'plain',
-    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:200, scH: 40, maxRar:null },
+    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:110, scH: 68, coreH:0,    maxRar:null },
   { id:'n08', ko:'용광로 심부', col:2, row:2, rar:'UQ', lv:30, terrain:'furnace',
-    mon:['enemy_megalodon','enemy_lich','enemy_megalodon'],          crH:200, scH: 40, maxRar:'UQ' },
+    mon:['enemy_megalodon','enemy_lich','enemy_megalodon'],          crH:290, scH: 16, coreH:0,    maxRar:'UQ' },
   { id:'n09', ko:'검은 호수',   col:3, row:2, rar:'UQ', lv:29, terrain:'canyon',
-    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:200, scH: 40, maxRar:null },
+    mon:['enemy_lich','enemy_megalodon','enemy_lich'],               crH:150, scH: 30, coreH:0.08, maxRar:null },
 
   /* ── row 1 · 안쪽 ── */
   { id:'n10', ko:'강철 성문',   col:1, row:1, rar:'EP', lv:38, terrain:'highland',
     mon:['enemy_goliath','enemy_kabuto','enemy_goliath','enemy_kabuto'],
-                                                                     crH:320, scH: 64, maxRar:null },
+                                                                     crH:520, scH: 30, coreH:0,    maxRar:null },
   { id:'n11', ko:'왕좌의 방',   col:2, row:1, rar:'BOSS', lv:48, terrain:'ruins',
     mon:['enemy_kabuto','enemy_goliath','boss_astraea','boss_bael_fortress'],
-                                                                     crH:500, scH:100, maxRar:null },
+                                                                     crH:620, scH: 90, coreH:0.25, maxRar:null },
   { id:'n12', ko:'관제 첨탑',   col:3, row:1, rar:'EP', lv:40, terrain:'storm',
     mon:['enemy_kabuto','enemy_goliath','enemy_kabuto','enemy_goliath'],
-                                                                     crH:320, scH: 64, maxRar:'UQ' },
+                                                                     crH:220, scH:120, coreH:0.12, maxRar:'UQ' },
 ];
+

@@ -1,6 +1,7 @@
 # 밸런스 작업 지시서 (ChatGPT 담당)
 
-이 문서 하나만 읽고 시작할 수 있게 썼다. 배경은 `CONTRACT.md`, 진행 상황은 `STATUS.md`.
+이 문서 하나만 읽고 시작할 수 있게 썼다. 배경은 `CONTRACT.md`, 진행 상황은 `STATUS.md`,
+보안 점검 기록은 `SECURITY.md`.
 
 ---
 

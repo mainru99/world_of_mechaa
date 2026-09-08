@@ -9,10 +9,15 @@
  * 검증은 '모양과 범위'까지만 한다. 클라가 보낸 값이 정당하게 얻은 것인지는
  * 아직 확인하지 않는다 — 그건 서버가 뽑기·전투를 직접 판정하는 다음 단계의 일이다.
  */
-import { ROBOT_TYPES, RARITY, SLOTS, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
+import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
 import { expedView } from './expedition.js';
 
 const PART_RARITIES = new Set(RARITY.map(r => r.k));
+/* 파츠 이름은 **정해진 목록 안의 것만** 받는다.
+   예전에는 아무 문자열이나 40자까지 받아 그대로 저장했다. 클라가 화면을 innerHTML 로
+   그리므로, 이름에 태그를 넣어 보내면 그대로 실행된다(저장형 XSS).
+   정당한 이름은 전부 PART_NAMES 에서 나오므로 목록 밖은 버린다. */
+const PART_NAME_SET = new Set(Object.values(PART_NAMES).flat());
 const SLOT_SET = new Set(SLOTS);
 const STAT_LIST = ['hp', 'atk', 'def', 'spd', 'crit', 'eva', 'spread'];
 const STAT_KEYS = new Set(STAT_LIST);
@@ -104,7 +109,7 @@ export function sanitize(raw) {
     seenPart.add(p.uid);
     out.parts.push({
       uid: p.uid, slot: p.slot, rarity: p.rarity,
-      name: typeof p.name === 'string' ? p.name.slice(0, 40) : '?',
+      name: PART_NAME_SET.has(p.name) ? p.name : '파츠',
       enh: int(p.enh, 0, 10), stats,
     });
   }

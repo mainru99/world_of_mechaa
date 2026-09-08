@@ -389,10 +389,20 @@ async function handleApi(request, env, url) {
     const cur = await env.DB.prepare('SELECT login_id FROM account WHERE id = ?1').bind(sess.account_id).first();
     if (cur && cur.login_id) return json({ ok: false, error: '이미 정식 계정입니다' }, 400);
 
-    const taken = await env.DB.prepare('SELECT id FROM account WHERE login_id = ?1').bind(login_id).first();
-    if (taken) return json({ ok: false, error: '이미 쓰이는 아이디입니다' }, 409);
+    /* 여기에도 시도 제한을 건다. 중복 검사가 해시보다 앞에 있어 '이 아이디가 있는가'를
+       아주 싸게 물어볼 수 있다 — 계정 하나만 있으면 아이디를 마음껏 훑을 수 있었다.
+       로그인과 같은 표를 쓰되 열쇠를 나눠, 가입 실패가 로그인 잠금에 섞이지 않게 한다. */
+    const rip = request.headers.get('cf-connecting-ip') || '';
+    const rkeys = attemptKeys('reg:' + sess.account_id, rip);
+    const rwait = await checkBlocked(env, rkeys, Date.now());
+    if (rwait) return json({ ok: false, error: `시도가 너무 많습니다. ${Math.ceil(rwait / 60)}분 뒤에 다시 시도하세요`, retry_after: rwait }, 429);
 
-    const t0 = Date.now();
+    const taken = await env.DB.prepare('SELECT id FROM account WHERE login_id = ?1').bind(login_id).first();
+    if (taken) {
+      await noteFailure(env, rkeys, Date.now());
+      return json({ ok: false, error: '이미 쓰이는 아이디입니다' }, 409);
+    }
+
     const pw = await hashPassword(password);
     try {
       await env.DB.prepare('UPDATE account SET login_id = ?1, pw_hash = ?2 WHERE id = ?3')
@@ -401,7 +411,8 @@ async function handleApi(request, env, url) {
       // UNIQUE 충돌이 여기서 날 수도 있다(동시에 같은 아이디로 가입)
       return json({ ok: false, error: '이미 쓰이는 아이디입니다' }, 409);
     }
-    return json({ ok: true, login_id, hash_ms: Date.now() - t0 });
+    await clearAttempts(env, rkeys);          // 성공했으면 기록을 지운다
+    return json({ ok: true, login_id });
   }
 
   if (path === '/auth/login' && method === 'POST') {
@@ -443,6 +454,38 @@ async function handleApi(request, env, url) {
   return json({ ok: false, error: 'not found', path: url.pathname, method }, 404);
 }
 
+/* 정적 파일에 보안 헤더를 붙인다.
+   CSP 는 인라인 스크립트를 막지는 못한다 — 화면 곳곳이 onclick="ROWAR.x()" 라
+   'unsafe-inline' 없이는 게임이 안 돈다. 그래도 붙이는 값은 다음을 막아 준다.
+     connect-src 'self'  스크립트가 끼어들어도 **다른 서버로 보낼 수 없다**
+                         (세션 토큰이 localStorage 에 있으므로 이게 핵심이다)
+     default-src 'self'  외부에서 무엇도 불러오지 않는다
+     object-src 'none'   플러그인 삽입을 막는다
+     base-uri 'none'     <base> 로 상대 경로를 통째로 가로채는 것을 막는다
+     frame-ancestors     다른 사이트가 이 게임을 프레임에 넣는 것(클릭재킹)을 막는다 */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "connect-src 'self'",
+  "font-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+function withSecurityHeaders(res) {
+  const h = new Headers(res.headers);
+  h.set('content-security-policy', CSP);
+  h.set('x-content-type-options', 'nosniff');
+  h.set('referrer-policy', 'no-referrer');
+  h.set('x-frame-options', 'DENY');
+  h.set('permissions-policy', 'geolocation=(), camera=(), microphone=(), payment=()');
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -456,7 +499,7 @@ export default {
       }
     }
 
-    return env.ASSETS.fetch(request);
+    return withSecurityHeaders(await env.ASSETS.fetch(request));
   },
 
   /* 주기 작업. wrangler.jsonc 의 triggers.crons 가 부른다.

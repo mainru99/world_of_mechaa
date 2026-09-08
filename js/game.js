@@ -215,7 +215,7 @@ async function scrapPart(u){
   if(worn){ toast('장착 중인 파츠는 분해할 수 없습니다'); return; }
   /* 되돌릴 수 없으므로 한 번 묻는다. 강화한 파츠는 특히 실수하기 쉽다. */
   openModal(`<div class="mhead">파츠 분해 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
-    <div class="pchip"><div class="pn">${p.name} ${rarTag(p)}</div>
+    <div class="pchip"><div class="pn">${esc(p.name)} ${rarTag(p)}</div>
       <div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>
     <div class="hint" style="margin:10px 0;color:var(--bad)">분해하면 되돌릴 수 없습니다.</div>
     <div class="row-btns">
@@ -265,6 +265,14 @@ async function toggleSquad(u){
 
 /* ------------------------------- UI 기본 ------------------------------- */
 let cur='hangar', toastT;
+/* 데이터에서 온 글자를 화면(innerHTML)에 넣을 때는 반드시 이걸 거친다.
+   지금은 서버가 주는 이름이 전부 안전한 모양이지만(닉네임은 GUEST-#### 이나
+   영문·숫자·밑줄 아이디, 파츠 이름은 정해진 목록), 그 전제가 깨지는 순간 화면이 곧
+   실행 통로가 된다. 값을 믿는 대신 넣는 자리에서 막는다. */
+const esc = v => String(v == null ? '' : v)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1600); }
 /* 배경 연출은 body[data-scene] 하나로 갈린다.
    hangar/gacha = 격납고, battle = 야간작전, arena = 콕핏 HUD */
@@ -352,12 +360,12 @@ function renderHangar(){
   const slotsHtml = SLOTS.map(slot=>{ const u=rb.slots[slot]; const p=u&&findPart(u,S.parts);
     return `<div class="slot ${p?'filled':''}" onclick="ROWAR.openSlot('${slot}')">
       <div class="sl">${SLOT_KO[slot]}</div>
-      ${p?`<div class="pn">${p.name}</div><div class="pp">${rarTag(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
+      ${p?`<div class="pn">${esc(p.name)}</div><div class="pp">${rarTag(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
   const invParts = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
   /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
   const inv = invParts.length? invParts.map(p=>`<div class="pchip" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
-      <div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
+      <div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
       <div class="pfoot"><span class="ps" style="color:var(--gold)">클릭 → 강화 (스크랩 ${enhCost(p.enh||0)})</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p))}</button></div></div>`).join('')
@@ -368,7 +376,7 @@ function renderHangar(){
     <div class="panel">
       <div class="hint" style="margin-bottom:8px">기체마다 레벨이 따로 매겨집니다. 새로 뽑은 기체는 Lv.1부터 키웁니다.
         <b>한 번에 데려갈 수 있는 것은 ${SQUAD_MAX}기</b>이고,
-        상대를 잡아 둔 상태에서 편성을 바꾸면 <b>그 상대를 놓칩니다.</b></div>
+        대전 상대를 찾아 둔 상태에서 편성을 바꾸면 <b>그 상대를 놓칩니다.</b></div>
       <div class="roster">${roster}</div></div>
     <div class="panel">
       <div class="detail">
@@ -384,7 +392,7 @@ function renderHangar(){
             ${['hp','atk','def','spd','crit','eva'].map(k=>statBar(k,st[k],
                 k==='hp'?st.hpFull:null, k==='atk'?atkRange(st):null)).join('')}
           </div>
-          <div class="hint" style="margin-top:2px">공격력은 매 타격마다 위 구간 안에서 정해집니다 ·
+          <div class="hint" style="margin-top:2px">공격력은 타격할 때마다 위 구간 안에서 정해집니다 ·
             이 기체의 폭 <b>±${Math.round(st.spread*100)}%</b>${
               st.spread<=.16?' (정밀 — 거의 같은 수로 맞힙니다)'
             : st.spread>=.28?' (고화력 — 크게 흔들립니다)' : ''}</div>
@@ -422,7 +430,7 @@ function openSlot(slot){
   const rows = list.length? list.map(p=>{ const equipped = S.robots.some(r=>Object.values(r.slots).includes(p.uid));
     const onMe = equippedHere===p.uid;
     return `<div class="pchip" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <div><div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${partStatLine(p)}</div>
+      <div><div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${partStatLine(p)}</div>
       ${equipped&&!onMe?`<div class="ps" style="color:var(--bad)">다른 기체 장착중</div>`:''}</div>
       <button class="btn ${onMe?'danger':''}" style="padding:8px 12px;font-size:13px"
         onclick="ROWAR.${onMe?`unequip('${slot}')`:`equip('${slot}','${p.uid}')`}">${onMe?'해제':'장착'}</button>
@@ -477,7 +485,7 @@ function renderGacha(){
         ? `크레딧은 대전·점령지에서 꾸준히 들어옵니다. 대신 <b>기체가 나올 확률이 코어보다 낮고</b>,
            나오더라도 낮은 등급으로 크게 쏠립니다. 코어가 마른 동안 돌리는 창구입니다.`
         : `코어는 대전 승리와 안쪽 점령지에서 조금씩 얻습니다.`}
-        로봇은 ${ROBOT_RARITY.length}등급 ${ROBOT_IDS.length}종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.
+        기체는 ${ROBOT_RARITY.length}등급 ${ROBOT_IDS.length}종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.
         <b>뽑은 파츠는 자동으로 분해되지 않으니</b> 격납고에서 직접 정하세요.</div>
     </div>`;
 }
@@ -519,8 +527,8 @@ function revealCardHtml(res){
   if(res.kind==='core') return `<div class="pchip" style="border-color:var(--acc2)"><div class="pn" style="color:var(--acc2)">코어 +${res.n}</div><div class="ps">뽑기를 한 번 더 돌릴 수 있습니다</div></div>`;
   if(res.kind==='credit') return `<div class="pchip"><div class="pn" style="color:var(--gold)">크레딧 +${fmt(res.cr)}</div><div class="ps">레벨업·정비에 쓰세요</div></div>`;
   if(res.kind==='bust') return `<div class="pchip" style="opacity:.6"><div class="pn" style="color:var(--dim)">꽝</div><div class="ps">아무것도 나오지 않았습니다</div></div>`;
-  if(res.kind==='scrap') return `<div class="pchip"><div class="pn">${res.part.name} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
-  const p=res.part; return `<div class="pchip"><div class="pn">${p.name} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
+  if(res.kind==='scrap') return `<div class="pchip"><div class="pn">${esc(res.part.name)} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
+  const p=res.part; return `<div class="pchip"><div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
 }
 function showReveal(results){
   const best=results.reduce((a,b)=> rankOf(b)>rankOf(a)?b:a, results[0]);
@@ -562,10 +570,10 @@ function renderBattleHome(){
           <div class="rname">${T.name} ${robRarTag(rb.type)} <span class="lv">Lv.${rb.level}</span></div>
           <div class="rrole">${T.role}</div>
           <div style="margin-top:6px;font-weight:800;color:var(--gold)">전투력 ${fmt(power(rb))}</div>
-          <div class="hint">출전 기체는 격납고에서 선택한 로봇입니다.</div>
+          <div class="hint">출전 기체는 격납고에서 고른 기체입니다.</div>
         </div>
       </div>
-      <div class="hint" style="margin-top:10px">상대 로봇 또는 야생 몬스터와 대전합니다. 몬스터는 대전에서만 출현합니다.</div>
+      <div class="hint" style="margin-top:10px">다른 기체나 야생 몬스터를 상대합니다. 몬스터는 대전에서만 나타납니다.</div>
       ${net.state.online ? `<div class="hint" style="margin-top:6px">
         출격비 <b style="color:var(--gold)">${fmt(sortieCost(rb))} 크레딧</b>
         ${S.credits < sortieCost(rb)
@@ -612,13 +620,13 @@ async function renderRank(){
   const r = fresh ? _rankCache : await net.ranking();
   if(r && !r.error){ _rankCache=r; _rankAt=Date.now(); }
   if(!r || r.error){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">순위를 불러오지 못했습니다${r&&r.error?' · '+r.error:''}</div></div>`);
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">순위를 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
     return;
   }
 
   const me=r.me;
   const myRank = me.rank==null ? '집계 중' : me.rank+'위';
-  const when = r.ranked_at ? new Date(r.ranked_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '아직 없음';
+  const when = r.ranked_at ? (d=>`${d.getMonth()+1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`)(new Date(r.ranked_at)) : '아직 없음';
 
   /* 레이팅 숫자는 화면에 내지 않는다. 순위를 정하는 값이지만, 사용자가 볼 것은 순위와
      전적이면 충분하다 — 숫자가 보이면 그 숫자를 올리는 게 목적이 되어 버린다.
@@ -627,7 +635,7 @@ async function renderRank(){
   const rows = r.top.map(t=>`
     <tr class="${t.me?'mine':''}">
       <td class="rk">${t.rank}</td>
-      <td class="nm">${t.nickname}${t.me?' <span class="tag">나</span>':''}</td>
+      <td class="nm">${esc(t.nickname)}${t.me?' <span class="tag">나</span>':''}</td>
       <td class="rt">${wr(t.wins, t.losses)}</td>
       <td class="wl">${t.wins}승 ${t.losses}패</td>
     </tr>`).join('');
@@ -677,7 +685,10 @@ function setPending(o, cost, rescue, tier){
 /* 파밍 자리. 아레나는 크레딧과 순위, 토벌은 스크랩과 파츠를 준다.
    등급이 곧 관문이다 — 비용이 오르고 상대 레벨도 올라간다.
    BOSS 는 내 레벨 +12 라, 잡히기 시작하면 파밍 효율이 가장 좋다. */
-const HUNT_KO = { C:'일반', UC:'정예', R:'희귀', UQ:'초희귀', EP:'전설', BOSS:'보스' };
+/* 토벌 등급 이름. 예전에는 '일반·정예·희귀·초희귀·전설'로 따로 두었는데,
+   같은 등급 코드(C·UC·R·UQ·EP)를 기체는 '커먼·언커먼·레어·유니크·에픽'으로 부르고 있어
+   화면마다 다른 이름이 나왔다. 기체 쪽 이름에서 파생시켜 하나로 맞춘다. */
+const HUNT_KO = { ...Object.fromEntries(ROBOT_RARITY.map(r=>[r.k, r.ko])), BOSS:'보스' };
 /* ── 원정 ──────────────────────────────────────────────
    기체를 얼마간 내보내 두고 재화를 받아 온다. 보낸 기체는 그동안 못 싸운다 —
    편성이 두 기뿐이라 주력을 보내면 대전이 눈에 띄게 불편해진다. 그게 이 기능의 대가다.
@@ -857,7 +868,7 @@ function showOpponent(opp, practice){
       <div class="oppcard">
         <div class="sprite" data-t="${T.rarity}" style="height:120px">${sprite(opp.robot.type,false)}</div>
         <div>
-          <div class="rname">${opp.callsign} ${monster?'<span class="tag monster-tag">몬스터</span>':robRarTag(opp.robot.type)}${
+          <div class="rname">${esc(opp.callsign)} ${monster?'<span class="tag monster-tag">몬스터</span>':robRarTag(opp.robot.type)}${
             opp.kind==='player'?' <span class="tag" style="color:var(--acc2)">플레이어</span>':''}</div>
           <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}</div>
           <div style="margin-top:6px;font-weight:800;color:var(--bad)">전투력 ${fmt(oPow)} <span style="color:var(--dim);font-weight:600">/ 나 ${fmt(myPow)}</span></div>
@@ -1148,7 +1159,7 @@ async function renderTerr(){
   const r = fresh ? _terr : await net.territory('view');
   if(r && !r.error){ _terr=r; _terrAt=Date.now(); }
   if(!r || r.error){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">지도를 불러오지 못했습니다${r&&r.error?' · '+r.error:''}</div></div>`);
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">지도를 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
     return;
   }
   drawTerr(r);
@@ -1174,8 +1185,8 @@ function drawTerr(r){
     const prot = protLeft(s);
     const lock = !!s.locked;
     return `<button class="tnode ${own}${prot?' prot':''}${lock?' locked':''}" onclick="ROWAR.openNode('${n.id}')">
-      <div class="tn-top"><span class="tag rr-${n.rar}">${n.rar==='BOSS'?'보스':n.rar}</span>
-        <b>Lv.${lv}${lv>n.lv?`<em class="up">+${lv-n.lv}</em>`:''}</b></div>
+      <div class="tn-top"><span class="tag rr-${n.rar}">${n.rar==='BOSS'?'보스':(RR[n.rar]||{}).ko||n.rar}</span>
+        <b>Lv.${lv}${lv>n.lv?`<em class="up"> +${lv-n.lv}</em>`:''}</b></div>
       <div class="tn-name">${n.ko}</div>
       <div class="tn-terr"><span>${TE.ko||''}</span>${n.maxRar?`<em>${n.maxRar}↓</em>`:''}</div>
       <div class="tn-pw ${s.pw>myPw*1.05?'hi':(s.pw<myPw*0.8?'lo':'')}">방어 ${fmt(s.pw||0)}</div>
@@ -1183,7 +1194,7 @@ function drawTerr(r){
       <div class="tn-own">${lock?`🔒 Lv.${s.minLv} 필요`
         : prot?`🛡 보호 ${dur(prot)}`
         : s.owner==='me' ? '내 점령지'
-        : (s.owner==='other' ? (s.ownerName||'적') : `방어선 ${s.lines}`)}</div>
+        : (s.owner==='other' ? esc(s.ownerName||'적') : `방어선 ${s.lines}`)}</div>
     </button>`;
   }).join('');
 
@@ -1246,11 +1257,11 @@ function openNode(id){
       <b>${M.name||t}</b><span class="lv">Lv.${lv}</span>
       <i class="${left<=0?'dead':''}">${left<=0?'무너짐':Math.round(left*100)+'%'}</i></div>`;
   }).join('') + (s.owner ? `<div class="tline foe"><span class="ti">${n.mon.length+1}</span>
-      <b>${s.ownerName||'주둔 기체'}</b><span class="lv">주둔</span><i>${
+      <b>${esc(s.ownerName||'주둔 기체')}</b><span class="lv">주둔</span><i>${
         (s.hp&&s.hp[n.mon.length]!=null)?Math.round(s.hp[n.mon.length]*100)+'%':'100%'}</i></div>` : '')
     /* 강행에서만 붙는 겹. 실제로 무엇을 더 만나는지 눌러 보기 전에 보여 준다. */
     + (prot && s.owner==='other' ? `<div class="tline foe raid"><span class="ti">+</span>
-      <b>${s.ownerName||'점령자'}의 편성 ${CONST.SQUAD_MAX}기</b><span class="lv">강행 시</span>
+      <b>${esc(s.ownerName||'점령자')}의 편성 ${CONST.SQUAD_MAX}기</b><span class="lv">강행 시</span>
       <i class="bad">코어 ${CONST.TERR.RAID_CORE}</i></div>` : '');
 
   /* 편성 제한에 걸리는 기체를 미리 보여 준다. 눌러 보고 나서 거절당하면 늦다. */
@@ -1267,14 +1278,14 @@ function openNode(id){
   const poor = S.credits < cost;
   openModal(`<div class="mhead">${n.ko} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="tdet">
-      <div class="tdrow"><span>등급</span><b>${n.rar==='BOSS'?'보스':n.rar} · Lv.${lv}</b>
+      <div class="tdrow"><span>등급</span><b>${n.rar==='BOSS'?'보스':(RR[n.rar]||{}).ko||n.rar} · Lv.${lv}</b>
         ${lv>n.lv?`<i>기본 Lv.${n.lv} + 세계 난이도 ${lv-n.lv}</i>`:''}</div>
       <div class="tdrow"><span>지형</span><b>${TE.ko}</b> <i>${TE.desc||''}</i></div>
       <div class="tdrow"><span>전력</span><b class="${s.pw>myPw*1.05?'bad':''}">방어 ${fmt(s.pw||0)}</b>
         <i>내 최고 ${fmt(myPw)} · ${s.pw>myPw*1.05?'열세':(s.pw<myPw*0.8?'우세':'호각')}</i></div>
       <div class="tdrow"><span>수입</span><b>시간당 크레딧 ${fmt(n.crH)} · 스크랩 ${fmt(n.scH)}${
           n.coreH?` · 코어 ${n.coreH}`:''}</b>
-        <i>${CONST.TERR.INCOME_CAP_H}시간치 = ${fmt(Math.floor(n.crH*CONST.TERR.INCOME_CAP_H))} · ${
+        <i>${CONST.TERR.INCOME_CAP_H}시간을 채우면 크레딧 ${fmt(Math.floor(n.crH*CONST.TERR.INCOME_CAP_H))} · 스크랩 ${
           fmt(Math.floor(n.scH*CONST.TERR.INCOME_CAP_H))}${
           n.coreH?` · 코어 ${Math.floor(n.coreH*CONST.TERR.INCOME_CAP_H)}`:''}</i></div>
       <div class="tdrow"><span>점령 보너스</span><b>크레딧 ${fmt(n.crH*CONST.TERR.CAPTURE_H)} · 스크랩 ${fmt(n.scH*CONST.TERR.CAPTURE_H)}</b></div>
@@ -1288,7 +1299,7 @@ function openNode(id){
     <div class="tmechs">${roster}</div>
     ${lock
       ? `<div class="hint" style="margin-top:10px;color:var(--bad)">🔒 <b>Lv.${n.minLv} 이상</b>이어야 들어갈 수 있습니다.
-          지금 출격 편성의 최고 레벨은 <b>Lv.${myTop}</b> 입니다. 기체를 더 키우세요.</div>`
+          지금 출격 편성의 최고 레벨은 <b>Lv.${myTop}</b>입니다. 기체를 더 키우세요.</div>`
       : mine
       ? `<div class="hint" style="margin-top:10px;color:var(--gold)">이미 내 점령지입니다. 수입은 지도에서 한꺼번에 받습니다.${
           prot?`<br>지금은 <b>보호 중</b>입니다 — ${dur(prot)} 뒤에 풀립니다.`:''}</div>`
@@ -1300,7 +1311,7 @@ function openNode(id){
           ? `<div class="hint" style="margin:10px 0 4px;color:var(--gold)">🛡 점령 직후 <b>보호 중</b> · ${dur(prot)} 남음</div>
              <div class="hint" style="color:var(--bad)">지금 치려면 <b>강행</b>해야 합니다.
                코어 ${CONST.TERR.RAID_CORE}개를 쓰고, 몬스터 뒤에
-               <b>${s.ownerName||'점령자'}의 편성 ${CONST.SQUAD_MAX}기</b>를 더 상대합니다.</div>
+               <b>${esc(s.ownerName||'점령자')}의 편성 ${CONST.SQUAD_MAX}기</b>를 더 상대합니다.</div>
              <button class="btn big ${(poor||S.cores<CONST.TERR.RAID_CORE)?'':'gold'}"
                ${(poor||S.cores<CONST.TERR.RAID_CORE)?'disabled':''} onclick="ROWAR.raidTerr('${id}')"
                style="margin-top:8px">${
@@ -1649,7 +1660,7 @@ function accountScreen(){
   if(!s.guest){
     openModal(`<div class="mhead">계정 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
       <div class="acctbox">
-        <div class="arow"><b>아이디</b><span>${s.loginId}</span></div>
+        <div class="arow"><b>아이디</b><span>${esc(s.loginId)}</span></div>
         <div class="arow"><b>계정 번호</b><span>#${String(s.accountId).padStart(4,'0')}</span></div>
         <p class="hint">다른 기기에서도 이 아이디로 로그인하면 진행 상황이 이어집니다.</p>
         <button class="btn big" style="margin-top:10px" onclick="ROWAR.logout()">로그아웃</button>
@@ -1659,7 +1670,7 @@ function accountScreen(){
 
   openModal(`<div class="mhead">계정 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="acctbox">
-      <p class="hint" style="color:var(--gold)">지금은 <b>게스트 #${String(s.accountId).padStart(4,'0')}</b> 입니다.
+      <p class="hint" style="color:var(--gold)">지금은 <b>게스트 #${String(s.accountId).padStart(4,'0')}</b>입니다.
         진행 상황이 이 브라우저에만 저장되어, 브라우저 데이터를 지우면 계정을 잃습니다.</p>
 
       <div class="asec">
@@ -1711,7 +1722,7 @@ function renderGate(){
   const el=$('#gate-who'); if(!el) return;
   const s=net.state;
   if(!s.online){ el.textContent='오프라인 · 서버에 연결하지 못했습니다'; el.className='gate-who off'; }
-  else if(s.guest){ el.textContent='게스트 #'+String(s.accountId).padStart(4,'0')+' 로 시작합니다'; el.className='gate-who guest'; }
+  else if(s.guest){ el.textContent='게스트 #'+String(s.accountId).padStart(4,'0')+'로 시작합니다'; el.className='gate-who guest'; }
   else { el.textContent=s.loginId+' 님으로 접속했습니다'; el.className='gate-who on'; }
 }
 function openGate(){

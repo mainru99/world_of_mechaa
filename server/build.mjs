@@ -18,6 +18,7 @@ const DIST = join(ROOT, 'dist');
 /* 올릴 것 — 여기에 없는 건 배포되지 않는다. 파일을 추가하면 이 목록도 고칠 것. */
 const INCLUDE = [
   'index.html',
+  '_headers',        // 보안 헤더. Workers Static Assets 가 읽는다 (Worker 코드로는 못 붙인다)
   'style.css',
   'js',
   'data',

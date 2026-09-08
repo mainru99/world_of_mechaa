@@ -92,7 +92,10 @@ export async function ranking(env, accountId) {
       rank, live,                      // live = 캐시가 아니라 지금 센 값
       rank_at: me.rank_at || null,
     },
-    total: stats.count,
+    /* 인원 수는 30분 크론이 세어 둔 값이라, 그 사이 들어온 계정만큼 모자란다.
+       그런데 top 목록은 지금 읽은 것이라 표에 보이는 줄이 더 많아지는 일이 생겼다
+       (표에는 11명이 있는데 '전체 10명'). 적어도 보이는 것보다 작지는 않게 맞춘다. */
+    total: Math.max(stats.count, top.length),
     ranked_at: stats.at || null,
   };
 }

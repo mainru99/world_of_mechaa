@@ -25,9 +25,28 @@ export function mulberry32(a) {
   };
 }
 
-export function makeUnit(name, type, st) {
-  return { name, type, maxhp: st.hp, hp: st.hp, atk: st.atk, def: st.def, spd: st.spd,
-           crit: st.crit, eva: st.eva, sp: 0,
+/* 전술 — 출격 전에 고른 한 수. 전투 규칙 위에 곱해지는 얇은 한 겹이다.
+   여기서 스탯에 미리 반영해 두면 아래 전투 루프는 두 줄만 알면 된다(spGain·taken).
+   모르는 이름이나 빈 값이면 none 이라 **예전과 완전히 같게 돈다.** */
+const TAC = k => (CONST.TACTIC && (CONST.TACTIC[k] || CONST.TACTIC.none)) ||
+                 { sp: 1, taken: 1, eva: 0, atk: 1 };
+
+export function makeUnit(name, type, st, tactic) {
+  const T = TAC(tactic);
+  return { name, type, maxhp: st.hp, hp: st.hp,
+           atk: Math.max(1, Math.round(st.atk * (T.atk != null ? T.atk : 1))),
+           def: st.def, spd: st.spd,
+           crit: st.crit,
+           /* 회피 상한 60% 는 그대로다. 전술로 그 위를 넘지 못한다 */
+           eva: Math.min(0.6, st.eva + (T.eva || 0)),
+           sp: 0,
+           tactic: tactic || 'none',
+           spGain: 30 * (T.sp != null ? T.sp : 1),      // 턴마다 차는 SP
+           taken: T.taken != null ? T.taken : 1,        // 받는 피해 배수 (평타·스킬 모두)
+           /* 스킬로 받는 피해에만 더 걸리는 배수. taken 만으로는 상성이 생기지 않는다 —
+              상대가 무엇을 하든 똑같이 깎기 때문이다. 스킬에만 걸어야 '스킬을 자주 쓰는
+              상대(돌격)를 겨냥한다'는 뜻이 생긴다. */
+           takenSkill: T.takenSkill != null ? T.takenSkill : 1,
            /* 스킬 강화 배수. computeStats 가 넣어 준다. 없으면 1 이라 예전과 같다 */
            skillMul: st.skillMul != null ? st.skillMul : 1,
            spread: st.spread != null ? st.spread : spreadOf(type) };
@@ -46,7 +65,11 @@ export function doHit(A, D, side, dside, ev, rnd, o) {
   const crit = o.alwaysCrit || (!o.noCrit && rnd() < A.crit);
   const pen = o.ignoreDef ? (o.ignoreDef === true ? DEF_PEN : o.ignoreDef) : 0;  // 완전 무시가 아니라 부분 관통
   const m = (o.mult || 1) * (crit ? CRIT_MULT : 1), def = Math.max(0, D.def) * (1 - pen);
-  const dmg = dmgCalc(A.atk, def, rnd, m, A.spread); D.hp = Math.max(0, D.hp - dmg);
+  /* taken 은 **최종 피해**에 건다. 방어력에 걸면 관통 스킬 앞에서 방어 전술이 무력해진다.
+     스킬로 맞은 것이면 takenSkill 이 한 번 더 걸린다(o.skill 은 doSkill 이 넣어 준다). */
+  const tk = (D.taken != null ? D.taken : 1) * (o.skill ? (D.takenSkill != null ? D.takenSkill : 1) : 1);
+  const dmg = Math.max(1, Math.round(dmgCalc(A.atk, def, rnd, m, A.spread) * tk));
+  D.hp = Math.max(0, D.hp - dmg);
   ev.push({ t:'hit', side, dside, miss:false, dmg, crit, thp:D.hp });
   if (o.drain) {
     const hl = Math.max(1, Math.round(dmg * o.drain));
@@ -61,7 +84,7 @@ export function doSkill(A, D, side, dside, ev, rnd) {   // 기체와 몬스터�
   const hits = fx.hits || 1;
   /* 강화한 스킬은 **배수만** 커진다. 타격 수나 판정(관통·확정치명·흡혈)은 그대로다 —
      거기까지 건드리면 강화가 스킬을 다른 스킬로 바꿔 버린다. */
-  const up = { ...fx, mult: (fx.mult || 1) * (A.skillMul || 1) };
+  const up = { ...fx, mult: (fx.mult || 1) * (A.skillMul || 1), skill: true };
   for (let i = 0; i < hits; i++) { if (D.hp <= 0) break; doHit(A, D, side, dside, ev, rnd, up); }
 }
 
@@ -91,7 +114,7 @@ export function simulate(P, E, seed) {
       if (P.hp <= 0 || E.hp <= 0) break;
       g[side] -= 100;
       const A = side === 'P' ? P : E, D = side === 'P' ? E : P, dside = side === 'P' ? 'E' : 'P';
-      A.sp = Math.min(100, A.sp + 30); ev.push({ t:'turn', side, sp:A.sp });
+      A.sp = Math.min(100, A.sp + (A.spGain != null ? A.spGain : 30)); ev.push({ t:'turn', side, sp:A.sp });
       if (A.sp >= 100) { A.sp = 0; doSkill(A, D, side, dside, ev, rnd); }
       else doHit(A, D, side, dside, ev, rnd, {});
     }

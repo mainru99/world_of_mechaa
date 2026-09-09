@@ -299,6 +299,26 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .tag.fx-crt{color:#ffb4ae;border-color:#6b3a3a}
 .tag.fx-drn{color:var(--good);border-color:#2b5c43}
 
+/* ── 전술 지시 ────────────────────────────────────────────
+   상대를 보고 나서 고르는 자리다. '전투 시작' 바로 위에 두어, 누르기 전에 반드시
+   눈이 지나가게 한다. 고른 것은 다음 판에도 그대로 남는다. */
+.tacwrap{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(90,160,255,.04)}
+.tachead{font-size:12px;font-weight:800;color:var(--sub);margin-bottom:8px}
+.tachead small{font-weight:600;color:var(--dim);margin-left:6px}
+.tacrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.btn.tacbtn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 11px;text-align:left;line-height:1.35}
+.btn.tacbtn b{font-size:13px;font-weight:800}
+.btn.tacbtn span{font-size:10px;color:var(--dim);font-weight:600}
+/* 고른 것만 확실히 다르게. 넷 다 비슷해 보이면 고른 줄 모르고 시작한다 */
+.btn.tacbtn.on{border-color:var(--gold);background:rgba(255,210,74,.10)}
+.btn.tacbtn.on b{color:var(--gold)}
+.btn.tacbtn.on span{color:var(--sub)}
+/* 전투 화면에서 양쪽이 무엇을 골랐는지 — 끝나고 보여야 다음 판이 나아진다 */
+.tacmark{font-style:normal;font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;
+  border:1px solid var(--line);color:var(--sub);background:rgba(0,0,0,.25)}
+.tacmark.p{color:var(--acc2);border-color:#2a6b7a}
+.tacmark.e{color:#ffb4ae;border-color:#6b2a3a}
+
 /* ===================== 대문 (타이틀 화면) =====================
    게임 화면이 바로 뜨면 만들다 만 인상을 준다. 한 겹 두어 시작점을 만든다.
    로그인·가입으로 가는 자연스러운 자리이기도 하다. */

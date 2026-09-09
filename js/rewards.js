@@ -149,6 +149,26 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rat
    갖출수록 어느 등급이든 똑같이 버거워져 '등급을 고른다'가 의미를 잃는다.
    토벌은 난이도를 내가 고르는 콘텐츠다 — 세지면 아래 등급이 밭이 되고 위로 올라간다.
    그 올라가는 것이 곧 보상이다. */
+/* 생성 상대의 전술. **시드에서 결정적으로** 고른다 — 사람이 고르는 것이 아니므로
+   서버와 클라가 같은 값을 얻어야 재생이 갈리지 않는다.
+
+   기울기는 상대의 스킬 틀을 따른다(CONST.TACTIC_BIAS). 무작위로 고르면 상대가
+   멍청해 보이고, 고정하면 외워 버린다. 틀에 따라 기울여 두면 플레이어가
+   상대의 스킬 딱지를 보고 '저 녀석은 돌격해 오겠구나' 를 짐작할 수 있다. */
+export function pickTactic(type, rnd) {
+  const B = CONST.TACTIC_BIAS;
+  if (!B || !CONST.TACTIC) return 'none';
+  const t = ROBOT_TYPES[type] || MONSTER_TYPES[type] || {};
+  const fx = (t.skill && t.skill.fx) || {};
+  const key = fx.noMiss ? 'noMiss'
+            : (fx.hits > 1) ? 'multiHit'
+            : fx.ignoreDef ? 'ignoreDef' : 'plain';
+  const w = B[key] || B.plain;
+  if (!w) return 'none';
+  const list = Object.keys(w).filter(k => CONST.TACTIC[k]).map(k => ({ k, w: w[k] }));
+  return list.length ? weighted(list, rnd).k : 'none';
+}
+
 export function makeHuntTarget(tier, myLevel, rnd, uid) {
   const list = MONSTER_BY_RARITY[tier];
   if (!list || !list.length) return null;

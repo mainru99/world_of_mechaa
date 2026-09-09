@@ -18,7 +18,7 @@ import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed } from './breach.js';
 import * as net from './net.js';
 import { rollPull, genPart as _genPart, autoScrapValue, scrapValue, PULL_CUR } from './gacha.js';
-import { makeOpponent as _makeOpponent } from './rewards.js';
+import { makeOpponent as _makeOpponent, pickTactic } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
@@ -664,6 +664,13 @@ function bigPartArt(p){ const c={C:'#8a97b5',R:'#4aa3ff',SR:'#c07bff',SSR:'#ffb0
   return `<div style="width:120px;height:120px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:34px;color:${c};background:radial-gradient(circle at 40% 30%,#233a63,#0c1220);border:2px solid ${c}">${SLOT_KO[p.slot][0]}</div>`; }
 
 /* ------------------------------- 대전 ------------------------------- */
+/* 고른 전술. 판이 바뀌어도 그대로 두어 '늘 쓰는 전술'을 다시 고르지 않아도 되게 한다.
+   기본은 균형(none)이라, 아무것도 건드리지 않으면 예전과 똑같이 싸운다. */
+let _tactic='none';
+function setTactic(k){ if(!CONST.TACTIC || !CONST.TACTIC[k]) return; _tactic=k;
+  document.querySelectorAll('#sc-battle .tacbtn').forEach(b=>b.classList.toggle('on', b.dataset.k===k)); }
+const tacKo = k => (CONST.TACTIC && CONST.TACTIC[k] && CONST.TACTIC[k].ko) || '균형';
+
 let _pendingOpp=null, _battleRobot=null, battleSpeed=1;   // 기본은 등속. 빠르게 보고 싶으면 x2~x8 로 올린다
 function renderBattleHome(){
   const rb=selRobot(), T=ROBOT_TYPES[rb.type];
@@ -991,6 +998,15 @@ function showOpponent(opp, practice){
         : opp.rescue
           ? `<div class="hint" style="margin-top:10px;color:var(--bad)">비상 출격 · 출격비 없음 · 보상은 크레딧만</div>`
           : `<div class="hint" style="margin-top:10px">${opp.tier?`토벌 <b style="color:var(--acc2)">${HUNT_KO[opp.tier]||opp.tier}</b> · `:''}출격비 <b style="color:var(--gold)">${fmt(opp.cost)}</b> 크레딧</div>`}
+      <!-- 전술 — 상대를 보고 나서 고르는, 이 게임의 유일한 전투 개입이다.
+           상대의 전술은 보이지 않는다. 위 스킬 딱지로 짐작하는 것이 이 기능의 재미다. -->
+      <div class="tacwrap">
+        <div class="tachead">전술 지시 <small>상대의 스킬을 보고 고르세요</small></div>
+        <div class="tacrow">${Object.keys(CONST.TACTIC||{}).map(k=>{
+          const T=CONST.TACTIC[k];
+          return `<button class="btn tacbtn${k===_tactic?' on':''}" data-k="${k}" onclick="ROWAR.setTactic('${k}')">
+            <b>${T.ko}</b><span>${T.desc||''}</span></button>`; }).join('')}</div>
+      </div>
       <div class="row-btns" style="margin-top:12px">
         <button class="btn big gold" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작</button>
         <button class="btn ghost" onclick="ROWAR.${practice?'practiceFind':'findMatch'}()">다시 찾기</button>
@@ -1020,10 +1036,13 @@ async function practiceStart(){
   const my=selRobot(); _battleRobot=my;
 
   /* 지금 피로도 그대로 싸운다(전투에 영향이 있으니까). 다만 늘리지는 않는다. */
-  const P=makeUnit(ROBOT_TYPES[my.type].name, my.type, computeStats(my));
-  const E=makeUnit(opp.callsign, opp.robot.type, computeStats(opp.robot, opp.parts));
+  /* 상대 전술은 서버와 **같은 함수·같은 시드 섞기**로 뽑는다. 규칙이 한 곳에만 있어야
+     연습과 실전이 다른 게임이 되지 않는다. */
+  const tacE=pickTactic(opp.robot.type, mulberry32(((opp.seed>>>0) ^ 0x9e3779b9)>>>0));
+  const P=makeUnit(ROBOT_TYPES[my.type].name, my.type, computeStats(my), _tactic);
+  const E=makeUnit(opp.callsign, opp.robot.type, computeStats(opp.robot, opp.parts), tacE);
   const events=simulate(P,E,opp.seed);
-  renderArena(my.type, opp.robot.type, P.name, E.name);
+  renderArena(my.type, opp.robot.type, P.name, E.name, null, _tactic, tacE);
 
   if(rarOf(opp.robot.type)==='BOSS') await bossEntrance();
   const winner = await playBattle(events,P,E);
@@ -1056,7 +1075,7 @@ async function startBattle(){
   if(!net.state.online){ toast('대전은 서버 연결이 필요합니다'); return; }
 
   const my=selRobot(); _battleRobot=my;
-  const r=await net.battleStart();
+  const r=await net.battleStart(_tactic);
   if(!r || r.error){
     /* 미리 잡아 둔 상대는 10분이 지나면 서버가 무효로 돌린다.
        결과 화면에 오래 머물다 '한 판 더'를 누른 경우가 여기 걸린다 — 막다른 길로 두지 않는다. */
@@ -1072,10 +1091,12 @@ async function startBattle(){
      끝나면 applyServerBattle 이 서버가 확정한 값으로 덮어쓴다. */
   if(r.cost){ S.credits=Math.max(0, S.credits-r.cost); renderWallet(); }
 
-  const P=makeUnit(r.nameP, my.type, r.statP);
-  const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE);
+  /* 재생은 **서버가 확정한 전술**로 한다. 내가 고른 값을 그대로 쓰면, 서버가 흰 목록에서
+     떨어뜨렸을 때 화면과 판정이 갈린다. */
+  const P=makeUnit(r.nameP, my.type, r.statP, r.tacticP);
+  const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE, r.tacticE);
   const events=simulate(P,E,r.seed);
-  renderArena(my.type, r.opponent.type, P.name, E.name);
+  renderArena(my.type, r.opponent.type, P.name, E.name, null, r.tacticP, r.tacticE);
 
   /* **재생이 끝날 때까지 기다린다.** 예전에는 여기서 바로 함수가 끝나, 재생이 도는 동안
      전투 시작을 또 누를 수 있었다(문지기가 이미 풀린 뒤라 막지 못한다). */
@@ -1120,7 +1141,10 @@ function battleRewards(win,enemyLv){
 }
 
 /* ---- 대전 아레나 & 재생 ---- */
-function renderArena(pType,eType,pName,eName,label){
+/* 전투가 시작되면 **양쪽 전술을 드러낸다.** 고르기 전에는 숨기고 시작하면 보여 주는 것이
+   핵심이다 — 안 보여 주면 무엇이 통했는지 영영 알 수 없어 다음 판이 나아지지 않는다. */
+function renderArena(pType,eType,pName,eName,label,tacP,tacE){
+  const tac=(t,side)=> (t&&t!=='none') ? `<em class="tacmark ${side}">${tacKo(t)}</em>` : '';
   shield();
   toBattle('arena');                    // 전투 재생 동안만 콕핏 HUD
   $('#sc-battle').innerHTML = `
@@ -1133,9 +1157,9 @@ function renderArena(pType,eType,pName,eName,label){
     </div>
     <div class="arena" id="arena">
       <div class="grid"></div><div class="vs">VS</div>
-      <div class="hpwrap p"><div class="nm"><span>${pName}</span><small id="hpn-p"></small></div>
+      <div class="hpwrap p"><div class="nm"><span>${pName}</span>${tac(tacP,'p')}<small id="hpn-p"></small></div>
         <div class="hpbar" id="hp-p"><i></i></div><div class="spbar" id="sp-p"><i></i></div></div>
-      <div class="hpwrap e"><div class="nm"><small id="hpn-e"></small><span>${eName}</span></div>
+      <div class="hpwrap e"><div class="nm"><small id="hpn-e"></small>${tac(tacE,'e')}<span>${eName}</span></div>
         <div class="hpbar" id="hp-e"><i></i></div><div class="spbar" id="sp-e"><i></i></div></div>
       <div class="fighter left" id="fighter-p">${sprite(pType,true)}</div>
       <div class="fighter right${rarOf(eType)==='BOSS'?' big':''}" id="fighter-e">${sprite(eType,false)}</div>
@@ -1635,6 +1659,7 @@ window.ROWAR = {
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
   practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
+  setTactic,
   sendExped: guard(sendExped), claimExped: guard(claimExped),
   attackTerr: guard(attackTerr, 1000), raidTerr: guard(raidTerr, 1000), claimTerr: guard(claimTerr),
   account:accountScreen, doRegister: guard(doRegister), doLogin: guard(doLogin), logout:doLogout,

@@ -192,9 +192,11 @@ export async function battleFind(opts) {
   const d = r.data || {};
   return { error: d.error || r.error || 'find failed', need: d.need, have: d.have };
 }
-export async function battleStart() {
+export async function battleStart(tactic) {
   if (!state.online) return null;
-  const r = await call('/api/battle/start', { method: 'POST', body: {} });
+  /* 전술은 서버가 흰 목록으로 다시 본다. 여기서 보내는 것은 '고른 값'일 뿐이고,
+     재생에 쓰는 것은 응답이 돌려주는 tacticP 다. */
+  const r = await call('/api/battle/start', { method: 'POST', body: { tactic: tactic || 'none' } });
   if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return r.data; }
   return { error: (r.data && r.data.error) || r.error || 'start failed' };
 }

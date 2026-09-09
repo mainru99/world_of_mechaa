@@ -309,7 +309,9 @@ async function handleApi(request, env, url) {
   if (path === '/battle/start' && method === 'POST') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
-    const r = await startBattle(env, sess.account_id, Date.now());
+    /* 본문으로 전술을 받는다. { tactic:'rush' } 처럼. 없거나 모르는 값이면 균형이다. */
+    let sbody; try { sbody = await request.json(); } catch { sbody = null; }
+    const r = await startBattle(env, sess.account_id, Date.now(), sbody);
     return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 500);
   }
 

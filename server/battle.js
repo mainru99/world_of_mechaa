@@ -12,9 +12,9 @@
  */
 import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
 import { computeStats, power, gainExp, addFat, fatOf, decayFat, sortieCost } from '../js/stats.js';
-import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards } from '../js/rewards.js';
+import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickTactic } from '../js/rewards.js';
 import { registerArena, pickOpponentFromArena, ratingDelta } from './arena.js';
-import { makeUnit, simulate } from '../js/sim.js';
+import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 
 function cryptoRnd() {
   const buf = new Uint32Array(1);
@@ -167,7 +167,12 @@ export async function findMatch(env, accountId, now, opts) {
 
 const PENDING_TTL = 10 * 60 * 1000;   // 상대를 찾아 놓고 10분 넘게 방치하면 무효
 
-export async function startBattle(env, accountId, now) {
+/* 전술은 클라가 고르지만 **믿지 않는다.** 표에 없는 이름이면 균형(none)으로 떨어뜨린다.
+   전술은 재화를 만들지 않으므로 최악의 조작이라 해도 자기 승률을 스스로 낮추는 것뿐이다.
+   그래도 흰 목록으로 받는 이유는, 모르는 값이 시뮬까지 흘러 들어가지 않게 하기 위해서다. */
+const validTactic = t => (typeof t === 'string' && CONST.TACTIC && CONST.TACTIC[t]) ? t : 'none';
+
+export async function startBattle(env, accountId, now, body) {
   const prow = await env.DB.prepare('SELECT pending_match, credits, cores, scrap, wins, losses, rev FROM player WHERE account_id = ?1')
     .bind(accountId).first();
   if (!prow || !prow.pending_match) return { ok: false, status: 400, error: 'no pending match' };
@@ -222,8 +227,15 @@ export async function startBattle(env, accountId, now) {
   /* 사람 상대는 등록 당시 스냅샷의 스탯을 쓴다. 다시 계산하면 그 사이 상대가
      장비를 바꿨을 때 이미 성사된 전투의 입력이 달라진다. */
   const statE = opp.stats || computeStats({ type: opp.type, level: opp.level, fat: 0, slots: opp.slots }, opp.parts);
-  const P = makeUnit(ROBOT_TYPES[me.robot.type].name, me.robot.type, statP);
-  const E = makeUnit(opp.callsign, opp.type, statE);
+  /* 전술 — 내 것은 요청에서 받고, 상대 것은 **시드에서** 뽑는다.
+     상대 전술을 별도 난수(시드를 한 번 섞은 것)로 뽑는 이유는 전투 난수열을 건드리지
+     않기 위해서다. 이 줄이 전투 rnd 를 한 칸 당기면 예전 전투가 전부 다른 결과가 된다.
+     상대 전술은 응답에만 싣고 상대 카드에는 내보내지 않는다 — 미리 보이면
+     가위바위보의 답을 보고 내는 것이 된다. 스킬 딱지로 짐작하는 것이 이 기능의 재미다. */
+  const tacP = validTactic(body && body.tactic);
+  const tacE = pickTactic(opp.type, mulberry32((seed ^ 0x9e3779b9) >>> 0));
+  const P = makeUnit(ROBOT_TYPES[me.robot.type].name, me.robot.type, statP, tacP);
+  const E = makeUnit(opp.callsign, opp.type, statE, tacE);
   const events = simulate(P, E, seed);
   const win = events[events.length - 1].winner === 'P';
 
@@ -306,6 +318,7 @@ export async function startBattle(env, accountId, now) {
   return {
     ok: true,
     seed,                                  // 클라는 이 시드와 아래 스탯으로 같은 전투를 재생한다
+    tacticP: tacP, tacticE: tacE,          // 재생은 **서버가 확정한 전술**로 한다. 클라가 고른 값을 그대로 쓰지 않는다
     statP, statE,
     nameP: ROBOT_TYPES[me.robot.type].name,
     win,

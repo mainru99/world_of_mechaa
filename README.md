@@ -12,6 +12,7 @@
 | [`STATUS.md`](STATUS.md) | **진행 상황** — 한 것 · 남은 것 · 알려진 문제. 이어서 작업할 때 여기부터 |
 | [`BALANCE.md`](BALANCE.md) | 밸런스 작업 지시서 (ChatGPT 담당) |
 | [`SECURITY.md`](SECURITY.md) | 보안 점검 기록 (OWASP Top 10 기준) |
+| [`DESIGN.md`](DESIGN.md) | 게임성 설계 — 상성을 보이게 · 고르게 · 준비하게 (A·B·C) |
 | [`CONTRACT.md`](CONTRACT.md) | ChatGPT ↔ Claude 협업 계약과 변경 기록 |
 | [`server/SETUP_KO.md`](server/SETUP_KO.md) | Cloudflare D1 · Worker 설치와 배포 절차 |
 | [`tools/README.md`](tools/README.md) | 밸런스 측정 도구 |

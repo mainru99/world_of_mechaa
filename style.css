@@ -286,6 +286,18 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .monster-skill{display:flex;flex-direction:column;gap:5px;margin-top:14px;padding:12px 14px;border-left:3px solid var(--bad);background:rgba(255,100,110,.06);border-radius:5px;font-size:13px;line-height:1.5}
 .monster-skill strong{color:#ffb4ae}
 .monster-skill span{color:var(--dim)}
+/* 내 스킬을 상대 것 바로 아래 같은 모양으로 둔다 — 색만 내 쪽(푸른색)으로 뒤집는다.
+   나란히 놓이지 않으면 비교가 안 되고, 비교가 안 되면 전술을 고를 근거가 없다. */
+.my-skill{display:flex;flex-direction:column;gap:5px;margin-top:8px;padding:12px 14px;border-left:3px solid var(--acc);background:rgba(90,160,255,.06);border-radius:5px;font-size:13px;line-height:1.5}
+.my-skill strong{color:var(--acc2)}
+.my-skill span{color:var(--dim)}
+/* 스킬 틀 딱지 — 무엇이 통하고 무엇이 안 통하는지 한눈에 읽히게 한다 */
+.fxrow{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0}
+.tag.fx-hit{color:var(--acc2);border-color:#2a6b7a}
+.tag.fx-nom{color:var(--bad);border-color:#6b2a3a}
+.tag.fx-pen{color:var(--gold);border-color:#5a4a24}
+.tag.fx-crt{color:#ffb4ae;border-color:#6b3a3a}
+.tag.fx-drn{color:var(--good);border-color:#2b5c43}
 
 /* ===================== 대문 (타이틀 화면) =====================
    게임 화면이 바로 뜨면 만들다 만 인상을 준다. 한 겹 두어 시작점을 만든다.

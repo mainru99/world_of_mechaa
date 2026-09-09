@@ -53,6 +53,19 @@ function robRarTag(type){ const k=rarOf(type), r=RR[k];
   if(!r) return `<span class="tag">${k}</span>`;   // 봉인된 BOSS 등급 등, 표에 없는 등급도 죽지 않게
   return `<span class="tag rr-${r.k}">${r.ko}</span>`; }
 
+/* 스킬의 '틀' 을 딱지로 바꾼다. 설명은 문장이라 훑어지지 않는데, 상대를 보고 고르려면
+   무엇이 통하고 무엇이 안 통하는지가 먼저 눈에 들어와야 한다.
+   기체 30종의 스킬은 실제로는 이 다섯 조합뿐이다 — 등급은 같은 틀에 숫자만 키운 것이다. */
+function fxTags(type){
+  const sk=(COMBAT_TYPES[type]||{}).skill, f=(sk&&sk.fx)||{}, t=[];
+  if(f.hits>1)     t.push(['hit', f.hits+'연격']);
+  if(f.noMiss)     t.push(['nom', '회피 불가']);
+  if(f.ignoreDef)  t.push(['pen', '방어 관통']);
+  if(f.alwaysCrit) t.push(['crt', '확정 치명']);
+  if(f.drain)      t.push(['drn', '흡혈']);
+  return t.map(x=>`<span class="tag fx-${x[0]}">${x[1]}</span>`).join(' ');
+}
+
 
 /* ------------------------------- 상태/저장 ------------------------------- */
 const SAVE_KEY = 'rowar.save.v2';   // v1(로봇 3기 체제)은 로스터가 완전히 달라 호환되지 않는다
@@ -473,6 +486,7 @@ function renderHangar(){
 
         <div class="dcard skillcard">
           <b>스킬 · ${T.skill.name}${slv?` <span class="tag" style="color:var(--acc2);border-color:#2a6b7a">+${slv}</span>`:''}</b>
+          <div class="fxrow">${fxTags(rb.type)}</div>
           <p>${T.skill.desc}</p>
           ${slv?`<p style="color:var(--acc2)">강화로 위력 <b>×${skillMul(slv).toFixed(2)}</b></p>`:''}
           ${slv>=skillMax()
@@ -968,7 +982,9 @@ function showOpponent(opp, practice){
         </div>
       </div>
       <div class="oppstats">${['def','eva','spd'].map(cmp).join('')}</div>
-      <div class="monster-skill"><strong>${T.skill.name}</strong><span>${T.skill.desc}</span></div>
+      <div class="monster-skill"><strong>${T.skill.name}</strong> <span class="fxrow">${fxTags(opp.robot.type)}</span><span>${T.skill.desc}</span></div>
+      <!-- 고르는 순간에 둘을 나란히 둔다. 내 스킬을 기억해서 오라고 하면 아무도 안 본다. -->
+      <div class="my-skill"><strong>내 스킬 · ${COMBAT_TYPES[my.type].skill.name}</strong> <span class="fxrow">${fxTags(my.type)}</span><span>${COMBAT_TYPES[my.type].skill.desc}</span></div>
       ${notes.length?`<div class="oppnote">${notes.map(n=>`<div>· ${n}</div>`).join('')}</div>`:''}
       ${practice
         ? '<div class="hint" style="margin-top:10px;color:var(--gold)">연습 대전 · 보상 없음</div>'

@@ -41,7 +41,7 @@ async function loadFighter(env, accountId) {
            || robots.find(r => inSquad(r.id))
            || robots[0];
 
-  const parts = (await env.DB.prepare('SELECT id, uid, slot, stats, enh FROM part WHERE account_id = ?1')
+  const parts = (await env.DB.prepare('SELECT id, uid, slot, name, stats, enh FROM part WHERE account_id = ?1')
     .bind(accountId).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
@@ -50,7 +50,7 @@ async function loadFighter(env, accountId) {
   for (const sl of Object.keys(col)) {
     const p2 = byId.get(row[col[sl]]);
     slots[sl] = p2 ? p2.uid : null;
-    if (p2) used.push({ uid: p2.uid, slot: p2.slot, stats: JSON.parse(p2.stats || '{}'), enh: p2.enh });
+    if (p2) used.push({ uid: p2.uid, slot: p2.slot, name: p2.name, stats: JSON.parse(p2.stats || '{}'), enh: p2.enh });
   }
   return {
     row,

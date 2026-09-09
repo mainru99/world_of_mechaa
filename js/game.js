@@ -11,6 +11,7 @@ import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, 
          TERRITORY, TERRAIN } from '../data/balance.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
 import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs, atkRange,
+         setKeyOf, setCounts, setActive,
          skillCost, skillRate, skillMax, skillMul,
          expNeed, battleExp, lvCost, enhCost,
          computeStats as _computeStats, power as _power } from './stats.js';
@@ -366,10 +367,42 @@ function openModal(html){ shield(); const m=$('#modal'); m.innerHTML=`<div class
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal').innerHTML=''; }
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
+/* 계열 딱지. 계열은 파츠 이름에서 나오므로 이미 가진 파츠에도 그대로 붙는다.
+   이것이 안 보이면 세트는 '우연히 걸리는 것' 이 되어 모으는 재미가 생기지 않는다. */
+function setTag(p){ const k=setKeyOf(p); if(!k) return '';
+  const S=CONST.PART_SET[k]; return `<span class="tag set-${k}">${S.ko}</span>`; }
 /* 강화 단계 — 숫자를 읽지 않아도 한눈에 보이게 테두리를 바꾼다.
    0~4 그대로 · 5~8 조금 두껍게 · 9 이상 은은하게 돈다.
    (최대는 CONST.ENH_MAX. 지금 10 이고, 늘리면 아래 기준도 같이 봐야 한다) */
 const enhClass = p => { const e=p.enh|0; return e>=9?' enh-hi':(e>=5?' enh-mid':''); };
+
+/* 세트 현황 — 몇 개 모았고 무엇이 걸렸는지. 진행 중인 계열까지 보여 준다.
+   '2/4' 를 봐야 '하나만 더 맞추면' 이라는 다음 목표가 생긴다. */
+const BONUS_KO = { hp:'체력', atk:'공격력', def:'방어력', spd:'속도', crit:'치명타', eva:'회피', spread:'공격 구간' };
+/* 세트 보너스는 1.5% · 2.5%p 처럼 소수 자리가 뜻을 갖는다. 반올림해 버리면
+   1.5% 가 '+1%', 2.5%p 가 '+3%p' 로 나와 화면이 값과 다른 말을 한다.
+   소수 첫째 자리까지 적되 .0 은 떼어 '+5%' 처럼 깔끔하게 둔다. */
+const pctText = d => { const t=(Math.abs(d)<10 ? d.toFixed(1) : d.toFixed(0)).replace(/\.0$/,'');
+  return (d>=0?'+':'')+t; };
+function bonusText(b){
+  const out=[];
+  if(b.mul) for(const k in b.mul) out.push(`${BONUS_KO[k]||k} ${pctText((b.mul[k]-1)*100)}%`);
+  if(b.add) for(const k in b.add) out.push(`${BONUS_KO[k]||k} ${pctText(b.add[k]*100)}%p`);
+  return out.join(' · ');
+}
+function setPanel(rb){
+  if(!CONST.PART_SET) return '';
+  const cnt=setCounts(rb, S.parts);
+  const keys=Object.keys(cnt).filter(k=>cnt[k]>0);
+  if(!keys.length) return `<div class="setbox none">세트 없음 <small>같은 계열 파츠를 2개 맞추면 효과가 붙습니다</small></div>`;
+  return `<div class="setbox">${keys.map(k=>{
+    const S2=CONST.PART_SET[k], n=cnt[k];
+    return `<div class="setrow">
+      <span class="tag set-${k}">${S2.ko}</span><b class="setn">${n}/4</b>
+      ${[2,4].map(t=>{ const on=n>=t, b=S2['p'+t];
+        return b?`<span class="setb${on?' on':''}">${t}세트 ${bonusText(b)}</span>`:''; }).join('')}
+    </div>`; }).join('')}</div>`;
+}
 /* 파츠 한 줄. 세 가지를 다르게 보여 준다.
      상승  그대로
      대가  붉게 (−) — 이 파츠를 낄지 말지의 근거
@@ -421,12 +454,12 @@ function renderHangar(){
   const slotsHtml = SLOTS.map(slot=>{ const u=rb.slots[slot]; const p=u&&findPart(u,S.parts);
     return `<div class="slot ${p?'filled':''}${p?enhClass(p):''}" onclick="ROWAR.openSlot('${slot}')">
       <div class="sl">${SLOT_KO[slot]}</div>
-      ${p?`<div class="pn">${esc(p.name)}</div><div class="pp">${rarTag(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
+      ${p?`<div class="pn">${esc(p.name)}</div><div class="pp">${rarTag(p)}${setTag(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
   const invParts = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
   /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
   const inv = invParts.length? invParts.map(p=>`<div class="pchip${enhClass(p)}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
-      <div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
+      <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
       <div class="pfoot"><span class="ps" style="color:var(--gold)">클릭 → 강화 (스크랩 ${enhCost(p.enh||0)})</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p))}</button></div></div>`).join('')
@@ -482,6 +515,7 @@ function renderHangar(){
         <div class="dcard">
           <div class="dh">장착</div>
           <div class="slots">${slotsHtml}</div>
+          ${setPanel(rb)}
         </div>
 
         <div class="dcard skillcard">
@@ -536,7 +570,7 @@ function openSlot(slot){
   const rows = list.length? list.map(p=>{ const equipped = S.robots.some(r=>Object.values(r.slots).includes(p.uid));
     const onMe = equippedHere===p.uid;
     return `<div class="pchip${enhClass(p)}" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <div><div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${partStatLine(p)}</div>
+      <div><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}</div><div class="ps">${partStatLine(p)}</div>
       ${equipped&&!onMe?`<div class="ps" style="color:var(--bad)">다른 기체 장착중</div>`:''}</div>
       <button class="btn ${onMe?'danger':''}" style="padding:8px 12px;font-size:13px"
         onclick="ROWAR.${onMe?`unequip('${slot}')`:`equip('${slot}','${p.uid}')`}">${onMe?'해제':'장착'}</button>
@@ -634,7 +668,7 @@ function revealCardHtml(res){
   if(res.kind==='credit') return `<div class="pchip"><div class="pn" style="color:var(--gold)">크레딧 +${fmt(res.cr)}</div><div class="ps">레벨업·정비에 쓰세요</div></div>`;
   if(res.kind==='bust') return `<div class="pchip" style="opacity:.6"><div class="pn" style="color:var(--dim)">꽝</div><div class="ps">아무것도 나오지 않았습니다</div></div>`;
   if(res.kind==='scrap') return `<div class="pchip"><div class="pn">${esc(res.part.name)} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
-  const p=res.part; return `<div class="pchip${enhClass(p)}"><div class="pn">${esc(p.name)} ${rarTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
+  const p=res.part; return `<div class="pchip${enhClass(p)}"><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
 }
 function showReveal(results){
   const best=results.reduce((a,b)=> rankOf(b)>rankOf(a)?b:a, results[0]);

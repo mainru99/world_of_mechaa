@@ -58,6 +58,36 @@ export function partStat(p) {
   return o;
 }
 
+/* ── 파츠 세트 ────────────────────────────────────────────
+   계열은 파츠 '이름' 에서 나온다. 이름은 이미 DB 에 있고 PART_NAMES 안의 것으로
+   제한되므로, 표만 두면 이미 가진 파츠가 그대로 계열을 얻는다 — 마이그레이션이 없다.
+   같은 이름이 슬롯마다 다른 계열일 수 있으므로 열쇠는 '슬롯|이름' 이다. */
+const SET_BY_NAME = (() => {
+  const m = {}, P = CONST.PART_SET || {};
+  for (const k in P) for (const slot in (P[k].names || {})) m[slot + '|' + P[k].names[slot]] = k;
+  return m;
+})();
+export const setKeyOf = p => (p && SET_BY_NAME[p.slot + '|' + p.name]) || null;
+
+/* 낀 네 칸에서 계열별로 몇 개인지 센다. { assault:2, fortress:1 } 같은 모양 */
+export function setCounts(robot, parts) {
+  const n = {};
+  for (const slot of SLOT_ORDER) {
+    const u = robot.slots && robot.slots[slot]; if (!u) continue;
+    const p = findPart(u, parts || []); if (!p) continue;
+    const k = setKeyOf(p); if (k) n[k] = (n[k] || 0) + 1;
+  }
+  return n;
+}
+/* 실제로 걸린 단계만. 4세트를 채우면 2세트도 함께 걸린다 */
+export function setActive(counts) {
+  const out = [], P = CONST.PART_SET || {};
+  for (const k in counts) { const S = P[k]; if (!S) continue;
+    for (const t of [2, 4]) if (counts[k] >= t && S['p' + t]) out.push({ key: k, ko: S.ko, tier: t, bonus: S['p' + t] });
+  }
+  return out;
+}
+
 export function computeStats(robot, parts) {
   parts = parts || [];
   const T = COMBAT_TYPES[robot.type], lv = robot.level, s = {};
@@ -70,6 +100,14 @@ export function computeStats(robot, parts) {
     const u = robot.slots[slot]; if (!u) continue;
     const p = findPart(u, parts); if (!p) continue;
     const ps = partStat(p); for (const k in ps) s[k] = (s[k] || 0) + ps[k];
+  }
+  /* 세트 보너스는 파츠 합산이 끝난 **뒤에** 곱한다. 먼저 곱하면 파츠를 많이 낀 쪽이
+     세트 이득까지 더 크게 먹어 두 번 보상받는다. 전투 규칙은 건드리지 않는다 —
+     여기서 끝나므로 sim.js 도 서버 코드도 손댈 것이 없다. */
+  s.sets = setCounts(robot, parts);
+  for (const a of setActive(s.sets)) {
+    if (a.bonus.mul) for (const k in a.bonus.mul) s[k] = (s[k] || 0) * a.bonus.mul[k];
+    if (a.bonus.add) for (const k in a.bonus.add) s[k] = (s[k] || 0) + a.bonus.add[k];
   }
   for (const k of ['hp', 'atk', 'def', 'spd']) s[k] = Math.round(s[k]);
   /* 파츠의 대가(SLOT_COST)가 겹치면 스탯이 0 밑으로 내려간다 —

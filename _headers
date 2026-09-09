@@ -18,3 +18,21 @@
   Referrer-Policy: no-referrer
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()
+
+# ── 캐시 ────────────────────────────────────────────────
+# index.html 은 game.js·style.css 에만 ?v= 를 붙인다. 그런데 game.js 가 import 하는
+# 모듈들(stats.js · sim.js · balance.js …)에는 붙는 자리가 없다 — ES 모듈의 import
+# 경로는 정적 문자열이라 배포 때 갈아끼울 수 없다.
+#
+# 그래서 캐시가 오래 남으면 **새 game.js + 옛 stats.js** 조합이 만들어진다.
+# 실제로 로컬에서 재현했다: game.js 는 setActive 를 import 하는데 캐시된 stats.js 에는
+# 그 export 가 없어 게임이 통째로 안 떴다. 배포 직후 재방문자에게 그대로 일어난다.
+#
+# no-cache 는 '쓰지 마라'가 아니라 '쓰기 전에 물어봐라'다. 안 바뀌었으면 304 만
+# 오가므로 전송량은 거의 그대로고, 갈라진 조합이 생기지 않는다.
+/js/*
+  Cache-Control: no-cache
+/data/*
+  Cache-Control: no-cache
+/themes/*
+  Cache-Control: no-cache

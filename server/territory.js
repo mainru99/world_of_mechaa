@@ -236,7 +236,7 @@ async function loadSquad(env, accountId) {
     `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
   if (!robots.length) return null;
-  const parts = (await env.DB.prepare('SELECT id, uid, slot, stats, enh FROM part WHERE account_id = ?1')
+  const parts = (await env.DB.prepare('SELECT id, uid, slot, name, stats, enh FROM part WHERE account_id = ?1')
     .bind(accountId).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
@@ -258,7 +258,7 @@ async function loadSquad(env, accountId) {
     for (const sl of SLOTS) {
       const q = byId.get(row[col[sl]]);
       slots[sl] = q ? q.uid : null;
-      if (q) used.push({ uid: q.uid, slot: q.slot, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
+      if (q) used.push({ uid: q.uid, slot: q.slot, name: q.name, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
     }
     return { row, robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp,
                            fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots }, parts: used };

@@ -319,6 +319,21 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .tacmark.p{color:var(--acc2);border-color:#2a6b7a}
 .tacmark.e{color:#ffb4ae;border-color:#6b2a3a}
 
+/* ── 파츠 세트 ────────────────────────────────────────────
+   계열이 안 보이면 세트는 '우연히 걸리는 것' 이 되어 모을 이유가 생기지 않는다. */
+.tag.set-assault{color:#7bf0ff;border-color:#2a6b7a}
+.tag.set-fortress{color:var(--good);border-color:#2b5c43}
+.tag.set-precision{color:var(--gold);border-color:#5a4a24}
+.setbox{margin-top:10px;padding:9px 11px;border:1px solid var(--line);border-radius:7px;
+  background:rgba(0,0,0,.18);display:flex;flex-direction:column;gap:7px}
+.setbox.none{color:var(--dim);font-size:11px;font-weight:700}
+.setbox.none small{color:var(--dim);font-weight:600;margin-left:4px}
+.setrow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:11px}
+.setn{color:var(--sub);font-weight:800;min-width:26px}
+/* 아직 안 걸린 단계는 흐리게 — '하나만 더' 가 보여야 다음 목표가 생긴다 */
+.setb{padding:1px 7px;border-radius:5px;border:1px dashed var(--line);color:var(--dim);font-weight:600}
+.setb.on{border-style:solid;border-color:#3d4b7a;color:var(--ink);background:rgba(90,160,255,.10)}
+
 /* ===================== 대문 (타이틀 화면) =====================
    게임 화면이 바로 뜨면 만들다 만 인상을 준다. 한 겹 두어 시작점을 만든다.
    로그인·가입으로 가는 자연스러운 자리이기도 하다. */

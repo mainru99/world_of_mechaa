@@ -38,7 +38,7 @@ export async function registerArena(env, accountId, now) {
   if (!robots.length) return null;
   const row = robots.find(r => r.id === p.sel_robot) || robots[0];
 
-  const parts = (await env.DB.prepare('SELECT id, uid, slot, stats, enh FROM part WHERE account_id = ?1')
+  const parts = (await env.DB.prepare('SELECT id, uid, slot, name, stats, enh FROM part WHERE account_id = ?1')
     .bind(accountId).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
 
@@ -46,7 +46,7 @@ export async function registerArena(env, accountId, now) {
   for (const sl of Object.keys(SLOT_COL)) {
     const q = byId.get(row[SLOT_COL[sl]]);
     slots[sl] = q ? q.uid : null;
-    if (q) used.push({ uid: q.uid, slot: q.slot, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
+    if (q) used.push({ uid: q.uid, slot: q.slot, name: q.name, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
   }
 
   const lv = row.level;

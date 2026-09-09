@@ -165,10 +165,15 @@ export const enhCost   = e => (e + 1) * 18;
 /* 스킬 강화 — 비용과 성공 확률. 서버(판정)와 클라(표시)가 같은 함수를 쓴다.
    두 벌로 두면 화면에 적힌 확률과 실제로 굴리는 확률이 갈린다. */
 export const skillMax  = () => CONST.SKILL_UP.max;
-export const skillCost = (lv, robotLevel) => {
+/* 값은 **강화 단계만** 본다. 기체 레벨은 보지 않는다.
+   예전에는 크레딧에 (1 + 기체레벨 × 0.02)를 곱했는데, 그러면 같은 +10 이
+   Lv.1 에서 45,130 · Lv.60 에서 97,338 이었다 — **먼저 강화하고 나중에 키우면 54% 싸다.**
+   육성 순서가 곧 정답이 되어 버리는 구조였다(ChatGPT 가 잡아냈다).
+   배수를 빼고 그만큼을 단계 값(crBase·crLv)으로 옮겼다. */
+export const skillCost = lv => {
   const S = CONST.SKILL_UP;
   return {
-    cr: Math.round((S.crBase + lv * S.crLv) * (1 + (robotLevel || 1) * 0.02)),
+    cr: Math.round(S.crBase + lv * S.crLv),
     sc: Math.round(S.scBase + lv * S.scLv),
   };
 };

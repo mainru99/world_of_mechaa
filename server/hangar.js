@@ -172,7 +172,7 @@ export async function hangarAction(env, acc, body, now) {
     if (!rb) return err(404, 'robot not found');
     const lv = rb.skill_lv | 0;
     if (lv >= skillMax()) return err(400, 'max skill');
-    const c = skillCost(lv, rb.level);
+    const c = skillCost(lv);
     if (p.credits < c.cr) return err(400, 'not enough credits');
     if (p.scrap   < c.sc) return err(400, 'not enough scrap');
 

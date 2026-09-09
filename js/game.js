@@ -465,7 +465,7 @@ function renderHangar(){
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p))}</button></div></div>`).join('')
     : `<div class="empty">보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.</div>`;
   const cost=lvCost(rb.level), fat=fatOf(rb), scost=serviceCost(rb);
-  const slv=rb.skillLv|0, sk=skillCost(slv, rb.level);
+  const slv=rb.skillLv|0, sk=skillCost(slv);
   /* ── 격납고 화면 ──────────────────────────────────────
      넓은 화면에서는 왼쪽에 기체를 크게 세우고(장면), 오른쪽에 정보를 붙인다(도킹).
      좁은 화면에서는 그대로 위아래로 쌓인다 — 레이아웃은 CSS 가 가른다.

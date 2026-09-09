@@ -621,10 +621,22 @@ function writeReport(runs) {
   for (const p of P0) {
     const rs = runs[p.id];
     const tail = rs.map(r => r.snaps.slice(-10));
-    const blocked = mean(rs.map(r => r.P.blocked));
-    const rescued = mean(rs.map(r => r.P.rescued));
-    if (blocked > DAYS * 0.2) issues.push(`**${p.ko}** — 비용을 못 내 막힌 판이 ${r1(blocked)}회. 출격비나 수입 곡선을 볼 것`);
-    if (rescued > DAYS * 0.5) issues.push(`**${p.ko}** — 비상 출격이 ${r1(rescued)}회. 크레딧이 만성적으로 마른다`);
+    /* '막힌 판' 은 평균으로 보면 안 된다 — 분포가 두 봉우리다.
+       실측(집중 30일×50회): 50 run 중 43개가 **0회**인데 나머지가 최대 183회라
+       평균 7.66 · 표준편차 30.32 가 나온다. 평균만 보면 '모두가 조금씩 막힌다' 로 읽히지만
+       실제로는 **대부분은 멀쩡하고 몇 명이 완전히 무너진다.**
+       그래서 평균이 아니라 **몇 %의 run 이 막혔는지**로 판정하고, 평균은 참고로만 적는다.
+       (평균 기준으로 보던 시절, 표본 잡음만으로 경고가 켜졌다 꺼졌다 했다) */
+    const bl = rs.map(r => r.P.blocked), rc = rs.map(r => r.P.rescued);
+    const blocked = mean(bl), rescued = mean(rc);
+    const blShare = bl.filter(x => x > 0).length / bl.length;
+    const rcShare = rc.filter(x => x > 0).length / rc.length;
+    const worst = Math.max(...bl);
+    if (blShare > 0.05)
+      issues.push(`**${p.ko}** — **${Math.round(blShare*100)}%의 run**(${bl.filter(x=>x>0).length}/${bl.length})이 비용을 못 내 막혔다. `
+        + `막힌 run 의 최대 ${worst}회 · 전체 평균 ${r1(blocked)}회. **평균이 아니라 이 비율을 볼 것** — 대부분은 멀쩡하고 몇 명이 무너지는 모양이다`);
+    if (rcShare > 0.10)
+      issues.push(`**${p.ko}** — ${Math.round(rcShare*100)}%의 run 이 비상 출격에 기댔다(평균 ${r1(rescued)}회). 크레딧이 만성적으로 마른다`);
     const cr = mean(tail.map(s => mean(s.map(x => x.credits))));
     const sc = mean(tail.map(s => mean(s.map(x => x.scrap))));
     const co = mean(tail.map(s => mean(s.map(x => x.cores))));

@@ -1,6 +1,7 @@
 import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, CONST } from '../data/balance.js';
 import { computeStats, power, atkRange } from '../js/stats.js';
 import { makeUnit, simulate } from '../js/sim.js';
+import { makeHuntTarget } from '../js/rewards.js';
 const rb=(t,l)=>({uid:'x',type:t,level:l,exp:0,fat:0,slots:{WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}});
 const KS=ROBOT_RARITY.map(r=>r.k);
 const byR={}; for(const k of KS) byR[k]=Object.keys(ROBOT_TYPES).filter(i=>ROBOT_TYPES[i].rarity===k);
@@ -13,11 +14,28 @@ function wr(a,la,b,lb,per=40){ let w=0; for(let s=0;s<per;s++){
   if(ev[ev.length-1].winner==='P') w++; } return w/per; }
 function grpWin(A,la,B,lb,per=16){ let s=0,n=0; for(const a of A) for(const b of B){ s+=wr(a,la,b,lb,per); n++; } return s/n; }
 
+/* 상대 레벨은 실제 토벌이 쓰는 함수에서 그대로 받는다. 여기서 다시 계산하면
+   상한이 어긋난다 — 예전에는 60 으로 잘라 두었는데 실제 makeHuntTarget 은
+   MAXLV + OPP_LV_OVER(= 90)까지 올린다. 그래서 표가 실제와 다른 난이도를 보여 줬다. */
+const huntLv=(k,plv)=>{ const t=makeHuntTarget(k,plv,()=>0,()=>'x'); return t?t.level:plv; };
+
 console.log('== ① 토벌 등급별 승률 (레어 기체 Lv.30 기준) ==');
 console.log('등급\t상대Lv\t승률\t출격비배수');
 for(const k of ['C','UC','R','UQ','EP','BOSS']){
-  const H=CONST.HUNT[k], lv=Math.max(1,Math.min(60,30+H.lv));
+  const H=CONST.HUNT[k], lv=huntLv(k,30);
   console.log(`${k}\t${lv}\t${(grpWin(byR.R,30,MbyR[k],lv)*100).toFixed(0)}%\tx${H.costX}`);
+}
+/* 보스는 만렙에서 만나는 콘텐츠다. Lv.30 줄만 보면 실제로 마주치는 벽을 못 본다 —
+   만렙에게는 상한까지 올라간 Lv.90 보스가 나온다. 여기 기체는 파츠가 없으므로
+   0% 가 정상이다. 장비를 갖춘 승률은 ChatGPT 가 따로 잰다. */
+{
+  /* 이 줄은 나중에 붙였다. 시드를 그냥 쓰면 아래 ②~⑥ 의 난수열이 통째로 밀려
+     예전 기록과 비교할 수 없게 된다(실제로 ③ 이 51.3% → 50.2% 로 움직였다).
+     재고 나서 시드를 되돌린다. */
+  const keep=_sd;
+  const lv=huntLv('BOSS',CONST.MAXLV);
+  console.log(`BOSS\t${lv}\t${(grpWin(byR.R,CONST.MAXLV,MbyR.BOSS,lv)*100).toFixed(0)}%\tx${CONST.HUNT.BOSS.costX}\t← 만렙 Lv.${CONST.MAXLV} 기준 (파츠 없음)`);
+  _sd=keep;
 }
 console.log('\n== ② 한 판 길이 ==');
 let h=0,n=0,turns=0;

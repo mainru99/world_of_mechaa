@@ -88,11 +88,11 @@ export function partLevelValue(myParts, myLevel) {
    왜 이렇게 바꿨는지는 data/balance.js 의 RATING_GEAR 주석에 적었다. */
 export function gearFromRating(rating) {
   const T = CONST.RATING_GEAR;
-  if (!T || !T.length) return { n: 0, rar: 'C', enh: 0 };
+  if (!T || !T.length) return { n: 0, rar: 'C', enh: 0, skillLv: 0 };
   const r = Number.isFinite(rating) ? rating : 1000;   // 모르면 시작 레이팅으로 본다
   let out = T[0];
   for (const row of T) if (r >= row.at) out = row;
-  return { n: out.n, rar: out.rar, enh: out.enh };
+  return { n: out.n, rar: out.rar, enh: out.enh, skillLv: out.skillLv | 0 };
 }
 
 /* 상대 한 명. 몬스터는 파츠를 갖지 않는다.
@@ -104,6 +104,9 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rat
      그 밖에는 레이팅으로 본다. 레이팅 0 이면 장비 없음이 되므로 tools/match.mjs 가
      '맨몸 플레이어'로 쓰는 0 도 그대로 맞는다. */
   const myParts = Array.isArray(rating) ? rating : gearFromRating(rating);
+  /* Generated arena opponents grow their skill with the rating table. Rescue is
+     deliberately +0: a recovery match must not scale up with the player. */
+  const skillLv = forceMonster ? 0 : clamp(myParts.skillLv | 0, 0, CONST.SKILL_UP.max);
   const monster = forceMonster || rnd() < CONST.MONSTER_RATE;
   const type = pickOpponentType(ownedRarities, monster ? MONSTER_BY_RARITY : BY_RARITY, rnd, myLevel);
   const rar = (monster ? MONSTER_TYPES : ROBOT_TYPES)[type].rarity;
@@ -117,7 +120,7 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rat
     /* 몬스터는 파츠를 못 낀다. 내가 낀 만큼을 레벨로 얹어 준다.
        (최대 레벨에서는 더 얹을 자리가 없어 그대로 쉬워진다 — 그건 감수한다) */
     const lv = clamp(level + partLevelValue(myParts, myLevel), 1, oppLvMax());
-    return { kind: 'monster', type, level: lv, parts: [],
+    return { kind: 'monster', type, level: lv, skillLv, parts: [],
              slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null },
              callsign: MONSTER_TYPES[type].name };
   }
@@ -138,7 +141,7 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rat
     p.enh = clamp(q.enh + ri(-1, 1, rnd), 0, 10);
     parts.push(p); slots[p.slot] = p.uid;
   }
-  return { kind: 'robot', type, level, parts, slots,
+  return { kind: 'robot', type, level, skillLv, parts, slots,
            callsign: pick(CALLSIGNS, rnd) + '-' + ri(10, 99, rnd) };
 }
 
@@ -175,7 +178,7 @@ export function makeHuntTarget(tier, myLevel, rnd, uid) {
   const type = pick(list, rnd);
   const off = (CONST.HUNT[tier] || {}).lv || 0;
   const level = clamp(myLevel + off, 1, oppLvMax());
-  return { kind: 'monster', type, level, parts: [],
+  return { kind: 'monster', type, level, skillLv: 0, parts: [],
            slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null },
            callsign: MONSTER_TYPES[type].name };
 }

@@ -11,7 +11,8 @@
  * 시드를 서버가 정하는 이유: 결정적 시뮬이라 시드가 곧 결과다.
  */
 import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
-import { computeStats, power, gainExp, addFat, fatOf, decayFat, sortieCost } from '../js/stats.js';
+import { computeStats, power, gainExp, addFat, fatOf, decayFat,
+         sortieCost, rescueCredits } from '../js/stats.js';
 import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickTactic } from '../js/rewards.js';
 import { registerArena, pickOpponentFromArena, ratingDelta } from './arena.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
@@ -104,7 +105,7 @@ async function preparePending(env, accountId, me, now, credits, opts) {
         json: JSON.stringify({ opp: hopp, seed: hseed, at: now, rescue: false, cost: hcost, mode: 'hunt', tier }),
         cost: hcost, rescue: false, mode: 'hunt', tier,
         opponent: {
-          kind: hopp.kind, type: hopp.type, level: hopp.level, callsign: hopp.callsign,
+          kind: hopp.kind, type: hopp.type, level: hopp.level, skillLv: hopp.skillLv | 0, callsign: hopp.callsign,
           rating: null, name: HT.name, role: HT.role, rarity: HT.rarity,
           skill: HT.skill, parts: hopp.parts, slots: hopp.slots,
         },
@@ -137,7 +138,7 @@ async function preparePending(env, accountId, me, now, credits, opts) {
     cost: rescue ? 0 : cost,
     rescue, mode: 'arena', tier: null,
     opponent: {
-      kind: opp.kind, type: opp.type, level: opp.level, callsign: opp.callsign,
+      kind: opp.kind, type: opp.type, level: opp.level, skillLv: opp.skillLv | 0, callsign: opp.callsign,
       rating: opp.rating ?? null,
       name: T.name, role: T.role, rarity: T.rarity,
       skill: T.skill, parts: opp.parts, slots: opp.slots,
@@ -226,7 +227,8 @@ export async function startBattle(env, accountId, now, body) {
   const statP = computeStats(me.robot, me.parts);
   /* 사람 상대는 등록 당시 스냅샷의 스탯을 쓴다. 다시 계산하면 그 사이 상대가
      장비를 바꿨을 때 이미 성사된 전투의 입력이 달라진다. */
-  const statE = opp.stats || computeStats({ type: opp.type, level: opp.level, fat: 0, slots: opp.slots }, opp.parts);
+  const statE = opp.stats || computeStats({ type: opp.type, level: opp.level, skillLv: opp.skillLv | 0,
+                                            fat: 0, slots: opp.slots }, opp.parts);
   /* 전술 — 내 것은 요청에서 받고, 상대 것은 **시드에서** 뽑는다.
      상대 전술을 별도 난수(시드를 한 번 섞은 것)로 뽑는 이유는 전투 난수열을 건드리지
      않기 위해서다. 이 줄이 전투 rnd 를 한 칸 당기면 예전 전투가 전부 다른 결과가 된다.
@@ -252,7 +254,7 @@ export async function startBattle(env, accountId, now, body) {
      크레딧이 회복되면 조건이 풀려 더 쓸 수 없다 — 그래서 이걸로 파밍할 수는 없다.
      피로도는 정상으로 쌓는다. 무한히 돌릴 수 없어야 한다. */
   if (rescue) rw = { win, sc: 0, core: 0, part: null, expGain: 0, fatAdd: rw.fatAdd,
-                     cr: win ? CONST.RESCUE.crWin : CONST.RESCUE.crLose };
+                     cr: rescueCredits(me.robot, win) };
 
   /* 경험치는 싸운 기체가 받는다. 키우는 과정이 곧 보상이다. */
   const lv = gainExp(me.robot, rw.expGain);
@@ -322,7 +324,8 @@ export async function startBattle(env, accountId, now, body) {
     statP, statE,
     nameP: ROBOT_TYPES[me.robot.type].name,
     win,
-    opponent: { kind: opp.kind, type: opp.type, level: opp.level, callsign: opp.callsign, parts: opp.parts, slots: opp.slots },
+    opponent: { kind: opp.kind, type: opp.type, level: opp.level, skillLv: opp.skillLv | 0,
+                callsign: opp.callsign, parts: opp.parts, slots: opp.slots },
     ratingDelta: delta,
     reward: { cr: rw.cr, sc: rw.sc, core: rw.core, part: rw.part,
               lv: { amt: lv.amt, from: lv.from, to: lv.to }, fat: { add: fatAdd, now: fatOf(me.robot) } },

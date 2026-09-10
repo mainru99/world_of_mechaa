@@ -36,7 +36,8 @@ function run(myK,lv,rarK,enh,n,owned,trials){
     const r=mulberry32(ns());
     const opp=makeOpponent(owned, lv, r, ()=>'u'+(seq++), false, RATING);
     const P=makeUnit('P',t,computeStats(me,k.parts));
-    const E=makeUnit('E',opp.type,computeStats({type:opp.type,level:opp.level,fat:0,slots:opp.slots},opp.parts));
+    const E=makeUnit('E',opp.type,computeStats({type:opp.type,level:opp.level,skillLv:opp.skillLv|0,
+                                                fat:0,slots:opp.slots},opp.parts));
     if(simulate(P,E,ns()).slice(-1)[0].winner==='P') w++;
   }
   return w/(byR[myK].length*trials);

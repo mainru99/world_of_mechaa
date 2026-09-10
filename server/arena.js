@@ -96,6 +96,7 @@ export async function pickOpponentFromArena(env, accountId, myPower) {
     callsign: row.nickname,
     type: snap.type,
     level: snap.level,
+    skillLv: snap.skillLv | 0,
     slots: snap.slots || { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null },
     parts: snap.parts || [],
     stats: snap.stats,          // 스냅샷의 스탯을 그대로 쓴다. 다시 계산하지 않는다

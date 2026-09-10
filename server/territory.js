@@ -85,7 +85,8 @@ export function monsterLine(node, i, lv) {
     const p = genPart(level, rnd, `${node.id}-${i}-${sl}`, DEF_PART[node.rar] || 'C', sl);
     slots[sl] = p.uid; parts.push(p);
   }
-  const st = computeStats({ type, level, fat: 0, slots }, parts);
+  /* Territory defenders stay at skill +0; arena rating growth must not leak here. */
+  const st = computeStats({ type, level, skillLv: 0, fat: 0, slots }, parts);
   return { kind: 'monster', name: M.name, type, level,
            stats: applyTerrain(st, node.terrain) };
 }

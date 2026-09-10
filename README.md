@@ -296,12 +296,13 @@ Lv.1 · 파츠 없음 · 피로도 0 기준(공격은 전역 배율 0.2 적용 �
 | `ATK_SCALE` | 한 판의 길이 |
 | `ROBOT_TYPES[].grow` | 레벨 1 차이의 무게 |
 | `PART_LV` | 파츠가 몬스터에게 얹어 주는 레벨 |
-| `RATING_GEAR` | 아레나 상대의 장비 |
+| `RATING_GEAR` | 아레나 생성 상대의 장비·스킬 계단 |
 | `FAT_MAX` · `FAT_RECOVER_*` | 연전의 대가 |
 | `SKILL_UP` | 스킬 강화 확률·비용·위력 |
+| `RESCUE` | 비상 출격의 출격비 연동 회복 바닥 |
 | `TERRITORY[]` | 지도 12칸의 난이도·해금·수입 |
 
-> 고쳤으면 `node tools/verify.mjs` 와 `node tools/terrcheck.mjs` 를 돌립니다.
+> 고쳤으면 `node tools/verify.mjs`, `node tools/terrcheck.mjs`, `node tools/skill.mjs`를 돌립니다.
 > 며칠치 플레이가 어떻게 달라지는지는 `node tools/play.mjs 30 5` 로 봅니다.
 
 ---

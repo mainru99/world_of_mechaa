@@ -45,6 +45,9 @@ export function fatNextMs(rb, now){
 /* 출격비. 클라는 보여 주고 서버는 실제로 깎는다 — 같은 함수를 쓴다. */
 export const sortieCost = rb =>
   Math.ceil(CONST.SORTIE.base + (rb.level | 0) * CONST.SORTIE.perLv);
+/* 비상 출격 보상은 출격비에 연동한다. 패배해도 다음 정상 출격 한 번은 보장한다. */
+export const rescueCredits = (rb, win) =>
+  Math.ceil(sortieCost(rb) * (win ? CONST.RESCUE.winX : CONST.RESCUE.loseX));
 
 export const serviceCost = rb =>
   Math.ceil(fatOf(rb) * SERVICE_RATE[rarOf(rb.type)] * (1 + rb.level * 0.03));
@@ -150,7 +153,11 @@ export function atkRange(st) {
 const POWER_K = 0.115;
 /* 계산된 스탯 하나로 전투력. 점령전 방어자처럼 robot+parts 원본이 없는 쪽이 쓴다. */
 export function powerOf(s) {
-  const off = s.atk * (1 + s.crit * (CONST.CRIT_MULT - 1)) * s.spd;
+  /* Skill upgrades affect a periodic skill, not every hit. Count only the skill's
+     average share of offense. Old snapshots without skillMul keep the old power. */
+  const sm = Number.isFinite(s.skillMul) ? Math.max(1, s.skillMul) : 1;
+  const skillOff = 1 + CONST.SKILL_POWER_SHARE * (sm - 1);
+  const off = s.atk * (1 + s.crit * (CONST.CRIT_MULT - 1)) * s.spd * skillOff;
   const sur = s.hp * (1 + s.def / 100) / Math.max(0.4, 1 - s.eva);
   return Math.round(Math.sqrt(off * sur) * POWER_K);
 }

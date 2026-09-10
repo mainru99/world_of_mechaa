@@ -13,7 +13,8 @@ function play(myType, myLv, owned, n){
     const rnd=mulberry32(ns());
     const opp=makeOpponent(owned, myLv, rnd, ()=>'u'+(seq++), false, 0);  // 이 시험 플레이어는 파츠가 없다
     const P=makeUnit('P',myType,computeStats(rb(myType,myLv)));
-    const E=makeUnit('E',opp.type,computeStats({type:opp.type,level:opp.level,fat:0,slots:opp.slots},opp.parts));
+    const E=makeUnit('E',opp.type,computeStats({type:opp.type,level:opp.level,skillLv:opp.skillLv|0,
+                                                fat:0,slots:opp.slots},opp.parts));
     const ev=simulate(P,E,ns());
     if(ev[ev.length-1].winner==='P') w++;
   }

@@ -25,13 +25,15 @@
  *     생성 상대가 대부분이라, 초·중반 감각에는 이쪽이 가깝다.
  *   · 세계 평균 전투력(점령전 난이도)은 그 계정의 전투력으로 본다. 혼자 도는
  *     시뮬이라 그것이 가장 보수적인 가정이다.
+ *   · 계정은 스킬 강화를 사지 않는다. 생성 상대는 레이팅 표의 스킬 단계를 쓰므로
+ *     이 결과는 스킬 육성을 무시한 플레이어 쪽에 보수적이다. 비용 자체는 tools/skill.mjs가 잰다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROBOT_TYPES, MONSTER_TYPES, TERRITORY, RARITY, ROBOT_RARITY, ROBOT_RARITY_CR,
          PULL_TABLE, PULL_TABLE_CR, SLOTS, CONST } from '../data/balance.js';
 import { computeStats, power, powerOf, gainExp, addFat, fatOf, decayFat,
-         sortieCost, serviceCost, lvCost, enhCost, findPart } from '../js/stats.js';
+         sortieCost, rescueCredits, serviceCost, lvCost, enhCost, findPart } from '../js/stats.js';
 import { rollPull, genPart, BY_RARITY, PULL_CUR, scrapValue } from '../js/gacha.js';
 import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards } from '../js/rewards.js';
 import { ratingDelta } from '../server/arena.js';
@@ -43,12 +45,17 @@ import { monsterLine, effLevel, unlockedBy } from '../server/territory.js';
    ChatGPT 가 '이 값이면 어떻게 되나'를 파일 수정 없이 재 볼 수 있게 하려는 것이다.
      ROWAR_PART_LV=1,3,7,11   → CONST.PART_LV 를 C,R,SR,SSR 순으로 덮어쓴다
      ROWAR_ATK_SCALE=1.4      → CONST.ATK_SCALE
+     ROWAR_RESCUE_X=2,1       → 비상 출격 승/패 출격비 배수
    CONST 는 객체라 속성 수정이 되고, 모든 모듈이 같은 객체를 본다. */
 if (process.env.ROWAR_PART_LV) {
   const [C, R, SR, SSR] = process.env.ROWAR_PART_LV.split(',').map(Number);
   Object.assign(CONST.PART_LV, { C, R, SR, SSR });
 }
 if (process.env.ROWAR_ATK_SCALE) CONST.ATK_SCALE = Number(process.env.ROWAR_ATK_SCALE);
+if (process.env.ROWAR_RESCUE_X) {
+  const [winX, loseX] = process.env.ROWAR_RESCUE_X.split(',').map(Number);
+  if (Number.isFinite(winX) && Number.isFinite(loseX)) Object.assign(CONST.RESCUE, { winX, loseX });
+}
 
 const DAYS = parseInt(process.argv[2] || '30', 10);
 const RUNS = parseInt(process.argv[3] || '5', 10);   // 같은 정책을 몇 번 돌려 평균낼 것인가
@@ -80,7 +87,7 @@ const uid = () => 'x' + (_uid++).toString(36);
 
 function newAccount(pol, rnd) {
   const type = BY_RARITY.C[Math.floor(rnd() * BY_RARITY.C.length)];
-  const rb = { uid: uid(), type, level: 1, exp: 0, fat: 0, fatAt: 0,
+  const rb = { uid: uid(), type, level: 1, exp: 0, fat: 0, fatAt: 0, skillLv: 0,
                slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null } };
   return { pol, credits: 600, cores: 12, scrap: 30,
            robots: [rb], parts: [], sel: rb.uid, squad: [rb.uid],
@@ -88,7 +95,21 @@ function newAccount(pol, rnd) {
            expd: null,          // { uid, tier, lv, endsAt }
            terr: {},            // nodeId -> { hp, hpAt, takenAt, claimedAt }
            ev: [], pulls: [], firstRar: {}, firstLv: {},
-           blocked: 0, rescued: 0 };
+           blocked: 0, blockedByDay: {}, skipped: 0, skippedByDay: {},
+           rescued: 0, rescuedByDay: {} };
+}
+
+function markBlocked(P, day) {
+  P.blocked++;
+  P.blockedByDay[day] = (P.blockedByDay[day] || 0) + 1;
+}
+function markSkipped(P, day) {
+  P.skipped++;
+  P.skippedByDay[day] = (P.skippedByDay[day] || 0) + 1;
+}
+function markRescued(P, day) {
+  P.rescued++;
+  P.rescuedByDay[day] = (P.rescuedByDay[day] || 0) + 1;
 }
 
 const rbOf   = (P, u) => P.robots.find(r => r.uid === u);
@@ -200,19 +221,22 @@ function fight(P, now, rnd, mode, tier, day) {
      토벌은 사용자가 고른 것이라 구제가 없다 — 못 내면 그냥 못 한다. */
   let rescue = false;
   if (P.credits < cost) {
-    if (mode === 'hunt') { P.blocked++; return null; }
-    rescue = true; P.rescued++;
+    /* The hunt button is disabled in the real UI when unaffordable. A player uses
+       the always-available arena rescue instead of repeatedly clicking a dead action. */
+    if (mode === 'hunt') { markSkipped(P, day); return fight(P, now, rnd, 'arena', null, day); }
+    rescue = true; markRescued(P, day);
   }
   if (!rescue) P.credits -= cost;
 
   const opp = mode === 'hunt'
     ? makeHuntTarget(tier, rb.level, rnd, uid)                       // 내 파츠를 보지 않는다
     : makeOpponent(ownedRars(P), rb.level, rnd, uid, rescue, P.rating);
-  if (!opp) { P.blocked++; return null; }
+  if (!opp) { markBlocked(P, day); return null; }
 
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
   const statP = computeStats(rb, P.parts);
-  const statE = computeStats({ type: opp.type, level: opp.level, fat: 0, slots: opp.slots }, opp.parts);
+  const statE = computeStats({ type: opp.type, level: opp.level, skillLv: opp.skillLv | 0,
+                               fat: 0, slots: opp.slots }, opp.parts);
   const ev = simulate(makeUnit('P', rb.type, statP), makeUnit('E', opp.type, statE), seed);
   const win = ev[ev.length - 1].winner === 'P';
   const hits = ev.reduce((s, e) => s + (e.t === 'hit' ? 1 : 0), 0);
@@ -220,7 +244,7 @@ function fight(P, now, rnd, mode, tier, day) {
   const secs = (hits * 300 + sk * 520 + 700) / 1000 + 12;   // 재생 + 조작
 
   let rw;
-  if (rescue) rw = { win, cr: win ? CONST.RESCUE.crWin : CONST.RESCUE.crLose,
+  if (rescue) rw = { win, cr: rescueCredits(rb, win),
                      sc: 0, core: 0, part: null, expGain: 0, fatAdd: win ? 4 : 8 };
   else if (mode === 'hunt') rw = rollHuntRewards(win, tier, opp.level, rnd, uid);
   else rw = rollBattleRewards(win, opp.level, rnd, uid);
@@ -247,7 +271,7 @@ function fight(P, now, rnd, mode, tier, day) {
               part: rw.part ? rw.part.rarity : null, secs,
               myLv: rb.level, oppLv: opp.level, fat: fatOf(rb), rating: P.rating,
               myPw: Math.round(powerOf(statP)), oppPw: Math.round(powerOf(statE)) });
-  return { win, secs };
+  return { win, secs, mode: rescue ? 'rescue' : mode };
 }
 
 /* ── 점령전 한 칸 ─────────────────────────────────────── */
@@ -257,7 +281,8 @@ function terrAttack(P, node, now, rnd, day, avgPower) {
   const ok = squad.filter(r => rarAllowed(rarOf(r.type), node.maxRar));
   if (!ok.length) return null;
   const cost = Math.ceil(sortieCost(ok[0]) * CONST.TERR.COST_X);
-  if (P.credits < cost) { P.blocked++; return null; }
+  /* Territory being unaffordable closes this optional action, not the whole game. */
+  if (P.credits < cost) { markSkipped(P, day); return null; }
 
   const lv = effLevel(node, avgPower);
   const lines = node.mon.map((_, i) => monsterLine(node, i, lv)).filter(Boolean);
@@ -388,6 +413,24 @@ function huntTier(P) {
   return RARS[P.hTier];
 }
 
+/* 목표 등급의 비용이 부족하면 현재 크레딧으로 갈 수 있는 가장 높은 하위 등급을
+   고른다. 실제 UI는 등급별 버튼을 따로 보여 주므로, 비싼 등급 하나가 잠겼다고
+   토벌 전체를 포기하는 것보다 이 행동이 사람의 선택에 가깝다. 비용 때문에 등급을
+   내렸다면 이전 고등급 전적은 새 난이도 판단에 섞지 않는다. */
+function affordableHuntTier(P, now) {
+  const desired = huntTier(P);
+  const rb = pickFighter(P, now);
+  const base = sortieCost(rb);
+  let idx = RARS.indexOf(desired);
+  while (idx >= 0 && P.credits < Math.ceil(base * CONST.HUNT[RARS[idx]].costX)) idx--;
+  if (idx < 0) return null;
+  if (idx < P.hTier) {
+    P.hTier = idx;
+    P.hRecent = [];
+  }
+  return RARS[idx];
+}
+
 let _npw = {}, _npwAvg = -1;
 function nodePw(node, avgPower) {
   if (_npwAvg !== avgPower) { _npw = {}; _npwAvg = avgPower; }
@@ -426,9 +469,14 @@ function playDay(P, day, dayStart, rnd, avgPower) {
     const acts = Math.round(pol.acts / 2);
     for (let i = 0; i < acts; i++) {
       if (rnd() < pol.huntShare) {
-        const tier = huntTier(P);
-        const r = fight(P, t, rnd, 'hunt', tier, day);
-        if (r) P.hRecent.push(r.win);
+        const tier = affordableHuntTier(P, t);
+        if (tier) {
+          const r = fight(P, t, rnd, 'hunt', tier, day);
+          if (r && r.mode === 'hunt') P.hRecent.push(r.win);
+        } else {
+          markSkipped(P, day);
+          fight(P, t, rnd, 'arena', null, day);
+        }
       } else fight(P, t, rnd, 'arena', null, day);
     }
 
@@ -472,6 +520,16 @@ function runOnce(pol, seed) {
 const mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0;
 const r1 = v => Math.round(v * 10) / 10;
 const csv = rows => rows.map(r => r.join(',')).join('\n') + '\n';
+const dayTail = (total, byDay) => {
+  let streak = 0, longest = 0, blockedDays = 0, worstDay = 0;
+  for (let day = 1; day <= DAYS; day++) {
+    const n = byDay[day] || 0;
+    if (n) { blockedDays++; streak++; longest = Math.max(longest, streak); }
+    else streak = 0;
+    worstDay = Math.max(worstDay, n);
+  }
+  return { total, blockedDays, longest, worstDay };
+};
 
 function main() {
   fs.mkdirSync(OUT, { recursive: true });
@@ -615,28 +673,41 @@ function writeReport(runs) {
   }
   L.push('');
 
+  /* Optional content becoming unaffordable is not a game lock: its UI is disabled and
+     the player can use free arena rescue. Track that skip separately from chronic rescue. */
+  L.push('## 저자원 대응', '');
+  L.push('| 정책 | 선택 콘텐츠 건너뜀 | 비상 출격 이용 | 3일 이상 연속 비상 | 최장 연속일 | 한 run 최대 비상 |');
+  L.push('|---|---:|---:|---:|---:|---:|');
+  for (const p of P0) {
+    const rs = runs[p.id];
+    const skips = rs.map(r => dayTail(r.P.skipped, r.P.skippedByDay));
+    const rescues = rs.map(r => dayTail(r.P.rescued, r.P.rescuedByDay));
+    const skipAny = skips.filter(x => x.total > 0).length;
+    const rescueAny = rescues.filter(x => x.total > 0).length;
+    const chronic = rescues.filter(x => x.longest >= 3).length;
+    L.push(`| ${p.ko} | ${r1(skipAny / rs.length * 100)}% (${skipAny}/${rs.length}) | `
+      + `${r1(rescueAny / rs.length * 100)}% (${rescueAny}/${rs.length}) | `
+      + `${r1(chronic / rs.length * 100)}% (${chronic}/${rs.length}) | `
+      + `${Math.max(...rescues.map(x => x.longest))}일 | ${Math.max(...rescues.map(x => x.total))}회 |`);
+  }
+  L.push('', '토벌·점령을 못 내는 경우는 해당 행동을 건너뛰고 아레나로 전환한다. 연속 3일 이상 비상 출격을 실제 경제 붕괴로 본다.', '');
+
   /* 자동으로 잡히는 이상 — 사람이 표를 다 읽지 않아도 눈에 띄게 한다 */
   L.push('## 자동 점검', '');
   const issues = [];
   for (const p of P0) {
     const rs = runs[p.id];
     const tail = rs.map(r => r.snaps.slice(-10));
-    /* '막힌 판' 은 평균으로 보면 안 된다 — 분포가 두 봉우리다.
-       실측(집중 30일×50회): 50 run 중 43개가 **0회**인데 나머지가 최대 183회라
-       평균 7.66 · 표준편차 30.32 가 나온다. 평균만 보면 '모두가 조금씩 막힌다' 로 읽히지만
-       실제로는 **대부분은 멀쩡하고 몇 명이 완전히 무너진다.**
-       그래서 평균이 아니라 **몇 %의 run 이 막혔는지**로 판정하고, 평균은 참고로만 적는다.
-       (평균 기준으로 보던 시절, 표본 잡음만으로 경고가 켜졌다 꺼졌다 했다) */
-    const bl = rs.map(r => r.P.blocked), rc = rs.map(r => r.P.rescued);
-    const blocked = mean(bl), rescued = mean(rc);
-    const blShare = bl.filter(x => x > 0).length / bl.length;
-    const rcShare = rc.filter(x => x > 0).length / rc.length;
-    const worst = Math.max(...bl);
-    if (blShare > 0.05)
-      issues.push(`**${p.ko}** — **${Math.round(blShare*100)}%의 run**(${bl.filter(x=>x>0).length}/${bl.length})이 비용을 못 내 막혔다. `
-        + `막힌 run 의 최대 ${worst}회 · 전체 평균 ${r1(blocked)}회. **평균이 아니라 이 비율을 볼 것** — 대부분은 멀쩡하고 몇 명이 무너지는 모양이다`);
-    if (rcShare > 0.10)
-      issues.push(`**${p.ko}** — ${Math.round(rcShare*100)}%의 run 이 비상 출격에 기댔다(평균 ${r1(rescued)}회). 크레딧이 만성적으로 마른다`);
+    /* A rescue used once is the floor working. Only a three-day streak is collapse. */
+    const rescues = rs.map(r => dayTail(r.P.rescued, r.P.rescuedByDay));
+    const collapsed = rescues.filter(x => x.longest >= 3);
+    const collapseShare = collapsed.length / rescues.length;
+    if (collapseShare > 0.02)
+      issues.push(`**${p.ko}** — **${r1(collapseShare*100)}%의 run**(${collapsed.length}/${rescues.length})이 3일 이상 연속 비상 출격에 빠졌다. `
+        + `최장 ${Math.max(...collapsed.map(x => x.longest))}일 · 한 run 최대 ${Math.max(...collapsed.map(x => x.total))}회`);
+    const broken = rs.filter(r => r.P.blocked > 0);
+    if (broken.length)
+      issues.push(`**${p.ko}** — ${broken.length}/${rs.length} run에서 상대 생성 실패로 실제 진행이 막혔다`);
     const cr = mean(tail.map(s => mean(s.map(x => x.credits))));
     const sc = mean(tail.map(s => mean(s.map(x => x.scrap))));
     const co = mean(tail.map(s => mean(s.map(x => x.cores))));

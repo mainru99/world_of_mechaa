@@ -824,7 +824,7 @@ async function findMatch(opts){
 
 function setPending(o, cost, rescue, tier){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
-    robot:{ uid:'E', type:o.type, level:o.level, fat:0, slots:o.slots },
+    robot:{ uid:'E', type:o.type, level:o.level, skillLv:o.skillLv|0, fat:0, slots:o.slots },
     parts:o.parts, cost:cost|0, rescue:!!rescue, tier:tier||null } : null;
 }
 
@@ -980,7 +980,7 @@ function makeOpponent(){
      연습 대전이라 서버에 묻지 않고, 랭킹 화면이 받아 둔 값이 있으면 쓴다.
      없으면 시작 레이팅(1000)으로 본다. 규칙은 서버와 같은 함수(js/rewards.js)다. */
   const o=_makeOpponent(owned, my.level, R, ()=>'E'+uid(), false, myRating());
-  const rb={uid:'E'+uid(), type:o.type, level:o.level, slots:o.slots};
+  const rb={uid:'E'+uid(), type:o.type, level:o.level, skillLv:o.skillLv|0, slots:o.slots};
   return {kind:o.kind==='monster'?'monster':'robot', robot:rb, parts:o.parts, callsign:o.callsign};
 }
 /* 상대 카드.

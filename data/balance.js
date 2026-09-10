@@ -77,12 +77,15 @@ export const ROBOT_TYPES = {
     skill:{name:'프리딕션', desc:'0.7배 사격 3회. 모두 확정 치명타(회피는 가능).',
            fx:{mult:0.7,hits:3,alwaysCrit:true}} },
   /* ---- 에픽 ---- */
+  /* EP는 여섯 기의 평균 spd 성장 4.30을 유지하되 base.spd 비율대로 나눈다.
+     모두 4.3이면 Lv.60에서 66~71의 시작 차이가 320~325로 압축되어, 연속 게이지에서
+     ATLAS 70.7% / NEMESIS 30.1%까지 벌어졌다. 이 분배는 총합 25.80으로 성장량은 같다. */
   seraph:{ id:'seraph', name:'SERAPH', rarity:'EP', role:'성역 강습형 · 아크엔젤',
-    base:{hp:897,atk:133,def:101,spd:68,crit:.16,eva:.14}, grow:{hp:59.3,atk:9.1,def:6.9,spd:4.3}, spread:.18,
+    base:{hp:897,atk:133,def:101,spd:68,crit:.16,eva:.14}, grow:{hp:59.3,atk:9.1,def:6.9,spd:4.23}, spread:.18,
     skill:{name:'세이크리드 랜스', desc:'방어력 60% 관통 2.2배. 빗나가지 않고 25%를 흡수한다.',
            fx:{mult:2.2,ignoreDef:true,noMiss:true,drain:.25}} },
   nemesis:{ id:'nemesis', name:'NEMESIS', rarity:'EP', role:'파멸 포격형 · 오버로드',
-    base:{hp:772,atk:133,def:86,spd:71,crit:.22,eva:.12}, grow:{hp:44.6,atk:10.1,def:5.7,spd:4.3}, spread:.28,
+    base:{hp:772,atk:133,def:86,spd:71,crit:.22,eva:.12}, grow:{hp:44.6,atk:10.1,def:5.7,spd:4.42}, spread:.28,
     skill:{name:'카오스 버스트', desc:'적 방어력을 60% 관통하는 1.15배 폭격을 3회.',
            fx:{mult:1.15,hits:3,ignoreDef:true}} },
   /* ---- 세트 02: 같은 등급의 기존 기체를 기준으로 무작위 생성한 고정 스펙 ---- */
@@ -119,11 +122,11 @@ export const ROBOT_TYPES = {
     skill:{name:'보이드 엣지', desc:'2.35배 참격. 준 피해의 35%만큼 체력을 흡수한다.',
            fx:{mult:2.35,drain:0.35}} },
   tyrant:{ id:'tyrant', name:'TYRANT', rarity:'EP', role:'전면 포격형 · 디스트로이어',
-    base:{hp:831,atk:134,def:89,spd:70,crit:0.21,eva:0.12}, grow:{hp:46.7,atk:10.6,def:5.9,spd:4.3}, spread:.3,
+    base:{hp:831,atk:134,def:89,spd:70,crit:0.21,eva:0.12}, grow:{hp:46.7,atk:10.6,def:5.9,spd:4.35}, spread:.3,
     skill:{name:'헬파이어 살보', desc:'적 방어력을 60% 관통하는 1.1배 포격을 3회.',
            fx:{mult:1.1,hits:3,ignoreDef:true}} },
   atlas:{ id:'atlas', name:'ATLAS', rarity:'EP', role:'중장 돌파형 · 타이탄',
-    base:{hp:950,atk:141,def:99,spd:66,crit:0.15,eva:0.13}, grow:{hp:60.5,atk:9.3,def:7,spd:4.3}, spread:.22,
+    base:{hp:950,atk:141,def:99,spd:66,crit:0.15,eva:0.13}, grow:{hp:60.5,atk:9.3,def:7,spd:4.10}, spread:.22,
     skill:{name:'타이탄 크러시', desc:'방어력 60% 관통 2.15배 강타. 빗나가지 않고 25%를 흡수한다.',
            fx:{mult:2.15,ignoreDef:true,noMiss:true,drain:0.25}} },
   /* ---- 세트 03: 3rd.png의 등급별 기체, 기존 등급 기준 무작위 고정 스펙 ---- */
@@ -160,11 +163,11 @@ export const ROBOT_TYPES = {
     skill:{name:'오비탈 포커스', desc:'0.7배 사격 3회. 모두 확정 치명타(회피는 가능).',
            fx:{mult:0.7,hits:3,alwaysCrit:true}} },
   auric:{ id:'auric', name:'AURIC', rarity:'EP', role:'중장 강습형 · 골드 가디언',
-    base:{hp:894,atk:130,def:101,spd:70,crit:0.15,eva:0.15}, grow:{hp:55,atk:8.9,def:6.7,spd:4.3}, spread:.2,
+    base:{hp:894,atk:130,def:101,spd:70,crit:0.15,eva:0.15}, grow:{hp:55,atk:8.9,def:6.7,spd:4.35}, spread:.2,
     skill:{name:'골든 임팩트', desc:'방어력 60% 관통 2.15배 강타. 빗나가지 않고 25%를 흡수한다.',
            fx:{mult:2.15,ignoreDef:true,noMiss:true,drain:0.25}} },
   ignis:{ id:'ignis', name:'IGNIS', rarity:'EP', role:'광익 포격형 · 피닉스',
-    base:{hp:789,atk:139,def:88,spd:70,crit:0.21,eva:0.12}, grow:{hp:47.9,atk:10.6,def:6,spd:4.3}, spread:.29,
+    base:{hp:789,atk:139,def:88,spd:70,crit:0.21,eva:0.12}, grow:{hp:47.9,atk:10.6,def:6,spd:4.35}, spread:.29,
     skill:{name:'이그니스 레인', desc:'적 방어력을 60% 관통하는 1.1배 광익 사격을 3회.',
            fx:{mult:1.1,hits:3,ignoreDef:true}} },
 };
@@ -296,8 +299,8 @@ export const CONST = {
     C:    { costX: 1.0, lv:  -2, crX: 0.65, scX: 1.6, partP: 0.10, coreP: 0    },
     UC:   { costX: 1.4, lv:  -1, crX: 0.70, scX: 2.1, partP: 0.13, coreP: 0    },
     R:    { costX: 2.0, lv:   0, crX: 0.60, scX: 2.8, partP: 0.17, coreP: 0.05 },
-    UQ:   { costX: 3.0, lv:   0, crX: 0.90, scX: 3.6, partP: 0.22, coreP: 0.10 },
-    EP:   { costX: 4.5, lv:   0, crX: 1.35, scX: 4.6, partP: 0.28, coreP: 0.18 },
+    UQ:   { costX: 3.0, lv:   0, crX: 0.70, scX: 3.6, partP: 0.22, coreP: 0.10 },
+    EP:   { costX: 4.5, lv:   0, crX: 1.10, scX: 4.6, partP: 0.28, coreP: 0.18 },
     /* 보스는 최종 벽이다. 플레이어보다 30레벨 높게 등장하고 위의 보스 전용 성장 곡선을 쓴다.
        실측: EP Lv.60 + SR 4개 +3강은 0%, SSR 4개 +10강은 평균 23% 승리한다. */
     BOSS: { costX: 8.0, lv:  30, crX: 2.25, scX: 7.0, partP: 0.45, coreP: 0.35 },

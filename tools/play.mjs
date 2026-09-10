@@ -221,8 +221,8 @@ function fight(P, now, rnd, mode, tier, day) {
      토벌은 사용자가 고른 것이라 구제가 없다 — 못 내면 그냥 못 한다. */
   let rescue = false;
   if (P.credits < cost) {
-    /* The hunt button is disabled in the real UI when unaffordable. A player uses
-       the always-available arena rescue instead of repeatedly clicking a dead action. */
+    /* 실제 UI는 감당 못 하는 토벌 버튼을 비활성화한다. 여기까지 왔다면 하위 등급도
+       고를 수 없는 예외 상황이므로, 잠긴 버튼을 반복 클릭하지 않고 아레나로 간다. */
     if (mode === 'hunt') { markSkipped(P, day); return fight(P, now, rnd, 'arena', null, day); }
     rescue = true; markRescued(P, day);
   }
@@ -281,7 +281,7 @@ function terrAttack(P, node, now, rnd, day, avgPower) {
   const ok = squad.filter(r => rarAllowed(rarOf(r.type), node.maxRar));
   if (!ok.length) return null;
   const cost = Math.ceil(sortieCost(ok[0]) * CONST.TERR.COST_X);
-  /* Territory being unaffordable closes this optional action, not the whole game. */
+  /* 점령 비용 부족은 선택 행동 하나가 닫힌 것이지 게임 전체가 막힌 것이 아니다. */
   if (P.credits < cost) { markSkipped(P, day); return null; }
 
   const lv = effLevel(node, avgPower);
@@ -673,8 +673,7 @@ function writeReport(runs) {
   }
   L.push('');
 
-  /* Optional content becoming unaffordable is not a game lock: its UI is disabled and
-     the player can use free arena rescue. Track that skip separately from chronic rescue. */
+  /* 선택 콘텐츠의 비용 부족은 게임 잠금이 아니다. 건너뜀과 만성 비상 출격을 분리한다. */
   L.push('## 저자원 대응', '');
   L.push('| 정책 | 선택 콘텐츠 건너뜀 | 비상 출격 이용 | 3일 이상 연속 비상 | 최장 연속일 | 한 run 최대 비상 |');
   L.push('|---|---:|---:|---:|---:|---:|');
@@ -690,7 +689,7 @@ function writeReport(runs) {
       + `${r1(chronic / rs.length * 100)}% (${chronic}/${rs.length}) | `
       + `${Math.max(...rescues.map(x => x.longest))}일 | ${Math.max(...rescues.map(x => x.total))}회 |`);
   }
-  L.push('', '토벌·점령을 못 내는 경우는 해당 행동을 건너뛰고 아레나로 전환한다. 연속 3일 이상 비상 출격을 실제 경제 붕괴로 본다.', '');
+  L.push('', '토벌은 살 수 있는 가장 높은 하위 등급을 고르고, C급도 감당할 수 없을 때만 아레나로 전환한다. 점령 비용 부족은 그 선택 행동만 건너뛴다. 연속 3일 이상 비상 출격을 실제 경제 붕괴로 본다.', '');
 
   /* 자동으로 잡히는 이상 — 사람이 표를 다 읽지 않아도 눈에 띄게 한다 */
   L.push('## 자동 점검', '');
@@ -698,7 +697,7 @@ function writeReport(runs) {
   for (const p of P0) {
     const rs = runs[p.id];
     const tail = rs.map(r => r.snaps.slice(-10));
-    /* A rescue used once is the floor working. Only a three-day streak is collapse. */
+    /* 비상 출격 한 번은 회복 장치가 작동한 것이다. 사흘 연속일 때만 붕괴로 본다. */
     const rescues = rs.map(r => dayTail(r.P.rescued, r.P.rescuedByDay));
     const collapsed = rescues.filter(x => x.longest >= 3);
     const collapseShare = collapsed.length / rescues.length;

@@ -665,6 +665,37 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   .ticker .off{color:var(--dim)}
 }
 
+/* ── 대전 홈 ───────────────────────────────────────────────
+   좁은 화면에서는 한 줄 격자라 예전처럼 위아래로 쌓이고,
+   900px 이상에서 왼쪽 '내 기체' + 오른쪽 '출격' 두 단이 된다. */
+.bh{display:grid;gap:14px}
+.bh > .panel{margin-bottom:0}
+.bh .dh{font-size:11px;letter-spacing:.14em;color:var(--dim);font-weight:800;margin-bottom:9px}
+.bh-pw{margin-top:6px;font-weight:800;color:var(--gold)}
+.bh-me .oppcard{align-items:flex-start}
+.bh-stats{margin-top:12px}
+.bh-pool{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.bh-pool li{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:11px;
+  background:rgba(13,20,36,.62);border:1px solid rgba(120,150,210,.18)}
+.bh-pool b{font-size:13px;font-weight:800}
+.bh-pool span{font-size:11px;color:var(--dim);font-weight:600;line-height:1.5}
+.bh-rows{margin-top:13px}
+.bh-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:9px 2px;border-bottom:1px solid rgba(120,150,210,.12);font-size:13px}
+.bh-row:last-child{border-bottom:0}
+.bh-row > span{color:var(--sub);font-weight:700}
+.bh-row > b{font-weight:800;font-variant-numeric:tabular-nums}
+.bh-go .btn.big{margin-top:14px}
+
+@media (min-width:900px){
+  /* 오른쪽 단은 폭을 고정한다 — 늘어나면 '출격비 ...... 21 크레딧' 처럼 벌어진다 */
+  .bh{grid-template-columns:minmax(0,1fr) 372px;align-items:start}
+  /* 능력치 여섯 줄을 두 줄씩 세 단으로 접어 왼쪽 폭을 실제로 쓴다 */
+  .bh-stats{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+  .bh-me .oppcard .sprite{width:132px;height:132px !important}
+  .bh-go{position:sticky;top:0}
+}
+
 /* ── 격납고 디오라마 ───────────────────────────────────────
    좁은 화면에서는 위아래로 쌓이고, 넓으면 왼쪽 장면 + 오른쪽 도킹 패널이 된다. */
 .hg{display:grid;gap:14px;margin-bottom:14px}

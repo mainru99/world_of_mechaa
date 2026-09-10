@@ -706,36 +706,67 @@ function setTactic(k){ if(!CONST.TACTIC || !CONST.TACTIC[k]) return; _tactic=k;
 const tacKo = k => (CONST.TACTIC && CONST.TACTIC[k] && CONST.TACTIC[k].ko) || '균형';
 
 let _pendingOpp=null, _battleRobot=null, battleSpeed=1;   // 기본은 등속. 빠르게 보고 싶으면 x2~x8 로 올린다
+/* 대전 홈 — 넓은 화면에서는 '내 기체'(왼쪽)와 '출격'(오른쪽) 두 단이다.
+
+   예전에는 한 단으로만 쌓았다. 모바일에서는 그게 맞지만 데스크톱에서는 1,000px 짜리
+   판 왼쪽에 글과 버튼이 몰리고 오른쪽 절반이 비었다. 게다가 이 화면이 알려 주는 것이
+   이름·역할·전투력뿐이라, 정작 '무엇을 들고 나가는가'를 보려면 격납고로 돌아가야 했다.
+
+   그래서 왼쪽에는 출전 기체의 능력치와 스킬을 그대로 펴 놓는다 — 상대 발견 화면이
+   상대의 방어·회피·속도를 보여 주므로, 고르기 전에 내 쪽 숫자가 같은 자리에 있어야
+   견줄 수 있다. 오른쪽에는 '누구를 만나는가'와 '얼마가 드는가'만 남기고 버튼을 붙인다.
+
+   DOM 은 한 벌이다. 900px 미만에서는 .bh 가 한 줄 격자라 예전처럼 위아래로 쌓인다. */
 function renderBattleHome(){
-  const rb=selRobot(), T=ROBOT_TYPES[rb.type];
+  const rb=selRobot(), T=ROBOT_TYPES[rb.type], st=computeStats(rb);
+  const cost=sortieCost(rb), poor=S.credits<cost, on=net.state.online;
+
+  /* 상대 풀 — 서버가 실제로 고르는 순서 그대로다(server/battle.js).
+     사람이 먼저고, 맞는 사람이 없을 때만 생성 상대로 넘어간다. */
+  const pool = `
+    <div class="dh">상대 풀</div>
+    <ul class="bh-pool">
+      <li><b>다른 플레이어</b><span>격납고에 등록된 방어 기체 · 전투력 ±15% 안에서 찾습니다</span></li>
+      <li><b>야생 몬스터</b><span>대전에서만 나타납니다 · 레이팅이 걸리지 않습니다</span></li>
+      <li><b>훈련 기체</b><span>맞는 사람 상대가 없을 때 · 내 레이팅에 맞춰 장비를 갖춥니다</span></li>
+    </ul>`;
+
   $('#sc-battle').innerHTML = `
     <h2 class="title">대전 · 상대 찾기</h2>
-    <div class="panel">
-      <div class="oppcard">
-        <div class="sprite" data-t="${T.rarity}" style="height:120px">${sprite(rb.type,false)}</div>
-        <div>
-          <div class="rname">${T.name} ${robRarTag(rb.type)} <span class="lv">Lv.${rb.level}</span></div>
-          <div class="rrole">${T.role}</div>
-          <div style="margin-top:6px;font-weight:800;color:var(--gold)">전투력 ${fmt(power(rb))}</div>
-          <div class="hint">출전 기체는 격납고에서 고른 기체입니다.</div>
+    <div class="bh">
+      <div class="panel bh-me">
+        <div class="dh">출전 기체</div>
+        <div class="oppcard">
+          <div class="sprite" data-t="${T.rarity}" style="height:120px">${sprite(rb.type,false)}</div>
+          <div>
+            <div class="rname">${T.name} ${robRarTag(rb.type)} <span class="lv">Lv.${rb.level}</span></div>
+            <div class="rrole">${T.role}</div>
+            <div class="bh-pw">전투력 ${fmt(power(rb))}</div>
+            <div class="hint">격납고에서 고른 기체가 그대로 나갑니다</div>
+          </div>
         </div>
+        <div class="bh-stats">${['spd','atk','def','hp','crit','eva'].map(k=>statBar(k,st[k],
+            k==='hp'?st.hpFull:null, k==='atk'?atkRange(st):null)).join('')}</div>
+        <div class="my-skill"><strong>${T.skill.name}</strong>
+          <span class="fxrow">${fxTags(rb.type)}</span><span>${T.skill.desc}</span></div>
       </div>
-      <div class="hint" style="margin-top:10px">다른 기체나 야생 몬스터를 상대합니다. 몬스터는 대전에서만 나타납니다.</div>
-      ${net.state.online ? `<div class="hint" style="margin-top:6px">
-        출격비 <b style="color:var(--gold)">${fmt(sortieCost(rb))} 크레딧</b>
-        ${S.credits < sortieCost(rb)
-          ? ` · <b style="color:var(--bad)">크레딧이 모자라 비상 출격으로 나갑니다</b>(보상은 크레딧만)`
-          : ''}</div>` : ''}
-      ${net.state.online
-        ? `<button class="btn big" style="margin-top:12px" onclick="ROWAR.findMatch()">상대 찾기</button>`
-        : `<button class="btn big" style="margin-top:12px" onclick="ROWAR.practiceFind()">연습 대전</button>
-           <div class="hint" style="margin-top:8px">
-             서버에 연결되지 않았습니다. <b>연습 대전</b>은 지금 편성으로 싸워 볼 수 있지만
-             <b style="color:var(--bad)">아무것도 얻지 못합니다</b> — 경험치·크레딧·파츠·전적이 움직이지 않습니다.
-             승패와 보상은 서버만 판정합니다.
-           </div>`}
-      <div class="hint" style="margin-top:8px">전적 · ${S.stat.wins}승 ${S.stat.losses}패
-        <span style="color:var(--dim)"> · 상대와 승패는 서버가 정합니다</span></div>
+
+      <div class="panel bh-go">
+        ${on ? pool : `<div class="dh">연습 대전</div>
+          <div class="hint">서버에 연결되지 않았습니다. 지금 편성으로 싸워 볼 수 있지만
+            <b style="color:var(--bad)">아무것도 얻지 못합니다</b> — 경험치·크레딧·파츠·전적이
+            움직이지 않습니다. 승패와 보상은 서버만 판정합니다.</div>`}
+        <div class="bh-rows">
+          ${on ? `<div class="bh-row"><span>출격비</span><b style="color:var(--gold)">${fmt(cost)} 크레딧</b></div>
+                  <div class="bh-row"><span>보유 크레딧</span><b${poor?' style="color:var(--bad)"':''}>${fmt(S.credits)}</b></div>` : ''}
+          <div class="bh-row"><span>전적</span><b>${S.stat.wins}승 ${S.stat.losses}패</b></div>
+        </div>
+        ${on && poor ? `<div class="hint" style="margin-top:8px;color:var(--bad)">
+          크레딧이 모자라 <b>비상 출격</b>으로 나갑니다 — 출격비가 없는 대신 보상은 크레딧만입니다.</div>` : ''}
+        <button class="btn big${on?' gold':''}" onclick="ROWAR.${on?'findMatch':'practiceFind'}()">
+          ${on?'상대 찾기':'연습 대전'}</button>
+        ${on ? `<div class="hint" style="margin-top:8px">상대와 승패는 서버가 정합니다</div>` : ''}
+      </div>
     </div>`;
 }
 /* ------------------------------- 랭킹 ------------------------------- */

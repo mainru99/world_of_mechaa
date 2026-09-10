@@ -876,3 +876,93 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .skrow{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0;color:var(--sub)}
 .skrow b{color:var(--ink);font-variant-numeric:tabular-nums}
 .skrow b.bad{color:var(--bad)}
+
+/* ---- 기계식 코어 캡슐 무대 · 대기 → 충전 → 개방 ---- */
+.gacha-stage{--gc:#75ecff;--gc-rgb:117,236,255;height:300px;isolation:isolate;
+  background:
+    radial-gradient(ellipse at 50% 48%,rgba(var(--gc-rgb),.15),transparent 34%),
+    linear-gradient(160deg,#111d37 0%,#08101e 52%,#050914 100%);
+  border-color:#2a426d;box-shadow:inset 0 0 60px rgba(0,0,0,.7),0 12px 35px rgba(0,0,0,.2)}
+.gacha-stage.credit{--gc:#ffd166;--gc-rgb:255,209,102}
+.gacha-stage:before,.gacha-stage:after{content:"";position:absolute;pointer-events:none;z-index:1}
+.gacha-stage:before{inset:0;background:linear-gradient(115deg,transparent 16%,rgba(255,255,255,.055) 17%,transparent 28%)}
+.gacha-stage:after{left:10%;right:10%;bottom:22px;height:46px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(var(--gc-rgb),.22),transparent 70%);filter:blur(10px)}
+.gacha-grid{position:absolute;inset:0;opacity:.28;background:
+  linear-gradient(rgba(var(--gc-rgb),.1) 1px,transparent 1px) 0 0/100% 28px,
+  linear-gradient(90deg,rgba(var(--gc-rgb),.08) 1px,transparent 1px) 0 0/28px 100%;
+  mask-image:linear-gradient(to bottom,transparent,#000 24%,#000 80%,transparent)}
+.gacha-beam{position:absolute;top:-45%;bottom:-45%;width:18%;left:41%;opacity:.1;
+  background:linear-gradient(90deg,transparent,var(--gc),transparent);filter:blur(12px);transform-origin:50% 50%;z-index:0}
+.beam-a{transform:rotate(24deg)}.beam-b{transform:rotate(-24deg)}
+.gacha-orbit{position:absolute;left:50%;top:48%;border:1px solid rgba(var(--gc-rgb),.28);border-radius:50%;z-index:1;
+  box-shadow:0 0 18px rgba(var(--gc-rgb),.08) inset;transform:translate(-50%,-50%) rotateX(70deg)}
+.orbit-a{width:300px;height:300px;animation:gachaOrbit 11s linear infinite}
+.orbit-b{width:225px;height:225px;border-style:dashed;animation:gachaOrbitBack 8s linear infinite}
+.capsule-rig{position:relative;width:205px;aspect-ratio:1;z-index:4;filter:drop-shadow(0 18px 15px rgba(0,0,0,.58));
+  animation:capsuleHover 3.2s ease-in-out infinite;will-change:transform}
+.capsule-half{position:absolute;inset:0;z-index:4;transition:transform .62s cubic-bezier(.2,.8,.2,1),filter .35s ease}
+.capsule-half img{width:100%;height:100%;object-fit:contain;display:block;user-select:none}
+.capsule-top{clip-path:inset(0 0 49.7% 0)}.capsule-bottom{clip-path:inset(49.7% 0 0 0)}
+.capsule-aura{position:absolute;inset:15%;border-radius:50%;z-index:1;
+  background:radial-gradient(circle,rgba(var(--gc-rgb),.46),rgba(var(--gc-rgb),.08) 42%,transparent 68%);
+  filter:blur(15px);animation:capsuleAura 2.2s ease-in-out infinite}
+.capsule-heart{position:absolute;left:50%;top:50%;width:42px;height:42px;z-index:3;transform:translate(-50%,-50%) rotate(45deg) scale(.45);
+  border:2px solid rgba(255,255,255,.85);background:var(--gc);box-shadow:0 0 18px var(--gc),0 0 55px var(--gc);opacity:.35}
+.capsule-heart span{display:block;position:absolute;inset:7px;border:1px solid #fff;background:rgba(255,255,255,.5)}
+.capsule-lock{position:absolute;left:50%;top:50%;width:10px;height:10px;border-radius:2px;z-index:6;
+  transform:translate(-50%,-50%) rotate(45deg);background:#eaffff;box-shadow:0 0 12px 4px var(--gc)}
+.gacha-plinth{position:absolute;left:50%;bottom:27px;width:244px;height:36px;z-index:3;transform:translateX(-50%) perspective(180px) rotateX(58deg);
+  border:1px solid rgba(var(--gc-rgb),.36);border-radius:50%;background:radial-gradient(ellipse,rgba(var(--gc-rgb),.2),#080d19 65%);
+  box-shadow:0 0 20px rgba(var(--gc-rgb),.15),inset 0 0 18px rgba(var(--gc-rgb),.18)}
+.gacha-plinth b{position:absolute;inset:7px;border:1px dashed rgba(var(--gc-rgb),.5);border-radius:50%}
+.gacha-plinth i{position:absolute;top:15px;width:38px;height:4px;background:var(--gc);box-shadow:0 0 10px var(--gc)}
+.gacha-plinth i:first-child{left:26px}.gacha-plinth i:last-child{right:26px}
+.gacha-readout{position:absolute;left:14px;bottom:12px;z-index:6;text-align:left;display:flex;flex-direction:column;gap:2px;letter-spacing:.08em}
+.gacha-readout b{font-size:10px;color:var(--gc);text-shadow:0 0 10px rgba(var(--gc-rgb),.7)}
+.gacha-readout span{font-size:9px;color:#7484a4}
+.gacha-sparks{position:absolute;left:50%;top:49%;z-index:7;width:1px;height:1px;pointer-events:none}
+.gacha-sparks i{position:absolute;width:4px;height:18px;border-radius:4px;background:linear-gradient(#fff,var(--gc),transparent);
+  box-shadow:0 0 8px var(--gc);opacity:0;transform-origin:50% 0;transform:rotate(calc(var(--spark)*25.714deg)) translateY(-32px)}
+
+.gacha-stage.charging .capsule-rig{animation:capsuleCharge .24s ease-in-out infinite}
+.gacha-stage.charging .capsule-aura{animation:capsuleChargeAura .48s ease-in-out infinite alternate}
+.gacha-stage.charging .capsule-lock{animation:capsuleLock .48s ease-in-out infinite alternate}
+.gacha-stage.charging .gacha-readout span:after{content:" · 충전 중";color:var(--gc)}
+.gacha-stage.rolling .capsule-rig{animation:capsuleOverdrive .52s cubic-bezier(.4,0,.15,1)}
+.gacha-stage.rolling .capsule-half{filter:brightness(1.35) saturate(1.25)}
+.gacha-stage.rolling .gacha-orbit{border-color:rgba(var(--gc-rgb),.8);box-shadow:0 0 24px rgba(var(--gc-rgb),.35)}
+.gacha-stage.opening{--gc:var(--prize,#75ecff);--gc-rgb:var(--prize-rgb,117,236,255)}
+.gacha-stage.prize-C{--prize:#aebbd4;--prize-rgb:174,187,212}
+.gacha-stage.prize-R,.gacha-stage.prize-SR{--prize:#55a9ff;--prize-rgb:85,169,255}
+.gacha-stage.prize-UQ{--prize:#be7cff;--prize-rgb:190,124,255}
+.gacha-stage.prize-EP,.gacha-stage.prize-SSR,.gacha-stage.prize-GOLD{--prize:#ffd166;--prize-rgb:255,209,102}
+.gacha-stage.opening .capsule-rig{animation:none;transform:translateY(-4px) scale(1.07)}
+.gacha-stage.opening .capsule-top{transform:translateY(-67px) rotate(-3deg);filter:brightness(1.2)}
+.gacha-stage.opening .capsule-bottom{transform:translateY(67px) rotate(3deg);filter:brightness(.75)}
+.gacha-stage.opening .capsule-heart{animation:gachaCoreReveal .7s cubic-bezier(.15,.8,.2,1) forwards}
+.gacha-stage.opening .capsule-lock{opacity:0}
+.gacha-stage.opening .gacha-sparks i{animation:gachaSpark .65s ease-out forwards;animation-delay:calc(var(--spark)*9ms)}
+.gacha-stage.opening .gacha-readout span:after{content:" · 개방";color:var(--gc)}
+
+@keyframes capsuleHover{0%,100%{transform:translateY(4px) rotate(-1deg)}50%{transform:translateY(-9px) rotate(1deg)}}
+@keyframes capsuleAura{50%{opacity:.55;transform:scale(1.12)}}
+@keyframes capsuleCharge{0%,100%{transform:translate(-1px,-3px) scale(1.01)}50%{transform:translate(2px,-6px) scale(1.035)}}
+@keyframes capsuleChargeAura{to{opacity:1;transform:scale(1.3)}}
+@keyframes capsuleLock{to{transform:translate(-50%,-50%) rotate(135deg) scale(1.45)}}
+@keyframes capsuleOverdrive{0%{transform:scale(1.03) rotate(0)}35%{transform:scale(.92) rotate(-5deg)}70%{transform:scale(1.12) rotate(4deg)}100%{transform:scale(1.06) rotate(0)}}
+@keyframes gachaOrbit{to{transform:translate(-50%,-50%) rotateX(70deg) rotateZ(360deg)}}
+@keyframes gachaOrbitBack{to{transform:translate(-50%,-50%) rotateX(70deg) rotateZ(-360deg)}}
+@keyframes gachaCoreReveal{0%{opacity:.25;transform:translate(-50%,-50%) rotate(45deg) scale(.3)}45%{opacity:1;transform:translate(-50%,-50%) rotate(135deg) scale(2.1)}100%{opacity:.9;transform:translate(-50%,-50%) rotate(225deg) scale(1.15)}}
+@keyframes gachaSpark{0%{opacity:0;transform:rotate(calc(var(--spark)*25.714deg)) translateY(-24px) scaleY(.3)}25%{opacity:1}100%{opacity:0;transform:rotate(calc(var(--spark)*25.714deg)) translateY(-130px) scaleY(1)}}
+
+@media (min-width:900px){.gx .gacha-stage{min-height:420px}.capsule-rig{width:255px}.gacha-plinth{bottom:36px;width:310px}.gacha-readout{left:18px;bottom:16px}}
+@media (max-width:520px){.gacha-stage{height:270px}.capsule-rig{width:185px}.orbit-a{width:250px;height:250px}.orbit-b{width:190px;height:190px}.gacha-plinth{width:220px}}
+@media (prefers-reduced-motion:reduce){
+  .capsule-rig,.capsule-aura,.gacha-orbit{animation:none!important}
+  .gacha-stage.charging .capsule-rig{transform:translateY(-3px) scale(1.025)}
+  .gacha-stage.opening .capsule-top{transform:translateY(-42px)}
+  .gacha-stage.opening .capsule-bottom{transform:translateY(42px)}
+  .gacha-stage.opening .capsule-heart{animation:none;opacity:1;transform:translate(-50%,-50%) rotate(45deg) scale(1.1)}
+  .gacha-stage.opening .gacha-sparks i{animation:none}
+}

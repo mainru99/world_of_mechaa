@@ -585,6 +585,31 @@ function openSlot(slot){
 let gCur = 'core';
 const setGacha = c => { gCur = PULL_CUR[c] ? c : 'core'; renderGacha(); };
 
+function gachaStageHtml(){
+  const core = gCur === 'core';
+  const mode = core ? 'core' : 'credit';
+  const title = core ? 'CORE VAULT' : 'CREDIT VAULT';
+  const state = core ? '코어 동기화 대기' : '크레딧 변환 대기';
+  const sparks = Array.from({length:14},(_,i)=>`<i style="--spark:${i}"></i>`).join('');
+  return `<div class="gacha-stage ${mode}" id="stage" role="img" aria-label="${core?'코어':'크레딧'} 캡슐 대기 중">
+    <div class="gacha-grid" aria-hidden="true"></div>
+    <div class="gacha-beam beam-a" aria-hidden="true"></div>
+    <div class="gacha-beam beam-b" aria-hidden="true"></div>
+    <div class="gacha-orbit orbit-a" aria-hidden="true"></div>
+    <div class="gacha-orbit orbit-b" aria-hidden="true"></div>
+    <div class="capsule-rig" aria-hidden="true">
+      <div class="capsule-aura"></div>
+      <div class="capsule-heart"><span></span></div>
+      <div class="capsule-half capsule-top"><img src="assets/gacha/core-capsule.png" alt="" draggable="false"></div>
+      <div class="capsule-half capsule-bottom"><img src="assets/gacha/core-capsule.png" alt="" draggable="false"></div>
+      <div class="capsule-lock"></div>
+    </div>
+    <div class="gacha-plinth" aria-hidden="true"><i></i><b></b><i></i></div>
+    <div class="gacha-sparks" aria-hidden="true">${sparks}</div>
+    <div class="gacha-readout"><b>${title}</b><span>${state}</span></div>
+  </div>`;
+}
+
 function renderGacha(){
   const C = PULL_CUR[gCur];
   const table = gCur==='credit' ? PULL_TABLE_CR : PULL_TABLE;
@@ -620,7 +645,7 @@ function renderGacha(){
           <button class="gtab ${gCur==='core'?'on':''}"   onclick="ROWAR.setGacha('core')">코어 캡슐<span>코어 ${fmt(S.cores)}</span></button>
           <button class="gtab ${gCur==='credit'?'on':''}" onclick="ROWAR.setGacha('credit')">크레딧 캡슐<span>크레딧 ${fmt(S.credits)}</span></button>
         </div>
-        <div class="gacha-stage" id="stage"><div class="ray" style="opacity:.35"></div><div class="capsule"></div></div>
+        ${gachaStageHtml()}
       </div>
       <div class="panel gx-side">
         <div class="dh">확률</div>
@@ -650,14 +675,29 @@ async function doPull(count){
   if(have < need){ toast((gCur==='credit'?'크레딧':'코어')+'가 부족합니다'); return; }
   if(!net.state.online){ toast('뽑기는 서버 연결이 필요합니다'); return; }
 
-  const stage=$('#stage'); stage.classList.add('rolling');
+  const stage=$('#stage');
+  const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const started = performance.now();
+  stage?.classList.add('charging');
   const r = await net.pullServer(count, gCur);
-  await sleep(650); stage.classList.remove('rolling');
+  await sleep(Math.max(0, (reduced?120:760) - (performance.now()-started)));
 
-  if(!r){ toast('뽑기는 서버 연결이 필요합니다'); return; }
-  if(r.error){ toast(r.error==='not enough cores' ? '코어가 부족합니다'
+  if(!r){ stage?.classList.remove('charging'); toast('뽑기는 서버 연결이 필요합니다'); return; }
+  if(r.error){ stage?.classList.remove('charging'); toast(r.error==='not enough cores' ? '코어가 부족합니다'
                    : r.error==='not enough credits' ? '크레딧이 부족합니다'
                    : '뽑기 실패: '+r.error); return; }
+
+  const best = r.results.reduce((a,b)=>rankOf(b)>rankOf(a)?b:a,r.results[0]);
+  const prize = (best.kind==='robot'||best.kind==='dupe') ? rarOf(best.type)
+    : best.kind==='part' ? best.part.rarity
+    : best.kind==='core' ? 'UQ'
+    : best.kind==='credit' ? 'GOLD' : 'C';
+  stage?.classList.remove('charging');
+  stage?.classList.add('rolling','prize-'+prize);
+  await sleep(reduced?100:520);
+  stage?.classList.remove('rolling');
+  stage?.classList.add('opening');
+  await sleep(reduced?120:700);
 
   /* 서버가 재화까지 확정해서 돌려준다. 클라는 그 값을 그대로 받아 적는다. */
   for(const res of r.results) applyPull(res);

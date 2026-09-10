@@ -190,7 +190,9 @@ export async function battleFind(opts) {
   const r = await call('/api/battle/find', { method: 'POST', body: opts || {} });
   if (r.ok && r.data && r.data.ok) return r.data;
   const d = r.data || {};
-  return { error: d.error || r.error || 'find failed', need: d.need, have: d.have };
+  /* target 은 지목 대전이 못 찾은 이름이다. 안 넘기면 화면이 "'' 을(를) 찾을 수 없습니다"
+     라고 말한다 — 무엇을 잘못 적었는지가 빠져 고칠 수가 없다. */
+  return { error: d.error || r.error || 'find failed', need: d.need, have: d.have, target: d.target };
 }
 export async function battleStart(tactic) {
   if (!state.online) return null;

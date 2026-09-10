@@ -805,6 +805,15 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .hg-dock .row-btns{display:flex;gap:9px}
 .hg-dock .hint{font-size:11.5px;line-height:1.6}
 
+/* 로스터와 파츠 인벤토리. 폭을 다 쓰면 로스터 격자가 13열이 되어, 기체 일곱 기가
+   왼쪽 절반에만 붙고 여섯 칸이 빈다. 인벤토리는 파츠가 수십 개라 폭이 그대로 이득이므로
+   좁히지 않는다 — 로스터만 옆으로 빼서 폭을 잡아 준다. */
+.hbot{display:grid;gap:14px}
+.hbot > .panel{margin-bottom:0}
+@media (min-width:1100px){
+  .hbot{grid-template-columns:minmax(0,400px) minmax(0,1fr);align-items:start}
+}
+
 @media (min-width:900px){
   .hg{grid-template-columns:minmax(0,1fr) 384px;gap:16px;align-items:start}
   .hg-stage{min-height:calc(100vh - 210px);margin:0}

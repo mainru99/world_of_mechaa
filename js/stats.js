@@ -1,7 +1,7 @@
 /* 스탯 계산 — 순수 함수. DOM 도 전역 상태도 참조하지 않는다.
  * 서버가 파츠·전투력을 검증할 때 클라이언트와 같은 값을 얻어야 하므로
  * 여기에 들어오는 값은 전부 인자로 받는다. */
-import { CONST } from '../data/balance.js';
+import { CONST, SLOT_COST } from '../data/balance.js';
 import { COMBAT_TYPES, rarOf } from './units.js';
 
 const { ATK_SCALE, FAT_MAX, MAXLV, SERVICE_RATE } = CONST;
@@ -54,9 +54,28 @@ export const serviceCost = rb =>
 
 export const findPart = (u, parts) => parts.find(p => p.uid === u);
 
+/* 강화 배수는 **상승에만** 건다. 대가(SLOT_COST)는 굴린 값 그대로 둔다.
+
+   예전에는 p.stats 전체에 곱해서 강화할수록 페널티가 같이 커졌다. SSR 무장의
+   spd 대가는 평균 -56.9 인데 +10 에서 -125.1 이 됐다(x2.20). 무장과 코어가 둘 다
+   spd 를 깎으므로 그 둘만 SSR+10 으로 껴도 VANGUARD 252 -> 21 (-92%),
+   MULE 263 -> 27 (-90%), NEMESIS 325 -> 75 (-77%) 이 됐다. 한 벌을 무작위로
+   2,000번 씌우면 67% 가 맨몸보다 느려지고 7.5% 는 spd 가 0 밑으로 내려가
+   아래 Math.max(1, ...) 바닥에 닿았다.
+
+   그리고 그 바닥은 게임을 끝낸다 — 상대 spd 252 기준으로 내 spd 가 10 이하면
+   한 번도 행동하지 못하고 진다(실측 승률 0.0%). 좋은 파츠를 껴서 움직이지 못하게
+   되는 것은 대가가 아니라 고장이다.
+
+   대가는 굴릴 때 이미 등급 배수(rar.mul)를 타므로 좋은 파츠일수록 여전히 아프다.
+   강화가 더 얹지 않을 뿐이다.
+
+   spread 는 대가가 아니라 '성향' 이라 음수여도 그대로 강화를 탄다
+   (SLOT_SPREAD — 프레임·부스터는 구간을 좁히는 쪽이 이득이다). */
 export function partStat(p) {
-  const o = {}, e = p.enh || 0;
-  for (const k in p.stats) o[k] = isPct(k) ? p.stats[k] * (1 + e * 0.08) : p.stats[k] * (1 + e * 0.12);
+  const o = {}, e = p.enh || 0, cost = SLOT_COST[p.slot];
+  for (const k in p.stats)
+    o[k] = k === cost ? p.stats[k] : p.stats[k] * (1 + e * (isPct(k) ? 0.08 : 0.12));
   if (o.atk) o.atk *= ATK_SCALE;          // 파츠 공격력도 같은 배율로 (표시값 = 실제 기여)
   return o;
 }
@@ -117,7 +136,9 @@ export function computeStats(robot, parts) {
      무장과 코어가 둘 다 속도를 깎으므로 느린 기체에 둘을 끼우면 실제로 음수가 된다.
      그때 simulate 의 게이지 계산 (100 - g) / spd 가 뒤집혀 전투가 성립하지 않고,
      powerOf 는 음수의 제곱근이라 NaN 을 낸다(실측: 생성 상대 4만 중 133건).
-     여기서 바닥을 깔아 둔다. 대가를 무르게 하는 것이 아니라 계산을 성립시키는 것이다. */
+     여기서 바닥을 깔아 둔다. 대가를 무르게 하는 것이 아니라 계산을 성립시키는 것이다.
+     partStat 이 대가에 강화 배수를 안 태우게 된 뒤로 여기 닿는 일은 사실상 없어졌지만,
+     COST_ROLL 이 커지면 다시 닿을 수 있으므로 그대로 둔다. */
   s.spd = Math.max(1, s.spd);
   s.def = Math.max(0, s.def);
   s.atk = Math.max(1, s.atk);

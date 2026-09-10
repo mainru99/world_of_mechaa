@@ -703,6 +703,39 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   .bh-go{position:sticky;top:0}
 }
 
+/* ── 파견(원정·토벌) · 랭킹 ────────────────────────────────
+   둘 다 세로로만 쌓여 있었다. 1,280px 짜리 줄에 딱지와 이름만 왼쪽에 붙고
+   가운데가 통째로 비었고, 랭킹 표는 720px 로 잘려 오른쪽 절반이 빈 채였다.
+   900px 이상에서만 두 단으로 가른다 — 그 아래는 예전 그대로다. */
+.hx, .rx{display:grid;gap:14px}
+.hx > .panel, .rx > .panel{margin-bottom:0}
+.rx .dh{font-size:11px;letter-spacing:.14em;color:var(--dim);font-weight:800;margin-bottom:10px}
+/* 보스 사냥터는 무엇이 나오는지 밝히지 않는다 */
+.hunt-row .hn.unknown{color:var(--dim);letter-spacing:.28em;font-weight:900}
+
+/* 페이지 넘김 */
+.pager{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px;
+  padding-top:11px;border-top:1px solid rgba(120,150,210,.12)}
+.pager .btn{padding:8px 14px;font-size:13px}
+.pager .pg{font-size:12.5px;font-weight:800;color:var(--sub);font-variant-numeric:tabular-nums;
+  min-width:56px;text-align:center}
+
+@media (min-width:900px){
+  .hx{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+  .rx{grid-template-columns:minmax(0,1fr) 340px;align-items:start}
+  /* 표는 이제 왼쪽 단이 폭을 잡아 준다. 아래쪽 table.rank{max-width:720px} 은
+     한 단으로 1,280px 을 가로지르던 시절의 제동장치라, 여기서는 오히려 오른쪽에
+     200px 짜리 빈칸을 만든다. */
+  .rx table.rank{max-width:none}
+  /* 좁은 오른쪽 단에서 셋을 가로로 두면 "12승 8패" 가 접힌다. 세로로 편다. */
+  .rx .myrank{grid-template-columns:1fr;text-align:left;gap:0;margin-bottom:0}
+  .rx .myrank > div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    padding:9px 2px;border-bottom:1px solid rgba(120,150,210,.12)}
+  .rx .myrank > div:last-child{border-bottom:0}
+  .rx .myrank .big{margin-top:0;font-size:17px}
+  .rx > .panel:last-child{position:sticky;top:0}
+}
+
 /* ── 격납고 디오라마 ───────────────────────────────────────
    좁은 화면에서는 위아래로 쌓이고, 넓으면 왼쪽 장면 + 오른쪽 도킹 패널이 된다. */
 .hg{display:grid;gap:14px;margin-bottom:14px}
@@ -769,6 +802,8 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
      폭을 다 쓰면 버튼만 왼쪽에 몰려 균형이 깨진다. 좁혀서 가운데로 모으고,
      그 안에서 버튼은 카드 폭을 꽉 채우게 둔다. */
   #sc-battle{max-width:1000px}
+  /* 랭킹은 표 + 옆칸이라 1,280 을 다 쓰면 이름과 전적 사이가 손가락 두 개만큼 벌어진다 */
+  #sc-rank{max-width:1100px}
   #sc-battle .row-btns{max-width:none}
   #sc-battle .row-btns .btn{flex:1}
 

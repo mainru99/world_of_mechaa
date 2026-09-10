@@ -793,7 +793,13 @@ function myRating(){
   return (me && Number.isFinite(me.rating)) ? me.rating : 1000;
 }
 const RANK_TTL = 90000;
-function dropRankCache(){ _rankCache=null; _rankAt=0; }
+/* 캐시를 버릴 때 페이지도 되돌린다 — 순위가 움직였으면 다시 '내가 있는 쪽'을 열어야 한다 */
+function dropRankCache(){ _rankCache=null; _rankAt=0; _rankPage=null; }
+
+/* 한 페이지에 몇 줄. 50줄을 한 번에 깔면 훑는 것이 아니라 스크롤이 된다. */
+const RANK_PAGE = 10;
+let _rankPage = null;                 // null = 아직 안 정함 → 내가 있는 페이지로 연다
+function rankPage(n){ _rankPage = Math.max(0, n|0); renderRank(); }
 
 async function renderRank(){
   const el=$('#sc-rank');
@@ -821,7 +827,19 @@ async function renderRank(){
      전적이면 충분하다 — 숫자가 보이면 그 숫자를 올리는 게 목적이 되어 버린다.
      (서버 응답에는 그대로 있다. 상대 장비를 이 값에 맞추므로 클라도 들고는 있어야 한다) */
   const wr = (w, l) => (w + l) ? Math.round(w / (w + l) * 100) + '%' : '—';
-  const rows = r.top.map(t=>`
+
+  /* 첫 진입은 **내가 있는 페이지**로 연다. 1페이지로 열어 두면 하위권일수록
+     자기 줄을 찾으려고 매번 넘겨야 한다. */
+  const list = r.top || [];
+  const pages = Math.max(1, Math.ceil(list.length / RANK_PAGE));
+  if(_rankPage === null){
+    const mi = list.findIndex(t=>t.me);
+    _rankPage = mi >= 0 ? Math.floor(mi / RANK_PAGE) : 0;
+  }
+  _rankPage = Math.min(_rankPage, pages-1);
+  const page = list.slice(_rankPage*RANK_PAGE, _rankPage*RANK_PAGE + RANK_PAGE);
+
+  const rows = page.map(t=>`
     <tr class="${t.me?'mine':''}">
       <td class="rk">${t.rank}</td>
       <td class="nm">${esc(t.nickname)}${t.me?' <span class="tag">나</span>':''}</td>
@@ -829,18 +847,34 @@ async function renderRank(){
       <td class="wl">${t.wins}승 ${t.losses}패</td>
     </tr>`).join('');
 
+  /* 페이지가 하나뿐이면 넘김 줄 자체를 안 그린다 — 누를 것이 없는 버튼은 잡음이다. */
+  const nav = pages>1 ? `<div class="pager">
+      <button class="btn ghost" ${_rankPage<=0?'disabled':''} onclick="ROWAR.rankPage(${_rankPage-1})">‹ 이전</button>
+      <span class="pg">${_rankPage+1} / ${pages}</span>
+      <button class="btn ghost" ${_rankPage>=pages-1?'disabled':''} onclick="ROWAR.rankPage(${_rankPage+1})">다음 ›</button>
+    </div>` : '';
+
+  /* 넓은 화면에서는 표를 왼쪽에, 내 성적을 오른쪽에 둔다. 한 단으로 쌓으면 표가
+     720px 로 잘려 1,280px 짜리 줄 왼쪽에 붙고 오른쪽이 통째로 빈다. */
   el.innerHTML = wrap(`
-    <div class="panel myrank">
-      <div><div class="hint">내 순위</div><div class="big">${myRank}</div></div>
-      <div><div class="hint">승률</div><div class="big">${wr(me.wins, me.losses)}</div></div>
-      <div><div class="hint">전적</div><div class="big">${me.wins}승 ${me.losses}패</div></div>
-    </div>
-    <div class="panel">
-      <table class="rank">
-        <thead><tr><th class="rk">#</th><th class="nm">이름</th><th class="rt">승률</th><th class="wl">전적</th></tr></thead>
-        <tbody>${rows||'<tr><td class="hint" colspan="4">아직 아무도 없습니다.</td></tr>'}</tbody></table>
-      <div class="hint" style="margin-top:8px">
-        ${when} 집계 기준 · 전체 ${fmt(r.total)}명${me.live?' · 내 순위는 방금 계산한 값':''}
+    <div class="rx">
+      <div class="panel">
+        <table class="rank">
+          <thead><tr><th class="rk">#</th><th class="nm">이름</th><th class="rt">승률</th><th class="wl">전적</th></tr></thead>
+          <tbody>${rows||'<tr><td class="hint" colspan="4">아직 아무도 없습니다.</td></tr>'}</tbody></table>
+        ${nav}
+      </div>
+      <div class="panel">
+        <div class="dh">내 성적</div>
+        <div class="myrank">
+          <div><div class="hint">내 순위</div><div class="big">${myRank}</div></div>
+          <div><div class="hint">승률</div><div class="big">${wr(me.wins, me.losses)}</div></div>
+          <div><div class="hint">전적</div><div class="big">${me.wins}승 ${me.losses}패</div></div>
+        </div>
+        <div class="hint" style="margin-top:12px">
+          ${when} 집계 기준 · 전체 ${fmt(r.total)}명${me.live?' · 내 순위는 방금 계산한 값':''}
+        </div>
+        <div class="hint">표에는 상위 ${fmt(list.length)}명까지 나옵니다 · 한 쪽에 ${RANK_PAGE}명</div>
       </div>
     </div>`);
 }
@@ -864,24 +898,37 @@ async function findMatch(opts){
         : '상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
   }
 
-  setPending(r.opponent, r.cost, r.rescue, r.tier, r.mode);
+  setPending(r.opponent, r.cost, r.rescue, r.tier, r.mode, r);
   showOpponent(_pendingOpp);
 }
 
-function setPending(o, cost, rescue, tier, mode){
+function setPending(o, cost, rescue, tier, mode, duel){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, skillLv:o.skillLv|0, fat:0, slots:o.slots },
-    parts:o.parts, cost:cost|0, rescue:!!rescue, tier:tier||null, mode:mode||null } : null;
+    parts:o.parts, cost:cost|0, rescue:!!rescue, tier:tier||null, mode:mode||null,
+    /* 지목 대전이면 상대 편성 목록과 지금 고른 칸을 함께 들고 다닌다 —
+       상대 카드에서 바로 다른 기체로 바꿔 끼울 수 있어야 하기 때문이다. */
+    choices:(duel&&duel.choices)||null, pick:(duel&&duel.pick)|0, target:(duel&&duel.target)||null } : null;
 }
 
 /* ── 지목 대전 ── 닉네임으로 특정 상대를 부른다.
    서버가 친선전으로 처리한다(출격비·보상·레이팅 없음). 여기서는 이름만 넘긴다 —
    못 찾으면 서버가 404 를 주고, 그때 다른 상대로 바꾸지 않고 그대로 알린다.
    조용히 아무나 붙여 주면 '누구와 붙었는지'가 달라져 기능이 거짓말을 한다. */
+let _duelTarget=null;
 async function duelFind(){
   const el=$('#duelNick'), nick=((el&&el.value)||'').trim();
   if(!nick){ toast('상대 이름을 입력하세요'); if(el) el.focus(); return; }
-  await findMatch({ mode:'duel', target:nick });
+  _duelTarget=nick;
+  await findMatch({ mode:'duel', target:nick, pick:0 });
+}
+/* 상대 카드에서 편성의 다른 기체로 바꿔 끼운다. 서버가 상대를 다시 잡아 주므로
+   시드도 새로 나온다 — 같은 기체를 다시 고르면 같은 판이 아니라 새 판이다. */
+async function duelPick(i){
+  const t=(_pendingOpp && _pendingOpp.target) || _duelTarget;
+  if(!t) return;
+  if(_pendingOpp && (_pendingOpp.pick|0)===(i|0)) return;   // 이미 고른 칸이면 요청을 쓰지 않는다
+  await findMatch({ mode:'duel', target:t, pick:i|0 });
 }
 
 /* ------------------------------- 토벌 ------------------------------- */
@@ -989,31 +1036,38 @@ async function claimExped(){
 function renderHunt(){
   const rb=selRobot();
   if(!net.state.online){
-    $('#sc-hunt').innerHTML = `${renderExped()}<h2 class="title">토벌</h2>
-      <div class="panel"><div class="hint">토벌은 서버 연결이 필요합니다. 보상을 서버가 판정합니다.</div></div>`;
+    $('#sc-hunt').innerHTML = `<div class="hx">${renderExped()}
+      <div class="panel"><h2 class="title" style="margin-top:0">토벌</h2>
+        <div class="hint">토벌은 서버 연결이 필요합니다. 보상을 서버가 판정합니다.</div></div></div>`;
     return;
   }
   const rows = Object.keys(CONST.HUNT).map(t=>{
     const H=CONST.HUNT[t], cost=Math.ceil(sortieCost(rb)*H.costX), poor=S.credits<cost;
     const lv=Math.max(1,Math.min(MAXLV, rb.level+H.lv));
-    const names=(MONSTER_BY_RARITY[t]||[]).map(id=>MONSTER_TYPES[id].name).join(' · ');
+    /* 보스는 무엇이 나오는지 밝히지 않는다. 나머지 등급은 이름을 보고 상성을 준비하는
+       것이 판단인데, 보스까지 미리 알면 마지막 관문이 그냥 한 줄 더 비싼 사냥터가 된다. */
+    const names = t==='BOSS' ? '???'
+      : (MONSTER_BY_RARITY[t]||[]).map(id=>MONSTER_TYPES[id].name).join(' · ');
     return `<button class="hunt-row${poor?' poor':''}" ${poor?'disabled':''} onclick="ROWAR.hunt('${t}')">
       <!-- 등급 색은 .rr-* 다. .rar-* 는 파츠 등급(C/R/SR/SSR)이라 UC·UQ·EP 규칙이 아예 없어,
            정예·초희귀·전설 세 줄만 색 없이 회색으로 떴다. -->
       <div class="ht"><span class="tag rr-${t}">${HUNT_KO[t]}</span>
         <b>Lv.${lv}</b></div>
-      <div class="hn">${names}</div>
+      <div class="hn${t==='BOSS'?' unknown':''}">${names}</div>
       <div class="hd">스크랩 ×${H.scX} · 파츠 ${Math.round(H.partP*100)}%${H.coreP?` · 코어 ${Math.round(H.coreP*100)}%`:''}</div>
       <div class="hc ${poor?'bad':''}">${fmt(cost)}</div>
     </button>`;
   }).join('');
-  $('#sc-hunt').innerHTML = `${renderExped()}<h2 class="title">토벌 · 사냥터</h2>
+  /* 넓은 화면에서는 원정과 토벌을 나란히 둔다. 한 단으로 쌓으면 1,280px 짜리 줄에
+     딱지와 이름만 왼쪽에 붙고 가운데가 통째로 빈다. 900px 미만에서는 예전처럼 쌓인다. */
+  $('#sc-hunt').innerHTML = `<div class="hx">${renderExped()}
     <div class="panel">
+      <h2 class="title" style="margin-top:0">토벌 · 사냥터</h2>
       <div class="hint">몬스터를 사냥해 <b>스크랩과 파츠</b>를 얻습니다. 크레딧은 대전의 절반에 못 미치고,
         순위에도 반영되지 않습니다. 등급이 높을수록 출격비가 비싸고 상대도 강합니다.</div>
       <div class="hunt-list" style="margin-top:10px">${rows}</div>
       <div class="hint" style="margin-top:8px">출전 · ${ROBOT_TYPES[rb.type].name} Lv.${rb.level} · 보유 ${fmt(S.credits)} 크레딧</div>
-    </div>`;
+    </div></div>`;
 }
 function hunt(tier){ findMatch({ mode:'hunt', tier }); }
 
@@ -1091,6 +1145,18 @@ function showOpponent(opp, practice){
         : opp.rescue
           ? `<div class="hint" style="margin-top:10px;color:var(--bad)">비상 출격 · 출격비 없음 · 보상은 크레딧만</div>`
           : `<div class="hint" style="margin-top:10px">${opp.tier?`토벌 <b style="color:var(--acc2)">${HUNT_KO[opp.tier]||opp.tier}</b> · `:''}출격비 <b style="color:var(--gold)">${fmt(opp.cost)}</b> 크레딧</div>`}
+      ${opp.mode==='duel' && opp.choices && opp.choices.length>1 ? `
+      <!-- 상대가 편성한 기체 중에서 고른다. 무작위 매칭에는 없는 칸이다 —
+           그쪽은 전투력 ±15% 창이 뜻을 가지려면 늘 상대의 출전 기체여야 한다. -->
+      <div class="tacwrap">
+        <div class="tachead">상대 편성 <small>붙을 기체를 고르세요</small></div>
+        <div class="tacrow">${opp.choices.map(c=>{
+          const CT=COMBAT_TYPES[c.type]; if(!CT) return '';
+          return `<button class="btn tacbtn${(c.i|0)===(opp.pick|0)?' on':''}" onclick="ROWAR.duelPick(${c.i|0})">
+            <b>${CT.name} <span class="lv">Lv.${c.level}</span></b>
+            <span>${CT.role} · 전투력 ${fmt(c.power)}${c.skillLv?` · 스킬 +${c.skillLv}`:''}</span></button>`;
+        }).join('')}</div>
+      </div>` : ''}
       <!-- 전술 — 상대를 보고 나서 고르는, 이 게임의 유일한 전투 개입이다.
            상대의 전술은 보이지 않는다. 위 스킬 딱지로 짐작하는 것이 이 기능의 재미다. -->
       <div class="tacwrap">
@@ -1757,7 +1823,7 @@ window.ROWAR = {
   openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode, guide,
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
-  duelFind: guard(duelFind, 1000),
+  duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,
   practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
   setTactic,
   sendExped: guard(sendExped), claimExped: guard(claimExped),

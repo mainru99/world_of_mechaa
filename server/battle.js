@@ -124,7 +124,9 @@ async function preparePending(env, accountId, me, now, credits, opts) {
      상대를 못 찾으면 null 을 돌려주고 findMatch 가 오류로 바꾼다. */
   if (opts && opts.mode === 'duel') {
     const target = String((opts.target || '')).trim();
-    const dopp = await pickOpponentByNickname(env, accountId, target);
+    /* pick 은 상대의 편성 안에서 몇 번째 기체인가다. 화면이 고른 값을 그대로 받되
+       arena.js 가 목록 범위로 잘라 주므로, 이상한 값이 와도 첫 기체로 떨어진다. */
+    const dopp = await pickOpponentByNickname(env, accountId, target, opts.pick | 0);
     if (dopp === 'self') return 'self';
     if (!dopp) return null;
     const dseed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
@@ -132,6 +134,8 @@ async function preparePending(env, accountId, me, now, credits, opts) {
     return {
       json: JSON.stringify({ opp: dopp, seed: dseed, at: now, rescue: false, cost: 0, mode: 'duel' }),
       cost: 0, rescue: false, mode: 'duel', tier: null,
+      /* 고를 수 있는 기체 목록과 지금 고른 칸. 화면이 이걸로 바꿔 끼는 칸을 그린다. */
+      choices: dopp.choices || null, pick: dopp.pick | 0, target,
       opponent: {
         kind: dopp.kind, type: dopp.type, level: dopp.level, skillLv: dopp.skillLv | 0,
         callsign: dopp.callsign, rating: dopp.rating ?? null,
@@ -193,7 +197,8 @@ export async function findMatch(env, accountId, now, opts) {
     if (!next) return { ok: false, status: 404, error: 'target not found', target };
     await env.DB.prepare('UPDATE player SET pending_match = ?1 WHERE account_id = ?2')
       .bind(next.json, accountId).run();
-    return { ok: true, opponent: next.opponent, cost: 0, rescue: false, mode: 'duel', tier: null };
+    return { ok: true, opponent: next.opponent, cost: 0, rescue: false, mode: 'duel', tier: null,
+             choices: next.choices, pick: next.pick, target: next.target };
   }
 
   const next = await preparePending(env, accountId, me, now, me.credits, opts);

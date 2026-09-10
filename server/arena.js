@@ -26,35 +26,57 @@ export function balanceVersion() {
   return _ver;
 }
 
-/* 출전 기체의 '피로도 없는' 스냅샷을 만들어 등록한다. */
+const EMPTY_SLOTS = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
+
+/* 편성한 기체들의 '피로도 없는' 스냅샷을 만들어 등록한다.
+
+   예전에는 출전 기체 한 기만 담았다. 그러면 지목 대전에서 '그 사람이 편성한 둘 중
+   무엇과 붙을까'를 고를 수가 없다. 이제 편성(squad1·squad2)을 전부 담되,
+   **첫 칸은 항상 출전 기체**로 둔다 — power 컬럼과 무작위 매칭이 그 기체를 기준으로
+   돌기 때문이다. 매칭 쪽 읽기 비용은 그대로다(여전히 한 행이다). */
 export async function registerArena(env, accountId, now) {
   const p = await env.DB.prepare(
-    'SELECT nickname, rating, sel_robot FROM player WHERE account_id = ?1').bind(accountId).first();
+    'SELECT nickname, rating, sel_robot, squad1, squad2 FROM player WHERE account_id = ?1').bind(accountId).first();
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
     'SELECT id, uid, type, level, skill_lv, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(accountId).all()).results || [];
   if (!robots.length) return null;
-  const row = robots.find(r => r.id === p.sel_robot) || robots[0];
+  const primary = robots.find(r => r.id === p.sel_robot) || robots[0];
+
+  /* 편성 두 기. 출전 기체를 맨 앞에 두고, 편성의 나머지를 뒤에 붙인다.
+     편성이 비어 있으면(옛 저장본) 출전 기체 하나뿐이다 — 그때는 예전과 똑같이 동작한다. */
+  const squad = [p.squad1, p.squad2]
+    .filter(Boolean)
+    .map(id => robots.find(r => r.id === id))
+    .filter(r => r && r.id !== primary.id);
+  const ordered = [primary, ...squad];
 
   const parts = (await env.DB.prepare('SELECT id, uid, slot, name, stats, enh FROM part WHERE account_id = ?1')
     .bind(accountId).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
 
-  const slots = {}, used = [];
-  for (const sl of Object.keys(SLOT_COL)) {
-    const q = byId.get(row[SLOT_COL[sl]]);
-    slots[sl] = q ? q.uid : null;
-    if (q) used.push({ uid: q.uid, slot: q.slot, name: q.name, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
-  }
+  /* 기체 한 기를 스냅샷 한 칸으로. 피로도는 0 으로 고정한다 —
+     쉬고 있는 방어 기체가 지쳐 있을 이유가 없다. */
+  const build = row => {
+    const slots = {}, used = [];
+    for (const sl of Object.keys(SLOT_COL)) {
+      const q = byId.get(row[SLOT_COL[sl]]);
+      slots[sl] = q ? q.uid : null;
+      if (q) used.push({ uid: q.uid, slot: q.slot, name: q.name, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
+    }
+    const rb = { type: row.type, level: row.level, fat: 0, skillLv: row.skill_lv, slots };
+    return { entry: { type: row.type, level: row.level, skillLv: row.skill_lv, slots, parts: used,
+                      stats: computeStats(rb, used) },
+             power: power(rb, used) };
+  };
 
-  const lv = row.level;
-  const defRobot = { type: row.type, level: lv, fat: 0, skillLv: row.skill_lv, slots };   // 피로도 0 으로 고정
-  const stats = computeStats(defRobot, used);
-  const pw = power(defRobot, used);
-
-  const snapshot = JSON.stringify({ type: row.type, level: lv, skillLv: row.skill_lv, slots, parts: used, stats });
+  const built = ordered.map(build);
+  const main = built[0];
+  /* 첫 칸의 필드를 최상위에도 그대로 둔다 — squad 를 모르는 옛 코드/옛 행과 모양이 같아야
+     매칭이 갈라지지 않는다. squad 는 거기에 얹는 것이다. */
+  const snapshot = JSON.stringify({ ...main.entry, squad: built.map(b => b.entry) });
   const rnd = Math.floor(Math.random() * 0x40000000);   // 무작위 상대를 한 행만 읽고 고르기 위한 열쇠
 
   await env.DB.prepare(
@@ -62,9 +84,10 @@ export async function registerArena(env, accountId, now) {
      VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)
      ON CONFLICT(account_id) DO UPDATE SET
        nickname=?2, robot_type=?3, level=?4, power=?5, rating=?6, rnd=?7, balance_ver=?8, snapshot=?9, updated_at=?10`)
-    .bind(accountId, p.nickname, row.type, lv, pw, p.rating, rnd, balanceVersion(), snapshot, now).run();
+    .bind(accountId, p.nickname, primary.type, primary.level, main.power, p.rating, rnd,
+          balanceVersion(), snapshot, now).run();
 
-  return { power: pw, rnd };
+  return { power: main.power, rnd, squad: built.length };
 }
 
 /* ── 옛 밸런스로 등록된 스냅샷을 지금 밸런스로 다시 계산한다 ──────────
@@ -81,36 +104,75 @@ export async function registerArena(env, accountId, now) {
    크론이 돌 때까지 매칭이 빈다. 그래서 둘 다 둔다. */
 export function recomputeSnapshot(snap) {
   if (!snap || !ROBOT_TYPES[snap.type]) return null;
-  const parts = Array.isArray(snap.parts) ? snap.parts : [];
+  /* 한 칸(기체 하나)을 다시 계산한다. squad 는 여기서 떼어 낸다 —
+     안 떼면 첫 칸 안에 편성 전체가 한 번 더 들어가 스냅샷이 매번 부푼다. */
+  const one = e => {
+    if (!e || !ROBOT_TYPES[e.type]) return null;
+    const { squad, ...rest } = e;
+    const rb = { type: e.type, level: e.level | 0, fat: 0, skillLv: e.skillLv | 0,
+                 slots: e.slots || EMPTY_SLOTS };
+    return { ...rest, stats: computeStats(rb, Array.isArray(e.parts) ? e.parts : []) };
+  };
+  const main = one(snap);
+  if (!main) return null;
+  /* 편성이 담겨 있으면 전부 다시 계산한다. 옛 행에는 없으므로 그때는 한 기짜리로 남는다 —
+     그 계정이 다음에 편성을 건드리면 registerArena 가 두 기로 채운다. */
+  const squad = Array.isArray(snap.squad) ? snap.squad.map(one).filter(Boolean) : null;
   const rb = { type: snap.type, level: snap.level | 0, fat: 0, skillLv: snap.skillLv | 0,
-               slots: snap.slots || { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null } };
-  const stats = computeStats(rb, parts);
-  return { snapshot: { ...snap, stats }, stats, power: power(rb, parts) };
+               slots: snap.slots || EMPTY_SLOTS };
+  return {
+    snapshot: (squad && squad.length) ? { ...main, squad } : main,
+    stats: main.stats,
+    power: power(rb, Array.isArray(snap.parts) ? snap.parts : []),
+  };
 }
 
-/* arena_entry 한 행을 전투에 쓸 상대로 바꾼다. 옛 밸런스면 여기서 다시 계산한다. */
-function rowToOpponent(row, ver) {
+/* arena_entry 한 행을 전투에 쓸 상대로 바꾼다. 옛 밸런스면 여기서 다시 계산한다.
+
+   pick 은 상대의 **편성 안에서 몇 번째 기체**인가다. 무작위 매칭은 늘 0(출전 기체)을
+   쓴다 — power 컬럼이 그 기체 기준이라 ±15% 창이 뜻을 가지려면 그래야 한다.
+   지목 대전만 사용자가 골라 1 을 넘긴다.
+
+   choices 는 화면이 '무엇과 붙을지' 고르게 하려고 함께 내보내는 목록이다. */
+function rowToOpponent(row, ver, pick) {
   let snap;
   try { snap = JSON.parse(row.snapshot); } catch { return null; }
-  if (!snap || !ROBOT_TYPES[snap.type]) return null;
-  let stats = snap.stats;
-  if (row.balance_ver !== ver) {
-    const fresh = recomputeSnapshot(snap);
-    if (!fresh) return null;
-    stats = fresh.stats;
-  }
+  if (!snap) return null;
+  const list = (Array.isArray(snap.squad) && snap.squad.length) ? snap.squad : [snap];
+  const i = Math.min(Math.max(pick | 0, 0), list.length - 1);
+  const e = list[i];
+  if (!e || !ROBOT_TYPES[e.type]) return null;
+
+  const stale = row.balance_ver !== ver;
+  const statOf = x => {
+    const rb = { type: x.type, level: x.level | 0, fat: 0, skillLv: x.skillLv | 0,
+                 slots: x.slots || EMPTY_SLOTS };
+    return computeStats(rb, Array.isArray(x.parts) ? x.parts : []);
+  };
+  const powerOfEntry = x => {
+    const rb = { type: x.type, level: x.level | 0, fat: 0, skillLv: x.skillLv | 0,
+                 slots: x.slots || EMPTY_SLOTS };
+    return power(rb, Array.isArray(x.parts) ? x.parts : []);
+  };
+  const stats = stale ? statOf(e) : e.stats;
   if (!stats) return null;
+
   return {
     kind: 'player',
     accountId: row.account_id,
     callsign: row.nickname,
-    type: snap.type,
-    level: snap.level,
-    skillLv: snap.skillLv | 0,
-    slots: snap.slots || { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null },
-    parts: snap.parts || [],
+    type: e.type,
+    level: e.level,
+    skillLv: e.skillLv | 0,
+    slots: e.slots || { ...EMPTY_SLOTS },
+    parts: e.parts || [],
     stats,                      // 스냅샷의 스탯. 옛 밸런스면 위에서 다시 계산한 것
     rating: row.rating,
+    pick: i,
+    /* 고를 수 있는 기체 목록. 한 기뿐이면 화면이 고르는 칸 자체를 안 그린다. */
+    choices: list.filter(x => x && ROBOT_TYPES[x.type]).map((x, ix) => ({
+      i: ix, type: x.type, level: x.level | 0, skillLv: x.skillLv | 0, power: powerOfEntry(x),
+    })),
   };
 }
 
@@ -131,7 +193,7 @@ export async function pickOpponentFromArena(env, accountId, myPower) {
   /* rnd 가 끝까지 갔으면 앞쪽에서 다시 찾는다(원형 탐색) */
   const row = (await q('up')) || (await q('down'));
   if (!row) return null;
-  return rowToOpponent(row, balanceVersion());
+  return rowToOpponent(row, balanceVersion(), 0);
 }
 
 /* ── 지목 대전 ── 닉네임으로 특정 상대를 부른다.
@@ -142,7 +204,7 @@ export async function pickOpponentFromArena(env, accountId, myPower) {
 
    닉네임은 `GUEST-0002` 처럼 계정 번호가 박혀 있어 사실상 유일하다. 그래도 표에
    UNIQUE 를 걸지는 않았으므로(나중에 이름 바꾸기가 붙을 수 있다) LIMIT 1 로 받는다. */
-export async function pickOpponentByNickname(env, accountId, nickname) {
+export async function pickOpponentByNickname(env, accountId, nickname, pick) {
   if (!nickname) return null;
   /* 자기 자신을 SQL 에서 걸러 내지 않는다. 걸러 내면 '없는 이름'과 구별이 안 돼
      자기 이름을 적은 사람에게 "이름이 정확한지 확인하세요" 라고 말하게 된다. */
@@ -152,7 +214,7 @@ export async function pickOpponentByNickname(env, accountId, nickname) {
     .bind(nickname).first();
   if (!row) return null;
   if (row.account_id === accountId) return 'self';
-  return rowToOpponent(row, balanceVersion());
+  return rowToOpponent(row, balanceVersion(), pick);
 }
 
 /* 옛 밸런스로 남아 있는 등록을 지금 밸런스로 다시 계산해 넣는다. 크론이 부른다.

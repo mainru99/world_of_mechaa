@@ -1904,3 +1904,44 @@ DUNE 의 atk 를 깎고 spd 를 올렸을 때 대 MULE 승률 (각 2,500판):
   브라우저와 Worker를 함께 배포한다.
 - README의 기체 수치 예시가 이전 값이면 이번 수치에 맞춰 갱신한다.
 - `alwaysCrit` 규칙을 분리하지 않는 한 `CRIT_MULT=1.6`을 유지한다.
+
+
+---
+
+## ChatGPT — 30종 고유 특성 세분화 · 2026-09-10
+
+첫 개성 작업은 속도와 공격력의 방향을 바로잡았지만, 능력치가 등급마다 거의 같은 순서로
+움직였고 스킬 효과도 몇 가지 틀을 반복했다. 이번에는 플레이어 기체 30종 전부에 하나씩
+구별되는 전투 이유를 만들었다. ID·등급·이미지·규칙은 그대로 두고 `data/balance.js`의
+`role`, base/grow, spread, skill 수치만 조정했다.
+
+| 등급 | 기체별 주력 |
+|---|---|
+| C | MULE 생존 · RUST 강한 일반 공격 · GRIT 방어 관통 · CHALK 회피 · DUNE 치명타 · SCARAB 공속/4연격 |
+| UC | BASTION 요새 · VANGUARD 대구경 · MANTIS 장갑 파쇄 · KESTREL 75% 관통 정밀포 · TRACER 회피 추적탄 · RANGER 치명 저격 |
+| R | GLACIER 방어/흡혈 · HOWITZER 초화력 · COBALT 내구 돌파 · LANCER 연속 관통 · TEMPEST 극회피 · AZURE 고속 치명 |
+| UQ | WRAITH 50% 흡혈 · HEX 고위력 고편차 · UMBRA 방어/흡수 · HALO 정밀 필중 · SPECTER 회피 치명 비트 · ORACLE 필중 치명 단발 |
+| EP | ATLAS 약한 평타/2.8배 결전기 · SERAPH 공격/흡혈 · AURIC 치명/장갑 · NEMESIS 고편차 4연포 · TYRANT 회피/5연 필중 · IGNIS 공속/5연 치명 |
+
+수치상 중복도 검사했다. 30종의 `role` 문자열, base/grow/spread 조합, 스킬 효과와
+배율 조합은 각각 **30/30 고유**다. 같은 `hits`나 `noMiss`를 공유해도 타수·배율·
+관통·흡혈과 본체 능력치가 다르다. 스킬 설명도 실제 수치와 맞췄다.
+
+### 실측
+
+- 별도 고표본 전수 매치업: Lv.1·30·60 등급 내 개별 평균 승률 **36.0~64.3%**,
+  35~65% 기준 밖 **0기체**.
+- Lv.60 최속 대 최저속 3,000판씩: C 47.2%, UC 49.8%, R 49.0%, UQ 52.3%, EP 51.1%.
+- 속도와 타격당 공격력의 상관은 등급별 **−0.51~−0.10**으로 전부 음수다.
+- `node tools/verify.mjs`: 평균 21.6타·스킬 3.8회, 작은 표본 거울 48.9%.
+- `node tools/skill.mjs`, `tactic.mjs`, `match2.mjs`, `terrcheck.mjs`,
+  `arenacheck.mjs` 통과. 서버↔클라이언트 판정 불일치나 지배 전술은 없다.
+- `node tools/play.mjs 30 50`: 진행 정지와 3일 연속 비상 출격 0건, 세 정책 모두
+  마지막 10일 크레딧 순증. `tools/out/*`를 새 수치로 재생성했다.
+- `npm run build` 통과. 검증을 위해 내린 로컬 Wrangler는 8788에서 다시 정상 응답한다.
+
+### Claude에게 넘기는 것
+
+- 밸런스 해시가 `8updih`로 바뀌었다. 브라우저 정적 파일과 Worker를 함께 배포한다.
+- README에 남은 개별 기체 수치 예시가 있으면 새 `role`과 스탯으로 갱신한다.
+- `CRIT_MULT=1.6`과 기존 여섯 스킬 효과 키는 그대로다. 새 전투 규칙은 필요 없다.

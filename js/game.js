@@ -607,19 +607,26 @@ function renderGacha(){
     <span class="tag rar-C">일반 52%</span><span class="tag rar-R">정밀 30%</span>
     <span class="tag rar-SR">시제 14%</span><span class="tag rar-SSR">초월 4%</span></div>`;
 
+  /* 넓은 화면에서는 왼쪽에 캡슐 무대, 오른쪽에 확률과 버튼을 둔다.
+     한 판에 쌓으면 무대가 1,250px 로 늘어나 가운데에 캡슐 하나만 떠 있고,
+     정작 누를 버튼 둘은 640px 로 잘려 왼쪽 끝에 붙는다. */
   $('#sc-gacha').innerHTML = `
     <h2 class="title">뽑기</h2>
-    <div class="panel">
-      <div class="gtabs">
-        <button class="gtab ${gCur==='core'?'on':''}"   onclick="ROWAR.setGacha('core')">코어 캡슐<span>코어 ${fmt(S.cores)}</span></button>
-        <button class="gtab ${gCur==='credit'?'on':''}" onclick="ROWAR.setGacha('credit')">크레딧 캡슐<span>크레딧 ${fmt(S.credits)}</span></button>
+    <div class="gx">
+      <div class="panel">
+        <div class="gtabs">
+          <button class="gtab ${gCur==='core'?'on':''}"   onclick="ROWAR.setGacha('core')">코어 캡슐<span>코어 ${fmt(S.cores)}</span></button>
+          <button class="gtab ${gCur==='credit'?'on':''}" onclick="ROWAR.setGacha('credit')">크레딧 캡슐<span>크레딧 ${fmt(S.credits)}</span></button>
+        </div>
+        <div class="gacha-stage" id="stage"><div class="ray" style="opacity:.35"></div><div class="capsule"></div></div>
       </div>
-      <div class="gacha-stage" id="stage"><div class="ray" style="opacity:.35"></div><div class="capsule"></div></div>
-      ${rate}
-      <div class="row-btns" style="margin-top:12px">
-        <button class="btn gold big" onclick="ROWAR.pull1()" ${(have<cost1||!net.state.online)?'disabled':''}>1회 뽑기 (${unit} ${fmt(cost1)})</button>
-        <button class="btn big" onclick="ROWAR.pull10()" ${(have<cost10||!net.state.online)?'disabled':''}>10회 뽑기 (${unit} ${fmt(cost10)})</button>
-      </div>
+      <div class="panel gx-side">
+        <div class="dh">확률</div>
+        ${rate}
+        <div class="row-btns" style="margin-top:14px">
+          <button class="btn gold big" onclick="ROWAR.pull1()" ${(have<cost1||!net.state.online)?'disabled':''}>1회 뽑기 (${unit} ${fmt(cost1)})</button>
+          <button class="btn big" onclick="ROWAR.pull10()" ${(have<cost10||!net.state.online)?'disabled':''}>10회 뽑기 (${unit} ${fmt(cost10)})</button>
+        </div>
       ${net.state.online?'':'<div class="hint" style="margin-top:8px;color:var(--bad)">서버에 연결되지 않아 뽑기를 할 수 없습니다. 뽑기 결과는 서버가 판정합니다.</div>'}
       <div class="hint" style="margin-top:8px">${gCur==='credit'
         ? `크레딧은 대전·점령지에서 꾸준히 들어옵니다. 대신 <b>기체가 나올 확률이 코어보다 낮고</b>,
@@ -627,6 +634,7 @@ function renderGacha(){
         : `코어는 대전 승리와 안쪽 점령지에서 조금씩 얻습니다.`}
         기체는 ${ROBOT_RARITY.length}등급 ${ROBOT_IDS.length}종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.
         <b>뽑은 파츠는 자동으로 분해되지 않으니</b> 격납고에서 직접 정하세요.</div>
+      </div>
     </div>`;
 }
 /* 뽑기는 서버가 판정한다.
@@ -1513,8 +1521,12 @@ function drawTerr(r){
   const p=r.pending||{cr:0,sc:0,core:0};
   const has = p.cr>0 || p.sc>0 || (p.core||0)>0;
   const avg = (r.world&&r.world.avgPower)||0;
+  /* 지도는 3열 4행이 곧 '안쪽에서 입구까지'라 열 수를 바꿀 수 없다. 그래서 한 판에
+     쌓으면 칸 하나가 419px 까지 늘어나 카드가 납작해진다. 넓은 화면에서는 지도를
+     왼쪽 단에 넣어 폭을 잡아 주고, 요약과 설명을 오른쪽에 세운다. */
   $('#sc-terr').innerHTML = `<h2 class="title">점령전 · 세계 지도</h2>
-    <div class="panel">
+    <div class="tx">
+    <div class="panel tsum">
       <div class="trow">
         <div><div class="hint">점령</div><div class="big">${r.mine} / ${TERRITORY.length}</div></div>
         <div><div class="hint">쌓인 수입</div><div class="big" style="color:var(--gold)">${fmt(p.cr)}</div></div>
@@ -1529,14 +1541,15 @@ function drawTerr(r){
         ${avg?`<br>지도 난이도는 <b>전체 플레이어 평균 전투력 ${fmt(avg)}</b>에 맞춰 올라가 있습니다.`:''}</div>
     </div>
     <div class="tmap">${cells}</div>
-    <div class="panel"><div class="hint">
+    <div class="panel tinfo"><div class="hint">
       칸을 누르면 방어선과 지형을 볼 수 있습니다. <b>한 칸은 방어선을 전부 뚫어야</b> 점령됩니다 —
       편성한 두 기가 <b>체력을 이어받은 채</b> 연속으로 싸우고, 둘 다 쓰러지면 실패합니다.
       실패해도 <b>깎아 둔 방어선은 남습니다</b>(시간이 지나면 스스로 회복).
       점령된 칸은 ${CONST.TERR.PROTECT_MIN}분간 <b>보호</b>됩니다 —
       코어 ${CONST.TERR.RAID_CORE}개를 내면 그 안에도 칠 수 있지만,
       그때는 <b>점령자의 편성 ${CONST.SQUAD_MAX}기가 방어선 뒤에 그대로 붙습니다</b>.
-    </div></div>`;
+    </div></div>
+    </div>`;
 }
 
 /* 칸 상세. 여기서 '이 칸에 무엇을 데려갈까'가 정해진다 — 그래서 지형과 편성 제한을

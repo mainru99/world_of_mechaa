@@ -511,7 +511,8 @@ table.rank tr.mine .tag{background:#0e1526;color:var(--gold);border-color:#3d4b7
 .tpips i.dead b{background:#1a2340}
 
 /* 지도 머리 — 점령 수와 쌓인 수입 */
-.trow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin-bottom:10px}
+/* 칸이 넷인데 3열이라 마지막 하나가 늘 혼자 다음 줄로 떨어져 있었다. 둘씩 두 줄로. */
+.trow{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;text-align:center;margin-bottom:10px}
 .trow .big{font-size:19px;font-weight:900;margin-top:2px}
 .trow .hint{font-size:11px}
 
@@ -736,6 +737,34 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   .rx > .panel:last-child{position:sticky;top:0}
 }
 
+/* ── 뽑기 · 점령 ───────────────────────────────────────────
+   둘 다 한 판에 세로로만 쌓여 있었다. 뽑기는 캡슐 무대가 1,250px 로 늘어나 가운데에
+   구슬 하나만 떠 있는데 정작 누를 버튼은 640px 로 잘려 왼쪽 끝에 붙었고, 점령은
+   지도 칸 하나가 419px 까지 늘어나 카드가 납작해졌다.
+   900px 이상에서만 두 단으로 가른다 — 그 아래는 예전 그대로다. */
+.gx, .tx{display:grid;gap:14px}
+.gx > .panel, .tx > .panel{margin-bottom:0}
+.tx > .tmap{margin-bottom:0}
+.gx .dh{font-size:11px;letter-spacing:.14em;color:var(--dim);font-weight:800;margin-bottom:2px}
+
+@media (min-width:900px){
+  .gx{grid-template-columns:minmax(0,1fr) 380px;align-items:start}
+  /* 무대는 왼쪽 단을 세로로 채운다 — 오른쪽의 확률표와 버튼 높이에 맞춘다 */
+  .gx .gacha-stage{height:auto;min-height:392px}
+  .gx-side{position:sticky;top:0}
+  /* 380px 안에서 둘을 가로로 두면 '10회 뽑기 (크레딧 3,000)' 이 접힌다 */
+  .gx-side .row-btns{flex-direction:column}
+  .gx-side .row-btns .btn{width:100%}
+
+  /* 지도는 왼쪽에서 두 줄을 통째로 쓰고, 요약과 설명이 오른쪽에 쌓인다 */
+  .tx{grid-template-columns:minmax(0,1fr) 380px;
+      grid-template-areas:"map sum" "map info";align-items:start}
+  .tx > .tmap{grid-area:map}
+  .tx > .tsum{grid-area:sum}
+  .tx > .tinfo{grid-area:info}
+  .tsum .btn.big{max-width:none}
+}
+
 /* ── 격납고 디오라마 ───────────────────────────────────────
    좁은 화면에서는 위아래로 쌓이고, 넓으면 왼쪽 장면 + 오른쪽 도킹 패널이 된다. */
 .hg{display:grid;gap:14px;margin-bottom:14px}
@@ -808,7 +837,7 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   #sc-battle .row-btns .btn{flex:1}
 
   /* 요약 줄 — 숫자 셋이 1,200px 에 흩어져 있었다 */
-  .trow{max-width:560px}
+  /* .trow 는 이제 오른쪽 단(380px) 안이라 따로 제동을 걸 필요가 없다 */
   table.rank{max-width:720px}
 }
 

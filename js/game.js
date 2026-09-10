@@ -469,8 +469,8 @@ function renderHangar(){
   /* ── 격납고 화면 ──────────────────────────────────────
      넓은 화면에서는 왼쪽에 기체를 크게 세우고(장면), 오른쪽에 정보를 붙인다(도킹).
      좁은 화면에서는 그대로 위아래로 쌓인다 — 레이아웃은 CSS 가 가른다.
-     로스터와 파츠 인벤토리는 그 아래에 나란히 깐다 — 로스터를 폭 전체에 깔면
-     격자가 13열이 되어 기체 일곱 기가 왼쪽 절반에만 붙고 여섯 칸이 빈다. */
+     로스터는 그 안, 장면 아래에 들어간다 — 도킹 패널이 장면보다 435px 길어
+     왼쪽 아래가 그만큼 비어 있었다. 파츠 인벤토리는 수십 개라 폭을 다 쓴다. */
   const squadMini = S.squad.map(u=>{ const r=S.robots.find(x=>x.uid===u); if(!r) return '';
     const i=S.robots.indexOf(r);
     return `<button class="sqm${r.uid===rb.uid?' on':''}" onclick="ROWAR.selectRobot(${i})"
@@ -548,22 +548,21 @@ function renderHangar(){
           대신 피로도가 쌓여 최대 내구(체력)가 줄어듭니다. 시간이 지나면 저절로 풀리고,
           급하면 크레딧으로 정비하세요. 레벨이 높은 기체일수록 자연 회복이 느립니다.</div>
       </div>
-    </div>
 
-    <div class="hbot">
-    <div class="panel">
-      <h2 class="title" style="margin-top:0">보유 기체 ${S.robots.length}기</h2>
-      <div class="hint" style="margin-bottom:8px">기체마다 레벨이 따로 매겨집니다. 새로 뽑은 기체는 Lv.1부터 키웁니다.
-        <b>한 번에 데려갈 수 있는 것은 ${SQUAD_MAX}기</b>이고,
-        대전 상대를 찾아 둔 상태에서 편성을 바꾸면 <b>그 상대를 놓칩니다.</b></div>
-      <div class="roster">${roster}</div></div>
+      <div class="panel hg-roster">
+        <h2 class="title" style="margin-top:0">보유 기체 ${S.robots.length}기</h2>
+        <div class="hint" style="margin-bottom:8px">기체마다 레벨이 따로 매겨집니다. 새로 뽑은 기체는 Lv.1부터 키웁니다.
+          <b>한 번에 데려갈 수 있는 것은 ${SQUAD_MAX}기</b>이고,
+          대전 상대를 찾아 둔 상태에서 편성을 바꾸면 <b>그 상대를 놓칩니다.</b></div>
+        <div class="roster">${roster}</div>
+      </div>
+    </div>
 
     <div class="panel">
       <h2 class="title" style="margin-top:0">파츠 인벤토리</h2>
       <div class="hint">파츠를 누르면 <b>강화</b>됩니다(스크랩을 씁니다). 장착하려면 위의 슬롯을 누르세요.
         쓰지 않을 파츠는 <b>분해</b>해 스크랩으로 바꿀 수 있습니다. 뽑기로 얻은 파츠는 자동으로 사라지지 않습니다.</div>
       <div class="inv">${inv}</div>
-    </div>
     </div>`;
 
 }

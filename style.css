@@ -805,21 +805,24 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .hg-dock .row-btns{display:flex;gap:9px}
 .hg-dock .hint{font-size:11.5px;line-height:1.6}
 
-/* 로스터와 파츠 인벤토리. 폭을 다 쓰면 로스터 격자가 13열이 되어, 기체 일곱 기가
-   왼쪽 절반에만 붙고 여섯 칸이 빈다. 인벤토리는 파츠가 수십 개라 폭이 그대로 이득이므로
-   좁히지 않는다 — 로스터만 옆으로 빼서 폭을 잡아 준다. */
-.hbot{display:grid;gap:14px}
-.hbot > .panel{margin-bottom:0}
-@media (min-width:1100px){
-  .hbot{grid-template-columns:minmax(0,400px) minmax(0,1fr);align-items:start}
-}
+/* 로스터는 장면 아래, 도킹 패널 옆에 붙인다. 도킹 쪽이 장면보다 400px 넘게 길어
+   왼쪽 아래가 통째로 비어 있었다. 파츠 인벤토리는 수십 개라 폭이 그대로 이득이므로
+   그 아래에 폭을 다 쓰고 깐다. */
+.hg-roster{margin-bottom:0}
 
 @media (min-width:900px){
   .hg{grid-template-columns:minmax(0,1fr) 384px;gap:16px;align-items:start}
-  .hg-stage{min-height:calc(100vh - 210px);margin:0}
+  .hg-stage{min-height:calc(100vh - 210px);margin:0;grid-column:1;grid-row:1}
   .hg-squad{position:absolute;left:20px;bottom:20px;margin:0}
   .hg-hero img{height:clamp(240px,52vh,560px)}
-  .hg-dock{position:sticky;top:0}
+  /* 도킹은 두 행에 걸친다. 걸치지 않으면 로스터가 도킹 '아래' 행으로 밀려나
+     빈자리를 메우지 못한다. */
+  .hg-dock{position:sticky;top:0;grid-column:2;grid-row:1 / span 2;align-self:start}
+  .hg-roster{grid-column:1;grid-row:2}
+  /* 칸 너비에 상한을 둔다. 상한이 없으면 남는 폭이 그대로 빈 칸이 되어 기체가 왼쪽에
+     몰리고, 상한을 좁은 화면까지 물리면 칸 수를 상한으로 세는 규칙 때문에
+     375px 에서 3열이 1열로 줄어든다 — 그래서 넓은 화면에서만 건다. */
+  .roster{grid-template-columns:repeat(auto-fit,minmax(96px,180px))}
 }
 
 /* ── 넓은 화면에서 '늘어지면 안 되는 것'만 폭을 잡는다 ────────

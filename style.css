@@ -686,6 +686,13 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .bh-row > span{color:var(--sub);font-weight:700}
 .bh-row > b{font-weight:800;font-variant-numeric:tabular-nums}
 .bh-go .btn.big{margin-top:14px}
+.bh-duel{margin-top:16px;padding-top:14px;border-top:1px solid rgba(120,150,210,.14)}
+.duelrow{display:flex;gap:8px;margin-bottom:7px}
+.duelin{flex:1;min-width:0;background:#0e1526;border:1px solid var(--line);color:var(--ink);
+  border-radius:11px;padding:11px 12px;font:800 14px/1 inherit;letter-spacing:.06em}
+.duelin::placeholder{color:var(--dim);font-weight:600;letter-spacing:.04em}
+.duelin:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.duelrow .btn{flex:none;padding:11px 16px;font-size:14px}
 
 @media (min-width:900px){
   /* 오른쪽 단은 폭을 고정한다 — 늘어나면 '출격비 ...... 21 크레딧' 처럼 벌어진다 */

@@ -765,7 +765,18 @@ function renderBattleHome(){
           크레딧이 모자라 <b>비상 출격</b>으로 나갑니다 — 출격비가 없는 대신 보상은 크레딧만입니다.</div>` : ''}
         <button class="btn big${on?' gold':''}" onclick="ROWAR.${on?'findMatch':'practiceFind'}()">
           ${on?'상대 찾기':'연습 대전'}</button>
-        ${on ? `<div class="hint" style="margin-top:8px">상대와 승패는 서버가 정합니다</div>` : ''}
+        ${on ? `<div class="hint" style="margin-top:8px">상대와 승패는 서버가 정합니다</div>
+        <div class="bh-duel">
+          <div class="dh">지목 대전</div>
+          <div class="duelrow">
+            <input id="duelNick" class="duelin" placeholder="GUEST-0002" maxlength="24"
+                   autocomplete="off" spellcheck="false"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();ROWAR.duelFind()}">
+            <button class="btn ghost" onclick="ROWAR.duelFind()">붙기</button>
+          </div>
+          <div class="hint">이름을 적으면 그 사람이 등록해 둔 기체와 붙습니다 ·
+            <b>친선전</b>이라 출격비도 보상도 레이팅도 움직이지 않습니다</div>
+        </div>` : ''}
       </div>
     </div>`;
 }
@@ -846,17 +857,31 @@ async function findMatch(opts){
   const [r] = await Promise.all([net.battleFind(opts), sleep(1000)]);   // 연출용 최소 대기
   if(!r || r.error){
     if(r && r.need!=null){ go('hunt'); toast(`크레딧이 모자랍니다 · 필요 ${fmt(r.need)} / 보유 ${fmt(r.have)}`); return; }
-    renderBattleHome(); toast('상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
+    renderBattleHome();
+    toast(r && r.error==='target is self' ? '자기 자신과는 붙을 수 없습니다'
+      : r && r.error==='target not found'
+        ? `'${esc(r.target||'')}' 을(를) 찾을 수 없습니다 — 이름이 정확한지, 그 사람이 한 번이라도 접속했는지 확인하세요`
+        : '상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
   }
 
-  setPending(r.opponent, r.cost, r.rescue, r.tier);
+  setPending(r.opponent, r.cost, r.rescue, r.tier, r.mode);
   showOpponent(_pendingOpp);
 }
 
-function setPending(o, cost, rescue, tier){
+function setPending(o, cost, rescue, tier, mode){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, skillLv:o.skillLv|0, fat:0, slots:o.slots },
-    parts:o.parts, cost:cost|0, rescue:!!rescue, tier:tier||null } : null;
+    parts:o.parts, cost:cost|0, rescue:!!rescue, tier:tier||null, mode:mode||null } : null;
+}
+
+/* ── 지목 대전 ── 닉네임으로 특정 상대를 부른다.
+   서버가 친선전으로 처리한다(출격비·보상·레이팅 없음). 여기서는 이름만 넘긴다 —
+   못 찾으면 서버가 404 를 주고, 그때 다른 상대로 바꾸지 않고 그대로 알린다.
+   조용히 아무나 붙여 주면 '누구와 붙었는지'가 달라져 기능이 거짓말을 한다. */
+async function duelFind(){
+  const el=$('#duelNick'), nick=((el&&el.value)||'').trim();
+  if(!nick){ toast('상대 이름을 입력하세요'); if(el) el.focus(); return; }
+  await findMatch({ mode:'duel', target:nick });
 }
 
 /* ------------------------------- 토벌 ------------------------------- */
@@ -1042,7 +1067,7 @@ function showOpponent(opp, practice){
   else if(oPow < myPow*0.90) notes.push('전투력이 앞섭니다 — 구간이 <b>좁을수록</b> 확실합니다');
 
   $('#sc-battle').innerHTML = `
-    <h2 class="title">${monster?'몬스터 출현':(opp.kind==='player'?'플레이어 발견':'상대 발견')}</h2>
+    <h2 class="title">${opp.mode==='duel'?'지목 대전':(monster?'몬스터 출현':(opp.kind==='player'?'플레이어 발견':'상대 발견'))}</h2>
     <div class="panel">
       <div class="oppcard">
         <div class="sprite" data-t="${T.rarity}" style="height:120px">${sprite(opp.robot.type,false)}</div>
@@ -1060,6 +1085,9 @@ function showOpponent(opp, practice){
       ${notes.length?`<div class="oppnote">${notes.map(n=>`<div>· ${n}</div>`).join('')}</div>`:''}
       ${practice
         ? '<div class="hint" style="margin-top:10px;color:var(--gold)">연습 대전 · 보상 없음</div>'
+        : opp.mode==='duel'
+          ? `<div class="hint" style="margin-top:10px;color:var(--acc2)">친선전 · 출격비 없음 ·
+              전적·레이팅·보상이 움직이지 않습니다</div>`
         : opp.rescue
           ? `<div class="hint" style="margin-top:10px;color:var(--bad)">비상 출격 · 출격비 없음 · 보상은 크레딧만</div>`
           : `<div class="hint" style="margin-top:10px">${opp.tier?`토벌 <b style="color:var(--acc2)">${HUNT_KO[opp.tier]||opp.tier}</b> · `:''}출격비 <b style="color:var(--gold)">${fmt(opp.cost)}</b> 크레딧</div>`}
@@ -1183,7 +1211,7 @@ function applyServerBattle(r, rb){
   if(r.reward.part) S.parts.push(r.reward.part);
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
                 lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
-                ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue };
+                ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue, duel:r.mode==='duel' };
   if(r.ratingDelta) dropRankCache();     // 내 순위가 실제로 움직였다
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();                              // 서버가 이미 최신이다
@@ -1309,15 +1337,21 @@ function renderResult(win,rw,P,E,opp){
   shield();
   toBattle();                   // 전투가 끝나면 야간작전으로 돌아온다
   const rewards = [];
-  if(rw.rescue) rewards.push(`<div class="r" style="color:var(--bad)">비상 출격 · 크레딧만 지급</div>`);
+  if(rw.duel){
+    rewards.push(`<div class="r" style="color:var(--acc2)">친선전 · 주고받은 것 없음</div>`);
+    rewards.push(`<div class="r" style="color:var(--dim)">전적·레이팅·크레딧이 그대로입니다</div>`);
+  }
+  else if(rw.rescue) rewards.push(`<div class="r" style="color:var(--bad)">비상 출격 · 크레딧만 지급</div>`);
   else if(rw.cost) rewards.push(`<div class="r" style="color:var(--dim)">출격비 −${rw.cost}</div>`);
-  if(!rw.rescue) rewards.push(`<div class="r">경험치 +${rw.lv.amt}</div>`);
-  if(rw.lv.to>rw.lv.from) rewards.push(`<div class="r" style="color:var(--good)">레벨 업!  ${rw.rname}  Lv.${rw.lv.from} → Lv.${rw.lv.to}</div>`);
-  rewards.push(`<div class="r">크레딧 +${rw.cr}</div>`);
-  if(!rw.rescue) rewards.push(`<div class="r">스크랩 +${rw.sc}</div>`);
-  if(rw.fat.add) rewards.push(`<div class="r" style="color:var(--bad)">피로도 +${rw.fat.add}  (누적 ${rw.fat.now} / ${FAT_MAX})</div>`);
-  if(rw.core) rewards.push(`<div class="r" style="color:var(--acc2)">코어 +${rw.core}</div>`);
-  if(rw.part) rewards.push(`<div class="r">파츠: ${rw.part.name} <span class="tag rar-${rw.part.rarity}">${rw.part.rarity}</span></div>`);
+  if(!rw.duel){
+    if(!rw.rescue) rewards.push(`<div class="r">경험치 +${rw.lv.amt}</div>`);
+    if(rw.lv.to>rw.lv.from) rewards.push(`<div class="r" style="color:var(--good)">레벨 업!  ${rw.rname}  Lv.${rw.lv.from} → Lv.${rw.lv.to}</div>`);
+    rewards.push(`<div class="r">크레딧 +${rw.cr}</div>`);
+    if(!rw.rescue) rewards.push(`<div class="r">스크랩 +${rw.sc}</div>`);
+    if(rw.fat.add) rewards.push(`<div class="r" style="color:var(--bad)">피로도 +${rw.fat.add}  (누적 ${rw.fat.now} / ${FAT_MAX})</div>`);
+    if(rw.core) rewards.push(`<div class="r" style="color:var(--acc2)">코어 +${rw.core}</div>`);
+    if(rw.part) rewards.push(`<div class="r">파츠: ${rw.part.name} <span class="tag rar-${rw.part.rarity}">${rw.part.rarity}</span></div>`);
+  }
   $('#sc-battle').innerHTML = `
     <div class="panel result">
       <div class="big ${win?'win':'lose'}">${win?'VICTORY':'DEFEAT'}</div>
@@ -1723,6 +1757,7 @@ window.ROWAR = {
   openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode, guide,
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
+  duelFind: guard(duelFind, 1000),
   practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
   setTactic,
   sendExped: guard(sendExped), claimExped: guard(claimExped),

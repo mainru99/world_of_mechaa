@@ -14,7 +14,7 @@ import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
 import { computeStats, power, gainExp, addFat, fatOf, decayFat,
          sortieCost, rescueCredits } from '../js/stats.js';
 import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickTactic } from '../js/rewards.js';
-import { registerArena, pickOpponentFromArena, ratingDelta } from './arena.js';
+import { registerArena, pickOpponentFromArena, pickOpponentByNickname, ratingDelta } from './arena.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 
 function cryptoRnd() {
@@ -117,6 +117,30 @@ async function preparePending(env, accountId, me, now, credits, opts) {
      출격비를 낼 수 없으면 '비상 출격'으로 돌린다.
      막힌 판을 만들지 않기 위한 구제 장치다 — 크레딧이 0이면 벌 방법도 없어지므로.
      상대는 몬스터로 고정한다. 레이팅이 걸리면 구제가 아니라 벌이 된다. */
+  /* ── 지목 대전 ── 닉네임으로 특정 상대를 불러 붙는다.
+     **친선전이다** — 출격비도 보상도 레이팅도 피로도도 없다. 약한 사람을 골라 잡아
+     파밍하는 길을 아예 만들지 않기 위해서다(무작위 매칭은 전투력 ±15% 창이 그 일을
+     하는데, 지목에는 창이 없다 — 아는 사람과 붙는 것이 목적이라 격차가 나도 뜻이 있다).
+     상대를 못 찾으면 null 을 돌려주고 findMatch 가 오류로 바꾼다. */
+  if (opts && opts.mode === 'duel') {
+    const target = String((opts.target || '')).trim();
+    const dopp = await pickOpponentByNickname(env, accountId, target);
+    if (dopp === 'self') return 'self';
+    if (!dopp) return null;
+    const dseed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
+    const DT = COMBAT[dopp.type];
+    return {
+      json: JSON.stringify({ opp: dopp, seed: dseed, at: now, rescue: false, cost: 0, mode: 'duel' }),
+      cost: 0, rescue: false, mode: 'duel', tier: null,
+      opponent: {
+        kind: dopp.kind, type: dopp.type, level: dopp.level, skillLv: dopp.skillLv | 0,
+        callsign: dopp.callsign, rating: dopp.rating ?? null,
+        name: DT.name, role: DT.role, rarity: DT.rarity,
+        skill: DT.skill, parts: dopp.parts, slots: dopp.slots,
+      },
+    };
+  }
+
   const cost = sortieCost(me.robot);
   const rescue = have < cost;
 
@@ -157,6 +181,19 @@ export async function findMatch(env, accountId, now, opts) {
     const need = huntCost(me.robot, opts.tier);
     if (me.credits < need)
       return { ok: false, status: 400, error: 'not enough credits for hunt', need, have: me.credits };
+  }
+
+  /* 지목 대전은 사용자가 이름을 적어 부른 것이라, 못 찾으면 조용히 다른 상대로
+     바꾸지 않고 그대로 알려 준다. 아레나로 떨어뜨리면 '누구와 붙는지'가 달라진다. */
+  if (opts && opts.mode === 'duel') {
+    const target = String((opts.target || '')).trim();
+    if (!target) return { ok: false, status: 400, error: 'no target' };
+    const next = await preparePending(env, accountId, me, now, me.credits, opts);
+    if (next === 'self') return { ok: false, status: 400, error: 'target is self', target };
+    if (!next) return { ok: false, status: 404, error: 'target not found', target };
+    await env.DB.prepare('UPDATE player SET pending_match = ?1 WHERE account_id = ?2')
+      .bind(next.json, accountId).run();
+    return { ok: true, opponent: next.opponent, cost: 0, rescue: false, mode: 'duel', tier: null };
   }
 
   const next = await preparePending(env, accountId, me, now, me.credits, opts);
@@ -206,10 +243,11 @@ export async function startBattle(env, accountId, now, body) {
   /* 출격비. 비상 출격이면 0 이다.
      find 이후에 정비·레벨업으로 크레딧을 써서 모자라졌을 수 있으므로 여기서 다시 본다.
      그때는 잡아 둔 상대를 버리고 다시 찾게 한다 — 다시 찾으면 비상 출격이 잡힌다. */
-  const mode = pend.mode === 'hunt' ? 'hunt' : 'arena';
+  const mode = pend.mode === 'hunt' ? 'hunt' : pend.mode === 'duel' ? 'duel' : 'arena';
   const tier = mode === 'hunt' ? pend.tier : null;
-  const rescue = !!pend.rescue;
-  const cost = rescue ? 0
+  const duel = mode === 'duel';                 // 친선전 — 오가는 것이 하나도 없다
+  const rescue = !!pend.rescue && !duel;
+  const cost = duel || rescue ? 0
              : mode === 'hunt' ? huntCost(me.robot, tier)
              : sortieCost(me.robot);
   /* 여기 오면 pending 은 이미 비워 둔 상태다(위 선점). 다시 비울 필요가 없다.
@@ -255,6 +293,10 @@ export async function startBattle(env, accountId, now, body) {
      피로도는 정상으로 쌓는다. 무한히 돌릴 수 없어야 한다. */
   if (rescue) rw = { win, sc: 0, core: 0, part: null, expGain: 0, fatAdd: rw.fatAdd,
                      cr: rescueCredits(me.robot, win) };
+  /* 친선전은 아무것도 주고받지 않는다 — 크레딧·스크랩·코어·파츠·경험치·피로도 전부 0.
+     전적(승패)과 레이팅도 아래에서 건드리지 않는다. 그래야 몇 판을 하든 값이 안 움직여
+     '누가 이기나 보자'만 남는다. */
+  if (duel) rw = { win, cr: 0, sc: 0, core: 0, part: null, expGain: 0, fatAdd: 0 };
 
   /* 경험치는 싸운 기체가 받는다. 키우는 과정이 곧 보상이다. */
   const lv = gainExp(me.robot, rw.expGain);
@@ -263,8 +305,8 @@ export async function startBattle(env, accountId, now, body) {
   const credits = prow.credits - cost + rw.cr;
   const scrap = prow.scrap + rw.sc;
   const cores = prow.cores + rw.core;
-  const wins = prow.wins + (win ? 1 : 0);
-  const losses = prow.losses + (win ? 0 : 1);
+  const wins = prow.wins + (duel ? 0 : win ? 1 : 0);
+  const losses = prow.losses + (duel ? 0 : win ? 0 : 1);
   const rev = prow.rev + 1;
 
   /* 다음 상대를 지금 잡아 둔다. 레벨이 올랐을 수 있으니 정산 뒤에 고른다.
@@ -303,7 +345,9 @@ export async function startBattle(env, accountId, now, body) {
     stmts.push(env.DB.prepare('UPDATE player SET rating = MAX(0, rating + ?1) WHERE account_id = ?2')
       .bind(delta, accountId));
   }
-  if (opp.kind === 'player') {
+  /* 친선전은 기록하지 않는다 — 레이팅이 안 움직여 다툴 것이 없고, 무제한이라
+     그대로 두면 battle 표가 이것만으로 찬다. */
+  if (!duel && opp.kind === 'player') {
     stmts.push(env.DB.prepare(
       `INSERT INTO battle (attacker_id, def_kind, defender_id, seed, atk_snap, def_snap, winner_id, atk_delta, created_at)
        VALUES (?1,'player',?2,?3,?4,?5,?6,?7,?8)`)

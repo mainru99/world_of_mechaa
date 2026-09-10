@@ -183,6 +183,9 @@ CREATE TABLE IF NOT EXISTS arena_entry (
 );
 CREATE INDEX IF NOT EXISTS ix_arena_pick   ON arena_entry(power, rnd);
 CREATE INDEX IF NOT EXISTS ix_arena_rating ON arena_entry(rating DESC);
+-- 지목 대전 — 닉네임으로 특정 상대를 부른다. 없으면 표를 통째로 훑는다.
+-- UNIQUE 로 두지 않는 것은 나중에 '이름 바꾸기'가 붙을 수 있어서다. 조회는 LIMIT 1.
+CREATE INDEX IF NOT EXISTS ix_arena_nick   ON arena_entry(nickname);
 
 -- ── 전투 기록 ───────────────────────────────────────────
 -- 시드와 양쪽 스냅샷을 남기면 언제든 같은 전투를 다시 재생할 수 있다.
@@ -257,7 +260,7 @@ CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 -- 006~008 의 모양은 이미 위 정의에 반영되어 있는데 이 값만 '6' 으로 남아 있었다.
 -- 새로 클론한 PC 가 v8 짜리 DB 를 만들어 놓고 '6' 이라고 말해, 마이그레이션이 필요한지
 -- 판단할 수 없었다(`/api/health` 의 schema_version 도 이 값을 읽는다).
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '10');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '11');
 
 
 -- =========================================================

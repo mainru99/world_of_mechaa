@@ -22,7 +22,7 @@ import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
 import { sendExped, claimExped } from './expedition.js';
 import { territoryView, attackNode, claimTerritory } from './territory.js';
-import { registerArena, balanceVersion } from './arena.js';
+import { registerArena, balanceVersion, migrateArena } from './arena.js';
 import { hashPassword, verifyPassword, checkCredentials,
          attemptKeys, checkBlocked, noteFailure, clearAttempts } from './auth.js';
 
@@ -511,6 +511,10 @@ export default {
        늦어도 상관없고, 실패가 크론 실행 기록에 그대로 남아야 알아챌 수 있다. */
     const now = Date.now();
     console.log('ranks refreshed', JSON.stringify(await refreshRanks(env, now)));
+    /* 밸런스를 고쳐 배포하면 등록된 방어 스냅샷이 전부 옛 버전이 된다.
+       매칭 쪽은 그 자리에서 다시 계산해 넘기지만, power 컬럼은 옛 값이라
+       ±15% 창이 어긋난다. 여기서 표를 훑어 새 값으로 맞춘다. */
+    console.log('arena migrated', JSON.stringify(await migrateArena(env, now)));
     if (event.cron === DAILY_CRON) {
       console.log('cleanup', JSON.stringify(await cleanup(env, now)));
     }

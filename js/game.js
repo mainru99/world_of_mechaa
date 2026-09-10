@@ -544,24 +544,19 @@ function renderHangar(){
             ${scost>0?`정비 (크레딧 ${fmt(scost)})`:'정비 완료'}</button>
         </div>
         ${net.state.online?'':'<div class="hint" style="color:var(--bad)">서버에 연결되지 않아 장착·강화·정비·레벨업을 할 수 없습니다.</div>'}
-        <div class="hint">대전에 출전하면 경험치를 얻어 자동으로 레벨업합니다.
-          대신 피로도가 쌓여 최대 내구(체력)가 줄어듭니다. 시간이 지나면 저절로 풀리고,
-          급하면 크레딧으로 정비하세요. 레벨이 높은 기체일수록 자연 회복이 느립니다.</div>
+        <div class="hint">출전하면 <b>피로도</b>가 쌓여 최대 내구가 줄어듭니다 · 시간이 지나면 풀리고, 급하면 정비하세요</div>
       </div>
 
       <div class="panel hg-roster">
         <h2 class="title" style="margin-top:0">보유 기체 ${S.robots.length}기</h2>
-        <div class="hint" style="margin-bottom:8px">기체마다 레벨이 따로 매겨집니다. 새로 뽑은 기체는 Lv.1부터 키웁니다.
-          <b>한 번에 데려갈 수 있는 것은 ${SQUAD_MAX}기</b>이고,
-          대전 상대를 찾아 둔 상태에서 편성을 바꾸면 <b>그 상대를 놓칩니다.</b></div>
+        <div class="hint" style="margin-bottom:8px">한 번에 데려갈 수 있는 것은 <b>${SQUAD_MAX}기</b> · 상대를 찾아 둔 뒤 편성을 바꾸면 <b>그 상대를 놓칩니다</b></div>
         <div class="roster">${roster}</div>
       </div>
     </div>
 
     <div class="panel">
       <h2 class="title" style="margin-top:0">파츠 인벤토리</h2>
-      <div class="hint">파츠를 누르면 <b>강화</b>됩니다(스크랩을 씁니다). 장착하려면 위의 슬롯을 누르세요.
-        쓰지 않을 파츠는 <b>분해</b>해 스크랩으로 바꿀 수 있습니다. 뽑기로 얻은 파츠는 자동으로 사라지지 않습니다.</div>
+      <div class="hint">누르면 <b>강화</b>(스크랩) · 장착은 위 슬롯에서 · 쓰지 않을 것은 <b>분해</b>해 스크랩으로</div>
       <div class="inv">${inv}</div>
     </div>`;
 
@@ -656,11 +651,9 @@ function renderGacha(){
         </div>
       ${net.state.online?'':'<div class="hint" style="margin-top:8px;color:var(--bad)">서버에 연결되지 않아 뽑기를 할 수 없습니다. 뽑기 결과는 서버가 판정합니다.</div>'}
       <div class="hint" style="margin-top:8px">${gCur==='credit'
-        ? `크레딧은 대전·점령지에서 꾸준히 들어옵니다. 대신 <b>기체가 나올 확률이 코어보다 낮고</b>,
-           나오더라도 낮은 등급으로 크게 쏠립니다. 코어가 마른 동안 돌리는 창구입니다.`
-        : `코어는 대전 승리와 안쪽 점령지에서 조금씩 얻습니다.`}
-        기체는 ${ROBOT_RARITY.length}등급 ${ROBOT_IDS.length}종이며, 이미 가진 기체가 나오면 등급에 맞춰 자원으로 분해됩니다.
-        <b>뽑은 파츠는 자동으로 분해되지 않으니</b> 격납고에서 직접 정하세요.</div>
+        ? `크레딧은 꾸준히 들어오는 대신 <b>기체 확률이 낮고 등급도 낮은 쪽으로 쏠립니다</b>`
+        : `코어는 대전 승리와 안쪽 점령지에서 얻습니다.`}
+        가진 기체가 또 나오면 자원으로 분해됩니다 · <b>파츠는 격납고에서 직접 정하세요</b></div>
       </div>
     </div>`;
 }
@@ -803,9 +796,7 @@ function renderBattleHome(){
 
       <div class="panel bh-go">
         ${on ? pool : `<div class="dh">연습 대전</div>
-          <div class="hint">서버에 연결되지 않았습니다. 지금 편성으로 싸워 볼 수 있지만
-            <b style="color:var(--bad)">아무것도 얻지 못합니다</b> — 경험치·크레딧·파츠·전적이
-            움직이지 않습니다. 승패와 보상은 서버만 판정합니다.</div>`}
+          <div class="hint">서버에 연결되지 않았습니다 · 싸워 볼 수는 있지만 <b style="color:var(--bad)">아무것도 얻지 못합니다</b></div>`}
         <div class="bh-rows">
           ${on ? `<div class="bh-row"><span>출격비</span><b style="color:var(--gold)">${fmt(cost)} 크레딧</b></div>
                   <div class="bh-row"><span>보유 크레딧</span><b${poor?' style="color:var(--bad)"':''}>${fmt(S.credits)}</b></div>` : ''}
@@ -824,8 +815,7 @@ function renderBattleHome(){
                    onkeydown="if(event.key==='Enter'){event.preventDefault();ROWAR.duelFind()}">
             <button class="btn ghost" onclick="ROWAR.duelFind()">붙기</button>
           </div>
-          <div class="hint">이름을 적으면 그 사람이 등록해 둔 기체와 붙습니다 ·
-            <b>친선전</b>이라 출격비도 보상도 레이팅도 움직이지 않습니다</div>
+          <div class="hint">적은 이름의 등록 기체와 붙습니다 · <b>친선전</b>이라 출격비·보상·레이팅이 없습니다</div>
         </div>` : ''}
       </div>
     </div>`;
@@ -1033,9 +1023,7 @@ function renderExped(){
     </button>`; }).join('');
   return `<div class="panel">
     <h2 class="title" style="margin-top:0">원정</h2>
-    <div class="hint">기체 한 기를 정해진 시간 동안 내보내 재화를 받아 옵니다.
-      <b>보낸 기체는 그동안 출격할 수 없으며, 한 번에 한 기만 내보낼 수 있습니다.</b>
-      위 수치는 지금 고른 기체(Lv.${selRobot().level}) 기준이고, 보낼 기체는 다음 화면에서 고릅니다.</div>
+    <div class="hint"><b>보낸 기체는 그동안 출격할 수 없습니다</b> · 한 번에 한 기 · 위 수치는 Lv.${selRobot().level} 기준</div>
     <div class="hunt-list" style="margin-top:10px">${rows}</div>
   </div>`;
 }
@@ -1113,8 +1101,7 @@ function renderHunt(){
   $('#sc-hunt').innerHTML = `<div class="hx">${renderExped()}
     <div class="panel">
       <h2 class="title" style="margin-top:0">토벌 · 사냥터</h2>
-      <div class="hint">몬스터를 사냥해 <b>스크랩과 파츠</b>를 얻습니다. 크레딧은 대전의 절반에 못 미치고,
-        순위에도 반영되지 않습니다. 등급이 높을수록 출격비가 비싸고 상대도 강합니다.</div>
+      <div class="hint"><b>스크랩과 파츠</b>를 얻습니다 · 크레딧은 적고 순위는 오르지 않습니다 · 등급이 높을수록 강합니다</div>
       <div class="hunt-list" style="margin-top:10px">${rows}</div>
       <div class="hint" style="margin-top:8px">출전 · ${ROBOT_TYPES[rb.type].name} Lv.${rb.level} · 보유 ${fmt(S.credits)} 크레딧</div>
     </div></div>`;
@@ -1510,8 +1497,7 @@ async function renderTerr(){
   const el=$('#sc-terr');
   const wrap = inner => `<h2 class="title">점령전 · 세계 지도</h2>${inner}`;
   if(!net.state.online){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">점령전은 서버 연결이 필요합니다.
-      지도는 서버에 하나뿐이라 누가 어느 칸을 들고 있는지도 서버가 압니다.</div></div>`);
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">점령전은 서버 연결이 필요합니다. 지도는 서버에 하나뿐입니다.</div></div>`);
     return;
   }
   const fresh = _terr && (Date.now()-_terrAt) < TERR_TTL;
@@ -1577,20 +1563,11 @@ function drawTerr(r){
       </div>
       <button class="btn big ${has?'gold':''}" ${has?'':'disabled'} onclick="ROWAR.claimTerr()"
         >${has?'수입 받기':'아직 쌓인 수입이 없습니다'}</button>
-      <div class="hint" style="margin-top:6px">수입은 ${CONST.TERR.INCOME_CAP_H}시간치까지만 쌓입니다.
-        <b>칸마다 나오는 재화가 다릅니다</b> — 크레딧이 두꺼운 칸, 스크랩이 두꺼운 칸,
-        안쪽의 세 칸에서만 조금씩 나오는 코어.
-        ${avg?`<br>지도 난이도는 <b>전체 플레이어 평균 전투력 ${fmt(avg)}</b>에 맞춰 올라가 있습니다.`:''}</div>
+      <div class="hint" style="margin-top:6px">수입은 <b>${CONST.TERR.INCOME_CAP_H}시간치</b>까지 쌓입니다 · 칸마다 나오는 재화가 다릅니다${
+        avg?` · 지도 난이도는 평균 전투력 <b>${fmt(avg)}</b>에 맞춰 올라 있습니다`:''}</div>
     </div>
     <div class="tmap">${cells}</div>
-    <div class="panel tinfo"><div class="hint">
-      칸을 누르면 방어선과 지형을 볼 수 있습니다. <b>한 칸은 방어선을 전부 뚫어야</b> 점령됩니다 —
-      편성한 두 기가 <b>체력을 이어받은 채</b> 연속으로 싸우고, 둘 다 쓰러지면 실패합니다.
-      실패해도 <b>깎아 둔 방어선은 남습니다</b>(시간이 지나면 스스로 회복).
-      점령된 칸은 ${CONST.TERR.PROTECT_MIN}분간 <b>보호</b>됩니다 —
-      코어 ${CONST.TERR.RAID_CORE}개를 내면 그 안에도 칠 수 있지만,
-      그때는 <b>점령자의 편성 ${CONST.SQUAD_MAX}기가 방어선 뒤에 그대로 붙습니다</b>.
-    </div></div>
+    <div class="panel tinfo"><div class="hint"><b>실패해도 깎아 둔 방어선은 남습니다</b></div></div>
     </div>`;
 }
 
@@ -1665,8 +1642,7 @@ function openNode(id){
     <div class="hint" style="margin:10px 0 4px">데려갈 기체 — 체력은 방어선 사이에 회복되지 않습니다.</div>
     <div class="tmechs">${roster}</div>
     ${lock
-      ? `<div class="hint" style="margin-top:10px;color:var(--bad)">🔒 <b>Lv.${n.minLv} 이상</b>이어야 들어갈 수 있습니다.
-          지금 출격 편성의 최고 레벨은 <b>Lv.${myTop}</b>입니다. 기체를 더 키우세요.</div>`
+      ? `<div class="hint" style="margin-top:10px;color:var(--bad)">🔒 <b>Lv.${n.minLv} 이상</b>이어야 들어갑니다 · 기체를 더 키우세요</div>`
       : mine
       ? `<div class="hint" style="margin-top:10px;color:var(--gold)">이미 내 점령지입니다. 수입은 지도에서 한꺼번에 받습니다.${
           prot?`<br>지금은 <b>보호 중</b>입니다 — ${dur(prot)} 뒤에 풀립니다.`:''}</div>`
@@ -1676,9 +1652,7 @@ function openNode(id){
           /* 보호 중 — 보통 공격은 아예 막고, 코어를 내는 강행만 남긴다.
              강행은 방어선이 두꺼워지므로 무엇이 늘어나는지 버튼 위에 적는다. */
           ? `<div class="hint" style="margin:10px 0 4px;color:var(--gold)">🛡 점령 직후 <b>보호 중</b> · ${dur(prot)} 남음</div>
-             <div class="hint" style="color:var(--bad)">지금 치려면 <b>강행</b>해야 합니다.
-               코어 ${CONST.TERR.RAID_CORE}개를 쓰고, 몬스터 뒤에
-               <b>${esc(s.ownerName||'점령자')}의 편성 ${CONST.SQUAD_MAX}기</b>를 더 상대합니다.</div>
+             <div class="hint" style="color:var(--bad)">지금 치려면 <b>강행</b>해야 합니다 · 코어 ${CONST.TERR.RAID_CORE}개 · 몬스터 뒤에 <b>${esc(s.ownerName||'점령자')}의 편성 ${CONST.SQUAD_MAX}기</b>가 더 붙습니다</div>
              <button class="btn big ${(poor||S.cores<CONST.TERR.RAID_CORE)?'':'gold'}"
                ${(poor||S.cores<CONST.TERR.RAID_CORE)?'disabled':''} onclick="ROWAR.raidTerr('${id}')"
                style="margin-top:8px">${
@@ -2066,12 +2040,11 @@ function accountScreen(){
 
   openModal(`<div class="mhead">계정 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="acctbox">
-      <p class="hint" style="color:var(--gold)">지금은 <b>게스트 #${String(s.accountId).padStart(4,'0')}</b>입니다.
-        진행 상황이 이 브라우저에만 저장되어, 브라우저 데이터를 지우면 계정을 잃습니다.</p>
+      <p class="hint" style="color:var(--gold)">지금은 <b>게스트 #${String(s.accountId).padStart(4,'0')}</b> · 이 브라우저에만 저장되어, 데이터를 지우면 계정을 잃습니다</p>
 
       <div class="asec">
         <div class="atitle">정식 계정 만들기</div>
-        <p class="hint">지금까지의 진행 상황을 그대로 이어받습니다. 처음부터 다시 시작하지 않습니다.</p>
+        <p class="hint">지금까지의 진행 상황을 그대로 이어받습니다</p>
         <input id="rg-id" class="ainput" placeholder="아이디 (영문·숫자·밑줄 4~20자)" maxlength="20" autocomplete="username">
         <input id="rg-pw" class="ainput" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="new-password">
         <button class="btn big gold" onclick="ROWAR.doRegister()">정식 계정으로 만들기</button>
@@ -2079,8 +2052,7 @@ function accountScreen(){
 
       <div class="asec">
         <div class="atitle">이미 계정이 있다면</div>
-        <p class="hint" style="color:var(--bad)">로그인하면 그 계정의 진행 상황을 따릅니다.
-          지금 이 게스트 계정의 진행 상황은 이 브라우저에서 더 이상 보이지 않습니다.</p>
+        <p class="hint" style="color:var(--bad)">로그인하면 그 계정을 따릅니다 · <b>지금 게스트 계정의 진행 상황은 더 이상 보이지 않습니다</b></p>
         <input id="lg-id" class="ainput" placeholder="아이디" maxlength="20" autocomplete="username">
         <input id="lg-pw" class="ainput" type="password" placeholder="비밀번호" autocomplete="current-password">
         <button class="btn big" onclick="ROWAR.doLogin()">로그인</button>

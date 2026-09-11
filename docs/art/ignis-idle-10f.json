@@ -1,0 +1,190 @@
+{
+  "name": "Ignis idle — original pixels",
+  "status": "user-approved; integrated; deployment verification pending",
+  "method": "User-authorized deterministic pixel copying; integer y translation and wing RGB adjustment only",
+  "source": "assets/ignis.png",
+  "sourceSha256": "4c855bde3487788b1ed423e50674ab2b2dbefbe60f95b677605a30fc1c8a052c",
+  "animatedFile": "assets/motions/ignis-idle-10f.webp",
+  "frameWidth": 440,
+  "frameHeight": 420,
+  "frameCount": 10,
+  "loop": true,
+  "durationMs": 2300,
+  "anchor": {
+    "x": 220,
+    "y": 408
+  },
+  "maxHoverPixels": 8,
+  "sheetFile": "not shipped; reproducible from tools/build_ignis_idle.py",
+  "columns": 5,
+  "rows": 2,
+  "playbackOrder": "row-major, left to right then top to bottom",
+  "wingMaskPixels": 8223,
+  "opaquePixelsPerFrame": 84302,
+  "frames": [
+    {
+      "index": 1,
+      "durationMs": 200,
+      "offsetX": 0,
+      "offsetY": 0,
+      "wingIntensity": 0,
+      "bbox": [
+        11,
+        22,
+        428,
+        408
+      ],
+      "changedPixelsOutsideWings": 0
+    },
+    {
+      "index": 2,
+      "durationMs": 200,
+      "offsetX": 0,
+      "offsetY": 0,
+      "wingIntensity": 0.06,
+      "bbox": [
+        11,
+        22,
+        428,
+        408
+      ],
+      "changedPixelsOutsideWings": 0
+    },
+    {
+      "index": 3,
+      "durationMs": 230,
+      "offsetX": 0,
+      "offsetY": -1,
+      "wingIntensity": 0.22,
+      "bbox": [
+        11,
+        21,
+        428,
+        407
+      ],
+      "changedPixelsOutsideWings": 0
+    },
+    {
+      "index": 4,
+      "durationMs": 240,
+      "offsetX": 0,
+      "offsetY": -3,
+      "wingIntensity": 0.48,
+      "bbox": [
+        11,
+        19,
+        428,
+        405
+      ],
+      "changedPixelsOutsideWings": 0
+    },
+    {
+      "index": 5,
+      "durationMs": 240,
+      "offsetX": 0,
+      "offsetY": -6,
+      "wingIntensity": 0.78,
+      "bbox": [
+        11,
+        16,
+        428,
+        402
+      ],
+      "changedPixelsOutsideWings": 0
+    },
+    {
+      "index": 6,
+      "durationMs": 260,
+      "offsetX": 0,
+      "offsetY": -8,
+      "wingIntensity": 1,
+      "bbox": [
+        11,
+        14,
+        428,
+        400
+      ],
+      "changedPixelsOutsideWings": 0
+    },
+    {
+      "index": 7,
+      "durationMs": 260,
+      "offsetX": 0,
+      "offsetY": -8,
+      "wingIntensity": 0.96,
+      "bbox": [
+        11,
+        14,
+        428,
+        400
+      ],
+      "changedPixelsOutsideWings": 0
+    },
+    {
+      "index": 8,
+      "durationMs": 240,
+      "offsetX": 0,
+      "offsetY": -6,
+      "wingIntensity": 0.65,
+      "bbox": [
+        11,
+        16,
+        428,
+        402
+      ],
+      "changedPixelsOutsideWings": 0
+    },
+    {
+      "index": 9,
+      "durationMs": 230,
+      "offsetX": 0,
+      "offsetY": -3,
+      "wingIntensity": 0.28,
+      "bbox": [
+        11,
+        19,
+        428,
+        405
+      ],
+      "changedPixelsOutsideWings": 0
+    },
+    {
+      "index": 10,
+      "durationMs": 200,
+      "offsetX": 0,
+      "offsetY": 0,
+      "wingIntensity": 0,
+      "bbox": [
+        11,
+        22,
+        428,
+        408
+      ],
+      "changedPixelsOutsideWings": 0
+    }
+  ],
+  "verification": {
+    "decodedWebpFrames": 10,
+    "visiblePixelRoundtripDifferences": 0,
+    "alphaRoundtripDifferences": 0,
+    "bodyChangesOutsideWings": 0,
+    "firstAndLastEqualSource": true,
+    "clippedPixels": 0,
+    "alphaValues": [
+      0,
+      255
+    ],
+    "scaleChanges": false,
+    "horizontalDrift": false
+  },
+  "files": {
+    "ignis-idle-10f.webp": {
+      "bytes": 1590556,
+      "sha256": "896834483e0e48cafd102abead15e77fc9e24c509f19078d7b8622367929c1fb"
+    },
+    "ignis-idle-10f-sheet.png": {
+      "bytes": 724466,
+      "sha256": "7083b7b776a4539e37f7dc842f1d02efef045b3b6c8315751e706c11bd665fec"
+    }
+  }
+}

@@ -14,6 +14,7 @@ import { ROBOT_IDS, MONSTER_IDS, isMonster } from './units.js';
 
 const FACE_RIGHT = {};                  // 원본이 이미 오른쪽을 보는 id
 const CACHE_BUST = '?v=20260904-split';
+const IDLE_SPRITES = { ignis: 'assets/motions/ignis-idle-10f.webp?v=20260912-idle' };
 
 export const assetPath = id => 'assets/' + (isMonster(id) ? 'monsters/' : '') + id + '.png' + CACHE_BUST;
 
@@ -21,11 +22,20 @@ export function sprite(id, faceRight) {
   const known = ROBOT_IDS.includes(id) || MONSTER_IDS.includes(id);
   const useId = known ? id : ROBOT_IDS[0];
   const flip = !!FACE_RIGHT[useId] !== !!faceRight;
-  return '<img class="mecha' + (flip ? ' flip' : '') + '" src="' + assetPath(useId) +
-         '" alt="' + useId + '" draggable="false">';
+  const still = assetPath(useId);
+  const idle = IDLE_SPRITES[useId];
+  // A supported WebP that fails to load needs its source removed to use PNG.
+  const fallback = idle ? ' onerror="this.onerror=null;this.previousElementSibling.remove();this.src=\'' + still + '\';"' : '';
+  const img = '<img class="mecha' + (flip ? ' flip' : '') + '" src="' + still +
+              '" alt="' + useId + '" draggable="false"' + fallback + '>';
+  if (!idle) return img;
+  return '<picture class="mecha-picture"><source type="image/webp" media="(prefers-reduced-motion: no-preference)" srcset="' + idle + '">' + img + '</picture>';
 }
 
 /* 전투 중 첫 표시가 늦지 않도록 미리 받아둔다 */
 export function preloadSprites() {
   for (const id of [...ROBOT_IDS, ...MONSTER_IDS]) { const i = new Image(); i.src = assetPath(id); }
+  if (globalThis.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) {
+    for (const src of Object.values(IDLE_SPRITES)) { const i = new Image(); i.src = src; }
+  }
 }

@@ -244,12 +244,155 @@ export const PART_NAMES = {
    그래서 실측 전투력이 **맨몸보다 2.4% 낮았다** — 끼면 손해라 존재 이유가 없었다.
    대가를 절반 아래로 낮춰 '없는 것보단 나은' 정도(+3% 안팎)로 맞춘다.
    위 등급은 그대로다. 뾰족해지는 대가를 무르게 하면 파츠를 고르는 재미가 사라진다. */
+/* pos/neg/affixes/tiers 는 개편용으로 **더한 열**이다. 지금 읽는 곳은 없다
+   (genPart 와 server/state.js 는 k·w·n·mul·costMul 만 본다). 4단계에서 갈아끼운다.
+   등급이 올라도 단점까지 같은 비율로 키우지 않는다 — pos 는 크게, neg 는 조금.
+   기존 mul(최대 3.4배)보다 pos 를 낮춘 것은 인챈트가 2개까지 더 붙기 때문이다. */
 export const RARITY = [
-  {k:'C', ko:'일반', w:52, n:1, mul:1.0, costMul:0.45},
-  {k:'R', ko:'정밀', w:30, n:2, mul:1.5},
-  {k:'SR',ko:'시제', w:14, n:3, mul:2.2},
-  {k:'SSR',ko:'초월',w:4,  n:3, mul:3.4} ];
+  {k:'C', ko:'일반', w:52, n:1, mul:1.0, costMul:0.45,
+   pos:1.00, neg:1.00, affixes:[1,1], tiers:{ I:85, II:15 }},
+  {k:'R', ko:'정밀', w:30, n:2, mul:1.5,
+   pos:1.25, neg:1.05, affixes:[1,2], tiers:{ I:35, II:55, III:10 }},
+  {k:'SR',ko:'시제', w:14, n:3, mul:2.2,
+   pos:1.60, neg:1.10, affixes:[2,2], tiers:{ II:35, III:55, IV:10 }},
+  {k:'SSR',ko:'초월',w:4,  n:3, mul:3.4,
+   pos:2.05, neg:1.15, affixes:[2,2], tiers:{ II:10, III:55, IV:35 }} ];
 export const STAT_ROLL = { hp:[24,60], atk:[6,16], def:[5,13], spd:[3,9], crit:[.02,.05], eva:[.02,.05] };
+
+/* ══ 파츠 개편 (2026-09-11) — 베이스 · 인챈트 ═══════════════════════════
+   아래는 **아직 아무도 읽지 않는다.** 생성은 여전히 위의 SLOT_STATS/STAT_ROLL 을
+   쓴다(genPart). 순서대로 갈아끼우려고 데이터를 먼저 놓는 것이다.
+   개편 계획과 각 단계의 통과 기준은 DESIGN.md 에 있다.
+
+   왜 바꾸나 — 지금은 **이름이 마지막에, 성능과 무관하게 붙는다.** 그래서 같은
+   슬롯·같은 등급이면 빔 세이버와 발칸포가 통계적으로 같은 물건이고, 이름은 세트
+   판정에만 쓰인다. 실질 16종(4슬롯 × 4등급)짜리 파밍이다.
+   앞으로는 **이름이 곧 성능**이고, 그 위에 인챈트가 성격을 얹는다. */
+
+/* ── 베이스 21종 ──────────────────────────────────────────
+   stats 는 Lv.40 · C등급 기준값이다(레벨 배율은 생성 때 곱한다).
+   range 는 공격 구간 **배수**다 — 지금의 spread 처럼 더하지 않고 곱한다.
+     더하기였을 때의 문제: 기체 고유 구간이 ±8% 부터 ±42% 까지인데 파츠가 절대값으로
+     얹히니, 같은 파츠가 좁은 기체에겐 바닥을 뚫고 넓은 기체에겐 거의 안 보였다.
+     곱하면 기체 성격이 보존된다.
+   fx 는 수치가 아니라 **전투 규칙**이다. sim.js 가 읽는다(5단계).
+
+   ※ 각 베이스는 '한 파츠만 끼웠을 때 맨몸 대비 승률 58~64%' 예산 안에 있어야 한다.
+     node tools/budget.mjs 가 21개를 전부 재서 구간 밖을 지목한다. */
+export const PART_BASES = {
+  /* 무장 — 공격. 이 슬롯이 기본적으로 지불하는 축은 속도다(SLOT_COST). */
+  beamSaber:     { ko:'빔 세이버',    slot:'WEAPON', set:'assault',
+                   stats:{ atk:34, hp:-55 },                          range:0.78 },
+  vulcan:        { ko:'발칸포',       slot:'WEAPON', set:null,
+                   stats:{ atk:22, spd:5, crit:-.012 },               range:1.25 },
+  railgun:       { ko:'레일건',       slot:'WEAPON', set:'precision',
+                   stats:{ atk:22, spd:9, crit:.020 },                range:0.80 },
+  photonLance:   { ko:'포톤 랜스',    slot:'WEAPON', set:null,
+                   stats:{ atk:25, spd:3 },                           range:0.90 },
+  /* 채프 런처 — 쏠수록 느려진다. **초기화가 없다.**
+     원안은 '2초 미공격 시 초기화' 였는데 1:1 에서는 자기 턴마다 반드시 공격하므로
+     그 조건이 영원히 성립하지 않는다(단위를 초로 잡든 턴으로 잡든 같다).
+     초기화를 빼면 오히려 원래 컨셉대로다 — 처음엔 가장 빠른 중화기, 끝엔 가장 느린. */
+  chaffLauncher: { ko:'채프 런처',    slot:'WEAPON', set:null,
+                   stats:{ atk:31, spd:6 },                           range:1.30,
+                   fx:{ stackSpd:-0.03, stackMax:5 } },
+  breaker:       { ko:'브레이커',     slot:'WEAPON', set:'fortress',
+                   stats:{ atk:23, spd:-4 },                          range:1.25,
+                   fx:{ pierce:{ C:.10, R:.12, SR:.14, SSR:.16 }, pierceAmt:0.5 } },
+
+  /* 프레임 — 생존. 기본 지불 축은 회피다. */
+  alloyArmor:    { ko:'합금 장갑',    slot:'FRAME', set:'fortress',
+                   stats:{ hp:120, def:18, eva:-.020, crit:-.010 },   range:1.12 },
+  reactiveArmor: { ko:'리액티브 아머', slot:'FRAME', set:null,
+                   stats:{ hp:80, def:12, crit:.015, eva:-.020 },     range:1.12 },
+  shieldFrame:   { ko:'실드 프레임',  slot:'FRAME', set:null,
+                   stats:{ def:16, eva:.018, spd:-3 },                range:1.12 },
+  lightFrame:    { ko:'경량 골격',    slot:'FRAME', set:'assault',
+                   stats:{ hp:-65, def:-6, eva:.035, spd:8 },         range:0.86 },
+  nanoCoat:      { ko:'나노 코팅',    slot:'FRAME', set:'precision',
+                   stats:{ hp:75, def:5, eva:.025 },                  range:0.90 },
+
+  /* 부스터 — 기동. 기본 지불 축은 방어다. */
+  thruster:      { ko:'스러스터',     slot:'BOOSTER', set:'fortress',
+                   stats:{ spd:4, hp:-50, def:10 },                   range:1.18 },
+  floatPack:     { ko:'플로트 팩',    slot:'BOOSTER', set:null,
+                   stats:{ spd:10, def:-8 },                          range:0.84 },
+  boostUnit:     { ko:'부스트 유닛',  slot:'BOOSTER', set:null,
+                   stats:{ spd:9, eva:.020, hp:-45, def:-7, atk:-6 }, range:1.00 },
+  highMobility:  { ko:'고기동 백',    slot:'BOOSTER', set:'assault',
+                   stats:{ spd:12, eva:.030, crit:.015, hp:-65, def:-10 }, range:0.82 },
+  ambac:         { ko:'AMBAC',        slot:'BOOSTER', set:'precision',
+                   stats:{ spd:5, eva:.035, crit:.025, atk:-8, hp:-55, def:-8 }, range:0.84 },
+
+  /* 코어 — 빌드 보조. 기본 지불 축은 속도다. */
+  reactor:       { ko:'리액터',       slot:'CORE', set:'fortress',
+                   stats:{ hp:115, def:16, crit:-.015, eva:-.020, spd:-7 } },
+  generator:     { ko:'제너레이터',   slot:'CORE', set:null,
+                   stats:{ hp:75, crit:.018, spd:-5, atk:-8 },        range:1.15 },
+  tacticalCore:  { ko:'전술 코어',    slot:'CORE', set:'precision',
+                   stats:{ def:11, crit:.022, spd:-4, eva:-.015 },    range:1.12 },
+  controlChip:   { ko:'컨트롤 칩',    slot:'CORE', set:null,
+                   stats:{ hp:65, def:10, spd:-3, crit:-.010 } },
+  overdrive:     { ko:'오버드라이브', slot:'CORE', set:'assault',
+                   stats:{ atk:18, crit:.028, spd:9, hp:-85, def:-13 } },
+};
+
+/* ── 인챈트 18종 ──────────────────────────────────────────
+   하나가 하나의 플레이 스타일을 만들어야 한다. '공격 +10' 짜리는 넣지 않는다.
+   slots 가 '*' 면 전체, 아니면 그 슬롯에만 붙는다.
+   group 이 같은 둘은 한 파츠에 같이 못 붙는다(AFFIX_GROUPS).
+   w 는 뽑기 가중치 — 균형만 낮다(패널티가 없으므로 희귀도로 값을 치른다). */
+export const AFFIXES = {
+  highSpeed:  { ko:'고속',     slots:'*',                 group:null,      w:100, stats:{ spd:7, def:-4 } },
+  ragged:     { ko:'누더기',   slots:'*',                 group:'weight',  w:100, stats:{ spd:4, eva:.010, hp:-45, def:-4 } },
+  overcharged:{ ko:'과충전',   slots:['WEAPON','CORE'],   group:'output',  w:100, stats:{ atk:12, crit:.010, hp:-35 } },
+  precise:    { ko:'정밀',     slots:'*',                 group:'range',   w:100, stats:{ crit:.015, atk:-4 }, range:0.88 },
+  unstable:   { ko:'불안정',   slots:'*',                 group:'range',   w:100, stats:{ atk:15 },            range:1.18 },
+  heavy:      { ko:'중장',     slots:'*',                 group:'weight',  w:100, stats:{ hp:60, def:8, spd:-6, eva:-.010 } },
+  light:      { ko:'경량',     slots:'*',                 group:'weight',  w:100, stats:{ spd:6, eva:.015, hp:-45, def:-5 } },
+  reinforced: { ko:'강화',     slots:'*',                 group:'defense', w:100, stats:{ hp:50, def:6, crit:-.008 } },
+  reactive:   { ko:'반응형',   slots:['FRAME','BOOSTER'], group:null,      w:100, stats:{ eva:.018, spd:4, def:-4 } },
+  keen:       { ko:'예리한',   slots:['WEAPON','CORE'],   group:null,      w:100, stats:{ crit:.025, atk:5, spd:-2 } },
+  piercing:   { ko:'관통',     slots:['WEAPON'],          group:null,      w:100, stats:{ atk:-5 }, fx:{ pierce:.08 } },
+  stabilized: { ko:'안정화',   slots:'*',                 group:'range',   w:100, stats:{ def:4, atk:-4 },     range:0.86 },
+  berserk:    { ko:'광폭',     slots:['WEAPON','CORE'],   group:'output',  w:100, stats:{ atk:16, spd:5, hp:-35, def:-8 } },
+  fortified:  { ko:'요새화',   slots:['FRAME','CORE'],    group:'defense', w:100, stats:{ hp:80, def:10, spd:-8, eva:-.015 } },
+  /* 재생 — 원안은 '5초간 무피해 시 초당 회복' 이었다. 1:1 에서 15연속 회피는
+     사실상 안 나온다(20% 회피 기준 10의 -11승). **직전 공격을 피했으면** 으로
+     바꾸면 회피 빌드에서만 살아나는 옵션이 된다 — 그 편이 정체성도 분명하다. */
+  regen:      { ko:'재생',     slots:['FRAME','CORE'],    group:null,      w:100, stats:{ def:-4 }, fx:{ regen:.015 } },
+  /* 균형 — 패널티가 없다. 원칙 4('단점이 없으면 최대 성능을 낮춘다')를
+     수치가 아니라 **등장 빈도**로 지킨다. */
+  balanced:   { ko:'균형',     slots:'*',                 group:null,      w:14,  stats:{ atk:5, hp:25, def:3, spd:2 } },
+  /* 아래 둘은 부스터를 위해 새로 넣는다. 원안 16종에서는 부스터만 전용 인챈트가
+     없어 쓸 수 있는 것이 10종(조합 39가지)뿐이었다 — 코어 14종/83가지의 절반도
+     안 된다. 게다가 부스터 베이스 5종 중 4종이 이미 속도·회피로 몰려 있어
+     '먹어도 비슷비슷한 슬롯' 이 된다. */
+  inertial:   { ko:'관성 제어', slots:['BOOSTER','FRAME'], group:'range',  w:100, stats:{ spd:4, hp:-30 }, range:0.88 },
+  retro:      { ko:'역추진',    slots:['BOOSTER','FRAME'], group:null,     w:100, stats:{ eva:.030, def:6, spd:-5 } },
+};
+
+/* 같은 그룹은 한 파츠에 하나만. 뜻이 충돌하거나(무게를 동시에 늘리고 줄임)
+   과하게 겹치는(구간을 두 번 좁힘) 조합을 구조로 막는다. */
+export const AFFIX_GROUPS = {
+  weight:  ['heavy', 'light', 'ragged'],
+  range:   ['precise', 'unstable', 'stabilized', 'inertial'],
+  output:  ['overcharged', 'berserk'],
+  defense: ['reinforced', 'fortified'],
+};
+
+/* 인챈트 티어 I~IV. 데이터를 복제하지 않고 배수로 적용한다.
+   높은 티어일수록 **좋은 효과는 커지고 나쁜 효과는 조금 줄어든다.**
+   AFFIX_ROLL 은 티어 안에서 다시 굴리는 폭이다 — 이게 있어야 같은 [고속 IV]도
+   서로 다르고, 나중에 붙일 인챈트 재설정·잠금·합성이 뜻을 갖는다.
+   파츠에 seed 를 같이 저장하므로 값은 언제든 그대로 재현된다(서버가 재계산한다). */
+export const AFFIX_TIER = {
+  I:   { pos:0.75, neg:1.00 },
+  II:  { pos:0.90, neg:1.00 },
+  III: { pos:1.05, neg:0.95 },
+  IV:  { pos:1.20, neg:0.90 },
+};
+export const AFFIX_ROLL = 0.12;      // 티어 안에서 +-12%
 
 /* 흩어져 있던 조정 수치를 한곳에 모은다. 서버도 이 값을 읽으므로
    여기를 바꾸면 서버 재배포가 필요하다. */

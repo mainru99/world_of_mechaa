@@ -50,13 +50,14 @@ body{
   background:#0a1020;border:1px solid var(--line);color:var(--ink);font-size:14px}
 .ainput:focus{outline:none;border-color:var(--acc)}
 .asec .btn{width:100%;margin-top:10px}
-.coin .ic{width:16px;height:16px;border-radius:50%;display:inline-block}
-.ic-credit{background:radial-gradient(circle at 30% 30%,#ffe89a,#f0b429)}
-.ic-core{background:radial-gradient(circle at 30% 30%,#bff0ff,#37a7d6)}
-.ic-scrap{background:radial-gradient(circle at 30% 30%,#cbd5e6,#7c8aa6)}
+.coin .ic{width:24px;height:24px;flex:0 0 24px;display:inline-block;
+  background-position:center;background-size:contain;background-repeat:no-repeat}
+.ic-credit{background-image:url('assets/ui/coin-credit.png')}
+.ic-core{background-image:url('assets/ui/coin-core.png')}
+.ic-scrap{background-image:url('assets/ui/coin-scrap.png')}
 
 /* ---- nav ---- */
-.nav{display:flex;gap:6px;padding:10px 12px;position:sticky;top:57px;z-index:15;
+.nav{display:flex;gap:6px;padding:10px 12px;position:sticky;top:var(--topbar-height,57px);z-index:15;
   background:linear-gradient(180deg,#0f1730,#0d1426);border-bottom:1px solid var(--line)}
 .nav button{flex:1;padding:11px 6px;border:1px solid var(--line);background:#131c34;color:var(--sub);
   border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;transition:.15s}
@@ -280,6 +281,7 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .modal-card .pchip{margin-bottom:8px}
 .reveal-hero{display:flex;justify-content:center;margin:8px 0 12px}
 .reveal-hero .sprite{width:150px;height:150px}
+.currency-art{width:120px;height:120px;object-fit:contain;filter:drop-shadow(0 8px 14px rgba(0,0,0,.4))}
 
 /* 대전 전용 몬스터 */
 .monster-tag{color:#ffaca5;background:#46242b;border:1px solid #95505a}
@@ -341,14 +343,16 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
   position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
   padding:24px; text-align:center;
   background:
-    radial-gradient(900px 420px at 50% 18%, rgba(255,167,58,.14) 0%, transparent 64%),
-    linear-gradient(rgba(120,150,200,.06) 1px, transparent 1px) 0 0 / 100% 96px,
-    linear-gradient(90deg, rgba(120,150,200,.06) 1px, transparent 1px) 0 0 / 96px 100%,
-    linear-gradient(180deg,#0e1526 0%,#0a0f1c 60%,#070a12 100%);
+    linear-gradient(180deg,rgba(5,9,18,.26),rgba(5,9,18,.08) 58%,rgba(5,9,18,.64)),
+    url('assets/backgrounds/gate.webp') center/cover no-repeat #070a12;
   transition:opacity .35s ease, visibility .35s;
 }
 #gate.hide{ opacity:0; visibility:hidden; pointer-events:none }
 .gate-inner{ width:100%; max-width:360px; display:flex; flex-direction:column; align-items:stretch; gap:10px }
+@media (max-width:520px){
+  /* 세로 화면에서도 왼쪽 성문 구조물이 남도록 중앙의 빈 문만 잘라내지 않는다. */
+  #gate{background-position:center,30% center}
+}
 
 .gate-logo{
   font-size:52px; font-weight:900; letter-spacing:6px; line-height:1;
@@ -774,8 +778,8 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .hg-stage{position:relative;border-radius:16px;overflow:hidden;min-height:300px;
   border:1px solid var(--line);
   background:
-    linear-gradient(180deg,rgba(8,11,20,.55) 0%,rgba(8,11,20,.18) 34%,rgba(8,11,20,.86) 84%,#0b0f1a 100%),
-    url('assets/backgrounds/battle-industrial-ruins.webp') center 32%/cover no-repeat;
+    linear-gradient(180deg,rgba(8,11,20,.18) 0%,rgba(8,11,20,.05) 36%,rgba(8,11,20,.25) 82%,rgba(8,11,20,.55) 100%),
+    url('assets/backgrounds/hangar.webp') center 58%/cover no-repeat #0b0f1a;
   display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:18px}
 .hg-bigname{position:absolute;left:20px;top:14px;font-weight:900;line-height:.88;
   font-size:clamp(38px,7vw,104px);letter-spacing:-.02em;color:transparent;
@@ -884,8 +888,9 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .gacha-stage{--gc:#75ecff;--gc-rgb:117,236,255;height:300px;isolation:isolate;
   background:
     radial-gradient(ellipse at 50% 48%,rgba(var(--gc-rgb),.15),transparent 34%),
-    linear-gradient(160deg,#111d37 0%,#08101e 52%,#050914 100%);
-  border-color:#2a426d;box-shadow:inset 0 0 60px rgba(0,0,0,.7),0 12px 35px rgba(0,0,0,.2)}
+    linear-gradient(180deg,rgba(5,9,20,.16),rgba(5,9,20,.04) 62%,rgba(5,9,20,.62)),
+    url('assets/backgrounds/gacha.webp') center/cover no-repeat #050914;
+  border-color:#2a426d;box-shadow:inset 0 0 44px rgba(0,0,0,.35),0 12px 35px rgba(0,0,0,.2)}
 .gacha-stage.credit{--gc:#ffd166;--gc-rgb:255,209,102}
 .gacha-stage:before,.gacha-stage:after{content:"";position:absolute;pointer-events:none;z-index:1}
 .gacha-stage:before{inset:0;background:linear-gradient(115deg,transparent 16%,rgba(255,255,255,.055) 17%,transparent 28%)}

@@ -750,9 +750,9 @@ function showReveal(results){
   const heroType = (best.kind==='robot'||best.kind==='dupe')? best.type : null;
   const hero = heroType ? `<div class="sprite" data-t="${rarOf(heroType)}">${sprite(heroType,false)}</div>`
              : best.kind==='part'   ? bigPartArt(best.part)
-             : best.kind==='scrap'  ? bigIconArt('♻','var(--sub)')
-             : best.kind==='core'   ? bigIconArt('◆','var(--acc2)')
-             : best.kind==='credit' ? bigIconArt('₡','var(--gold)')
+             : best.kind==='scrap'  ? currencyArt('scrap')
+             : best.kind==='core'   ? currencyArt('core')
+             : best.kind==='credit' ? currencyArt('credit')
                                     : bigIconArt('✕','var(--dim)');
   const list = results.length>1? `<div class="inv" style="max-height:150px;overflow:auto;width:100%">${results.map(revealCardHtml).join('')}</div>` : revealCardHtml(results[0]);
   openModal(`<div class="mhead">뽑기 결과 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
@@ -767,6 +767,8 @@ function rankOf(res){ if(res.kind==='robot')return 200+RIDX[rarOf(res.type)];
   if(res.kind==='scrap')return 10;
   if(res.kind==='bust')return -1;
   return {C:1,R:2,SR:3,SSR:4}[res.part.rarity]||0; }
+function currencyArt(kind){
+  return `<img class="currency-art" src="assets/ui/coin-${kind}.png" alt="" width="120" height="120">`; }
 function bigIconArt(ch,col){
   return `<div style="width:120px;height:120px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:46px;color:${col};background:radial-gradient(circle at 40% 30%,#233a63,#0c1220);border:2px solid ${col}">${ch}</div>`; }
 function bigPartArt(p){ const c={C:'#8a97b5',R:'#4aa3ff',SR:'#c07bff',SSR:'#ffb03a'}[p.rarity];
@@ -1558,13 +1560,14 @@ function drawTerr(r){
   /* row 1 이 안쪽, row 4 가 입구다. 위에서 아래로 그린다. */
   const cells = [...TERRITORY].sort((a,b)=> a.row-b.row || a.col-b.col).map(n=>{
     const s = st[n.id] || { owner:null, lines:n.mon.length, hp:[] };
-    const TE = TERRAIN[n.terrain]||{};
+    const terrain = Object.hasOwn(TERRAIN, n.terrain) ? n.terrain : 'plain';
+    const TE = TERRAIN[terrain];
     const own = s.owner==='me' ? 'mine' : (s.owner==='other' ? 'foe' : '');
     /* 칸 레벨은 서버가 준다 — 세계 평균 전투력만큼 얹혀 있어 데이터의 값과 다르다. */
     const lv = s.lv || n.lv;
     const prot = protLeft(s);
     const lock = !!s.locked;
-    return `<button class="tnode ${own}${prot?' prot':''}${lock?' locked':''}" onclick="ROWAR.openNode('${n.id}')">
+    return `<button class="tnode ${own}${prot?' prot':''}${lock?' locked':''}" data-terrain="${esc(terrain)}" onclick="ROWAR.openNode('${n.id}')">
       <div class="tn-top"><span class="tag rr-${n.rar}">${n.rar==='BOSS'?'보스':(RR[n.rar]||{}).ko||n.rar}</span>
         <b>Lv.${lv}${lv>n.lv?`<em class="up"> +${lv-n.lv}</em>`:''}</b></div>
       <div class="tn-name">${n.ko}</div>
@@ -2144,6 +2147,11 @@ function initGate(){
 function boot(){
   preloadSprites();
   initGate();
+  /* 재화 숫자/계정명과 화면 폭에 따라 지갑이 줄바꿈돼도 고정 탭이 가려지지 않는다. */
+  const topbar = document.querySelector('.topbar');
+  const fitNav = () => document.documentElement.style.setProperty('--topbar-height', `${Math.ceil(topbar.getBoundingClientRect().height)}px`);
+  fitNav();
+  new ResizeObserver(fitNav).observe(topbar);
   S=load(); save();          // 첫 실행이면 시작 기체를 바로 확정해 저장한다
   document.querySelectorAll('.nav button').forEach(b=> b.addEventListener('click',()=>go(b.dataset.s)));
   go('hangar');

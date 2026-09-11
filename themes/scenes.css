@@ -6,7 +6,7 @@
  *
  * js/game.js 가 body[data-scene] 을 갈아끼우면 배경이 통째로 바뀐다.
  * 연출 레이어는 전부 position:fixed + pointer-events:none 이라 조작을 막지 않는다.
- * 이미지 파일은 쓰지 않는다 — 전부 CSS 그라디언트.
+ * 원화 배경 위에 CSS 조명·HUD를 더한다. 지형 이미지는 data-terrain 키로 고른다.
  * ============================================================= */
 
 /* ── 공통 골격 ─────────────────────────────────────────────── */
@@ -248,11 +248,10 @@ body[data-scene="arena"] .btn.gold{ background:linear-gradient(180deg,#3fe0f0,#1
 /* ══ 점령 — 궤도에서 내려다본 지구 ══════════════════════════
    사용자가 그려 온 그림(assets/backgrounds/territory.webp)에 맞춘다.
    그림의 **가운데가 비어 있고** 가장자리에 구조물과 발광점이 있다.
-   그래서 12칸 격자를 가운데에 얹고, 카드를 유리처럼 비쳐 보이게 해
-   지구가 카드 사이로 드러나게 한다. 카드를 불투명하게 두면 그림이 통째로 가려진다. */
+   12칸에는 지형 원화를 얹고, 바깥 지도는 카드 사이와 반투명 요약 패널로 드러낸다. */
 body[data-scene="terr"]{
   background:
-    linear-gradient(180deg,rgba(4,8,20,.78) 0%,rgba(4,8,20,.30) 22%,rgba(4,8,20,.55) 62%,rgba(4,8,20,.92) 100%),
+    linear-gradient(180deg,rgba(4,8,20,.58) 0%,rgba(4,8,20,.12) 22%,rgba(4,8,20,.28) 62%,rgba(4,8,20,.70) 100%),
     url('../assets/backgrounds/territory.webp') center 34%/cover no-repeat fixed,
     #040814;
 }
@@ -266,30 +265,48 @@ body[data-scene="terr"] .title::before{ background:var(--acc2) }
 
 /* 패널 — 유리판. 지구가 뒤로 비쳐야 한다 */
 body[data-scene="terr"] .panel{
-  background:rgba(8,16,34,.56);backdrop-filter:blur(12px);
+  background:rgba(8,16,34,.50);backdrop-filter:blur(4px);
   border-color:rgba(120,180,255,.22);box-shadow:0 24px 60px -30px #000;
 }
-/* 칸 카드 — 더 비치게. 테두리는 발광점과 같은 청록 계열로 */
+/* 지형과 소유 상태를 분리한다. 소유/보호/잠금이 바뀌어도 원화는 사라지지 않는다. */
 body[data-scene="terr"] .tnode{
-  background:linear-gradient(180deg,rgba(12,24,48,.62),rgba(6,12,28,.72));
-  backdrop-filter:blur(9px);border-color:rgba(120,180,255,.20);
+  --terrain-image:url('../assets/terrain/plain.webp');
+  --terrain-shade:6,12,28;
+  background:
+    linear-gradient(180deg,rgba(var(--terrain-shade),.24),rgba(var(--terrain-shade),.56) 44%,rgba(var(--terrain-shade),.92)),
+    var(--terrain-image) center/cover no-repeat,
+    #0a1424;
+  min-height:154px;justify-content:space-between;
+  backdrop-filter:none;border-color:rgba(120,180,255,.38);
+  text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.8);
 }
+body[data-scene="terr"] .tnode[data-terrain="plain"]{--terrain-image:url('../assets/terrain/plain.webp')}
+body[data-scene="terr"] .tnode[data-terrain="canyon"]{--terrain-image:url('../assets/terrain/canyon.webp')}
+body[data-scene="terr"] .tnode[data-terrain="highland"]{--terrain-image:url('../assets/terrain/highland.webp')}
+body[data-scene="terr"] .tnode[data-terrain="ruins"]{--terrain-image:url('../assets/terrain/ruins.webp')}
+body[data-scene="terr"] .tnode[data-terrain="storm"]{--terrain-image:url('../assets/terrain/storm.webp')}
+body[data-scene="terr"] .tnode[data-terrain="furnace"]{--terrain-image:url('../assets/terrain/furnace.webp')}
 body[data-scene="terr"] .tnode:hover{
   border-color:var(--acc2);box-shadow:0 0 26px -8px rgba(123,240,255,.65);transform:translateY(-2px);
 }
 body[data-scene="terr"] .tnode.mine{
-  border-color:rgba(73,224,138,.55);
-  background:linear-gradient(180deg,rgba(10,38,28,.62),rgba(6,20,16,.74));
+  --terrain-shade:6,24,18;
+  border-color:rgba(73,224,138,.75);
   box-shadow:0 0 0 1px rgba(73,224,138,.22) inset, 0 0 22px -10px rgba(73,224,138,.8);
 }
 body[data-scene="terr"] .tnode.foe{
-  border-color:rgba(255,91,127,.45);
-  background:linear-gradient(180deg,rgba(40,14,26,.62),rgba(22,8,16,.74));
+  --terrain-shade:28,8,18;
+  border-color:rgba(255,91,127,.70);
 }
-body[data-scene="terr"] .tnode.locked{opacity:.42}
+body[data-scene="terr"] .tnode.prot{
+  border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,210,74,.30) inset;
+}
+body[data-scene="terr"] .tnode.locked{opacity:.86;filter:grayscale(.25)}
+body[data-scene="terr"] .tnode:focus-visible{outline:2px solid var(--acc2);outline-offset:3px}
 body[data-scene="terr"] .tpips i{background:rgba(6,12,28,.72);border-color:rgba(120,180,255,.22)}
 
 /* 격자를 조금 벌려 카드 사이로 지구가 보이게 한다 */
 @media (min-width:900px){
   body[data-scene="terr"] .tmap{gap:12px}
+  body[data-scene="terr"] .tnode{min-height:166px;padding:12px}
 }

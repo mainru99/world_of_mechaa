@@ -12,6 +12,9 @@
    맨몸 거울 대결(50%)에 **그 파츠 하나만** 끼우고 실제 시뮬을 돌린다.
    기체 셋으로 재서 한 기체에 맞춰 수치가 튜닝되는 것을 피한다.
 
+   고유 효과(브레이커 관통·채프 스택)도 시뮬에 실제로 넣은 채로 잰다 — 그 둘은
+   효과가 예산의 절반을 먹으므로 빼고 재면 수치를 잘못 잡는다.
+
    node tools/budget.mjs [판수]        기본 2500 (기체당). 정밀하게 보려면 8000 */
 import { PART_BASES, AFFIXES, AFFIX_GROUPS, AFFIX_TIER, RARITY, SLOTS, CONST } from '../data/balance.js';
 import { computeStats } from '../js/stats.js';
@@ -38,6 +41,13 @@ function withBase(st, b) {
   o.def = Math.max(0, o.def);           o.atk = Math.max(1, o.atk);
   o.crit = Math.min(.75, Math.max(0, o.crit));
   o.eva  = Math.min(.60, Math.max(0, o.eva));
+  /* 고유 효과를 그대로 실어 준다. C등급 기준으로 잰다(관통 확률이 등급별이라). */
+  if (b.fx) {
+    if (b.fx.pierce != null) { o.pen = typeof b.fx.pierce === 'object' ? b.fx.pierce.C : b.fx.pierce;
+                               o.penAmt = b.fx.pierceAmt != null ? b.fx.pierceAmt : 0.5; }
+    if (b.fx.stackSpd != null) { o.stackSpd = b.fx.stackSpd; o.stackMax = b.fx.stackMax || 0; }
+    if (b.fx.regen != null) o.regen = b.fx.regen;
+  }
   return o;
 }
 
@@ -131,7 +141,7 @@ for (const r of rows) {
   const lo = r.wr < BAND[0], hi = r.wr > BAND[1];
   if (lo || hi) out++;
   const mark = hi ? '↑높음' : lo ? '↓낮음' : '  ok ';
-  console.log(`${r.wr.toFixed(1)}%\t${mark}\t${r.slot.slice(0,4)}\t${(r.set || '—').padEnd(9)}\t${r.ko}${r.fx ? '  (고유효과 미반영)' : ''}`);
+  console.log(`${r.wr.toFixed(1)}%\t${mark}\t${r.slot.slice(0,4)}\t${(r.set || '—').padEnd(9)}\t${r.ko}${r.fx ? '  (고유효과 포함)' : ''}`);
 }
 
 console.log('\n슬롯별 폭 — 슬롯 **안**의 폭이 중요하다. 네 칸은 어차피 다 채우므로');
@@ -147,5 +157,5 @@ for (const sl of SLOTS) {
 
 const fxN = rows.filter(r => r.fx).length;
 console.log(`\n${out ? `✗ ${out}/${rows.length} 개가 구간 밖이다 — 3단계에서 크기를 맞춘다` : `✓ ${rows.length}/${rows.length} 전부 구간 안`}`);
-if (fxN) console.log(`※ ${fxN}개는 고유 효과(관통 확률·스택 감속)가 아직 시뮬에 없다. 5단계 뒤 다시 잰다.`);
+if (fxN) console.log(`※ ${fxN}개는 고유 효과(관통 확률·스택 감속)를 시뮬에 넣은 채로 잰 값이다.`);
 if (out) process.exitCode = 1;

@@ -282,59 +282,60 @@ export const STAT_ROLL = { hp:[24,60], atk:[6,16], def:[5,13], spd:[3,9], crit:[
 export const PART_BASES = {
   /* 무장 — 공격. 이 슬롯이 기본적으로 지불하는 축은 속도다(SLOT_COST). */
   beamSaber:     { ko:'빔 세이버',    slot:'WEAPON', set:'assault',
-                   stats:{ atk:34, hp:-55 },                          range:0.78 },
+                   stats:{ atk:38, hp:-55 },                          range:0.78 },
   vulcan:        { ko:'발칸포',       slot:'WEAPON', set:null,
-                   stats:{ atk:22, spd:5, crit:-.012 },               range:1.25 },
+                   stats:{ atk:22, spd:2, crit:-.012 },               range:1.25 },
   railgun:       { ko:'레일건',       slot:'WEAPON', set:'precision',
-                   stats:{ atk:22, spd:9, crit:.020 },                range:0.80 },
+                   stats:{ atk:12, spd:1, crit:.020 },                range:0.80 },
   photonLance:   { ko:'포톤 랜스',    slot:'WEAPON', set:null,
-                   stats:{ atk:25, spd:3 },                           range:0.90 },
+                   stats:{ atk:25, spd:1 },                           range:0.90 },
   /* 채프 런처 — 쏠수록 느려진다. **초기화가 없다.**
      원안은 '2초 미공격 시 초기화' 였는데 1:1 에서는 자기 턴마다 반드시 공격하므로
      그 조건이 영원히 성립하지 않는다(단위를 초로 잡든 턴으로 잡든 같다).
      초기화를 빼면 오히려 원래 컨셉대로다 — 처음엔 가장 빠른 중화기, 끝엔 가장 느린. */
   chaffLauncher: { ko:'채프 런처',    slot:'WEAPON', set:null,
-                   stats:{ atk:31, spd:6 },                           range:1.30,
-                   fx:{ stackSpd:-0.03, stackMax:5 } },
+                   stats:{ atk:41, spd:4 },                           range:1.30,
+                   fx:{ stackSpd:-0.008, stackMax:5 } },
+
   breaker:       { ko:'브레이커',     slot:'WEAPON', set:'fortress',
-                   stats:{ atk:23, spd:-4 },                          range:1.25,
-                   fx:{ pierce:{ C:.10, R:.12, SR:.14, SSR:.16 }, pierceAmt:0.5 } },
+                   stats:{ atk:13, spd:-2 },                          range:1.25,
+                   fx:{ pierce:{ C:.06, R:.07, SR:.08, SSR:.09 }, pierceAmt:0.5 } },
 
   /* 프레임 — 생존. 기본 지불 축은 회피다. */
   alloyArmor:    { ko:'합금 장갑',    slot:'FRAME', set:'fortress',
-                   stats:{ hp:120, def:18, eva:-.020, crit:-.010 },   range:1.12 },
+                   stats:{ hp:77, def:11, eva:-.020, crit:-.010 },   range:1.12 },
   reactiveArmor: { ko:'리액티브 아머', slot:'FRAME', set:null,
-                   stats:{ hp:80, def:12, crit:.015, eva:-.020 },     range:1.12 },
+                   stats:{ hp:63, def:9, crit:.012, eva:-.020 },     range:1.12 },
   shieldFrame:   { ko:'실드 프레임',  slot:'FRAME', set:null,
-                   stats:{ def:16, eva:.018, spd:-3 },                range:1.12 },
+                   stats:{ def:16, eva:.018, spd:-1 },                range:1.12 },
   lightFrame:    { ko:'경량 골격',    slot:'FRAME', set:'assault',
-                   stats:{ hp:-65, def:-6, eva:.035, spd:8 },         range:0.86 },
+                   stats:{ hp:-65, def:-6, eva:.053, spd:5 },         range:0.86 },
   nanoCoat:      { ko:'나노 코팅',    slot:'FRAME', set:'precision',
-                   stats:{ hp:75, def:5, eva:.025 },                  range:0.90 },
+                   stats:{ hp:41, def:3, eva:.014 },                  range:0.90 },
 
   /* 부스터 — 기동. 기본 지불 축은 방어다. */
   thruster:      { ko:'스러스터',     slot:'BOOSTER', set:'fortress',
-                   stats:{ spd:4, hp:-50, def:10 },                   range:1.18 },
+                   stats:{ spd:2, hp:-50, def:17 },                   range:1.18 },
   floatPack:     { ko:'플로트 팩',    slot:'BOOSTER', set:null,
-                   stats:{ spd:10, def:-8 },                          range:0.84 },
+                   stats:{ spd:8, def:-8 },                          range:0.84 },
   boostUnit:     { ko:'부스트 유닛',  slot:'BOOSTER', set:null,
-                   stats:{ spd:9, eva:.020, hp:-45, def:-7, atk:-6 }, range:1.00 },
+                   stats:{ spd:7, eva:.043, hp:-45, def:-7, atk:-6 }, range:1.00 },
   highMobility:  { ko:'고기동 백',    slot:'BOOSTER', set:'assault',
-                   stats:{ spd:12, eva:.030, crit:.015, hp:-65, def:-10 }, range:0.82 },
+                   stats:{ spd:6, eva:.042, crit:.021, hp:-65, def:-10 }, range:0.82 },
   ambac:         { ko:'AMBAC',        slot:'BOOSTER', set:'precision',
-                   stats:{ spd:5, eva:.035, crit:.025, atk:-8, hp:-55, def:-8 }, range:0.84 },
+                   stats:{ spd:3, eva:.056, crit:.040, atk:-8, hp:-55, def:-8 }, range:0.84 },
 
   /* 코어 — 빌드 보조. 기본 지불 축은 속도다. */
   reactor:       { ko:'리액터',       slot:'CORE', set:'fortress',
-                   stats:{ hp:115, def:16, crit:-.015, eva:-.020, spd:-7 } },
+                   stats:{ hp:115, def:16, crit:-.015, eva:-.020, spd:-2 } },
   generator:     { ko:'제너레이터',   slot:'CORE', set:null,
-                   stats:{ hp:75, crit:.018, spd:-5, atk:-8 },        range:1.15 },
+                   stats:{ hp:123, crit:.030, spd:-2, atk:-8 },        range:1.15 },
   tacticalCore:  { ko:'전술 코어',    slot:'CORE', set:'precision',
-                   stats:{ def:11, crit:.022, spd:-4, eva:-.015 },    range:1.12 },
+                   stats:{ def:17, crit:.035, spd:-1, eva:-.015 },    range:1.12 },
   controlChip:   { ko:'컨트롤 칩',    slot:'CORE', set:null,
-                   stats:{ hp:65, def:10, spd:-3, crit:-.010 } },
+                   stats:{ hp:65, def:10, spd:-1, crit:-.010 } },
   overdrive:     { ko:'오버드라이브', slot:'CORE', set:'assault',
-                   stats:{ atk:18, crit:.028, spd:9, hp:-85, def:-13 } },
+                   stats:{ atk:27, crit:.042, spd:5, hp:-85, def:-13 } },
 };
 
 /* ── 인챈트 18종 ──────────────────────────────────────────
@@ -343,33 +344,33 @@ export const PART_BASES = {
    group 이 같은 둘은 한 파츠에 같이 못 붙는다(AFFIX_GROUPS).
    w 는 뽑기 가중치 — 균형만 낮다(패널티가 없으므로 희귀도로 값을 치른다). */
 export const AFFIXES = {
-  highSpeed:  { ko:'고속',     slots:'*',                 group:null,      w:100, stats:{ spd:7, def:-4 } },
-  ragged:     { ko:'누더기',   slots:'*',                 group:'weight',  w:100, stats:{ spd:4, eva:.010, hp:-45, def:-4 } },
+  highSpeed:  { ko:'고속',     slots:'*',                 group:null,      w:100, stats:{ spd:2, def:-4 } },
+  ragged:     { ko:'누더기',   slots:'*',                 group:'weight',  w:100, stats:{ spd:1, eva:.010, hp:-45, def:-4 } },
   overcharged:{ ko:'과충전',   slots:['WEAPON','CORE'],   group:'output',  w:100, stats:{ atk:12, crit:.010, hp:-35 } },
   precise:    { ko:'정밀',     slots:'*',                 group:'range',   w:100, stats:{ crit:.015, atk:-4 }, range:0.88 },
   unstable:   { ko:'불안정',   slots:'*',                 group:'range',   w:100, stats:{ atk:15 },            range:1.18 },
-  heavy:      { ko:'중장',     slots:'*',                 group:'weight',  w:100, stats:{ hp:60, def:8, spd:-6, eva:-.010 } },
-  light:      { ko:'경량',     slots:'*',                 group:'weight',  w:100, stats:{ spd:6, eva:.015, hp:-45, def:-5 } },
+  heavy:      { ko:'중장',     slots:'*',                 group:'weight',  w:100, stats:{ hp:60, def:8, spd:-2, eva:-.010 } },
+  light:      { ko:'경량',     slots:'*',                 group:'weight',  w:100, stats:{ spd:2, eva:.015, hp:-45, def:-5 } },
   reinforced: { ko:'강화',     slots:'*',                 group:'defense', w:100, stats:{ hp:50, def:6, crit:-.008 } },
-  reactive:   { ko:'반응형',   slots:['FRAME','BOOSTER'], group:null,      w:100, stats:{ eva:.018, spd:4, def:-4 } },
-  keen:       { ko:'예리한',   slots:['WEAPON','CORE'],   group:null,      w:100, stats:{ crit:.025, atk:5, spd:-2 } },
+  reactive:   { ko:'반응형',   slots:['FRAME','BOOSTER'], group:null,      w:100, stats:{ eva:.018, spd:1, def:-4 } },
+  keen:       { ko:'예리한',   slots:['WEAPON','CORE'],   group:null,      w:100, stats:{ crit:.025, atk:5, spd:-1 } },
   piercing:   { ko:'관통',     slots:['WEAPON'],          group:null,      w:100, stats:{ atk:-5 }, fx:{ pierce:.08 } },
   stabilized: { ko:'안정화',   slots:'*',                 group:'range',   w:100, stats:{ def:4, atk:-4 },     range:0.86 },
-  berserk:    { ko:'광폭',     slots:['WEAPON','CORE'],   group:'output',  w:100, stats:{ atk:16, spd:5, hp:-35, def:-8 } },
-  fortified:  { ko:'요새화',   slots:['FRAME','CORE'],    group:'defense', w:100, stats:{ hp:80, def:10, spd:-8, eva:-.015 } },
+  berserk:    { ko:'광폭',     slots:['WEAPON','CORE'],   group:'output',  w:100, stats:{ atk:16, spd:2, hp:-35, def:-8 } },
+  fortified:  { ko:'요새화',   slots:['FRAME','CORE'],    group:'defense', w:100, stats:{ hp:80, def:10, spd:-3, eva:-.015 } },
   /* 재생 — 원안은 '5초간 무피해 시 초당 회복' 이었다. 1:1 에서 15연속 회피는
      사실상 안 나온다(20% 회피 기준 10의 -11승). **직전 공격을 피했으면** 으로
      바꾸면 회피 빌드에서만 살아나는 옵션이 된다 — 그 편이 정체성도 분명하다. */
   regen:      { ko:'재생',     slots:['FRAME','CORE'],    group:null,      w:100, stats:{ def:-4 }, fx:{ regen:.015 } },
   /* 균형 — 패널티가 없다. 원칙 4('단점이 없으면 최대 성능을 낮춘다')를
      수치가 아니라 **등장 빈도**로 지킨다. */
-  balanced:   { ko:'균형',     slots:'*',                 group:null,      w:14,  stats:{ atk:5, hp:25, def:3, spd:2 } },
+  balanced:   { ko:'균형',     slots:'*',                 group:null,      w:14,  stats:{ atk:5, hp:25, def:3, spd:1 } },
   /* 아래 둘은 부스터를 위해 새로 넣는다. 원안 16종에서는 부스터만 전용 인챈트가
      없어 쓸 수 있는 것이 10종(조합 39가지)뿐이었다 — 코어 14종/83가지의 절반도
      안 된다. 게다가 부스터 베이스 5종 중 4종이 이미 속도·회피로 몰려 있어
      '먹어도 비슷비슷한 슬롯' 이 된다. */
-  inertial:   { ko:'관성 제어', slots:['BOOSTER','FRAME'], group:'range',  w:100, stats:{ spd:4, hp:-30 }, range:0.88 },
-  retro:      { ko:'역추진',    slots:['BOOSTER','FRAME'], group:null,     w:100, stats:{ eva:.030, def:6, spd:-5 } },
+  inertial:   { ko:'관성 제어', slots:['BOOSTER','FRAME'], group:'range',  w:100, stats:{ spd:1, hp:-30 }, range:0.88 },
+  retro:      { ko:'역추진',    slots:['BOOSTER','FRAME'], group:null,     w:100, stats:{ eva:.030, def:6, spd:-2 } },
 };
 
 /* 같은 그룹은 한 파츠에 하나만. 뜻이 충돌하거나(무게를 동시에 늘리고 줄임)

@@ -49,7 +49,18 @@ export function makeUnit(name, type, st, tactic) {
            takenSkill: T.takenSkill != null ? T.takenSkill : 1,
            /* 스킬 강화 배수. computeStats 가 넣어 준다. 없으면 1 이라 예전과 같다 */
            skillMul: st.skillMul != null ? st.skillMul : 1,
-           spread: st.spread != null ? st.spread : spreadOf(type) };
+           spread: st.spread != null ? st.spread : spreadOf(type),
+           /* ── 파츠 고유 효과 ──────────────────────────────────
+              전부 **없으면 0/undefined 라 예전과 완전히 같게 돈다.** 특히 pen 은
+              0 일 때 난수를 뽑지 않는다 — 뽑으면 파츠와 무관한 전투까지 난수열이
+              밀려서 예전 재생과 어긋난다.
+              값은 computeStats 가 파츠에서 모아 실어 준다(js/stats.js). */
+           pen: st.pen || 0,                      // 타격마다 방어를 관통할 확률
+           penAmt: st.penAmt != null ? st.penAmt : 0.5,   // 관통했을 때 깎는 비율
+           regen: st.regen || 0,                  // 직전 공격을 피했으면 최대 내구의 이만큼 회복
+           stackSpd: st.stackSpd || 0,            // 공격할 때마다 속도가 이 비율씩 (음수)
+           stackMax: st.stackMax || 0,
+           stack: 0, spd0: st.spd, dodged: false };
 }
 
 export function dmgCalc(atk, def, rnd, mult, spread) {
@@ -61,9 +72,17 @@ export function dmgCalc(atk, def, rnd, mult, spread) {
 
 export function doHit(A, D, side, dside, ev, rnd, o) {
   o = o || {};
-  if (!o.noMiss && rnd() < D.eva) { ev.push({ t:'hit', side, dside, miss:true, dmg:0, crit:false, thp:D.hp }); return; }
+  if (!o.noMiss && rnd() < D.eva) {
+    D.dodged = true;                       // 재생 인챈트가 이걸 본다
+    ev.push({ t:'hit', side, dside, miss:true, dmg:0, crit:false, thp:D.hp }); return;
+  }
+  D.dodged = false;
   const crit = o.alwaysCrit || (!o.noCrit && rnd() < A.crit);
-  const pen = o.ignoreDef ? (o.ignoreDef === true ? DEF_PEN : o.ignoreDef) : 0;  // 완전 무시가 아니라 부분 관통
+  let pen = o.ignoreDef ? (o.ignoreDef === true ? DEF_PEN : o.ignoreDef) : 0;  // 완전 무시가 아니라 부분 관통
+  /* 파츠 관통(브레이커·관통 인챈트)은 **확률**이다. 스킬 관통과 겹치면 큰 쪽을 쓴다 —
+     더하면 전탄 관통이 되어 방어 스탯이 통째로 의미를 잃는다.
+     A.pen 이 0 이면 난수를 아예 뽑지 않는다(위 주석 참고). */
+  if (A.pen > 0 && rnd() < A.pen) pen = Math.max(pen, A.penAmt);
   const m = (o.mult || 1) * (crit ? CRIT_MULT : 1), def = Math.max(0, D.def) * (1 - pen);
   /* taken 은 **최종 피해**에 건다. 방어력에 걸면 관통 스킬 앞에서 방어 전술이 무력해진다.
      스킬로 맞은 것이면 takenSkill 이 한 번 더 걸린다(o.skill 은 doSkill 이 넣어 준다). */
@@ -141,8 +160,26 @@ export function simulate(P, E, seed) {
       g[side] -= 100;
       const A = side === 'P' ? P : E, D = side === 'P' ? E : P, dside = side === 'P' ? 'E' : 'P';
       A.sp = Math.min(100, A.sp + (A.spGain != null ? A.spGain : 30)); ev.push({ t:'turn', side, sp:A.sp });
+      /* 재생 — **직전 상대 공격을 피했으면** 내 턴 시작에 회복한다.
+         원안은 '5초간 피해를 받지 않으면' 이었는데, 1:1 에서 그건 15연속 회피를
+         뜻해서 사실상 안 터진다(20% 회피 기준 10의 -11승). 조건을 회피에 묶으면
+         회피 빌드에서만 살아나는 옵션이라는 정체성이 생긴다. */
+      if (A.regen > 0 && A.dodged && A.hp > 0) {
+        const hl = Math.max(1, Math.round(A.maxhp * A.regen));
+        A.hp = Math.min(A.maxhp, A.hp + hl);
+        A.dodged = false;
+        ev.push({ t:'heal', side, hp:A.hp, amt:hl });
+      }
       if (A.sp >= 100) { A.sp = 0; doSkill(A, D, side, dside, ev, rnd); }
       else doHit(A, D, side, dside, ev, rnd, {});
+      /* 스택 — 쏠수록 느려진다(채프 런처). **초기화가 없다.**
+         원안은 '2초간 공격하지 않으면 초기화' 였는데 1:1 에서는 자기 턴마다 반드시
+         공격하므로 그 조건이 영원히 성립하지 않는다. 초기화를 빼면 오히려 원안의
+         컨셉대로다 — 처음엔 가장 빠른 중화기, 끝엔 가장 느린. */
+      if (A.stackMax > 0 && A.stack < A.stackMax) {
+        A.stack++;
+        A.spd = Math.max(1, A.spd0 * (1 + A.stack * A.stackSpd));
+      }
     }
   }
   ev.push({ t:'end', winner: P.hp > 0 ? 'P' : (E.hp > 0 ? 'E' : 'P') });

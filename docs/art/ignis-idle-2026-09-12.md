@@ -39,4 +39,22 @@ Pillow(WebP 지원)로 `python tools/build_ignis_idle.py`를 실행하면
 현재 커밋은 승인된 10프레임만 적용한다.
 
 운영 배포는 Claude의 미완성 파츠 개편이 섞이지 않은 깨끗한 커밋 사본에서 한다.
-실제 배포 결과는 확인 후 별도 기록한다.
+운영 배포와 파일 검증을 완료했다.
+
+
+### IGNIS 운영 배포 확인 · 2026-09-12
+
+- 적용 커밋 `11f586a`를 `origin/main`에 푸시했고, 그 커밋의 깨끗한 작업 사본에서 배포했다.
+- Worker 버전: `242f944b-3140-453b-b396-0145b35da0c8`.
+- 운영 주소: https://rowar.hun7539.workers.dev
+- 정적 업로드는 WebP·sprites.js·style.css·index.html 4개다. 미완성 파츠 개편은 제외했다.
+- 운영 파일 8개(WebP·원본 PNG·HTML·CSS·sprites.js·gacha.js·stats.js·balance.js)가 HTTP 200이며,
+  전부 배포 커밋의 SHA-256과 일치했다. WebP는 `image/webp`, 1,590,556 bytes다.
+- `/api/health`: ok:true, DB connected, schema 12, balance 8updih.
+- 로컬 브라우저: 실제 sprite()의 모션 축소 PNG 선택, WebP 소스 선택, 같은 표시 크기,
+  좌우 반전, 의도적인 WebP 404 뒤 PNG 복구를 확인했다. 일반 기체는 정적 PNG를 유지한다.
+  테스트 환경의 모션 축소 설정은 켜져 있어 WebP 경로는 검수 화면의 source media 전환으로 확인했다.
+- 운영 브라우저: 진입 화면의 서버 연결·기본 기체 이미지 로딩 확인, 콘솔 오류 0건.
+  운영 뽑기·전투는 실행하지 않았다. Ignis 보유 계정에서의 플레이 검증은 이 확인과 구분한다.
+
+사용자가 승인한 10프레임 원본과 운영 파일은 동일하다. 강한 날개 발광과 36프레임은 후속 목표다.

@@ -1,6 +1,6 @@
 {
   "name": "Ignis idle — original pixels",
-  "status": "user-approved; integrated; deployment verification pending",
+  "status": "user-approved; integrated and deployed",
   "method": "User-authorized deterministic pixel copying; integer y translation and wing RGB adjustment only",
   "source": "assets/ignis.png",
   "sourceSha256": "4c855bde3487788b1ed423e50674ab2b2dbefbe60f95b677605a30fc1c8a052c",
@@ -186,5 +186,13 @@
       "bytes": 724466,
       "sha256": "7083b7b776a4539e37f7dc842f1d02efef045b3b6c8315751e706c11bd665fec"
     }
+  },
+  "deployment": {
+    "commit": "11f586aed7f24072a55af8014a4f113ecde06760",
+    "workerVersion": "242f944b-3140-453b-b396-0145b35da0c8",
+    "url": "https://rowar.hun7539.workers.dev",
+    "verifiedRemoteFiles": 8,
+    "schema": "12",
+    "balanceVersion": "8updih"
   }
 }

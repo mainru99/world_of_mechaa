@@ -332,30 +332,62 @@ function go(scr){ cur=scr; setScene(scr); document.querySelectorAll('.screen').f
    화면을 옮겨 다니지 않아도 '지금 무엇이 익어 가는지' 알 수 있어야 한다.
    **서버에 묻지 않는다** — 원정은 저장본, 점령은 지도 캐시, 피로는 계산이라
    이미 들고 있는 값뿐이다. 요청 수가 곧 무료 한도인 구조라 그렇다. */
+/* 티커 전용 시계. dur() 은 '3시간 20분' 처럼 읽기 좋게 뭉치는데, 티커에 그걸 쓰면
+   1초마다 다시 그려도 몇 분 동안 같은 글자라 **멈춰 있는 것처럼 보인다.** 초까지 센다. */
+function clock(ms){
+  let s=Math.max(0,Math.floor(ms/1000));
+  const h=Math.floor(s/3600); s-=h*3600;
+  const m=Math.floor(s/60);   s-=m*60;
+  const p=n=>String(n).padStart(2,'0');
+  return h ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
+}
+/* 지금 이 순간의 점령 수입. 서버가 준 것은 지도를 받아 온 '그때' 의 값이라,
+   그대로 두면 1분(TERR_TTL)마다 계단으로 뛴다. 서버가 준 누적 시간(income.h)에
+   **받아 온 뒤 흐른 시간만** 더한다 — 기준을 서버에 두고 증분만 클라가 세므로
+   시계가 어긋나도 값이 튀지 않는다. 계산식은 서버 pendingIncome 과 같다. */
+function livePending(){
+  if(!_terr || !_terr.nodes) return null;
+  const el=Date.now()-_terrAt, cap=CONST.TERR.INCOME_CAP_H;
+  let cr=0, sc=0, core=0, full=true, mine=0;
+  for(const n of _terr.nodes){
+    if(n.owner!=='me') continue;
+    mine++;
+    const d=NODE_BY[n.id];
+    if(!d || !n.income){ full=false; continue; }   // 알 수 없으면 '가득' 이라고 말하지 않는다
+    const h=Math.min(cap, (n.income.h||0)+el/3600000);
+    if(h<cap) full=false;
+    cr+=Math.floor((d.crH||0)*h); sc+=Math.floor((d.scH||0)*h); core+=Math.floor((d.coreH||0)*h);
+  }
+  return { mine, cr, sc, core, full:mine>0&&full };
+}
+
+let _tickHtml='';
 function renderTicker(){
   const el=$('#ticker'); if(!el) return;
   const rb=selRobot(), out=[];
 
   if(S.expd){
     const left=S.expd.endsAt-Date.now();
-    out.push(left>0 ? `<div class="tk"><i class="dot b"></i>원정 귀환까지 <b>${dur(left)}</b></div>`
+    out.push(left>0 ? `<div class="tk"><i class="dot b"></i>원정 귀환까지 <b>${clock(left)}</b></div>`
                     : `<div class="tk"><i class="dot g"></i><b>원정 귀환 완료</b> · 파견에서 받으세요</div>`);
   }
-  if(_terr && _terr.nodes){
-    const mine=_terr.nodes.filter(n=>n.owner==='me').length;
-    const p=_terr.pending||{};
-    if(mine) out.push(`<div class="tk"><i class="dot y"></i>점령지 <b>${mine}칸</b>${
-      (p.cr||p.sc||p.core)?` · 쌓인 수입 <b>${fmt(p.cr||0)}</b>`:''}</div>`);
-  }
+  const p=livePending();
+  if(p && p.mine) out.push(`<div class="tk"><i class="dot y"></i>점령지 <b>${p.mine}칸</b>${
+    (p.cr||p.sc||p.core)?` · 쌓인 수입 <b>${fmt(p.cr)}</b>`:''}${
+    p.full?` <span class="warn">가득 — 받아 가세요</span>`:''}</div>`);
   const fat=rb?fatOf(rb):0;
   out.push(fat
-    ? `<div class="tk"><i class="dot g"></i>${ROBOT_TYPES[rb.type].name} 피로 <b>${fat}</b> · 다음 회복까지 <b>${dur(fatNextMs(rb))}</b></div>`
+    ? `<div class="tk"><i class="dot g"></i>${ROBOT_TYPES[rb.type].name} 피로 <b>${fat}</b> · 다음 회복까지 <b>${clock(fatNextMs(rb))}</b></div>`
     : `<div class="tk"><i class="dot g"></i>편성 기체 <b>피로 없음</b></div>`);
   if(!net.state.online) out.push(`<div class="tk off">서버에 연결되지 않았습니다</div>`);
 
-  el.innerHTML = out.join('') + '<div class="sp"></div>'
+  const html = out.join('') + '<div class="sp"></div>'
     + `<div class="tk off">전적 ${S.stat.wins}승 ${S.stat.losses}패</div>`
     + `<div class="tk off">프로토타입 v0.5 · 진행 상황은 서버에 저장됩니다</div>`;
+  /* 1초마다 불리므로 달라진 게 없으면 DOM 을 건드리지 않는다. 움직일 것이 하나도
+     없는 계정에서는 문자열 하나 만드는 것이 전부다. */
+  if(html===_tickHtml) return;
+  _tickHtml=html; el.innerHTML=html;
 }
 
 function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); renderTicker(); }
@@ -2064,6 +2096,9 @@ async function doRegister(){
   const id=$('#rg-id').value.trim(), pw=$('#rg-pw').value;
   const r=await net.register(id, pw);
   if(r.error){ toast(r.error); return; }
+  /* 보이는 이름이 그 자리에서 바뀐다. 서버가 세 표를 고쳐도 랭킹 캐시가 남아 있으면
+     한동안 예전 GUEST 이름이 그대로 보인다. */
+  dropRankCache(); dropTerrCache();
   closeModal(); renderAcct(); renderGate();
   toast('정식 계정이 되었습니다 · '+r.loginId);
 }
@@ -2126,20 +2161,33 @@ function boot(){
   });
 }
 // type="module" 은 defer 라 이미 파싱이 끝나 있을 수 있다
-/* 피로도 자연 회복은 시간이 흐르면 진행된다. 20초마다 정산하고,
-   실제로 회복됐거나 격납고를 보고 있으면(남은 시간 표시) 다시 그린다.
-   모달이 열려 있으면 건드리지 않는다. */
+/* 두 박자로 돈다.
+     매초   — 티커. 귀환·회복 카운트다운과 점령 수입이 실제로 흐르게 한다.
+              피로도 정산도 여기서 한다. 20초에 한 번만 정산하면 카운트다운이
+              0:00 에 닿고도 최대 20초를 그대로 서 있다.
+     20초   — 격납고·파견 같은 무거운 화면. 매초 다시 그리면 기체 30기와 파츠
+              수십 개를 초마다 새로 만들게 된다.
+   탭이 숨겨져 있으면 아무것도 하지 않는다. decayFat 은 경과 시간으로 계산하므로
+   돌아왔을 때 한 번에 따라잡는다. 모달이 열려 있으면 무거운 화면은 건드리지 않는다. */
+let _slowAt = 0, _fatChanged = 0;
 setInterval(()=>{
-  if(!S) return;
+  if(!S || document.hidden) return;
+  /* 이번 초에 실제로 깎인 만큼만 저장한다. 누적값(_fatChanged)으로 판단하면
+     한 번 회복된 뒤 20초 동안 매초 저장하게 된다. */
   let changed = 0;
   for(const rb of S.robots) changed += decayFat(rb);
-  if(changed) save();
-  const modalOpen = !!document.querySelector('#modal.on, .modal.on');
-  if(modalOpen) return;                       // 모달을 보고 있으면 건드리지 않는다
-  if(changed) renderWallet();
-  if(cur==='hangar' && (changed || S.robots.some(r=>fatOf(r)>0))) renderHangar();
+  if(changed){ save(); _fatChanged += changed; }
+  renderTicker();
+
+  const now = Date.now();
+  if(now - _slowAt < 20000) return;
+  _slowAt = now;
+  if(document.querySelector('#modal.on, .modal.on')) return;   // 모달을 보고 있으면 건드리지 않는다
+  if(_fatChanged) renderWallet();
+  if(cur==='hangar' && (_fatChanged || S.robots.some(r=>fatOf(r)>0))) renderHangar();
   if(cur==='hunt' && S.expd) renderHunt();     // 남은 시간만 다시 그린다. 서버에 묻지 않는다.
-}, 20000);
+  _fatChanged = 0;
+}, 1000);
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();

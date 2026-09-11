@@ -656,7 +656,10 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   .ticker{grid-area:tick;display:flex;align-items:center;gap:24px;height:50px;padding:0 26px;
     background:linear-gradient(180deg,rgba(8,11,20,.15),rgba(8,11,20,.92));
     border-top:1px solid rgba(120,150,210,.14);font-size:12px;color:var(--sub);overflow:hidden}
-  .ticker b{color:var(--ink)}
+  /* 초 단위로 흐르는 숫자다. 폭이 들쭉날쭉하면 카운트다운이 1초마다 좌우로
+     흔들리고, 옆의 글자까지 같이 밀린다. 자릿수 고정 숫자를 쓴다. */
+  .ticker b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .ticker .warn{color:var(--gold);font-weight:800}
   .ticker .tk{display:flex;align-items:center;gap:8px;white-space:nowrap}
   .ticker .dot{width:7px;height:7px;border-radius:50%;flex:none}
   .ticker .dot.g{background:var(--good);box-shadow:0 0 10px var(--good)}

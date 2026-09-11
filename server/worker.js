@@ -129,6 +129,22 @@ async function guestLogin(request, env) {
   return json({ ok: true, isNew: true, account_id: accountId, ...s });
 }
 
+/* 보이는 이름을 바꾼다.
+   `player.nickname` 이 정본이고, `arena_entry` 와 `territory` 는 **조인 없이 읽으려고
+   복사해 둔 표시용**이다. 세 곳을 같이 고치지 않으면 한 곳만 새 이름이 된다.
+
+   게스트를 정식 계정으로 바꿀 때 이걸 안 했다. 그래서 moonrabbit09 로 가입하고도
+   랭킹·아레나·점령 지도에 GUEST-0015 로 남아 있었다(2026-09-11 실제 발생).
+   `login_id` 는 영문·숫자·밑줄 4~20자라 `GUEST-0001` 꼴과 겹치지 않고,
+   `account.login_id` 가 UNIQUE 라 닉네임도 따라서 유일하다. */
+async function renameTo(env, accountId, name) {
+  await env.DB.batch([
+    env.DB.prepare('UPDATE player SET nickname = ?1 WHERE account_id = ?2').bind(name, accountId),
+    env.DB.prepare('UPDATE arena_entry SET nickname = ?1 WHERE account_id = ?2').bind(name, accountId),
+    env.DB.prepare('UPDATE territory SET owner_name = ?1 WHERE owner_id = ?2').bind(name, accountId),
+  ]);
+}
+
 /* 기체·파츠를 가리키는 클라이언트 식별자.
    격납고 API 는 전부 이 uid 로 행을 찾는다(robot.uid / part.uid). 서버가 만든 행에
    uid 가 없으면 클라가 그 기체를 **가리킬 수가 없다** — 장착도 정비도 레벨업도
@@ -414,6 +430,7 @@ async function handleApi(request, env, url) {
       return json({ ok: false, error: '이미 쓰이는 아이디입니다' }, 409);
     }
     await clearAttempts(env, rkeys);          // 성공했으면 기록을 지운다
+    await renameTo(env, sess.account_id, login_id);
     return json({ ok: true, login_id });
   }
 

@@ -11,6 +11,7 @@
  */
 import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
 import { expedView } from './expedition.js';
+import { PART_COLS, partOf, insertPart, updatePart, partChanged, checkNewPart } from './parts.js';
 
 const PART_RARITIES = new Set(RARITY.map(r => r.k));
 /* 파츠 이름은 **정해진 목록 안의 것만** 받는다.
@@ -24,7 +25,7 @@ const STAT_KEYS = new Set(STAT_LIST);
 const isPct = k => k === 'crit' || k === 'eva' || k === 'spread';
 
 /* 파츠 스탯 상한을 밸런스 데이터에서 유도한다.
-   genPart 는 등급 k 마다 n_k 번 굴리고 각 굴림에 mul_k 를 곱한다.
+   옛 genPart 는 등급 k 마다 n_k 번 굴리고 각 굴림에 mul_k 를 곱한다.
    비율이 아닌 스탯에는 레벨 배율(1 + lv*0.03)이 한 번 더 곱해진다.
    따라서 정당하게 만들어질 수 있는 최댓값은
        n_k × max(STAT_ROLL[s]) × mul_k × (비율이면 1, 아니면 1 + MAXLV*0.03)
@@ -91,6 +92,19 @@ export function sanitize(raw) {
     if (!p || !uidOk(p.uid) || seenPart.has(p.uid)) continue;
     if (!SLOT_SET.has(p.slot) || !PART_RARITIES.has(p.rarity)) continue;
     if (out.parts.length >= MIG_CAP.parts) { clamped.push('parts>' + MIG_CAP.parts); break; }
+
+    /* 새 파츠(base 가 있다)는 **자르지 않고 통째로 판정한다.** 스탯을 안 들고 오므로
+       자를 것이 없고, 대신 base·인챈트·티어·등급이 정당한 조합인지만 보면 된다.
+       어긋나면 고쳐서 통과시키지 않고 버린다 — '대충 맞춰 주기' 가 예전에 상한을
+       뚫리게 한 발상이다(아래 STAT_CAP 주석 참고). */
+    if (p.base != null) {
+      const ok = checkNewPart(p);
+      if (!ok) { clamped.push(`${p.uid} 버림(조합이 정당하지 않다)`); continue; }
+      seenPart.add(p.uid);
+      out.parts.push(ok);
+      continue;
+    }
+
     const stats = {};
     if (p.stats && typeof p.stats === 'object') {
       for (const k of Object.keys(p.stats)) {
@@ -182,8 +196,7 @@ export async function loadState(env, accountId) {
     `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
   const parts = (await env.DB.prepare(
-    `SELECT id, uid, slot, name, rarity, stats, enh
-       FROM part WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
+    `SELECT ${PART_COLS} FROM part WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
 
   const byId = new Map(parts.map(x => [x.id, x.uid]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
@@ -208,10 +221,7 @@ export async function loadState(env, accountId) {
         return { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at,
                  skillLv: r.skill_lv | 0, slots };
       }),
-      parts: parts.map(x => ({
-        uid: x.uid, slot: x.slot, name: x.name, rarity: x.rarity,
-        stats: JSON.parse(x.stats || '{}'), enh: x.enh,
-      })),
+      parts: parts.map(partOf),
     },
   };
 }
@@ -221,7 +231,7 @@ export async function saveState(env, accountId, incoming, now) {
   const cur = {
     robots: (await env.DB.prepare('SELECT id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1')
       .bind(accountId).all()).results || [],
-    parts: (await env.DB.prepare('SELECT id, uid, slot, name, rarity, stats, enh FROM part WHERE account_id = ?1')
+    parts: (await env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`)
       .bind(accountId).all()).results || [],
     player: await env.DB.prepare('SELECT credits, cores, scrap, wins, losses, pulls, rev, sel_robot FROM player WHERE account_id = ?1')
       .bind(accountId).first(),
@@ -236,15 +246,9 @@ export async function saveState(env, accountId, incoming, now) {
   /* 파츠: 새 것 INSERT, 바뀐 것 UPDATE, 사라진 것 DELETE */
   const wantParts = new Map(incoming.parts.map(p => [p.uid, p]));
   for (const p of incoming.parts) {
-    const statsJson = JSON.stringify(p.stats);
     const old = cur.parts.find(x => x.uid === p.uid);
-    if (!old) {
-      stmts.push(D.prepare('INSERT INTO part (account_id, uid, slot, name, rarity, stats, enh, created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)')
-        .bind(accountId, p.uid, p.slot, p.name, p.rarity, statsJson, p.enh, now));
-    } else if (old.enh !== p.enh || old.stats !== statsJson || old.name !== p.name) {
-      stmts.push(D.prepare('UPDATE part SET name=?1, stats=?2, enh=?3 WHERE id=?4')
-        .bind(p.name, statsJson, p.enh, old.id));
-    }
+    if (!old) stmts.push(insertPart(D, accountId, p, now));
+    else if (partChanged(old, p)) stmts.push(updatePart(D, old.id, p));
   }
   for (const old of cur.parts) {
     if (!wantParts.has(old.uid)) stmts.push(D.prepare('DELETE FROM part WHERE id=?1').bind(old.id));

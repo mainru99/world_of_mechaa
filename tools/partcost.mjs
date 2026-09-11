@@ -1,13 +1,13 @@
 import { ROBOT_TYPES, RARITY, SLOTS } from '../data/balance.js';
 import { computeStats, partStat } from '../js/stats.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { makeUnit, simulate } from '../js/sim.js';
 let S=5; const ns=()=>((S=Math.imul(S,1103515245)+12345|0)>>>0);
 const rnd=()=>ns()/4294967296;
 const rb=(t,l,k)=>({uid:'x',type:t,level:l,exp:0,fat:0,slots:k?k.slots:{WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}});
 /* 지정 등급 파츠 하나를 지정 슬롯에 */
 function one(slot,rarK,lv){
-  for(let i=0;i<400;i++){ const p=genPart(lv,rnd,'p'+i);
+  for(let i=0;i<400;i++){ const p=rollPart(lv,rnd,'p'+i);
     if(p.slot===slot && p.rarity===rarK) return p; }
   return null;
 }

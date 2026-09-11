@@ -15,7 +15,7 @@
  */
 import { ROBOT_TYPES, TERRITORY, TERRAIN, CONST, SLOTS } from '../data/balance.js';
 import { computeStats } from '../js/stats.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { mulberry32 } from '../js/sim.js';
 import { applyTerrain, runBreach, maxRounds, rarAllowed } from '../js/breach.js';
 import { monsterLine, effLevel } from '../server/territory.js';
@@ -32,7 +32,7 @@ function mech(type, lv, seed) {
   const rnd = mulberry32(seed);
   const slots = {}, parts = [];
   for (const sl of SLOTS) {
-    const p = genPart(lv, rnd, `t-${sl}-${seed}`, partRar(lv), sl);
+    const p = rollPart(lv, rnd, `t-${sl}-${seed}`, partRar(lv), sl);
     slots[sl] = p.uid; parts.push(p);
   }
   return { name: ROBOT_TYPES[type].name, type,

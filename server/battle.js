@@ -16,6 +16,7 @@ import { computeStats, power, gainExp, addFat, fatOf, decayFat,
 import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickTactic } from '../js/rewards.js';
 import { registerArena, pickOpponentFromArena, pickOpponentByNickname, ratingDelta } from './arena.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
+import { PART_COLS, partOf, insertPart } from './parts.js';
 
 function cryptoRnd() {
   const buf = new Uint32Array(1);
@@ -42,7 +43,7 @@ async function loadFighter(env, accountId) {
            || robots.find(r => inSquad(r.id))
            || robots[0];
 
-  const parts = (await env.DB.prepare('SELECT id, uid, slot, name, stats, enh FROM part WHERE account_id = ?1')
+  const parts = (await env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`)
     .bind(accountId).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
@@ -51,7 +52,7 @@ async function loadFighter(env, accountId) {
   for (const sl of Object.keys(col)) {
     const p2 = byId.get(row[col[sl]]);
     slots[sl] = p2 ? p2.uid : null;
-    if (p2) used.push({ uid: p2.uid, slot: p2.slot, name: p2.name, stats: JSON.parse(p2.stats || '{}'), enh: p2.enh });
+    if (p2) used.push(partOf(p2));
   }
   return {
     row,
@@ -322,9 +323,7 @@ export async function startBattle(env, accountId, now, body) {
 
   const stmts = [];
   if (rw.part) {
-    stmts.push(env.DB.prepare(
-      'INSERT INTO part (account_id, uid, slot, name, rarity, stats, enh, created_at) VALUES (?1,?2,?3,?4,?5,?6,0,?7)')
-      .bind(accountId, rw.part.uid, rw.part.slot, rw.part.name, rw.part.rarity, JSON.stringify(rw.part.stats), now));
+    stmts.push(insertPart(env.DB, accountId, rw.part, now, 0));
   }
   stmts.push(env.DB.prepare('UPDATE robot SET level=?1, exp=?2, fat=?3, fat_at=?4 WHERE id=?5')
     .bind(me.robot.level, me.robot.exp, me.robot.fat, me.robot.fatAt, me.row.id));

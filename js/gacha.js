@@ -6,7 +6,8 @@
  * 난수는 인자로 받는다. 클라는 Math.random, 서버는 crypto 기반을 넣는다.
  * 그래야 서버가 판정할 때 클라의 난수에 의존하지 않는다.
  */
-import { ROBOT_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR, RARITY, SLOTS, SLOT_STATS, SLOT_COST, COST_ROLL, SLOT_SPREAD, SPREAD_ROLL, PART_NAMES, STAT_ROLL, CONST } from '../data/balance.js';
+import { ROBOT_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR,
+         RARITY, SLOTS, PART_BASES, AFFIXES, AFFIX_GROUPS, CONST } from '../data/balance.js';
 
 /* 0~1 비율로 다루는 스탯. 레벨 배수를 타지 않고, 강화 배수도 다르게 먹는다. */
 export const isPct = s => s === 'crit' || s === 'eva' || s === 'spread';
@@ -42,34 +43,73 @@ export const PULL_CUR = {
   credit: { cost: CONST.PULL_CR_COST, table: PULL_TABLE_CR, rar: ROBOT_RARITY_CR, ko: '크레딧' },
 };
 
-/* forceRar / forceSlot 을 주면 그 등급·그 슬롯으로 만든다.
-   생성 상대의 파츠 품질과 슬롯을 플레이어에 맞출 때 쓴다 —
-   뽑기는 두 인자를 쓰지 않으므로 드랍 확률과 슬롯 분포는 그대로다. */
-export function genPart(level, rnd, uid, forceRar, forceSlot) {
+/* ── 파츠 생성 (2026-09-11 개편, 4단계) ────────────────────────────────
+   슬롯 → 베이스 → 등급 → 인챈트 순으로 정한다. **이름이 곧 성능이다.**
+   옛 rollPart 는 스탯을 다 굴린 뒤 마지막에 이름을 균등 추첨했다. 그래서 같은
+   슬롯·같은 등급이면 빔 세이버와 발칸포가 통계적으로 같은 물건이었고, 파밍의
+   실질 종류가 16종(4슬롯 × 4등급)뿐이었다.
+
+   **스탯은 저장하지 않는다.** base·rarity·affixes·seed·lv 면 값이 완전히 결정되므로
+   js/stats.js 의 partStat 이 그대로 다시 만든다. 위조할 여지가 없고, 나중에 수치를
+   고치면 이미 가진 파츠에도 소급된다.
+
+   name 은 베이스의 한글 이름을 그대로 넣는다 — 세트 판정이 아직 '슬롯|이름' 이라
+   (6단계에서 base 로 바꾼다) 그때까지 계열이 끊기지 않는다.
+
+   forceRar / forceSlot 은 옛 서명 그대로다. 생성 상대의 파츠 품질과 슬롯을
+   플레이어에 맞출 때 쓴다 — 뽑기는 두 인자를 쓰지 않으므로 드랍 확률과 슬롯
+   분포는 그대로다. */
+
+/* 슬롯별 베이스 목록. balance.js 에서 파생시키므로 베이스를 늘려도 여기는 안 고친다. */
+export const BASES_BY_SLOT = (() => {
+  const m = {};
+  for (const k in PART_BASES) (m[PART_BASES[k].slot] = m[PART_BASES[k].slot] || []).push(k);
+  return m;
+})();
+
+/* 인챈트 id → 그룹. 같은 그룹은 한 파츠에 하나만 붙는다 — 뜻이 충돌하거나
+   (무게를 동시에 늘리고 줄임) 과하게 겹치는(구간을 두 번 좁힘) 조합을 구조로 막는다. */
+const GROUP_OF = (() => {
+  const m = {};
+  for (const g in AFFIX_GROUPS) for (const id of AFFIX_GROUPS[g]) m[id] = g;
+  return m;
+})();
+
+const affixFits = (a, slot) => a.slots === '*' || a.slots.includes(slot);
+
+/* 인챈트 n개를 겹치지 않게 고른다. 그룹이 막혀 후보가 마르면 n보다 적게 돌려준다 —
+   조용히 한 칸 비우는 편이 같은 그룹을 두 번 붙이는 것보다 낫다. */
+function pickAffixes(slot, n, tiers, rnd) {
+  const pool = Object.keys(AFFIXES).filter(id => affixFits(AFFIXES[id], slot));
+  const out = [], usedId = new Set(), usedGroup = new Set();
+  for (let i = 0; i < n; i++) {
+    const cand = pool.filter(id => !usedId.has(id) &&
+                                   !(GROUP_OF[id] && usedGroup.has(GROUP_OF[id])));
+    if (!cand.length) break;
+    const id = weighted(cand.map(x => ({ k: x, w: AFFIXES[x].w })), rnd).k;
+    usedId.add(id); if (GROUP_OF[id]) usedGroup.add(GROUP_OF[id]);
+    out.push({ id, tier: weighted(tiers, rnd).k });
+  }
+  return out;
+}
+
+/* 슬롯·등급만 보고 인챈트를 뽑는다. rollPart 가 쓰고, 옛 파츠를 새 모양으로 옮길 때도
+   쓴다(tools/partmigrate.mjs). 두 곳이 같은 규칙을 쓰게 하려고 밖으로 뺐다 —
+   옮기기가 자기 규칙을 따로 들고 있으면 이관된 파츠만 규칙이 다른 물건이 된다. */
+export function rollAffixes(slot, rar, rnd) {
+  const tiers = Object.keys(rar.tiers).map(k => ({ k, w: rar.tiers[k] }));
+  return pickAffixes(slot, ri(rar.affixes[0], rar.affixes[1], rnd), tiers, rnd);
+}
+
+export function rollPart(level, rnd, uid, forceRar, forceSlot) {
   const slot = (forceSlot && SLOTS.includes(forceSlot)) ? forceSlot : pick(SLOTS, rnd);
   const rar = (forceRar && RARITY.find(r => r.k === forceRar)) || weighted(RARITY, rnd);
-  const lvScale = 1 + (level || 1) * 0.03, stats = {};
-  for (let i = 0; i < rar.n; i++) {
-    const st = pick(SLOT_STATS[slot], rnd), [a, b] = STAT_ROLL[st];
-    let v = rf(a, b, rnd) * rar.mul;
-    if (!isPct(st)) v = Math.round(v * lvScale);
-    stats[st] = (stats[st] || 0) + v;
-  }
-  /* 대가 — 슬롯마다 정해진 스탯 하나를 반드시 깎는다. 상승분과 같은 배수를 타므로
-     등급이 높을수록 더 크게 올리고 더 크게 깎는다. 세지는 게 아니라 뾰족해진다. */
-  const cst = SLOT_COST[slot], cr = cst && COST_ROLL[cst];
-  if (cr) {
-    /* costMul 은 대가에만 걸린다. 일반(C)은 상승을 한 번만 굴리므로 대가를 같은 폭으로
-       물리면 끼는 쪽이 손해가 된다(실측 −2.4%). RARITY 의 주석 참고. */
-    let c = rf(cr[0], cr[1], rnd) * rar.mul * (rar.costMul != null ? rar.costMul : 1);
-    if (!isPct(cst)) c = Math.round(c * lvScale);
-    stats[cst] = (stats[cst] || 0) - c;
-  }
-  /* 성향 — 무장은 구간을 넓히고 부스터는 좁힌다. 좋고 나쁨이 아니라 축이다. */
-  const sgn = SLOT_SPREAD[slot];
-  if (sgn) stats.spread = sgn * rf(SPREAD_ROLL[0], SPREAD_ROLL[1], rnd) * rar.mul;
-  for (const k in stats) if (isPct(k)) stats[k] = Math.round(stats[k] * 1000) / 1000;
-  return { uid, slot, name: pick(PART_NAMES[slot], rnd), rarity: rar.k, ko: rar.ko, stats, enh: 0 };
+  const base = pick(BASES_BY_SLOT[slot], rnd);
+  const affixes = rollAffixes(slot, rar, rnd);
+  /* 티어 안 +-12% 굴림을 재현하는 씨앗. 값을 저장하지 않으므로 이것이 파츠의 몸이다. */
+  const seed = Math.floor(rnd() * 4294967296) >>> 0;
+  return { uid, slot, base, rarity: rar.k, ko: rar.ko, name: PART_BASES[base].ko,
+           affixes, seed, lv: Math.max(1, level | 0 || 1), enh: 0 };
 }
 
 /* 뽑기 1회. 소유 상태(ownedTypes)와 평균 레벨을 받아 '무엇이 나왔는지'만 돌려준다.
@@ -90,7 +130,7 @@ export function rollPull(ownedTypes, level, rnd, uid, cur) {
     /* 뽑은 파츠는 등급이 낮아도 **그대로 준다.** 예전에는 일반 등급을 즉시 스크랩으로
        바꿨는데, 뽑아 놓고 한 번 껴 보지도 못하는 것이 아깝다는 지적을 받았다.
        분해는 인벤토리에서 플레이어가 고른다(scrapValue). */
-    return { kind: 'part', part: genPart(level, rnd, uid()) };
+    return { kind: 'part', part: rollPart(level, rnd, uid()) };
   }
   return { kind: 'bust' };
 }

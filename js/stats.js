@@ -1,8 +1,12 @@
 /* 스탯 계산 — 순수 함수. DOM 도 전역 상태도 참조하지 않는다.
  * 서버가 파츠·전투력을 검증할 때 클라이언트와 같은 값을 얻어야 하므로
  * 여기에 들어오는 값은 전부 인자로 받는다. */
-import { CONST, SLOT_COST } from '../data/balance.js';
+import { CONST, SLOT_COST, RARITY, PART_BASES, AFFIXES, AFFIX_TIER, AFFIX_ROLL }
+  from '../data/balance.js';
 import { COMBAT_TYPES, rarOf } from './units.js';
+/* 인챈트의 티어 안 굴림을 seed 에서 재현하는 데만 쓴다. sim.js 는 stats.js 를
+   부르지 않으므로 순환이 아니다. */
+import { mulberry32 } from './sim.js';
 
 const { ATK_SCALE, FAT_MAX, MAXLV, SERVICE_RATE } = CONST;
 
@@ -72,24 +76,155 @@ export const findPart = (u, parts) => parts.find(p => p.uid === u);
 
    spread 는 대가가 아니라 '성향' 이라 음수여도 그대로 강화를 탄다
    (SLOT_SPREAD — 프레임·부스터는 구간을 좁히는 쪽이 이득이다). */
-export function partStat(p) {
+function legacyStat(p) {
   const o = {}, e = p.enh || 0, cost = SLOT_COST[p.slot];
   for (const k in p.stats)
     o[k] = k === cost ? p.stats[k] : p.stats[k] * (1 + e * (isPct(k) ? 0.08 : 0.12));
-  if (o.atk) o.atk *= ATK_SCALE;          // 파츠 공격력도 같은 배율로 (표시값 = 실제 기여)
+  /* ── ATK_SCALE 은 **옛 파츠에만** 건다 ──────────────────────────────
+     옛 파츠의 공격력은 STAT_ROLL.atk = [6,16] 에서 굴린 '배율 전' 값이다.
+     기체 기본 공격력도 배율 전 값이라(computeStats 가 거기서 곱한다) 둘의 단위를
+     맞추려면 파츠도 같이 곱해야 했다.
+
+     새 파츠(PART_BASES)의 수치는 단위가 다르다 — tools/budget.mjs 가 **최종 공격력
+     위에서** 재서 맞춘 값이라 이미 '배율 후' 다. 여기에 1.65 를 또 곱하면 공격을
+     주는 베이스가 전부 예산 위로 튄다. 실제로 그랬다(4단계에서 실측):
+       포톤 랜스 59.4→67.0% · 채프 런처 59.8→66.8% · 빔 세이버 59.2→66.4%
+       그리고 공격을 **깎는** 둘은 벌이 1.65배가 되어 밑으로 빠졌다
+       (AMBAC 59.6→57.7% · 제너레이터 60.6→57.3%).
+     그래서 곱하는 자리를 옛 파츠 쪽으로 옮겼다. 수치는 하나도 안 건드렸다. */
+  if (o.atk) o.atk *= ATK_SCALE;
   return o;
 }
 
-/* ── 파츠 세트 ────────────────────────────────────────────
-   계열은 파츠 '이름' 에서 나온다. 이름은 이미 DB 에 있고 PART_NAMES 안의 것으로
-   제한되므로, 표만 두면 이미 가진 파츠가 그대로 계열을 얻는다 — 마이그레이션이 없다.
-   같은 이름이 슬롯마다 다른 계열일 수 있으므로 열쇠는 '슬롯|이름' 이다. */
+/* ── 새 파츠 — 베이스 · 인챈트 (2026-09-11 개편, 4단계) ────────────────
+   새 파츠는 **스탯을 들고 있지 않다.** base·rarity·affixes·tier·seed·lv 만 저장하고
+   값은 여기서 매번 만든다. 그래서 위조할 여지가 없고(서버가 같은 코드로 다시 센다),
+   나중에 수치를 고치면 이미 가진 파츠에도 소급된다.
+
+   옛 파츠는 굴린 값을 p.stats 에 들고 있다. 마이그레이션은 7단계라 그때까지
+   둘이 섞여 있다 — p.stats 가 있으면 옛 것이다. */
+export const isNewPart = p => !!(p && p.base && !p.stats);
+
+const RAR_BY = (() => { const m = {}; for (const r of RARITY) m[r.k] = r; return m; })();
+
+/* PART_BASES 의 수치는 **Lv.40 기준값**이다(tools/budget.mjs 가 그 레벨에서 쟀다).
+   그래서 40에서 정확히 1.0 이 되게 나눈다 — 옛 genPart 의 lvScale 과 같은 기울기다. */
+const LV_REF = 40;
+const lvMul = lv => (1 + Math.max(1, lv || 1) * 0.03) / (1 + LV_REF * 0.03);
+
+/* 고유 효과를 모은다. 여럿이 같은 것을 주면 더한다 — 브레이커에 [관통]까지 붙으면
+   둘 다 살아야 한다. pierce 는 베이스가 등급별 표로 주고(브레이커) 인챈트는 숫자로 준다.
+   키 이름은 sim.js 의 makeUnit 이 읽는 것과 같아야 한다. */
+function mergeFx(fx, src, rarK) {
+  if (!src) return;
+  if (src.pierce != null) {
+    fx.pen = (fx.pen || 0) + (typeof src.pierce === 'object' ? (src.pierce[rarK] || 0) : src.pierce);
+    /* 관통 '폭' 은 더하지 않는다. 확률이 겹치는 것과 한 방이 더 아픈 것은 다른 얘기다. */
+    if (src.pierceAmt != null) fx.penAmt = Math.max(fx.penAmt || 0, src.pierceAmt);
+  }
+  if (src.stackSpd != null) {
+    fx.stackSpd = (fx.stackSpd || 0) + src.stackSpd;
+    fx.stackMax = Math.max(fx.stackMax || 0, src.stackMax || 0);
+  }
+  if (src.regen != null) fx.regen = (fx.regen || 0) + src.regen;
+}
+
+function deriveNew(p) {
+  const stats = {}, fx = {};
+  let range = 1;
+  const B = PART_BASES[p.base];
+  if (!B) return { stats, range, fx };            // 모르는 베이스는 조용히 맨몸 취급
+  const rar = RAR_BY[p.rarity] || RAR_BY.C;
+  const lm = lvMul(p.lv), e = p.enh || 0;
+  const add = (k, v) => { stats[k] = (stats[k] || 0) + (isPct(k) ? v : v * lm); };
+
+  /* 베이스 — **등급이 크기를 정한다.** 좋은 값은 pos, 나쁜 값은 neg 로 커진다.
+     등급이 높을수록 더 올리고 더 깎으므로 세지는 게 아니라 뾰족해진다.
+
+     강화(enh)는 **좋은 값만** 키운다. 옛 구조에서 페널티까지 같이 키웠더니
+     SSR 무장+코어를 끼운 기체의 속도가 90% 넘게 날아가 한 번도 행동하지 못하고
+     졌다(아래 computeStats 의 바닥 주석). 좋은 파츠를 껴서 못 움직이게 되는 것은
+     대가가 아니라 고장이다. 인챈트는 티어가 자기 품질이라 강화를 태우지 않는다. */
+  for (const k in B.stats) {
+    const raw = B.stats[k];
+    add(k, raw * (raw > 0 ? rar.pos : rar.neg) * (raw > 0 ? 1 + e * (isPct(k) ? 0.08 : 0.12) : 1));
+  }
+  if (B.range != null) range *= B.range;
+  mergeFx(fx, B.fx, p.rarity);
+
+  /* 인챈트 — **티어가 크기를 정한다.** 여기에 등급 pos/neg 를 또 걸면 이중 계산이다
+     (등급은 이미 티어 분포와 개수로 인챈트에 작용하고 있다).
+
+     티어 안 ±12% 는 **인챈트마다 한 번만** 굴려 그 인챈트의 모든 스탯에 같이 건다.
+     스탯마다 따로 굴리면 장점만 잘 나온 개체가 생겨서, 이번 개편이 지키려는
+     '강한 장점에는 단점을' 이 굴림으로 새어 나간다. 하나로 걸면 잘 나온 [광폭] 은
+     공격도 크고 체력 손해도 큰, 더 뾰족한 물건이 된다. */
+  const rnd = mulberry32(((p.seed >>> 0) ^ 0x9e3779b9) >>> 0);
+  for (const a of p.affixes || []) {
+    const A = AFFIXES[a.id]; if (!A) continue;
+    const T = AFFIX_TIER[a.tier] || AFFIX_TIER.I;
+    const q = 1 + (rnd() * 2 - 1) * AFFIX_ROLL;
+    for (const k in A.stats) {
+      const raw = A.stats[k];
+      add(k, raw * (raw > 0 ? T.pos : T.neg) * q);
+    }
+    if (A.range != null) range *= A.range;
+    mergeFx(fx, A.fx, p.rarity);
+  }
+  if (fx.pen) fx.pen = Math.min(1, fx.pen);
+  return { stats, range, fx };
+}
+
+/* 파츠 넷의 고유 효과를 합친다. mergeFx 와 규칙이 같다 — 확률은 더하고 폭은 큰 쪽. */
+function addFx(dst, src) {
+  for (const k in src) {
+    if (k === 'penAmt' || k === 'stackMax') dst[k] = Math.max(dst[k] || 0, src[k]);
+    else dst[k] = (dst[k] || 0) + src[k];
+  }
+  if (dst.pen) dst.pen = Math.min(1, dst.pen);
+}
+
+/* 파츠 하나가 내는 것 전부. 옛 파츠는 구간 배수도 고유 효과도 없다. */
+function derive(p) {
+  if (!p) return { stats: {}, range: 1, fx: {} };
+  return isNewPart(p) ? deriveNew(p) : { stats: legacyStat(p), range: 1, fx: {} };
+}
+
+/* 더해지는 스탯만. 표시(partStatLine)와 옛 도구들이 이 모양을 쓴다.
+   두 모양 다 여기서 나오는 값이 **그대로 최종 기여**다 (표시값 = 실제 기여). */
+export function partStat(p) { return derive(p).stats; }
+
+/* 더할 수 없는 것 — 구간은 곱하고 고유 효과는 규칙이다. */
+export function partMods(p) { const d = derive(p); return { range: d.range, fx: d.fx }; }
+
+/* ── 파츠 세트 (2026-09-12 개편, 6단계) ──────────────────────────────
+   **계열은 베이스가 직접 들고 있다** — `PART_BASES[...].set`. 이름을 거치지 않는다.
+
+   왜 바꿨나 — 이름으로 찾으면 한글 이름이 계열의 열쇠가 된다. '빔 세이버' 를
+   '빔 사벨' 로 고치는 순간 강습 계열이 조용히 끊기는데, 이름은 ChatGPT 담당이라
+   그런 수정이 언제든 올 수 있다. 계열은 그 파츠가 무엇인지의 일부이지
+   뭐라고 부르는지의 일부가 아니다.
+
+   옛 파츠는 `base` 가 없어서 여전히 이름으로 찾는다. 이름은 `PART_NAMES` 안의
+   것으로 제한되므로(server/state.js 의 흰 목록) 이미 가진 파츠가 그대로 계열을
+   얻는다 — 마이그레이션이 없다. 같은 이름이 슬롯마다 다른 계열일 수 있어
+   열쇠는 '슬롯|이름' 이다.
+
+   **두 표는 반드시 같은 답을 내야 한다.** 어긋나면 같은 물건인데 옛 파츠와 새
+   파츠가 다른 계열이 된다. tools/set.mjs 가 매번 대조한다.
+   7단계 마이그레이션이 끝나면 아래 이름 표는 지울 수 있다. */
 const SET_BY_NAME = (() => {
   const m = {}, P = CONST.PART_SET || {};
   for (const k in P) for (const slot in (P[k].names || {})) m[slot + '|' + P[k].names[slot]] = k;
   return m;
 })();
-export const setKeyOf = p => (p && SET_BY_NAME[p.slot + '|' + p.name]) || null;
+export function setKeyOf(p) {
+  if (!p) return null;
+  if (p.base) return (PART_BASES[p.base] && PART_BASES[p.base].set) || null;
+  return SET_BY_NAME[p.slot + '|' + p.name] || null;
+}
+/* 옛 이름 표가 내는 답. 위 둘을 대조하는 도구만 쓴다. */
+export const setKeyByName = (slot, name) => SET_BY_NAME[slot + '|' + name] || null;
 
 /* 낀 네 칸에서 계열별로 몇 개인지 센다. { assault:2, fortress:1 } 같은 모양 */
 export function setCounts(robot, parts) {
@@ -118,11 +253,22 @@ export function computeStats(robot, parts) {
   s.crit = T.base.crit; s.eva = T.base.eva;
   /* 기체 고유 구간을 먼저 깔아 두면 아래 파츠 합산이 그대로 얹힌다 */
   s.spread = T.spread != null ? T.spread : CONST.SPREAD;
+  /* 구간은 더하지 않고 **곱한다.** 기체 고유 구간이 +-8% 부터 +-42% 까지인데 파츠가
+     절대값으로 얹히면 같은 파츠가 좁은 기체에겐 바닥을 뚫고 넓은 기체에겐 거의 안
+     보였다. 곱하면 기체 성격이 보존된다 — 이번 개편의 요지다.
+     옛 파츠는 range 가 1 이고 spread 를 p.stats 로 더하므로 예전과 똑같이 돈다. */
+  let range = 1; const fx = {};
   for (const slot of SLOT_ORDER) {
     const u = robot.slots[slot]; if (!u) continue;
     const p = findPart(u, parts); if (!p) continue;
-    const ps = partStat(p); for (const k in ps) s[k] = (s[k] || 0) + ps[k];
+    const d = derive(p);
+    for (const k in d.stats) s[k] = (s[k] || 0) + d.stats[k];
+    range *= d.range; addFx(fx, d.fx);
   }
+  s.spread *= range;
+  /* 고유 효과는 스탯이 아니라 전투 규칙이라 여기 실어서 makeUnit 까지 그대로 보낸다.
+     하나도 없으면 키 자체가 안 생기고, sim.js 가 기본값으로 예전과 똑같이 돈다. */
+  Object.assign(s, fx);
   /* 세트 보너스는 파츠 합산이 끝난 **뒤에** 곱한다. 먼저 곱하면 파츠를 많이 낀 쪽이
      세트 이득까지 더 크게 먹어 두 번 보상받는다. 전투 규칙은 건드리지 않는다 —
      여기서 끝나므로 sim.js 도 서버 코드도 손댈 것이 없다. */

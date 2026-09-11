@@ -2,7 +2,7 @@
    지금까지의 측정은 전부 맨몸이었다 — 실제 플레이는 파츠를 낀다. */
 import { ROBOT_TYPES, ROBOT_RARITY, RARITY, SLOTS, SLOT_STATS, STAT_ROLL, CONST } from '../data/balance.js';
 import { computeStats, power, isPct } from '../js/stats.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { makeUnit, simulate } from '../js/sim.js';
 const byR={}; for(const r of ROBOT_RARITY) byR[r.k]=Object.keys(ROBOT_TYPES).filter(i=>ROBOT_TYPES[i].rarity===r.k);
 let S=131; const ns=()=>((S=Math.imul(S,1103515245)+12345|0)>>>0);
@@ -10,12 +10,12 @@ const rnd=()=>ns()/4294967296;
 const pick=a=>a[Math.floor(rnd()*a.length)];
 const rf=(a,b)=>rnd()*(b-a)+a;
 
-/* genPart 와 같은 규칙. 등급만 지정한다. */
-/* 파츠는 **게임의 genPart 를 그대로 쓴다.**
+/* rollPart 와 같은 규칙. 등급만 지정한다. */
+/* 파츠는 **게임의 rollPart 를 그대로 쓴다.**
    예전에는 도구마다 따로 만들었는데, 그 코드가 대가(SLOT_COST)와 구간(spread)이
    생기기 전 것이라 상승분만 굴렸다. 그래서 파츠가 순수 이득으로 잡혀 값이 부풀려졌다. */
 function mkPart(slot, rarK, level, uid, enh=0){
-  const p=genPart(level, rnd, uid, rarK, slot);
+  const p=rollPart(level, rnd, uid, rarK, slot);
   p.enh=enh; return p;
 }
 /* 4슬롯 풀장착 */

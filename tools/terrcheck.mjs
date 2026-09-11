@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 import { TERRITORY, TERRAIN, ROBOT_TYPES, MONSTER_TYPES, CONST, SLOTS } from '../data/balance.js';
 import { computeStats } from '../js/stats.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { mulberry32 } from '../js/sim.js';
 import { applyTerrain, runBreach, maxRounds, regenLines, rarAllowed } from '../js/breach.js';
 import { monsterLine } from '../server/territory.js';
@@ -67,7 +67,7 @@ console.log('\n③ 서버 판정 = 클라 재생  (JSON 왕복 포함)');
   const mech = (type, lv, seed) => {
     const rnd = mulberry32(seed), slots = {}, parts = [];
     for (const sl of SLOTS) {
-      const p = genPart(lv, rnd, `c-${sl}-${seed}`, 'SR', sl);
+      const p = rollPart(lv, rnd, `c-${sl}-${seed}`, 'SR', sl);
       slots[sl] = p.uid; parts.push(p);
     }
     return { name: ROBOT_TYPES[type].name, type, stats: computeStats({ type, level: lv, fat: 0, slots }, parts) };

@@ -9,7 +9,7 @@
 import { ROBOT_TYPES, ROBOT_RARITY, SLOTS } from '../data/balance.js';
 import { computeStats, power } from '../js/stats.js';
 import { makeUnit, simulate } from '../js/sim.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { pct, outside, ties, argN } from './stat.mjs';
 
 const N=argN(2000);                 // 한 쌍당 판수
@@ -24,7 +24,7 @@ function makeGear(rar, lv){
   if(rar==='none') return {parts:[],slots:EMPTY};
   let g=987654321; const rnd=()=>((g=Math.imul(g,1103515245)+12345|0)>>>0)/4294967296;
   const parts=[],slots={};
-  for(const slot of SLOTS){ const p=genPart(lv,rnd,'g'+slot,rar,slot); p.enh=10; parts.push(p); slots[slot]=p.uid; }
+  for(const slot of SLOTS){ const p=rollPart(lv,rnd,'g'+slot,rar,slot); p.enh=10; parts.push(p); slots[slot]=p.uid; }
   return {parts,slots};
 }
 const GEAR=makeGear(GEAR_RAR,LV);

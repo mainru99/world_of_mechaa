@@ -245,7 +245,7 @@ export const PART_NAMES = {
    대가를 절반 아래로 낮춰 '없는 것보단 나은' 정도(+3% 안팎)로 맞춘다.
    위 등급은 그대로다. 뾰족해지는 대가를 무르게 하면 파츠를 고르는 재미가 사라진다. */
 /* pos/neg/affixes/tiers 는 개편용으로 **더한 열**이다. 지금 읽는 곳은 없다
-   (genPart 와 server/state.js 는 k·w·n·mul·costMul 만 본다). 4단계에서 갈아끼운다.
+   (server/state.js 의 위조 상한이 아직 k·w·n·mul·costMul 을 본다 — 7단계에서 갈아끼운다).
    등급이 올라도 단점까지 같은 비율로 키우지 않는다 — pos 는 크게, neg 는 조금.
    기존 mul(최대 3.4배)보다 pos 를 낮춘 것은 인챈트가 2개까지 더 붙기 때문이다. */
 export const RARITY = [
@@ -260,8 +260,10 @@ export const RARITY = [
 export const STAT_ROLL = { hp:[24,60], atk:[6,16], def:[5,13], spd:[3,9], crit:[.02,.05], eva:[.02,.05] };
 
 /* ══ 파츠 개편 (2026-09-11) — 베이스 · 인챈트 ═══════════════════════════
-   아래는 **아직 아무도 읽지 않는다.** 생성은 여전히 위의 SLOT_STATS/STAT_ROLL 을
-   쓴다(genPart). 순서대로 갈아끼우려고 데이터를 먼저 놓는 것이다.
+   **4단계부터 이것이 생성 경로다.** js/gacha.js 의 rollPart 가 여기서 베이스와
+   인챈트를 고르고, js/stats.js 의 partStat 이 값을 만든다.
+   위의 SLOT_STATS/STAT_ROLL/SLOT_COST/SLOT_SPREAD 는 **옛 파츠를 읽을 때만** 쓰인다
+   (마이그레이션은 7단계라 그때까지 두 모양이 섞여 있다).
    개편 계획과 각 단계의 통과 기준은 DESIGN.md 에 있다.
 
    왜 바꾸나 — 지금은 **이름이 마지막에, 성능과 무관하게 붙는다.** 그래서 같은

@@ -34,7 +34,7 @@ import { ROBOT_TYPES, MONSTER_TYPES, TERRITORY, RARITY, ROBOT_RARITY, ROBOT_RARI
          PULL_TABLE, PULL_TABLE_CR, SLOTS, CONST } from '../data/balance.js';
 import { computeStats, power, powerOf, gainExp, addFat, fatOf, decayFat,
          sortieCost, rescueCredits, serviceCost, lvCost, enhCost, findPart } from '../js/stats.js';
-import { rollPull, genPart, BY_RARITY, PULL_CUR, scrapValue } from '../js/gacha.js';
+import { rollPull, rollPart, BY_RARITY, PULL_CUR, scrapValue } from '../js/gacha.js';
 import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards } from '../js/rewards.js';
 import { ratingDelta } from '../server/arena.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
@@ -351,7 +351,7 @@ function expedTick(P, now, rnd, day) {
     const cr = Math.round(T.crH * T.h * L), sc = Math.round(T.scH * T.h * L);
     const core = rnd() < T.coreP ? 1 : 0;
     P.credits += cr; P.scrap += sc; P.cores += core;
-    if (T.partP && rnd() < T.partP) takePart(P, genPart(L, rnd, uid()));
+    if (T.partP && rnd() < T.partP) takePart(P, rollPart(L, rnd, uid()));
     P.ev.push({ day, mode: 'exped', tier: P.expd.tier, win: true, cost: 0,
                 cr, sc, core, part: null, secs: 5, myLv: L, oppLv: 0, fat: 0, myPw: 0, oppPw: 0 });
     P.expd = null;

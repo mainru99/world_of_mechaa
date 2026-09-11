@@ -9,18 +9,18 @@ import { ROBOT_TYPES, ROBOT_RARITY, SLOTS } from '../data/balance.js';
 import { computeStats } from '../js/stats.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 import { makeOpponent } from '../js/rewards.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 const byR={}; for(const r of ROBOT_RARITY) byR[r.k]=Object.keys(ROBOT_TYPES).filter(i=>ROBOT_TYPES[i].rarity===r.k);
 const RATING=parseInt(process.argv[2]||'1000',10);   // 이 성적대에서 잰다
 let S=307; const ns=()=>((S=Math.imul(S,1103515245)+12345|0)>>>0);
 const rnd=()=>ns()/4294967296;
-/* 파츠는 **게임의 genPart 를 그대로 쓴다.**
+/* 파츠는 **게임의 rollPart 를 그대로 쓴다.**
    예전에는 여기서 따로 만들었는데, 그 함수가 대가(SLOT_COST)와 구간(spread)을 빼먹었다.
    대가가 붙기 전에 쓴 코드가 그대로 남아 있었던 것이다. 그래서 내 파츠만 순수 이득이 되고
-   상대 파츠(genPart)에는 대가가 붙어, 승률이 실제보다 크게 부풀려 나왔다
+   상대 파츠(rollPart)에는 대가가 붙어, 승률이 실제보다 크게 부풀려 나왔다
    (커먼 보유 Lv.15 · R 4개 실측 69% → 실제 규칙으로는 그보다 훨씬 낮다). */
 function mkPart(slot,rarK,level,uid,enh){
-  const p=genPart(level, rnd, uid, rarK, slot);
+  const p=rollPart(level, rnd, uid, rarK, slot);
   p.enh=enh; return p;
 }
 function kit(rarK,level,enh,n){

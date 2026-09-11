@@ -8,9 +8,9 @@
  * ================================================================== */
 import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR,
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST,
-         TERRITORY, TERRAIN } from '../data/balance.js';
+         AFFIXES, TERRITORY, TERRAIN } from '../data/balance.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
-import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs, atkRange,
+import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs, atkRange,
          setKeyOf, setCounts, setActive,
          skillCost, skillRate, skillMax, skillMul,
          expNeed, battleExp, lvCost, enhCost,
@@ -18,7 +18,7 @@ import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, gainExp, add
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed } from './breach.js';
 import * as net from './net.js';
-import { rollPull, genPart as _genPart, autoScrapValue, scrapValue, PULL_CUR } from './gacha.js';
+import { rollPull, rollPart as _rollPart, autoScrapValue, scrapValue, PULL_CUR } from './gacha.js';
 import { makeOpponent as _makeOpponent, pickTactic } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js';
 
@@ -142,7 +142,7 @@ const overallLevel = ()=> Math.max(1, ...S.robots.map(r=>r.level));
 
 /* ------------------------------- 파츠/뽑기 ------------------------------- */
 /* 뽑기 판정은 js/gacha.js 로 옮겼다 — Worker 가 같은 파일을 import 해서 서버가 판정한다 */
-const genPart = level => _genPart(level, R, uid);
+const rollPart = level => _rollPart(level, R, uid);
 const autoScrap = p => autoScrapValue(p.rarity);
 /* 판정 결과 하나를 상태에 반영한다. 서버가 판정한 결과도 같은 함수로 적용하므로
    '누가 굴렸든' 반영 방식은 한 곳뿐이다. */
@@ -231,7 +231,7 @@ async function scrapPart(u){
   if(worn){ toast('장착 중인 파츠는 분해할 수 없습니다'); return; }
   /* 되돌릴 수 없으므로 한 번 묻는다. 강화한 파츠는 특히 실수하기 쉽다. */
   openModal(`<div class="mhead">파츠 분해 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
-    <div class="pchip"><div class="pn">${esc(p.name)} ${rarTag(p)}</div>
+    <div class="pchip"><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div>
       <div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>
     <div class="hint" style="margin:10px 0;color:var(--bad)">분해하면 되돌릴 수 없습니다.</div>
     <div class="row-btns">
@@ -441,13 +441,39 @@ function setPanel(rb){
      구간  금색 (±) — 좋고 나쁨이 아니라 성향이다. 약자는 넓히고 강자는 좁힌다. */
 /* 옵션은 한 줄에 하나씩 적는다. 페널티를 빨간 취소선으로 두었더니 '적용되지 않는
    옵션'처럼 보였다. 색과 취소선을 빼고 부호(+/−)로만 구분한다 — 구간도 같은 색이다. */
-function partStatLine(p){ const ps=partStat(p);
-  return Object.keys(ps).map(k=>{
-    const v=ps[k], t=isPct(k)?(Math.abs(v)*100).toFixed(1)+'%':Math.abs(Math.round(v));
-    const sign = v<0 ? '−' : '+';
+function partStatLine(p){
+  const ps=partStat(p), out=[];
+  for(const k in ps){
+    const v=ps[k], t=isPct(k)?(Math.abs(v)*100).toFixed(1)+'%':String(Math.abs(Math.round(v)));
+    /* 반올림해서 0 이 되는 것은 아예 안 적는다. 베이스의 대가와 인챈트의 상승이
+       서로 지워지면 '속도 +0' 같은 줄이 생기는데, 없는 옵션을 있는 것처럼 보이게 한다. */
+    if(t==='0' || t==='0.0%') continue;
     const name = k==='spread' ? '구간' : STAT_LABEL[k];
-    return `<div class="pstat">${name} ${sign}${t}</div>`;
-  }).join(''); }
+    out.push(`<div class="pstat">${name} ${v<0?'−':'+'}${t}</div>`);
+  }
+  /* 새 파츠의 구간은 더하기가 아니라 곱하기라 '±몇 %' 로 적으면 거짓말이 된다.
+     좁히는지 넓히는지를 말로 붙인다 — ×0.86 만 보고 좋은지 나쁜지 알기 어렵다. */
+  const m=partMods(p);
+  if(m.range!==1) out.push(`<div class="pstat">구간 ×${m.range.toFixed(2)} <span class="dim">(${m.range<1?'좁아짐':'넓어짐'})</span></div>`);
+  for(const t of fxLines(m.fx)) out.push(`<div class="pstat fxline">${t}</div>`);
+  return out.join(''); }
+
+/* 고유 효과는 수치가 아니라 **전투 규칙**이다. '관통 +8' 처럼 스탯과 같은 모양으로
+   적으면 다른 옵션과 더해지는 값처럼 보인다. 언제 무엇이 일어나는지를 문장으로 적는다. */
+function fxLines(fx){
+  const o=[];
+  if(fx.pen)      o.push(`타격 ${(fx.pen*100).toFixed(0)}% 확률로 방어 ${((fx.penAmt!=null?fx.penAmt:0.5)*100).toFixed(0)}% 무시`);
+  if(fx.stackSpd) o.push(`때릴수록 느려짐 — 최대 −${(Math.abs(fx.stackSpd)*(fx.stackMax||0)*100).toFixed(0)}%`);
+  if(fx.regen)    o.push(`회피한 다음 턴에 내구 ${(fx.regen*100).toFixed(1)}% 회복`);
+  return o; }
+
+/* 인챈트 딱지. 티어를 로마자 그대로 둔다 — I~IV 넉 칸이라 숫자로 바꿔 봐야 더 읽기
+   쉬워지지 않고, 같은 [고속] 이라도 티어가 다르면 다른 물건이라는 것이 바로 보인다.
+   옛 파츠는 인챈트가 없으므로 아무것도 안 나온다. */
+function affixTags(p){
+  if(!p || !Array.isArray(p.affixes) || !p.affixes.length) return '';
+  return p.affixes.map(a=>{ const A=AFFIXES[a.id];
+    return A ? `<span class="tag aff aff-${a.tier}">${A.ko} ${a.tier}</span>` : ''; }).join(''); }
 /* 12분 34초 / 1시간 20분 형태로. 회복 안내는 분 단위면 충분하다 */
 function dur(ms){
   const s=Math.max(0,Math.round(ms/1000));
@@ -486,12 +512,12 @@ function renderHangar(){
   const slotsHtml = SLOTS.map(slot=>{ const u=rb.slots[slot]; const p=u&&findPart(u,S.parts);
     return `<div class="slot ${p?'filled':''}${p?enhClass(p):''}" onclick="ROWAR.openSlot('${slot}')">
       <div class="sl">${SLOT_KO[slot]}</div>
-      ${p?`<div class="pn">${esc(p.name)}</div><div class="pp">${rarTag(p)}${setTag(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
+      ${p?`<div class="pn">${esc(p.name)}</div><div class="pp">${rarTag(p)}${setTag(p)}</div><div class="pp">${affixTags(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
   const invParts = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
   /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
   const inv = invParts.length? invParts.map(p=>`<div class="pchip${enhClass(p)}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
-      <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
+      <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
       <div class="pfoot"><span class="ps" style="color:var(--gold)">클릭 → 강화 (스크랩 ${enhCost(p.enh||0)})</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p))}</button></div></div>`).join('')
@@ -599,7 +625,7 @@ function openSlot(slot){
   const rows = list.length? list.map(p=>{ const equipped = S.robots.some(r=>Object.values(r.slots).includes(p.uid));
     const onMe = equippedHere===p.uid;
     return `<div class="pchip${enhClass(p)}" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <div><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}</div><div class="ps">${partStatLine(p)}</div>
+      <div><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${partStatLine(p)}</div>
       ${equipped&&!onMe?`<div class="ps" style="color:var(--bad)">다른 기체 장착중</div>`:''}</div>
       <button class="btn ${onMe?'danger':''}" style="padding:8px 12px;font-size:13px"
         onclick="ROWAR.${onMe?`unequip('${slot}')`:`equip('${slot}','${p.uid}')`}">${onMe?'해제':'장착'}</button>
@@ -743,7 +769,7 @@ function revealCardHtml(res){
   if(res.kind==='credit') return `<div class="pchip"><div class="pn" style="color:var(--gold)">크레딧 +${fmt(res.cr)}</div><div class="ps">레벨업·정비에 쓰세요</div></div>`;
   if(res.kind==='bust') return `<div class="pchip" style="opacity:.6"><div class="pn" style="color:var(--dim)">꽝</div><div class="ps">아무것도 나오지 않았습니다</div></div>`;
   if(res.kind==='scrap') return `<div class="pchip"><div class="pn">${esc(res.part.name)} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
-  const p=res.part; return `<div class="pchip${enhClass(p)}"><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
+  const p=res.part; return `<div class="pchip${enhClass(p)}"><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
 }
 function showReveal(results){
   const best=results.reduce((a,b)=> rankOf(b)>rankOf(a)?b:a, results[0]);
@@ -1362,7 +1388,7 @@ function battleRewards(win,enemyLv){
   const fat={add:addFat(rb, win? 3+ri(0,2) : 7+ri(0,3)), now:fatOf(rb)};
   if(win){ const cr=120+enemyLv*14+ri(0,40); let sc=18+ri(0,14); S.credits+=cr; S.scrap+=sc;
     let core=0,part=null,autoSc=0; if(R()<0.20){core=1;S.cores++;}
-    if(R()<0.09){ const p=genPart(enemyLv); autoSc=autoScrap(p);      // 예전 0.35 의 약 1/4
+    if(R()<0.09){ const p=rollPart(enemyLv); autoSc=autoScrap(p);      // 예전 0.35 의 약 1/4
       if(autoSc){ S.scrap+=autoSc; } else { part=p; S.parts.push(p); } }
     sc+=autoSc;
     S.stat.wins++; save(); return {win,cr,sc,core,part,lv,fat,rname}; }

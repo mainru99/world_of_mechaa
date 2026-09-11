@@ -4,7 +4,7 @@
  * 오프라인 연습 모드나 검증 도구가 같은 규칙을 쓸 수 있어야 하므로 순수하게 유지한다.
  */
 import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, RARITY, CONST } from '../data/balance.js';
-import { pick, ri, weighted, genPart, autoScrapValue, BY_RARITY } from './gacha.js';
+import { pick, ri, weighted, rollPart, autoScrapValue, BY_RARITY } from './gacha.js';
 import { SLOTS } from '../data/balance.js';
 
 export const RIDX = { C: 0, UC: 1, R: 2, UQ: 3, EP: 4 };
@@ -137,7 +137,7 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rat
   const free = SLOTS.slice();
   for (let i = 0; i < np && free.length; i++) {
     const slot = free.splice(ri(0, free.length - 1, rnd), 1)[0];
-    const p = genPart(level, rnd, uid(), q.rar, slot);
+    const p = rollPart(level, rnd, uid(), q.rar, slot);
     p.enh = clamp(q.enh + ri(-1, 1, rnd), 0, 10);
     parts.push(p); slots[p.slot] = p.uid;
   }
@@ -194,7 +194,7 @@ export function rollHuntRewards(win, tier, enemyLv, rnd, uid) {
   let sc = Math.round((18 + ri(0, 14, rnd)) * H.scX);
   let part = null;
   if (rnd() < H.partP) {
-    const p = genPart(enemyLv, rnd, uid());
+    const p = rollPart(enemyLv, rnd, uid());
     const auto = autoScrapValue(p.rarity);
     if (auto) sc += auto; else part = p;      // 잡템은 행을 만들지 않는다
   }
@@ -217,7 +217,7 @@ export function rollBattleRewards(win, enemyLv, rnd, uid) {
   const core = rnd() < 0.20 ? 1 : 0;
   let part = null;
   if (rnd() < 0.09) {                       // 예전 0.35 의 약 1/4
-    const p = genPart(enemyLv, rnd, uid());
+    const p = rollPart(enemyLv, rnd, uid());
     const auto = autoScrapValue(p.rarity);
     if (auto) sc += auto; else part = p;    // 잡템은 행을 만들지 않는다
   }

@@ -17,10 +17,11 @@ import { CONST, TERRITORY, MONSTER_TYPES, ROBOT_TYPES, SLOTS } from '../data/bal
 import { computeStats, powerOf, gainExp, addFat, fatOf, decayFat, sortieCost } from '../js/stats.js';
 import { battleExpFor } from '../js/rewards.js';
 import { rarOf } from '../js/units.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { mulberry32 } from '../js/sim.js';
 import { applyTerrain, runBreach, regenLines, maxRounds, rarAllowed, withSpread } from '../js/breach.js';
 import { registerArena } from './arena.js';
+import { PART_COLS, partOf } from './parts.js';
 
 const err = (status, error) => ({ ok: false, status, error });
 const HOUR = 3600000;
@@ -82,7 +83,7 @@ export function monsterLine(node, i, lv) {
   const rnd = mulberry32(fnv(node.id + '#' + i + '#' + type));
   const slots = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null }, parts = [];
   for (const sl of SLOTS) {
-    const p = genPart(level, rnd, `${node.id}-${i}-${sl}`, DEF_PART[node.rar] || 'C', sl);
+    const p = rollPart(level, rnd, `${node.id}-${i}-${sl}`, DEF_PART[node.rar] || 'C', sl);
     slots[sl] = p.uid; parts.push(p);
   }
   /* Territory defenders stay at skill +0; arena rating growth must not leak here. */
@@ -237,7 +238,7 @@ async function loadSquad(env, accountId) {
     `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
   if (!robots.length) return null;
-  const parts = (await env.DB.prepare('SELECT id, uid, slot, name, stats, enh FROM part WHERE account_id = ?1')
+  const parts = (await env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`)
     .bind(accountId).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
@@ -259,7 +260,7 @@ async function loadSquad(env, accountId) {
     for (const sl of SLOTS) {
       const q = byId.get(row[col[sl]]);
       slots[sl] = q ? q.uid : null;
-      if (q) used.push({ uid: q.uid, slot: q.slot, name: q.name, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
+      if (q) used.push(partOf(q));
     }
     return { row, robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp,
                            fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots }, parts: used };

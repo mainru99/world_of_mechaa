@@ -2,13 +2,13 @@
    달라지지 않으면 대가는 그냥 너프이고, 달라지면 결정이 생긴 것이다. */
 import { SLOTS } from '../data/balance.js';
 import { computeStats } from '../js/stats.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { makeUnit, simulate } from '../js/sim.js';
 let S=77; const ns=()=>((S=Math.imul(S,1103515245)+12345|0)>>>0);
 const rnd=()=>ns()/4294967296;
 const bare=(t,l)=>({uid:'x',type:t,level:l,exp:0,fat:0,slots:{WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}});
 function pool(slot,rarK,lv,n){ const out=[];
-  for(let i=0;i<3000 && out.length<n;i++){ const p=genPart(lv,rnd,'p'+i); if(p.slot===slot&&p.rarity===rarK) out.push(p); }
+  for(let i=0;i<3000 && out.length<n;i++){ const p=rollPart(lv,rnd,'p'+i); if(p.slot===slot&&p.rarity===rarK) out.push(p); }
   return out; }
 function wr(myType,part,oppType,n=260){
   const slots={WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}; slots[part.slot]=part.uid;

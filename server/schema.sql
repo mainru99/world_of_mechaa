@@ -64,10 +64,15 @@ CREATE TABLE IF NOT EXISTS part (
   slot        TEXT NOT NULL CHECK (slot IN ('WEAPON','FRAME','BOOSTER','CORE')),
   name        TEXT NOT NULL,
   rarity      TEXT NOT NULL CHECK (rarity IN ('C','R','SR','SSR')),
-  stats       TEXT NOT NULL,                   -- JSON {hp,atk,def,spd,crit,eva} 중 일부
+  stats       TEXT NOT NULL,                   -- 옛 파츠만. base 가 있으면 코드가 안 본다
   enh         INTEGER NOT NULL DEFAULT 0 CHECK (enh BETWEEN 0 AND 10),
   uid         TEXT,                            -- 클라이언트가 쓰는 식별자. 동기화 때 행을 짝짓는다
-  created_at  INTEGER NOT NULL
+  created_at  INTEGER NOT NULL,
+  -- ↓ 파츠 개편 7단계(마이그레이션 013). 스탯을 저장하지 않고 여기서 다시 만든다.
+  base        TEXT,                            -- PART_BASES 의 열쇠. 이것이 있으면 새 파츠다
+  affixes     TEXT,                            -- JSON [{id,tier}]
+  seed        INTEGER,                         -- 티어 안 ±12% 굴림을 재현한다
+  lv          INTEGER                          -- 주운 레벨
 );
 CREATE INDEX IF NOT EXISTS ix_part_account ON part(account_id);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_part_uid ON part(account_id, uid);
@@ -260,7 +265,7 @@ CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 -- 006~008 의 모양은 이미 위 정의에 반영되어 있는데 이 값만 '6' 으로 남아 있었다.
 -- 새로 클론한 PC 가 v8 짜리 DB 를 만들어 놓고 '6' 이라고 말해, 마이그레이션이 필요한지
 -- 판단할 수 없었다(`/api/health` 의 schema_version 도 이 값을 읽는다).
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '12');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '13');
 
 
 -- =========================================================

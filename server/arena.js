@@ -6,8 +6,9 @@
  * 갱신 시점은 편성·레벨이 바뀔 때뿐이다. 전투마다 쓰면 쓰기 예산이 금방 마른다.
  * 피로도는 반영하지 않는다 — 쉬고 있는 방어 기체가 지쳐 있을 이유가 없다.
  */
-import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
+import { ROBOT_TYPES, MONSTER_TYPES, PART_BASES, AFFIXES, AFFIX_TIER, AFFIX_ROLL, RARITY, CONST } from '../data/balance.js';
 import { computeStats, power } from '../js/stats.js';
+import { PART_COLS, partOf } from './parts.js';
 
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 
@@ -21,6 +22,14 @@ export function balanceVersion() {
   const feed = s => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } };
   for (const t of Object.values(ROBOT_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + JSON.stringify(t.skill.fx) + t.spread);
   for (const t of Object.values(MONSTER_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + t.spread);
+  /* 파츠 표도 넣는다. 7단계부터 파츠는 스탯을 저장하지 않고 이 표에서 매번 다시
+     만들어지므로, 여기 수치가 바뀌면 **이미 저장된 스냅샷의 전투력이 통째로 옛것**이
+     된다. 예전에는 굴린 값이 행에 박혀 있어서 표를 고쳐도 스냅샷은 그대로였다.
+     RARITY 도 넣는다 — pos/neg 가 베이스 크기를, tiers·affixes 가 인챈트를 정한다. */
+  feed(JSON.stringify(PART_BASES));
+  feed(JSON.stringify(AFFIXES));
+  feed(JSON.stringify(AFFIX_TIER) + AFFIX_ROLL);
+  feed(JSON.stringify(RARITY));
   feed(JSON.stringify(CONST));
   _ver = (h >>> 0).toString(36);
   return _ver;
@@ -53,7 +62,7 @@ export async function registerArena(env, accountId, now) {
     .filter(r => r && r.id !== primary.id);
   const ordered = [primary, ...squad];
 
-  const parts = (await env.DB.prepare('SELECT id, uid, slot, name, stats, enh FROM part WHERE account_id = ?1')
+  const parts = (await env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`)
     .bind(accountId).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
 
@@ -64,7 +73,7 @@ export async function registerArena(env, accountId, now) {
     for (const sl of Object.keys(SLOT_COL)) {
       const q = byId.get(row[SLOT_COL[sl]]);
       slots[sl] = q ? q.uid : null;
-      if (q) used.push({ uid: q.uid, slot: q.slot, name: q.name, stats: JSON.parse(q.stats || '{}'), enh: q.enh });
+      if (q) used.push(partOf(q));
     }
     const rb = { type: row.type, level: row.level, fat: 0, skillLv: row.skill_lv, slots };
     return { entry: { type: row.type, level: row.level, skillLv: row.skill_lv, slots, parts: used,

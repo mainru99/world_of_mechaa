@@ -266,6 +266,23 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .pchip .pn{font-weight:800} .pchip .ps{color:var(--sub);font-size:11px;margin-top:2px}
 /* 파츠 옵션 한 줄에 하나. 색을 따로 주지 않는다 — 빨간 취소선은 '안 붙는 옵션' 으로 보였다 */
 .pstat{margin-top:2px}
+.pstat .dim{color:var(--dim)}
+/* 고유 효과는 수치가 아니라 전투 규칙이다. 다른 옵션과 더해지는 값으로 안 보이게
+   색을 달리하고 앞에 표식을 둔다. 줄이 길어지므로 줄바꿈을 허용한다. */
+.pstat.fxline{color:var(--acc2);white-space:normal;line-height:1.35}
+.pstat.fxline:before{content:"◆ ";opacity:.8}
+
+/* ---- 인챈트 딱지 ----
+   티어가 올라갈수록 밝아진다. I 은 흔해서 눈에 안 띄어야 하고, IV 는 바로 보여야 한다.
+   등급 딱지(.rar-*)와 같은 자리에 붙으므로 색 계열을 겹치지 않게 골랐다. */
+.tag.aff{margin-left:3px;font-weight:700;background:#0e1526}
+.tag.aff-I{color:var(--dim);border-color:#2b3860}
+.tag.aff-II{color:var(--sub);border-color:#39487a}
+.tag.aff-III{color:var(--acc2);border-color:#2a6b7a}
+.tag.aff-IV{color:var(--gold);border-color:#5a4a24;box-shadow:0 0 10px -4px var(--gold)}
+/* 장착 칸은 좁다. 딱지를 작게 줄이고 넘치면 다음 줄로 내린다 */
+.slot .pp .tag.aff{font-size:9px;padding:1px 4px;margin:1px 2px 0 0}
+.slot .pp{display:flex;flex-wrap:wrap;gap:2px;align-items:center}
 .empty{color:var(--dim);font-size:12px;padding:8px;grid-column:1/-1}
 
 /* ---- modal ---- */

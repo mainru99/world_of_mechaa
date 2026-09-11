@@ -6,6 +6,7 @@
  */
 import { CONST } from '../data/balance.js';
 import { rollPull, PULL_CUR } from '../js/gacha.js';
+import { insertPart } from './parts.js';
 
 /* 서버 난수. 클라가 보낸 값에 의존하지 않는다. */
 function cryptoRnd() {
@@ -70,9 +71,7 @@ export async function serverPull(env, accountId, count, now, cur) {
   /* 결과를 한 번에 기록한다. 파츠·기체 행 + player 한 행. */
   const stmts = [];
   for (const p of newParts) {
-    stmts.push(env.DB.prepare(
-      'INSERT INTO part (account_id, uid, slot, name, rarity, stats, enh, created_at) VALUES (?1,?2,?3,?4,?5,?6,0,?7)')
-      .bind(accountId, p.uid, p.slot, p.name, p.rarity, JSON.stringify(p.stats), now));
+    stmts.push(insertPart(env.DB, accountId, p, now, 0));
   }
   for (const rb of newRobots) {
     stmts.push(env.DB.prepare(

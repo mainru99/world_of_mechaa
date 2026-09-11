@@ -12,7 +12,8 @@
  * 이득이 되어, 원정이 레벨업의 부산물이 된다.
  */
 import { CONST } from '../data/balance.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
+import { insertPart } from './parts.js';
 
 const err = (status, error) => ({ ok: false, status, error });
 const HOUR = 3600000;
@@ -31,7 +32,7 @@ function roll(tier, lv, rnd, uid) {
   const h = T.h, L = Math.max(1, lv | 0);
   const out = { cr: Math.round(T.crH * h * L), sc: Math.round(T.scH * h * L), core: 0, part: null };
   if (rnd() < T.coreP) out.core = 1;
-  if (T.partP && rnd() < T.partP) out.part = genPart(L, rnd, uid());
+  if (T.partP && rnd() < T.partP) out.part = rollPart(L, rnd, uid());
   return out;
 }
 
@@ -95,9 +96,7 @@ export async function claimExped(env, accountId, now, rnd, uid) {
   const rev = p.rev + 1;
 
   const stmts = [];
-  if (rw.part) stmts.push(env.DB.prepare(
-    'INSERT INTO part (account_id, uid, slot, name, rarity, stats, enh, created_at) VALUES (?1,?2,?3,?4,?5,?6,0,?7)')
-    .bind(accountId, rw.part.uid, rw.part.slot, rw.part.name, rw.part.rarity, JSON.stringify(rw.part.stats), now));
+  if (rw.part) stmts.push(insertPart(env.DB, accountId, rw.part, now, 0));
   /* 원정 칸은 위에서 이미 비웠다. 여기서는 재화와 rev 만 적는다. */
   stmts.push(env.DB.prepare(
     `UPDATE player SET credits = ?1, scrap = ?2, cores = ?3,

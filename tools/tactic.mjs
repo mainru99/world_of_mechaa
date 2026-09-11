@@ -29,7 +29,7 @@ import { ROBOT_TYPES, CONST, SLOTS } from '../data/balance.js';
 import { computeStats } from '../js/stats.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 import { pickTactic } from '../js/rewards.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { pm, argN } from './stat.mjs';
 
 /* 후보 값을 파일을 고치지 않고 시험한다 — tools/play.mjs 의 ROWAR_* 와 같은 방식이다.
@@ -75,7 +75,7 @@ const EMPTY={WEAPON:null,FRAME:null,BOOSTER:null,CORE:null};
 function makeGear(rar, lv){
   let g=987654321; const r=()=>((g=Math.imul(g,1103515245)+12345|0)>>>0)/4294967296;
   const parts=[], slots={};
-  for(const slot of SLOTS){ const p=genPart(lv, r, 'g'+slot, rar, slot); p.enh=10; parts.push(p); slots[slot]=p.uid; }
+  for(const slot of SLOTS){ const p=rollPart(lv, r, 'g'+slot, rar, slot); p.enh=10; parts.push(p); slots[slot]=p.uid; }
   return { parts, slots };
 }
 const GEAR={};

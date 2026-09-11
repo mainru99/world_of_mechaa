@@ -29,33 +29,26 @@ const BAND = [58, 64];          // 한 파츠를 끼웠을 때의 목표 승률
 const EMPTY = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
 const STATS = ['hp', 'atk', 'def', 'spd', 'crit', 'eva'];
 
-/* 베이스를 맨몸 스탯 위에 얹는다. 아직 rollPart 가 없으므로(4단계) 여기서 직접 얹는다.
-   구간은 **곱한다** — 기체 고유 구간을 보존하려는 것이 이번 개편의 요지다. */
-function withBase(st, b) {
-  const o = { ...st };
-  for (const k of STATS) if (b.stats[k] != null) o[k] = (o[k] || 0) + b.stats[k];
-  const sp = (st.spread != null ? st.spread : CONST.SPREAD) * (b.range != null ? b.range : 1);
-  o.spread = Math.min(CONST.SPREAD_MAX, Math.max(CONST.SPREAD_MIN, sp));
-  /* computeStats 와 같은 바닥을 깐다. 없으면 게이지 계산이 뒤집히거나 NaN 이 난다. */
-  o.hp = Math.max(1, Math.round(o.hp)); o.spd = Math.max(1, o.spd);
-  o.def = Math.max(0, o.def);           o.atk = Math.max(1, o.atk);
-  o.crit = Math.min(.75, Math.max(0, o.crit));
-  o.eva  = Math.min(.60, Math.max(0, o.eva));
-  /* 고유 효과를 그대로 실어 준다. C등급 기준으로 잰다(관통 확률이 등급별이라). */
-  if (b.fx) {
-    if (b.fx.pierce != null) { o.pen = typeof b.fx.pierce === 'object' ? b.fx.pierce.C : b.fx.pierce;
-                               o.penAmt = b.fx.pierceAmt != null ? b.fx.pierceAmt : 0.5; }
-    if (b.fx.stackSpd != null) { o.stackSpd = b.fx.stackSpd; o.stackMax = b.fx.stackMax || 0; }
-    if (b.fx.regen != null) o.regen = b.fx.regen;
-  }
-  return o;
+/* 4단계부터는 **실제 생성·계산 경로로** 잰다. 예전에는 여기서 베이스 스탯을 손으로
+   얹었는데, 그러면 이 도구만 통과하고 게임 안에서는 다른 값이 되는 일이 생긴다.
+   실제로 그랬다 — 손으로 얹을 때는 파츠 공격력에 ATK_SCALE(1.65)이 안 걸렸다.
+
+   재는 조건은 그대로다. **C등급 · 인챈트 없음 · Lv.40** — 베이스 자체의 예산만 본다.
+   인챈트가 얹힌 뒤의 폭은 4단계 검증(tools/partroll.mjs)에서 따로 본다. */
+function basePart(id) {
+  const b = PART_BASES[id];
+  return { uid: 'b', slot: b.slot, base: id, rarity: 'C', ko: '일반', name: b.ko,
+           affixes: [], seed: 0, lv: LV, enh: 0 };
 }
 
 function winRate(base) {
   let w = 0, n = 0;
+  const part = base ? basePart(base) : null;
+  const slots = part ? { ...EMPTY, [part.slot]: 'b' } : EMPTY;
   for (const t of REFS) {
-    const bare = computeStats({ type: t, level: LV, skillLv: 0, fat: 0, slots: EMPTY }, []);
-    const mine = base ? withBase(bare, base) : bare;
+    const rb = { type: t, level: LV, skillLv: 0, fat: 0, slots: EMPTY };
+    const bare = computeStats(rb, []);
+    const mine = part ? computeStats({ ...rb, slots }, [part]) : bare;
     for (let i = 0; i < N; i++) {
       const ev = simulate(makeUnit('P', t, mine), makeUnit('E', t, bare), i * 7919 + 13);
       if (ev[ev.length - 1].winner === 'P') w++;
@@ -131,7 +124,7 @@ console.log(`기준선(맨몸 거울) ${baseline.toFixed(1)}%  ·  목표 구간
 const rows = [];
 for (const id in PART_BASES) {
   const b = PART_BASES[id];
-  rows.push({ id, ko: b.ko, slot: b.slot, set: b.set, fx: !!b.fx, wr: winRate(b) });
+  rows.push({ id, ko: b.ko, slot: b.slot, set: b.set, fx: !!b.fx, wr: winRate(id) });
 }
 rows.sort((a, b) => b.wr - a.wr);
 

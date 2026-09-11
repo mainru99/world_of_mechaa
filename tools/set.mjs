@@ -4,14 +4,20 @@
    좋은 파츠를 버리고 세트를 맞추는 것이 늘 정답이면, 선택이 하나 생긴 것이 아니라
    정답이 하나 바뀐 것뿐이다. ③이 그것을 직접 판정한다.
 
-   세트 효과만 떼어 보기 위해 **같은 파츠를 굴려 이름만 바꾼다.** 수치는 한 글자도
-   다르지 않고 계열만 달라지므로, 승률 차이는 전부 세트에서 온 것이다.
+   세트 효과만 떼어 보려면 '수치는 같고 계열만 다른 파츠' 가 필요하다.
+   예전에는 같은 파츠를 굴려 **이름만 바꿔서** 만들었다. 6단계부터는 그게 불가능하다 —
+   계열을 `PART_BASES[...].set` 이 정하고, 그 베이스가 스탯도 정하기 때문이다.
+   베이스를 바꾸면 계열과 수치가 같이 바뀐다.
+
+   그래서 방법을 바꿨다. **같은 파츠를 두 벌 쓰되 한쪽만 세트 효과를 켠다**
+   (`CONST.PART_SET` 의 p2·p4 를 잠시 끈다). 파츠도 씨앗도 같으므로 승률 차이가
+   정확히 세트 효과다 — 예전 방법보다 오히려 깨끗하다.
 
    판수는 명령줄에서: node tools/set.mjs 3000 */
-import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, CONST } from '../data/balance.js';
-import { computeStats, setCounts } from '../js/stats.js';
+import { ROBOT_TYPES, RARITY, SLOTS, PART_BASES, CONST } from '../data/balance.js';
+import { computeStats, setCounts, setKeyOf, setKeyByName } from '../js/stats.js';
 import { makeUnit, simulate } from '../js/sim.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { pct, pm, argN } from './stat.mjs';
 
 const N=argN(1500);
@@ -24,21 +30,37 @@ let S=23; const ns=()=>((S=Math.imul(S,1103515245)+12345|0)>>>0);
 const rnd=()=>{ let x=ns(); return x/4294967296; };
 const rb=(t,slots)=>({uid:'x',type:t,level:LV,exp:0,fat:0,slots});
 
-/* 어느 계열에도 안 들어간 이름 — 대조군이다 */
-const PLAIN={};
+/* 계열별·슬롯별 베이스와, 어느 계열에도 안 들어간 베이스(대조군).
+   PART_BASES 에서 유도하므로 베이스를 늘리거나 계열 배정을 바꿔도 여기는 안 고친다. */
+const SET_BASE={}, PLAIN_BASE={};
 for(const slot of SLOTS){
-  const used=new Set(KEYS.map(k=>CONST.PART_SET[k].names[slot]));
-  PLAIN[slot]=PART_NAMES[slot].find(n=>!used.has(n));
+  for(const [id,b] of Object.entries(PART_BASES)){
+    if(b.slot!==slot) continue;
+    if(b.set){ (SET_BASE[b.set]=SET_BASE[b.set]||{})[slot]=id; }
+    else if(!PLAIN_BASE[slot]) PLAIN_BASE[slot]=id;
+  }
 }
 
-/* 네 칸을 같은 등급으로 채운다. setKey 를 주면 이름만 그 계열로 바꾼다.
-   pieces 를 주면 그 개수만큼만 계열로 하고 나머지는 무계열이다. */
+/* 세트 효과를 잠시 끄고 fn 을 부른다. setActive 는 p2·p4 가 없으면 그 단계를
+   건너뛰므로 null 로 충분하다. 반드시 되돌린다 — 뒤의 측정이 전부 틀어진다. */
+function withSetOff(fn){
+  const saved={};
+  for(const k of KEYS){ saved[k]=[CONST.PART_SET[k].p2, CONST.PART_SET[k].p4];
+                        CONST.PART_SET[k].p2=null; CONST.PART_SET[k].p4=null; }
+  try { return fn(); }
+  finally { for(const k of KEYS){ CONST.PART_SET[k].p2=saved[k][0]; CONST.PART_SET[k].p4=saved[k][1]; } }
+}
+
+/* 네 칸을 같은 등급으로 채운다. setKey 를 주면 베이스를 그 계열의 것으로 바꾼다.
+   pieces 를 주면 그 개수만큼만 계열로 하고 나머지는 무계열 베이스다.
+   name 도 같이 맞춘다 — 옛 파츠 경로와 대조할 때 쓰이고, 화면에도 이 이름이 나간다. */
 function loadout(rar, setKey, pieces){
   const parts=[], slots={};
   const n=pieces==null?4:pieces;
   SLOTS.forEach((slot,i)=>{
-    const p=genPart(LV, rnd, 's'+slot, rar, slot);
-    p.name = (setKey && i<n) ? CONST.PART_SET[setKey].names[slot] : PLAIN[slot];
+    const p=rollPart(LV, rnd, 's'+slot, rar, slot);
+    const base=(setKey && i<n) ? SET_BASE[setKey][slot] : PLAIN_BASE[slot];
+    p.base=base; p.name=PART_BASES[base].ko;
     parts.push(p); slots[slot]=p.uid;
   });
   return { parts, slots };
@@ -65,13 +87,55 @@ function all(mine, theirs){
 
 console.log(`파츠 세트 측정 · Lv.${LV} 거울 대결 · 한 칸 ${N*T.length}판\n`);
 
-/* ── ① 세트가 얼마나 세나 (같은 등급, 이름만 다름) ───────────────── */
-console.log('== ① 같은 등급에서 세트만 갖췄을 때 (상대는 무계열) ==');
+/* ── ⓪ 두 판정이 같은 답을 내나 ──────────────────────────────────
+   계열은 이제 base 가 정하지만(6단계), 옛 파츠는 아직 이름으로 찾는다.
+   두 표가 어긋나면 같은 물건인데 옛 파츠와 새 파츠가 다른 계열이 된다.
+   7단계 마이그레이션이 끝나 옛 파츠가 사라질 때까지 여기서 지킨다. */
+console.log('== ⓪ base 판정과 옛 이름 판정이 일치하나 ==');
+{
+  let bad=0;
+  for(const [id,b] of Object.entries(PART_BASES)){
+    const byBase=setKeyOf({ base:id, slot:b.slot, name:b.ko });
+    const byName=setKeyByName(b.slot, b.ko);
+    if(byBase!==byName){ console.log(`  ✗ ${id} (${b.ko}) base=${byBase} 이름=${byName}`); bad++; }
+  }
+  /* 이름 표에만 있고 베이스에 없는 것도 잡는다 — 한글 이름을 고치면 여기 걸린다 */
+  for(const k of KEYS) for(const slot in CONST.PART_SET[k].names){
+    const ko=CONST.PART_SET[k].names[slot];
+    if(!Object.values(PART_BASES).some(b=>b.slot===slot&&b.ko===ko)){
+      console.log(`  ✗ PART_SET.${k}.${slot} '${ko}' 에 맞는 베이스가 없다`); bad++; }
+  }
+  console.log(bad ? `  ✗ ${bad}건 어긋남` : `  ✓ 베이스 ${Object.keys(PART_BASES).length}종에서 두 판정이 같다`);
+  if(bad) process.exitCode=1;
+}
+
+/* ── ① 세트가 얼마나 세나 (같은 파츠, 효과만 켜고 끄고) ─────────────
+   양쪽이 **완전히 같은 파츠**다. 한쪽만 세트 효과를 켜므로 차이가 곧 효과다.
+
+   예전처럼 '세트 vs 무계열' 로 재면 안 된다. 베이스가 계열과 수치를 같이 정하므로
+   무계열 쪽은 다른 물건이 되고, 승률 차이에 베이스 차이가 섞인다.
+   실제로 그렇게 재 보니 강습 2세트가 등급에 따라 54.9%~60.5% 로 흔들렸다 —
+   spd ×1.012 짜리 효과가 낼 수 있는 폭이 아니다. */
+console.log('\n== ① 같은 파츠에서 세트 효과만 켰을 때 ==');
 console.log('등급\t' + KEYS.map(k=>CONST.PART_SET[k].ko+' 2세트').join('\t') + '\t' + KEYS.map(k=>CONST.PART_SET[k].ko+' 4세트').join('\t'));
+function setGain(rar, key, pieces){
+  let k=0,n=0;
+  for(const t of T){
+    for(let i=0;i<N;i++){
+      const A=loadout(rar, key, pieces), seed=ns();
+      const on  = computeStats(rb(t,A.slots), A.parts);
+      const off = withSetOff(()=>computeStats(rb(t,A.slots), A.parts));
+      const ev=simulate(makeUnit('P',t,on), makeUnit('E',t,off), seed);
+      if(ev[ev.length-1].winner==='P') k++;
+      n++;
+    }
+  }
+  return {k,n};
+}
 for(const r of RARITY.map(x=>x.k)){
   const row=[];
-  for(const k of KEYS) row.push(pm(...Object.values(all({rar:r,set:k,pieces:2},{rar:r,set:null})) ));
-  for(const k of KEYS) row.push(pm(...Object.values(all({rar:r,set:k,pieces:4},{rar:r,set:null})) ));
+  for(const k of KEYS) row.push(pm(...Object.values(setGain(r,k,2))));
+  for(const k of KEYS) row.push(pm(...Object.values(setGain(r,k,4))));
   console.log(r+'\t'+row.join('\t'));
 }
 
@@ -83,7 +147,7 @@ console.log('\n== ② 아무렇게나 낀 네 칸에 세트가 걸릴 확률 =='
   const trials=200000; let two=0, four=0;
   for(let i=0;i<trials;i++){
     const parts=[], slots={};
-    for(const slot of SLOTS){ const p=genPart(LV,rnd,'r'+slot,'C',slot); parts.push(p); slots[slot]=p.uid; }
+    for(const slot of SLOTS){ const p=rollPart(LV,rnd,'r'+slot,'C',slot); parts.push(p); slots[slot]=p.uid; }
     const c=setCounts({slots}, parts), m=Math.max(0,...Object.values(c));
     if(m>=2) two++; if(m>=4) four++;
   }

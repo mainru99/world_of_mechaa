@@ -1,11 +1,11 @@
 import { SLOTS } from '../data/balance.js';
 import { computeStats } from '../js/stats.js';
-import { genPart } from '../js/gacha.js';
+import { rollPart } from '../js/gacha.js';
 import { makeUnit, simulate } from '../js/sim.js';
 let S=13; const ns=()=>((S=Math.imul(S,1103515245)+12345|0)>>>0);
 const rnd=()=>ns()/4294967296;
 const bare=(t,l)=>({uid:'x',type:t,level:l,exp:0,fat:0,slots:{WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}});
-function pool(slot,rarK,lv,n){ const o=[]; for(let i=0;i<6000&&o.length<n;i++){ const p=genPart(lv,rnd,slot+i); if(p.slot===slot&&p.rarity===rarK) o.push(p);} return o; }
+function pool(slot,rarK,lv,n){ const o=[]; for(let i=0;i<6000&&o.length<n;i++){ const p=rollPart(lv,rnd,slot+i); if(p.slot===slot&&p.rarity===rarK) o.push(p);} return o; }
 const kit=parts=>{ const slots={WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}; for(const p of parts) slots[p.slot]=p.uid; return slots; };
 const st=parts=>computeStats({...bare('glacier',30),slots:kit(parts)},parts);
 const W=pool('WEAPON','SR',30,2), C=pool('CORE','SR',30,2), F=pool('FRAME','SR',30,2), B=pool('BOOSTER','SR',30,2);

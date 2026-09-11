@@ -6,8 +6,8 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-11 · 원화 12파일 화면 연결·PC/모바일 검수·운영 배포 완료
-- **스키마 버전** — **12** (로컬·운영 `/api/health` 확인. 이번 이미지 작업에서 DB 변경 없음)
+- **마지막 갱신** — 2026-09-12 · 파츠 개편 4·6·7·8단계 완료 · **아직 배포 안 함** (9단계 회귀만 남음)
+- **스키마 버전** — 로컬 **13** · 운영 **12** (013 은 배포할 때 같이 넣는다)
 - **지금 단계** — 경제·스킬 강화·30종 기체 개성, 코어 캡슐 원화와 개방 연출은 완료했다.
   격납고·대문·뽑기 배경, 재화 아이콘 3개, 점령 지형 6개를 사용자 지시로 ChatGPT가 직접 연결했다.
   파일만 서버에 올라가 있고 UI 참조가 없던 것이 미표시 원인이었다. **연결 수정본 운영 배포 완료.** 경제는 **아레나(크레딧·레이팅) /
@@ -28,6 +28,11 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 | 대문·뽑기 배경 2개 | **화면 연결 완료** | 중앙 크롭·코어/크레딧 색상·로컬 1회 뽑기 확인 |
 | 점령 지형 6개 | **화면 연결 완료** | 12칸 지형 매핑·잠금 상세 확인, 상태 CSS에서 원화 유지 |
 | 기체 대기모션 | **IGNIS 10프레임 운영 배포 완료** | 원본 보존 WebP, 모션 축소 시 PNG. 36프레임·강한 발광은 후속 목표 |
+| 파츠 개편 4단계 | **구현·검증 완료 · 배포 보류** | `rollPart`·`partStat` 교체. 7단계(서버 스키마)와 같이 배포한다 |
+| 파츠 개편 6단계 | **구현·검증 완료 · 배포 보류** | 계열 판정을 base 로. 옛 2개+새 2개 섞어 끼워도 4세트 성립 |
+| 파츠 개편 7단계 | **구현·검증 완료 · 배포 보류** | D1 칸 넷 · 위조 판정 · 운영 013 은 배포 때 같이 넣는다 |
+| 파츠 개편 8단계 | **구현·화면 확인 완료 · 배포 보류** | 인챈트 딱지·구간 배수·고유 효과 문장. `powerOf` 는 재 보고 안 고치기로 |
+| 파츠 개편 9단계 | 남음 | 전체 회귀 후 **4·6·7·8 을 한꺼번에 배포** (013 동시) |
 | 이미지 연결 수정본 운영 반영 | **배포 완료** | `079fb43` · Worker/정적 파일 동시 배포, 실제 URL 파일 해시·화면 확인 |
 
 원래 요청 5묶음·12파일의 그림 제작은 모두 완료했다. 잔여 11종 합계는 1,013,484 bytes다.
@@ -38,6 +43,62 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 `terrcheck.mjs` 22개·`arenacheck.mjs` 42개 단언, `verify.mjs`·`skill.mjs`·`budget.mjs` 통과.
 PC 1440/1200px와 모바일 375px에서 검수했고 가로 넘침·브라우저 오류는 없었다.
 제작 단계의 이미지 규격·알파 검수 기록은 보존한다. 기체 대기모션의 자료 대기는 별도다.
+
+### 파츠 개편 8단계 — 2026-09-12
+
+파츠가 베이스·인챈트·고유 효과로 갈라졌는데 화면은 이름과 등급만 보여 주고 있었다.
+같은 '브레이커 SSR' 이 서로 다른 물건인데 구별할 방법이 없었다.
+
+- **인챈트 딱지** `[광폭 IV]` — 티어가 올라갈수록 밝아진다(I 은 흔하니 안 띄고 IV 는 바로 보이게)
+- **구간** `구간 ×1.25 (넓어짐)` — 곱셈이 된 값을 `±몇 %` 로 적으면 거짓말이 된다
+- **고유 효과** `◆ 타격 17% 확률로 방어 50% 무시` — 수치가 아니라 전투 규칙이라 문장으로 적는다
+
+**고친 것** — 베이스의 대가와 인챈트의 상승이 서로 지워지면 `속도 +0` 같은 줄이 생겼다.
+없는 옵션을 있는 것처럼 보이게 하므로, 반올림해서 0 이 되는 줄은 안 적는다.
+
+데스크톱 1100px · 모바일 375px 확인. 장착 칸 넷 높이 90~92px, 가로 넘침 없음.
+
+**`powerOf` 는 재 보고 안 고치기로 했다.** 평균 절대오차 0.96%p 인데 아레나 ±15% 창은
+승률로 약 ±16%p 다. 게다가 오차가 가장 큰 둘(실드 프레임·리액터)은 **고유 효과도 구간도
+없다** — 의심하던 것이 주범이 아니었다. 판단이 계속 유효한지는 `partroll.mjs` ⑧ 이 지킨다.
+
+### 파츠 개편 6단계 — 2026-09-12
+
+계열 판정 열쇠를 `슬롯|이름` 에서 **`base id`** 로 바꿨다. 한글 이름을 고쳐도
+계열이 끊기지 않는다. 옛 파츠는 이름 표를 그대로 쓰고, 두 표가 같은 답을 내는지
+`tools/set.mjs` ⓪ 가 21종 전부 대조한다. **옛 2 + 새 2 를 섞어 껴도 4세트가 성립한다.**
+
+**측정 방법도 같이 바꿔야 했다.** `set.mjs` 는 '같은 파츠의 이름만 바꾼다' 로
+세트 효과를 떼어 재고 있었는데, 6단계부터 베이스가 계열과 수치를 같이 정하므로
+그 전제가 없어진다. 그대로 재니 강습 2세트가 등급에 따라 54.9~60.5% 로 흔들렸다 —
+`spd ×1.012` 가 낼 수 있는 폭이 아니다. **같은 파츠를 두 벌 쓰고 한쪽만 효과를 켜는**
+방식으로 바꾸니 등급을 따라 평평해졌다(강습 2세트 53.0~53.4%).
+
+**계열마다 세기가 다른 것은 기획의도다**(강습 53% · 정밀 57% · 요새 61%).
+Claude 가 요새를 조정 대상으로 올렸으나 2026-09-12 사용자 판단으로 고치지 않는다.
+지켜야 할 선은 ③(세트가 등급을 이기나)이고 전부 통과한다(최고 46.5%).
+
+### 파츠 개편 4단계 — 2026-09-12
+
+`DESIGN.md` §7 의 4단계(`rollPart`·`partStat` 교체, 구간 곱셈)를 끝냈다.
+이제 파츠는 **이름이 곧 성능**이고, 스탯을 저장하지 않는다
+(`base·rarity·affixes·seed·lv` 로 매번 다시 만든다).
+
+- 새 도구 `tools/partroll.mjs` — 10만 개를 굴려 모양·분포·재현성·속도·판 길이를 본다. 전부 통과
+- `tools/budget.mjs` 가 **실제 경로로** 재도록 고쳤다. 21/21 구간 안
+- `terrcheck`·`arenacheck`·`verify`·`set`·`intra`·`tactic`·`skill` 정상
+
+**찾은 것 — 예산 측정이 틀려 있었다.** `budget.mjs` 가 파츠 공격력에 `ATK_SCALE`(1.65)을
+안 걸고 재고 있었다. 실제 경로로 재니 7개가 구간 밖이었고 전부 공격 축이었다.
+수치를 고치지 않고 배율이 걸리는 자리를 옮겨(옛 파츠에만) 21/21 을 되찾았다. §7-3 참조.
+
+**§8 위험 실측** — 속도 인플레는 SSR 한 벌 평균 ×1.08(우려보다 작다), 판 길이는
+오히려 26.9~28.8타로 길어졌다(맨몸 21.6타). 표시 전투력은 8단계로 미뤘다.
+
+**배포 금지 — 7단계와 묶는다.** D1 `part` 표가 `slot·name·rarity·stats·enh` 뿐이라
+`base·affixes·seed·lv` 를 담지 못한다. 새 파츠는 `stats` 가 없으므로
+`JSON.stringify(p.stats)` 가 `undefined` 가 되고 그 칸은 `NOT NULL` 이다 —
+뽑기·토벌·원정의 파츠 지급이 전부 DB 에서 막힌다. 클라이언트 단독으로는 정상이다.
 
 ### 이미지 연결 배포 확인 — 2026-09-11
 
@@ -68,7 +129,7 @@ PC 1440/1200px와 모바일 375px에서 검수했고 가로 넘침·브라우저
 ```bash
 git pull
 npm install
-npm run db:local                  # 새 로컬 DB 는 스키마 v11로 만들어진다
+npm run db:local                  # 새 로컬 DB 는 스키마 v13으로 만들어진다
 npm run dev
 ```
 
@@ -83,17 +144,80 @@ npx wrangler d1 execute rowar --local --file=./server/migrations/011_arena_nickn
 원격 DB 는 **이미 v11로 올려 두었다.** 마이그레이션을 다시 돌릴 필요가 없다
 (006·007 은 되돌린 것까지 포함해 이미 반영됐다. `server/migrations/` 의 파일은 기록용이다).
 
+### 파츠 개편 — 다음에 할 일 (9단계 + 배포)
+
+4·6·7·8 단계는 끝났고 **아직 배포 안 했다.** `DESIGN.md` §7 의 표가 정본이다.
+
+**① 9단계 — 전체 회귀.** 통과 기준은 §7 에 적힌 그대로다:
+
+```bash
+node tools/verify.mjs && node tools/intra.mjs && node tools/tactic.mjs
+node tools/match2.mjs && node tools/terrcheck.mjs && node tools/play.mjs 30 50
+```
+
+`play 30 50` 은 오래 걸린다. 여기서 보는 것은 **수치가 아니라 '끝까지 도는가'** 다 —
+파츠 생성·계산·저장을 전부 갈아끼웠으므로 긴 판에서만 나는 예외가 있을 수 있다.
+
+**② 배포.** 순서를 지킨다 — 코드보다 DB 가 먼저다. 반대로 하면 새 코드가
+없는 칸을 찾는다.
+
+```bash
+npx wrangler d1 execute rowar --remote --file=./server/migrations/013_part_base.sql
+node tools/partmigrate.mjs --remote > .tmp/affixes-remote.sql
+npx wrangler d1 execute rowar --remote --file=.tmp/affixes-remote.sql
+npm run deploy
+curl -s https://rowar.hun7539.workers.dev/api/health     # schema_version 13 · balance_ver 6r5uzb
+```
+
+배포 뒤 확인할 것 — `/api/health` 의 `schema_version` 이 **13**, `balance_ver` 가
+**`6r5uzb`**(파츠 표를 해시에 넣어서 바뀐다). 운영 파츠 69개가 전부 `base`·`affixes` 를
+갖는지 위 ③ 명령으로 본다.
+
+> **되돌리려면** 4단계 커밋을 되돌리면 옛 `genPart` 로 간다(`DESIGN.md` §9).
+> DB 는 칸을 더하기만 했고 `stats` 를 안 지웠으므로 옛 코드가 그대로 읽는다.
+
+### 파츠 개편 마이그레이션 — 013 (schema_version 13)
+
+**아직 운영에 안 넣었다.** 로컬만 끝났다. 배포할 때 이 순서로 넣는다.
+
+```bash
+# ① 칸을 만들고 base·lv·seed 를 채운다
+npx wrangler d1 execute rowar --local --file=./server/migrations/013_part_base.sql
+
+# ② 인챈트는 게임과 같은 함수로 뽑아 SQL 을 만든 뒤 적용한다
+#    (seed 에서 뽑으므로 몇 번 돌려도 같은 SQL 이 나온다 — 먼저 읽어 보고 넣어도 된다)
+node tools/partmigrate.mjs > .tmp/affixes.sql
+npx wrangler d1 execute rowar --local --file=.tmp/affixes.sql
+
+# ③ 빠진 칸이 없는지 확인
+npx wrangler d1 execute rowar --local --command="SELECT COUNT(*) total, SUM(base IS NULL) no_base, SUM(affixes IS NULL) no_affix FROM part"
+```
+
+운영은 `--local` 을 `--remote` 로 바꾼다. **②의 `--remote` 는 ①을 운영에 넣은 뒤에
+돌려야 한다** — `seed` 가 비어 있으면 도구가 멈춘다.
+
+운영 파츠는 **69개**(C 19 · R 28 · SR 14 · SSR 4, 강화된 것 5개)다. 이름 19종이
+모두 베이스와 1:1 로 맞는다(확인함). `lv` 는 주인의 최고 기체 레벨로 채워진다 —
+지금 운영은 20계정 중 15계정이 Lv.1 이고 최고가 Lv.46 이다.
+
+> **`balance_ver` 가 `8updih` → `6r5uzb` 로 바뀐다.** 파츠 표를 해시에 넣었기 때문이다.
+> 기존 아레나 스냅샷이 매칭에서 걸러지고 다시 등록된다 — 의도한 동작이다.
+
 **작업 시작 전에 이 둘을 돌려 볼 것** — 지금은 전부 통과 상태다:
 
 ```bash
 node tools/terrcheck.mjs          # 점령전 자가 점검 (서버↔클라 일치까지 본다)
 node tools/arenacheck.mjs         # 아레나 매칭·지목 대전 (가짜 env.DB · 38항목)
 node tools/verify.mjs             # 밸런스 사다리·거울 대결
+node tools/partroll.mjs           # 파츠 생성 10만 개 — 모양·분포·재현성·속도·판 길이
+node tools/partdb.mjs             # 파츠가 진짜 D1 을 왕복해도 같은가 · 위조 11가지
+node tools/budget.mjs             # 베이스 21종이 예산 구간(58~64%) 안인가
 ```
 
 > **마이그레이션을 추가하면 `schema.sql` 의 `schema_version` 값도 같이 올릴 것.**
 > 한 번 이걸로 당했다 — 숫자가 `'6'` 에 멈춰 있어서 새로 만든 DB 가 모양은 v8 인데
-> 자기를 v6 이라고 말했다. 지금은 **v11**이다(`/api/health` 가 이 값을 보여 준다).
+> 자기를 v6 이라고 말했다. 지금은 **v13**이다(`/api/health` 가 이 값을 보여 준다).
+> 운영은 아직 v12 다 — 013 은 배포할 때 같이 넣는다.
 
 `dist/` 가 `EBUSY` 로 잠기면 `wrangler dev` 가 살아 있는 것이다. `workerd.exe` 뿐 아니라
 **`wrangler` 를 물고 있는 `node.exe` 까지** 죽여야 한다 — workerd 만 죽이면 곧바로 되살아난다.

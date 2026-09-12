@@ -15,7 +15,7 @@ import { ROBOT_IDS, MONSTER_IDS, isMonster } from './units.js';
 
 const FACE_RIGHT = {};                  // 원본이 이미 오른쪽을 보는 id
 const CACHE_BUST = '?v=20260904-split';
-const IDLE_SPRITES = { ignis: 'assets/motions/ignis-idle-36f-articulated.webp?v=20260912-hangar36' };
+const IDLE_SPRITES = { ignis: 'assets/motions/ignis-idle-10f.webp?v=20260912-hangar10-recovery' };
 
 export const assetPath = id => 'assets/' + (isMonster(id) ? 'monsters/' : '') + id + '.png' + CACHE_BUST;
 

@@ -20,7 +20,7 @@ import { runBreach, rarAllowed } from './breach.js';
 import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapValue, PULL_CUR } from './gacha.js';
 import { makeOpponent as _makeOpponent, pickTactic } from './rewards.js';
-import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar36';
+import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };

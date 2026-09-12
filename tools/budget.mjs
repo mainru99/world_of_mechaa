@@ -27,7 +27,8 @@ const LV = 40;
 /* 느린 기체·빠른 기체·중간을 섞는다. 속도가 승률에 강하게 작용하므로
    한 기체로만 재면 속도를 주는 파츠가 과대·과소평가된다. */
 const REFS = ['mule', 'ranger', 'azure'];
-const BAND = [58, 64];          // 한 파츠를 끼웠을 때의 목표 승률
+const BAND = [58, 64];
+const COMBO_N = 70;                 // ⑤ 에서 만드는 조합 수          // 한 파츠를 끼웠을 때의 목표 승률
 const EMPTY = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
 const STATS = ['hp', 'atk', 'def', 'spd', 'crit', 'eva'];
 
@@ -207,4 +208,75 @@ console.log('\n== ④ 등급·강화 사다리 (Lv.60 한 벌 · 전투력) ==')
   console.log(ladder < OLD_LADDER * 0.8
     ? `  \x1b[33m⚠ 미해결\x1b[0m 개편 전 ×${OLD_LADDER} 에 비해 사다리가 눌려 있다 — 수치 재조정 대기 (CONTRACT.md)`
     : `  ${G('✓')} 사다리가 개편 전(×${OLD_LADDER})과 견줄 만하다`);
+}
+
+/* ── ⑤ 조합 폭 — 예능픽도 해볼 만한가 ──────────────────────────
+   이 개편의 존재 이유는 **조합의 수**다. 세트 3종 × 베이스 21종 × 인챈트 18종 ×
+   티어 4단계가 곱해져 나오는 경우의 수가 전부다. 그런데 그중 하나만 정답이면
+   조합이 아무리 많아도 뜻이 없다. **예능픽도 어느 정도는 나와야 재미가 있다.**
+
+   ③·④ 로는 이걸 못 본다. ③ 은 파츠 하나씩, ④ 는 등급 사다리만 본다.
+   여기서는 **무작위 조합을 여럿 만들어 가장 센 것과 붙여 본다.**
+
+   2026-09-12 실측 — 70가지 중 35% 이상은 5개, 20% 미만이 46개였다.
+   전투력 폭은 1.31배뿐인데 승률이 1.4%~45% 로 갈린다. 이 게임은 작은 전투력 차이가
+   승률로 크게 증폭되기 때문이다(spd +5% 가 승률 72% 인 게임이다).
+   갈라 재 보니 **베이스가 벌리고(1.36배) 인챈트는 좁다(1.12배).**
+
+   목표값은 BALANCE.md ⓔ 에 있다. 수치가 정해지면 하드 판정으로 바꾼다. */
+console.log('\n== ⑤ 조합 폭 (Lv.60 · SSR · +10 · 무작위 조합 ' + COMBO_N + '가지) ==');
+{
+  const GROUP = {};
+  for (const g in AFFIX_GROUPS) for (const id of AFFIX_GROUPS[g]) GROUP[id] = g;
+  const BY = {};
+  for (const id in PART_BASES) (BY[PART_BASES[id].slot] = BY[PART_BASES[id].slot] || []).push(id);
+  const rar = RARITY.find(r => r.k === 'SSR');
+  const T = 'ranger', LV60 = 60;
+  const rb = { type: T, level: LV60, exp: 0, fat: 0, skillLv: 0 };
+
+  const combo = r => {
+    const ps = [], slots = {};
+    for (const s of SLOTS) {
+      const base = BY[s][Math.floor(r() * BY[s].length)];
+      const pool = Object.keys(AFFIXES).filter(id => {
+        const A = AFFIXES[id]; return A.slots === '*' || A.slots.includes(s); });
+      const aff = [], used = new Set(), gs = new Set();
+      let guard = 0;
+      while (aff.length < 2 && guard++ < 200) {
+        const id = pool[Math.floor(r() * pool.length)];
+        if (used.has(id) || (GROUP[id] && gs.has(GROUP[id]))) continue;
+        used.add(id); if (GROUP[id]) gs.add(GROUP[id]);
+        aff.push({ id, tier: ['II', 'III', 'IV'][Math.floor(r() * 3)] });
+      }
+      ps.push({ uid: s, slot: s, base, rarity: 'SSR', ko: rar.ko, name: PART_BASES[base].ko,
+                affixes: aff, seed: Math.floor(r() * 4e9), lv: LV60, enh: 10 });
+      slots[s] = s;
+    }
+    return { ps, slots };
+  };
+
+  const r = mulberry32(4242), list = [];
+  for (let i = 0; i < COMBO_N; i++) {
+    const c = combo(r);
+    const st = computeStats({ ...rb, slots: c.slots }, c.ps);
+    list.push({ st, pw: powerOf(st) });
+  }
+  list.sort((a, b) => b.pw - a.pw);
+  const top = list[0];
+  const duel = (a, n) => { let w = 0;
+    for (let i = 0; i < n; i++) {
+      const ev = simulate(makeUnit('P', T, a), makeUnit('E', T, top.st), i * 7919 + 13);
+      if (ev[ev.length - 1].winner === 'P') w++;
+    }
+    return w / n * 100; };
+  const ws = list.map(x => duel(x.st, 220)).sort((a, b) => a - b);
+  const q = p => ws[Math.floor((ws.length - 1) * p)];
+  const good = ws.filter(v => v >= 35).length, dead = ws.filter(v => v < 20).length;
+  const spread = top.pw / list[list.length - 1].pw;
+  console.log(`  가장 센 조합 상대 승률 — 최저 ${ws[0].toFixed(1)}% · 중앙 ${q(.5).toFixed(1)}% · 75분위 ${q(.75).toFixed(1)}%`);
+  console.log(`  해볼 만함(35%+) ${good}/${COMBO_N}  ·  사실상 못 씀(20%-) ${dead}/${COMBO_N}  ·  전투력 폭 ×${spread.toFixed(2)}`);
+  const okAll = good >= COMBO_N * 0.5 && dead <= COMBO_N * 0.15 && spread <= 1.15;
+  console.log(okAll
+    ? `  ${G('✓')} 조합이 고르게 쓸 만하다`
+    : `  \x1b[33m⚠ 미해결\x1b[0m 정답이 몇 개로 굳어 있다 — 목표는 35%+ ${Math.round(COMBO_N * 0.5)}개 이상 · 20%- ${Math.round(COMBO_N * 0.15)}개 이하 · 폭 ×1.15 이하 (BALANCE.md ⓔ)`);
 }

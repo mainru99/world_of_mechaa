@@ -70,3 +70,23 @@
 `codex/ignis-hangar36`에서 수행한다. 실행파일 차이는 WebP·sprites.js·game.js·index.html
 4개이며, 서버·전투/파츠 데이터·스키마·CSS·Worker 설정은 이전 운영과 동일하다.
 운영 결과와 Worker 버전은 배포 후 `CONTRACT.md`에 기록한다.
+
+
+### IGNIS 격납고 전용 36프레임 운영 확인 · 2026-09-12
+
+- main 구현 커밋 `b446770`, 운영 릴리즈 커밋 `2793ba3`을 GitHub에 푸시했다.
+- 운영 브랜치 `codex/ignis-hangar36`은 기존 schema 12 실행파일 위에 그래픽 변경만 담았다.
+  main의 파츠 개편·schema 13은 이번 배포에 포함하지 않았다.
+- Worker 버전 `9561ccd1-aba0-4cbf-ac28-3fc947bc8b98`.
+- 운영 주소 https://rowar.hun7539.workers.dev
+- 업로드된 변경 파일은 WebP·sprites.js·game.js·index.html 네 개다.
+- 운영 HTTP 9파일 모두 200이며 릴리즈 파일과 SHA-256 일치.
+  새 WebP는 `image/webp`, 5,352,770 bytes, 36프레임·3초 무한 반복이다.
+- 원본 PNG·CSS·gacha·stats·balance는 기존 운영 해시를 유지했다.
+- `/api/health`: ok:true, DB connected, schema 12, balance `8updih`.
+- 운영 브라우저에서 기존 게스트 연결과 기본 기체 화면을 확인했다. 콘솔 오류 0건.
+  Ignis 보유 계정의 플레이·뽑기·전투는 실행하지 않았다. Ignis 표시 분리는 실제 모듈의
+  로컬 브라우저 검수와 운영 코드/에셋 해시로 확인했다.
+- 큰 격납고만 동작하며 선봉·보유 기체·뽑기 결과·대전은 원본 정지 PNG다.
+
+해시와 응답 기록은 `docs/art/ignis-hangar36-deployment.json`에 있다.

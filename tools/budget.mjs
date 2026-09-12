@@ -17,9 +17,11 @@
 
    node tools/budget.mjs [판수]        기본 2500 (기체당). 정밀하게 보려면 8000 */
 import { PART_BASES, AFFIXES, AFFIX_GROUPS, AFFIX_TIER, RARITY, SLOTS, CONST } from '../data/balance.js';
-import { computeStats } from '../js/stats.js';
-import { makeUnit, simulate } from '../js/sim.js';
+import { computeStats, powerOf } from '../js/stats.js';
+import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
+import { rollPart } from '../js/gacha.js';
 
+const G = t => '[32m' + t + '[0m', R = t => '[31m' + t + '[0m';
 const N = Math.max(200, parseInt(process.argv[2] || '2500', 10));
 const LV = 40;
 /* 느린 기체·빠른 기체·중간을 섞는다. 속도가 승률에 강하게 작용하므로
@@ -152,3 +154,57 @@ const fxN = rows.filter(r => r.fx).length;
 console.log(`\n${out ? `✗ ${out}/${rows.length} 개가 구간 밖이다 — 3단계에서 크기를 맞춘다` : `✓ ${rows.length}/${rows.length} 전부 구간 안`}`);
 if (fxN) console.log(`※ ${fxN}개는 고유 효과(관통 확률·스택 감속)를 시뮬에 넣은 채로 잰 값이다.`);
 if (out) process.exitCode = 1;
+
+/* ── ④ 등급·강화 사다리 ────────────────────────────────────────
+   위 ③ 은 **C등급·인챈트 없음·Lv.40** 만 본다. 한 파츠의 예산을 재는 자리라 그게 맞다.
+   그런데 그것만 보면 **끝판 장비가 얼마나 세지는지**는 아무도 안 본다.
+
+   9단계 회귀에서 그 구멍이 드러났다. C·R 은 옛 파츠와 같은데(비 1.00~1.03)
+   SR·SSR 로 갈수록 벌어져서, Lv.60 SSR 4개 +10 한 벌이 옛 규칙의 **0.54배**가 됐다
+   (맞대결 승률 1.7%). 30일 시뮬에서 최종 전투력 −18~34%, 아레나 승률 71.5→49.7%,
+   크레딧 수입 −37% 로 이어졌다.
+
+   원인은 둘이고 **둘 다 설계가 의도한 변경의 부작용**이다.
+     · 등급 사다리가 눌렸다 — 옛 mul C1/R1.5/SR2.2/SSR3.4 → 새 pos 1/1.25/1.6/2.05
+     · 강화 천장이 내려갔다 — 옛 +10 은 ×1.88, 새 +10 은 ×1.27.
+       §5 의 '강화는 베이스만 키운다'(인챈트는 티어가 자기 품질이다) 때문이다.
+       SSR 은 인챈트 둘이 값의 상당 부분인데 거기엔 강화가 안 붙는다.
+
+   **수치는 ChatGPT 담당이라 여기서 고치지 않는다.** 이 절은 사다리를 재서 보여 주고,
+   되돌아가는지를 사람이 볼 수 있게 남긴다. 판정을 종료 코드에 걸지 않는 이유는
+   지금 상태가 '틀림' 이 아니라 '정하지 않음' 이라서다 — 수치가 정해지면 아래 FLOOR 를
+   그 값으로 잡고 하드 판정으로 바꾼다. */
+console.log('\n== ④ 등급·강화 사다리 (Lv.60 한 벌 · 전투력) ==');
+{
+  const suit = (rar, lv, enh, seed) => {
+    const r = mulberry32(seed), ps = [], slots = {};
+    for (const s of SLOTS) { const p = rollPart(lv, r, 's' + s, rar, s); p.enh = enh; ps.push(p); slots[s] = p.uid; }
+    return { ps, slots };
+  };
+  const pw = (rar, lv, enh) => {
+    let t = 0;
+    for (let i = 0; i < 200; i++) {
+      const k = suit(rar, lv, enh, i * 7919 + 3);
+      t += powerOf(computeStats({ type: 'ranger', level: lv, exp: 0, fat: 0, skillLv: 0, slots: k.slots }, k.ps));
+    }
+    return t / 200;
+  };
+  const c0 = pw('C', 60, 0);
+  console.log('등급   +0        +10       강화 배수');
+  let last = 0, mono = true;
+  for (const rar of ['C', 'R', 'SR', 'SSR']) {
+    const a = pw(rar, 60, 0), b = pw(rar, 60, 10);
+    if (a < last) mono = false;
+    last = a;
+    console.log(`  ${rar.padEnd(4)} ${String(Math.round(a)).padStart(7)} ${String(Math.round(b)).padStart(10)}      ×${(b / a).toFixed(2)}`);
+  }
+  const top = pw('SSR', 60, 10);
+  const ladder = top / c0;
+  console.log(`  끝판(SSR+10) ÷ 바닥(C+0) = ×${ladder.toFixed(2)}`);
+  if (!mono) console.log('  ' + R('✗') + ' 등급이 올라가는데 전투력이 안 오른다');
+  /* 참고선 — 개편 전 같은 조건에서 ×2.82 였다(옛 js/stats.js·gacha.js 로 실측). */
+  const OLD_LADDER = 2.82;
+  console.log(ladder < OLD_LADDER * 0.8
+    ? `  \x1b[33m⚠ 미해결\x1b[0m 개편 전 ×${OLD_LADDER} 에 비해 사다리가 눌려 있다 — 수치 재조정 대기 (CONTRACT.md)`
+    : `  ${G('✓')} 사다리가 개편 전(×${OLD_LADDER})과 견줄 만하다`);
+}

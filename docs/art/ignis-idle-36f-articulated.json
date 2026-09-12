@@ -1,0 +1,1160 @@
+{
+  "name": "Ignis hangar idle 36 — enhanced emission and articulation",
+  "source": "assets/ignis.png",
+  "sourceSha256": "4c855bde3487788b1ed423e50674ab2b2dbefbe60f95b677605a30fc1c8a052c",
+  "size": [
+    440,
+    420
+  ],
+  "frameCount": 36,
+  "durationMs": 3000,
+  "loop": true,
+  "maxHoverPixels": 10,
+  "maxGlowRadiusPixels": 3,
+  "method": "Original pixel layers; nearest-neighbor joint deformation with pinned cut seams; integer hover; wing RGB and attached hard pixel glow only",
+  "parts": [
+    {
+      "name": "right_wing",
+      "pivot": [
+        283,
+        138
+      ],
+      "maxAngleDegrees": -1.8
+    },
+    {
+      "name": "left_wing",
+      "pivot": [
+        101,
+        153
+      ],
+      "maxAngleDegrees": 2.0
+    },
+    {
+      "name": "left_calf",
+      "pivot": [
+        133,
+        315
+      ],
+      "maxAngleDegrees": -2.6
+    },
+    {
+      "name": "right_calf",
+      "pivot": [
+        213,
+        322
+      ],
+      "maxAngleDegrees": 2.6
+    }
+  ],
+  "files": {
+    "animated": "ignis-idle-36f-articulated.webp",
+    "sheet": "ignis-idle-36f-articulated-sheet.png"
+  },
+  "grid": {
+    "columns": 6,
+    "rows": 6,
+    "frameWidth": 440,
+    "frameHeight": 420
+  },
+  "anchor": {
+    "x": 220,
+    "y": 408
+  },
+  "frames": [
+    {
+      "index": 1,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.0,
+      "flash": 0.0,
+      "addedGlowPixels": 0,
+      "averageWingLuminanceGain": 0.0,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": 0,
+          "maxPixelDisplacement": 0
+        },
+        "left_wing": {
+          "angleDegrees": 0,
+          "maxPixelDisplacement": 0
+        },
+        "left_calf": {
+          "angleDegrees": 0,
+          "maxPixelDisplacement": 0
+        },
+        "right_calf": {
+          "angleDegrees": 0,
+          "maxPixelDisplacement": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 2,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.015794,
+      "flash": 0.0,
+      "addedGlowPixels": 0,
+      "averageWingLuminanceGain": 0.523,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.0137,
+          "maxPixelDisplacement": 0
+        },
+        "left_wing": {
+          "angleDegrees": 0.0152,
+          "maxPixelDisplacement": 0
+        },
+        "left_calf": {
+          "angleDegrees": -0.0197,
+          "maxPixelDisplacement": 0
+        },
+        "right_calf": {
+          "angleDegrees": 0.0197,
+          "maxPixelDisplacement": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 3,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.050985,
+      "flash": 0.0,
+      "addedGlowPixels": 552,
+      "averageWingLuminanceGain": 1.805,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.0543,
+          "maxPixelDisplacement": 0
+        },
+        "left_wing": {
+          "angleDegrees": 0.0603,
+          "maxPixelDisplacement": 0
+        },
+        "left_calf": {
+          "angleDegrees": -0.0784,
+          "maxPixelDisplacement": 0
+        },
+        "right_calf": {
+          "angleDegrees": 0.0784,
+          "maxPixelDisplacement": 0
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 4,
+      "offsetX": 0,
+      "offsetY": -1,
+      "charge": 0.100483,
+      "flash": 0.0,
+      "addedGlowPixels": 1439,
+      "averageWingLuminanceGain": 3.674,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.1206,
+          "maxPixelDisplacement": 0
+        },
+        "left_wing": {
+          "angleDegrees": 0.134,
+          "maxPixelDisplacement": 0
+        },
+        "left_calf": {
+          "angleDegrees": -0.1742,
+          "maxPixelDisplacement": 0
+        },
+        "right_calf": {
+          "angleDegrees": 0.1742,
+          "maxPixelDisplacement": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 5,
+      "offsetX": 0,
+      "offsetY": -1,
+      "charge": 0.161394,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 5.94,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.2106,
+          "maxPixelDisplacement": 0
+        },
+        "left_wing": {
+          "angleDegrees": 0.234,
+          "maxPixelDisplacement": 0
+        },
+        "left_calf": {
+          "angleDegrees": -0.3041,
+          "maxPixelDisplacement": 0
+        },
+        "right_calf": {
+          "angleDegrees": 0.3041,
+          "maxPixelDisplacement": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 6,
+      "offsetX": 0,
+      "offsetY": -2,
+      "charge": 0.231266,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 8.523,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.3215,
+          "maxPixelDisplacement": 1
+        },
+        "left_wing": {
+          "angleDegrees": 0.3572,
+          "maxPixelDisplacement": 1
+        },
+        "left_calf": {
+          "angleDegrees": -0.4644,
+          "maxPixelDisplacement": 1
+        },
+        "right_calf": {
+          "angleDegrees": 0.4644,
+          "maxPixelDisplacement": 1
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84313
+    },
+    {
+      "index": 7,
+      "offsetX": 0,
+      "offsetY": -3,
+      "charge": 0.307786,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 11.334,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.45,
+          "maxPixelDisplacement": 1
+        },
+        "left_wing": {
+          "angleDegrees": 0.5,
+          "maxPixelDisplacement": 1
+        },
+        "left_calf": {
+          "angleDegrees": -0.65,
+          "maxPixelDisplacement": 1
+        },
+        "right_calf": {
+          "angleDegrees": 0.65,
+          "maxPixelDisplacement": 1
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84317
+    },
+    {
+      "index": 8,
+      "offsetX": 0,
+      "offsetY": -3,
+      "charge": 0.388692,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 14.301,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.5922,
+          "maxPixelDisplacement": 1
+        },
+        "left_wing": {
+          "angleDegrees": 0.658,
+          "maxPixelDisplacement": 1
+        },
+        "left_calf": {
+          "angleDegrees": -0.8554,
+          "maxPixelDisplacement": 1
+        },
+        "right_calf": {
+          "angleDegrees": 0.8554,
+          "maxPixelDisplacement": 1
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84319
+    },
+    {
+      "index": 9,
+      "offsetX": 0,
+      "offsetY": -4,
+      "charge": 0.471753,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 17.318,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.7437,
+          "maxPixelDisplacement": 2
+        },
+        "left_wing": {
+          "angleDegrees": 0.8264,
+          "maxPixelDisplacement": 1
+        },
+        "left_calf": {
+          "angleDegrees": -1.0743,
+          "maxPixelDisplacement": 1
+        },
+        "right_calf": {
+          "angleDegrees": 1.0743,
+          "maxPixelDisplacement": 2
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84321
+    },
+    {
+      "index": 10,
+      "offsetX": 0,
+      "offsetY": -5,
+      "charge": 0.554785,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 20.429,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.9,
+          "maxPixelDisplacement": 2
+        },
+        "left_wing": {
+          "angleDegrees": 1.0,
+          "maxPixelDisplacement": 2
+        },
+        "left_calf": {
+          "angleDegrees": -1.3,
+          "maxPixelDisplacement": 2
+        },
+        "right_calf": {
+          "angleDegrees": 1.3,
+          "maxPixelDisplacement": 2
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84327
+    },
+    {
+      "index": 11,
+      "offsetX": 0,
+      "offsetY": -6,
+      "charge": 0.63567,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 23.399,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.0563,
+          "maxPixelDisplacement": 2
+        },
+        "left_wing": {
+          "angleDegrees": 1.1736,
+          "maxPixelDisplacement": 2
+        },
+        "left_calf": {
+          "angleDegrees": -1.5257,
+          "maxPixelDisplacement": 2
+        },
+        "right_calf": {
+          "angleDegrees": 1.5257,
+          "maxPixelDisplacement": 2
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84332
+    },
+    {
+      "index": 12,
+      "offsetX": 0,
+      "offsetY": -7,
+      "charge": 0.712393,
+      "flash": 2e-06,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 26.255,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.2078,
+          "maxPixelDisplacement": 3
+        },
+        "left_wing": {
+          "angleDegrees": 1.342,
+          "maxPixelDisplacement": 2
+        },
+        "left_calf": {
+          "angleDegrees": -1.7446,
+          "maxPixelDisplacement": 2
+        },
+        "right_calf": {
+          "angleDegrees": 1.7446,
+          "maxPixelDisplacement": 3
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84329
+    },
+    {
+      "index": 13,
+      "offsetX": 0,
+      "offsetY": -8,
+      "charge": 0.783073,
+      "flash": 5.9e-05,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 28.836,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.35,
+          "maxPixelDisplacement": 3
+        },
+        "left_wing": {
+          "angleDegrees": 1.5,
+          "maxPixelDisplacement": 2
+        },
+        "left_calf": {
+          "angleDegrees": -1.95,
+          "maxPixelDisplacement": 3
+        },
+        "right_calf": {
+          "angleDegrees": 1.95,
+          "maxPixelDisplacement": 3
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84327
+    },
+    {
+      "index": 14,
+      "offsetX": 0,
+      "offsetY": -8,
+      "charge": 0.845997,
+      "flash": 0.001066,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 31.139,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.4785,
+          "maxPixelDisplacement": 3
+        },
+        "left_wing": {
+          "angleDegrees": 1.6428,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.1356,
+          "maxPixelDisplacement": 3
+        },
+        "right_calf": {
+          "angleDegrees": 2.1356,
+          "maxPixelDisplacement": 3
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84319
+    },
+    {
+      "index": 15,
+      "offsetX": 0,
+      "offsetY": -9,
+      "charge": 0.899655,
+      "flash": 0.0116,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 33.15,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.5894,
+          "maxPixelDisplacement": 4
+        },
+        "left_wing": {
+          "angleDegrees": 1.766,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.2959,
+          "maxPixelDisplacement": 3
+        },
+        "right_calf": {
+          "angleDegrees": 2.2959,
+          "maxPixelDisplacement": 3
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84320
+    },
+    {
+      "index": 16,
+      "offsetX": 0,
+      "offsetY": -9,
+      "charge": 0.942767,
+      "flash": 0.075817,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 35.637,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.6794,
+          "maxPixelDisplacement": 4
+        },
+        "left_wing": {
+          "angleDegrees": 1.866,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.4258,
+          "maxPixelDisplacement": 3
+        },
+        "right_calf": {
+          "angleDegrees": 2.4258,
+          "maxPixelDisplacement": 4
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84321
+    },
+    {
+      "index": 17,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 0.974311,
+      "flash": 0.297535,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 39.455,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.7457,
+          "maxPixelDisplacement": 4
+        },
+        "left_wing": {
+          "angleDegrees": 1.9397,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.5216,
+          "maxPixelDisplacement": 4
+        },
+        "right_calf": {
+          "angleDegrees": 2.5216,
+          "maxPixelDisplacement": 4
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84334
+    },
+    {
+      "index": 18,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 0.99354,
+      "flash": 0.701056,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 45.112,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.7863,
+          "maxPixelDisplacement": 4
+        },
+        "left_wing": {
+          "angleDegrees": 1.9848,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.5803,
+          "maxPixelDisplacement": 4
+        },
+        "right_calf": {
+          "angleDegrees": 2.5803,
+          "maxPixelDisplacement": 4
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84343
+    },
+    {
+      "index": 19,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 1.0,
+      "flash": 0.99177,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 48.85,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.8,
+          "maxPixelDisplacement": 4
+        },
+        "left_wing": {
+          "angleDegrees": 2.0,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.6,
+          "maxPixelDisplacement": 4
+        },
+        "right_calf": {
+          "angleDegrees": 2.6,
+          "maxPixelDisplacement": 4
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84342
+    },
+    {
+      "index": 20,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 0.99354,
+      "flash": 0.842389,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 46.859,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.7863,
+          "maxPixelDisplacement": 4
+        },
+        "left_wing": {
+          "angleDegrees": 1.9848,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.5803,
+          "maxPixelDisplacement": 4
+        },
+        "right_calf": {
+          "angleDegrees": 2.5803,
+          "maxPixelDisplacement": 4
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84343
+    },
+    {
+      "index": 21,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 0.974311,
+      "flash": 0.429594,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 41.139,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.7457,
+          "maxPixelDisplacement": 4
+        },
+        "left_wing": {
+          "angleDegrees": 1.9397,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.5216,
+          "maxPixelDisplacement": 4
+        },
+        "right_calf": {
+          "angleDegrees": 2.5216,
+          "maxPixelDisplacement": 4
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84334
+    },
+    {
+      "index": 22,
+      "offsetX": 0,
+      "offsetY": -9,
+      "charge": 0.942767,
+      "flash": 0.131537,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 36.439,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.6794,
+          "maxPixelDisplacement": 4
+        },
+        "left_wing": {
+          "angleDegrees": 1.866,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.4258,
+          "maxPixelDisplacement": 3
+        },
+        "right_calf": {
+          "angleDegrees": 2.4258,
+          "maxPixelDisplacement": 4
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84321
+    },
+    {
+      "index": 23,
+      "offsetX": 0,
+      "offsetY": -9,
+      "charge": 0.899655,
+      "flash": 0.024181,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 33.193,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.5894,
+          "maxPixelDisplacement": 4
+        },
+        "left_wing": {
+          "angleDegrees": 1.766,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.2959,
+          "maxPixelDisplacement": 3
+        },
+        "right_calf": {
+          "angleDegrees": 2.2959,
+          "maxPixelDisplacement": 3
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84320
+    },
+    {
+      "index": 24,
+      "offsetX": 0,
+      "offsetY": -8,
+      "charge": 0.845997,
+      "flash": 0.002669,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 31.139,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.4785,
+          "maxPixelDisplacement": 3
+        },
+        "left_wing": {
+          "angleDegrees": 1.6428,
+          "maxPixelDisplacement": 3
+        },
+        "left_calf": {
+          "angleDegrees": -2.1356,
+          "maxPixelDisplacement": 3
+        },
+        "right_calf": {
+          "angleDegrees": 2.1356,
+          "maxPixelDisplacement": 3
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84319
+    },
+    {
+      "index": 25,
+      "offsetX": 0,
+      "offsetY": -8,
+      "charge": 0.783073,
+      "flash": 0.000177,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 28.836,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.35,
+          "maxPixelDisplacement": 3
+        },
+        "left_wing": {
+          "angleDegrees": 1.5,
+          "maxPixelDisplacement": 2
+        },
+        "left_calf": {
+          "angleDegrees": -1.95,
+          "maxPixelDisplacement": 3
+        },
+        "right_calf": {
+          "angleDegrees": 1.95,
+          "maxPixelDisplacement": 3
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84327
+    },
+    {
+      "index": 26,
+      "offsetX": 0,
+      "offsetY": -7,
+      "charge": 0.712393,
+      "flash": 7e-06,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 26.255,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.2078,
+          "maxPixelDisplacement": 3
+        },
+        "left_wing": {
+          "angleDegrees": 1.342,
+          "maxPixelDisplacement": 2
+        },
+        "left_calf": {
+          "angleDegrees": -1.7446,
+          "maxPixelDisplacement": 2
+        },
+        "right_calf": {
+          "angleDegrees": 1.7446,
+          "maxPixelDisplacement": 3
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84329
+    },
+    {
+      "index": 27,
+      "offsetX": 0,
+      "offsetY": -6,
+      "charge": 0.63567,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 23.399,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -1.0563,
+          "maxPixelDisplacement": 2
+        },
+        "left_wing": {
+          "angleDegrees": 1.1736,
+          "maxPixelDisplacement": 2
+        },
+        "left_calf": {
+          "angleDegrees": -1.5257,
+          "maxPixelDisplacement": 2
+        },
+        "right_calf": {
+          "angleDegrees": 1.5257,
+          "maxPixelDisplacement": 2
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84332
+    },
+    {
+      "index": 28,
+      "offsetX": 0,
+      "offsetY": -5,
+      "charge": 0.554785,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 20.429,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.9,
+          "maxPixelDisplacement": 2
+        },
+        "left_wing": {
+          "angleDegrees": 1.0,
+          "maxPixelDisplacement": 2
+        },
+        "left_calf": {
+          "angleDegrees": -1.3,
+          "maxPixelDisplacement": 2
+        },
+        "right_calf": {
+          "angleDegrees": 1.3,
+          "maxPixelDisplacement": 2
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84327
+    },
+    {
+      "index": 29,
+      "offsetX": 0,
+      "offsetY": -4,
+      "charge": 0.471753,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 17.318,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.7437,
+          "maxPixelDisplacement": 2
+        },
+        "left_wing": {
+          "angleDegrees": 0.8264,
+          "maxPixelDisplacement": 1
+        },
+        "left_calf": {
+          "angleDegrees": -1.0743,
+          "maxPixelDisplacement": 1
+        },
+        "right_calf": {
+          "angleDegrees": 1.0743,
+          "maxPixelDisplacement": 2
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84321
+    },
+    {
+      "index": 30,
+      "offsetX": 0,
+      "offsetY": -3,
+      "charge": 0.388692,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 14.301,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.5922,
+          "maxPixelDisplacement": 1
+        },
+        "left_wing": {
+          "angleDegrees": 0.658,
+          "maxPixelDisplacement": 1
+        },
+        "left_calf": {
+          "angleDegrees": -0.8554,
+          "maxPixelDisplacement": 1
+        },
+        "right_calf": {
+          "angleDegrees": 0.8554,
+          "maxPixelDisplacement": 1
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84319
+    },
+    {
+      "index": 31,
+      "offsetX": 0,
+      "offsetY": -3,
+      "charge": 0.307786,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 11.334,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.45,
+          "maxPixelDisplacement": 1
+        },
+        "left_wing": {
+          "angleDegrees": 0.5,
+          "maxPixelDisplacement": 1
+        },
+        "left_calf": {
+          "angleDegrees": -0.65,
+          "maxPixelDisplacement": 1
+        },
+        "right_calf": {
+          "angleDegrees": 0.65,
+          "maxPixelDisplacement": 1
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84317
+    },
+    {
+      "index": 32,
+      "offsetX": 0,
+      "offsetY": -2,
+      "charge": 0.231266,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 8.523,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.3215,
+          "maxPixelDisplacement": 1
+        },
+        "left_wing": {
+          "angleDegrees": 0.3572,
+          "maxPixelDisplacement": 1
+        },
+        "left_calf": {
+          "angleDegrees": -0.4644,
+          "maxPixelDisplacement": 1
+        },
+        "right_calf": {
+          "angleDegrees": 0.4644,
+          "maxPixelDisplacement": 1
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84313
+    },
+    {
+      "index": 33,
+      "offsetX": 0,
+      "offsetY": -1,
+      "charge": 0.161394,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 5.94,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.2106,
+          "maxPixelDisplacement": 0
+        },
+        "left_wing": {
+          "angleDegrees": 0.234,
+          "maxPixelDisplacement": 0
+        },
+        "left_calf": {
+          "angleDegrees": -0.3041,
+          "maxPixelDisplacement": 0
+        },
+        "right_calf": {
+          "angleDegrees": 0.3041,
+          "maxPixelDisplacement": 0
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 34,
+      "offsetX": 0,
+      "offsetY": -1,
+      "charge": 0.100483,
+      "flash": 0.0,
+      "addedGlowPixels": 1439,
+      "averageWingLuminanceGain": 3.674,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.1206,
+          "maxPixelDisplacement": 0
+        },
+        "left_wing": {
+          "angleDegrees": 0.134,
+          "maxPixelDisplacement": 0
+        },
+        "left_calf": {
+          "angleDegrees": -0.1742,
+          "maxPixelDisplacement": 0
+        },
+        "right_calf": {
+          "angleDegrees": 0.1742,
+          "maxPixelDisplacement": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 35,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.050985,
+      "flash": 0.0,
+      "addedGlowPixels": 552,
+      "averageWingLuminanceGain": 1.805,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.0543,
+          "maxPixelDisplacement": 0
+        },
+        "left_wing": {
+          "angleDegrees": 0.0603,
+          "maxPixelDisplacement": 0
+        },
+        "left_calf": {
+          "angleDegrees": -0.0784,
+          "maxPixelDisplacement": 0
+        },
+        "right_calf": {
+          "angleDegrees": 0.0784,
+          "maxPixelDisplacement": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 36,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.015794,
+      "flash": 0.0,
+      "addedGlowPixels": 0,
+      "averageWingLuminanceGain": 0.523,
+      "articulation": {
+        "right_wing": {
+          "angleDegrees": -0.0137,
+          "maxPixelDisplacement": 0
+        },
+        "left_wing": {
+          "angleDegrees": 0.0152,
+          "maxPixelDisplacement": 0
+        },
+        "left_calf": {
+          "angleDegrees": -0.0197,
+          "maxPixelDisplacement": 0
+        },
+        "right_calf": {
+          "angleDegrees": 0.0197,
+          "maxPixelDisplacement": 0
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "opaquePixels": 84302
+    }
+  ],
+  "verification": {
+    "decodedFrames": 36,
+    "durationMs": 3000,
+    "fixedBodyPixelDifferences": 0,
+    "fixedOpaquePixels": 56843,
+    "pinnedSeamPixels": 5231,
+    "webpRoundtripVisibleDifferences": 0,
+    "webpRoundtripAlphaDifferences": 0,
+    "firstFrameEqualsSource": true,
+    "loopSeamMaxChannelDifference": 2,
+    "loopSeamVerticalDifference": 0,
+    "canvasEdgesTransparent": true
+  },
+  "bytes": 5352770,
+  "sha256": "b1f1ee096fda680c403571afc8a0517c64e49b11f868b15b31e9f69ebaa444fc"
+}

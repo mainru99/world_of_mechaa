@@ -6,7 +6,8 @@
  * 모두 440x420 투명 캔버스, 바닥 그림자 제거, 발끝 y=408 정렬.
  *
  * [방향 규칙] 원본 그림은 전부 '왼쪽'을 본다(장비·날개가 오른쪽으로 뻗음).
- * sprite(id, faceRight) — faceRight=true 면 좌우 반전해 오른쪽을 보게 한다.
+ * sprite(id, faceRight, { idle: true }) — 격납고 큰 기체만 대기모션을 명시한다.
+ * 기본은 원본 PNG. faceRight=true 면 좌우 반전해 오른쪽을 보게 한다.
  * 아레나는 내 기체가 왼쪽에 서므로 true, 상대는 오른쪽에 서므로 false 를 줘야 마주본다.
  * 초상화(격납고/뽑기)는 원본 방향 그대로 쓴다.
  * 오른쪽을 보는 그림을 추가하면 FACE_RIGHT 에 id 를 넣으면 된다. */
@@ -14,16 +15,16 @@ import { ROBOT_IDS, MONSTER_IDS, isMonster } from './units.js';
 
 const FACE_RIGHT = {};                  // 원본이 이미 오른쪽을 보는 id
 const CACHE_BUST = '?v=20260904-split';
-const IDLE_SPRITES = { ignis: 'assets/motions/ignis-idle-10f.webp?v=20260912-idle' };
+const IDLE_SPRITES = { ignis: 'assets/motions/ignis-idle-36f-articulated.webp?v=20260912-hangar36' };
 
 export const assetPath = id => 'assets/' + (isMonster(id) ? 'monsters/' : '') + id + '.png' + CACHE_BUST;
 
-export function sprite(id, faceRight) {
+export function sprite(id, faceRight, { idle: animateIdle = false } = {}) {
   const known = ROBOT_IDS.includes(id) || MONSTER_IDS.includes(id);
   const useId = known ? id : ROBOT_IDS[0];
   const flip = !!FACE_RIGHT[useId] !== !!faceRight;
   const still = assetPath(useId);
-  const idle = IDLE_SPRITES[useId];
+  const idle = animateIdle ? IDLE_SPRITES[useId] : null;
   // A supported WebP that fails to load needs its source removed to use PNG.
   const fallback = idle ? ' onerror="this.onerror=null;this.previousElementSibling.remove();this.src=\'' + still + '\';"' : '';
   const img = '<img class="mecha' + (flip ? ' flip' : '') + '" src="' + still +
@@ -35,7 +36,4 @@ export function sprite(id, faceRight) {
 /* 전투 중 첫 표시가 늦지 않도록 미리 받아둔다 */
 export function preloadSprites() {
   for (const id of [...ROBOT_IDS, ...MONSTER_IDS]) { const i = new Image(); i.src = assetPath(id); }
-  if (globalThis.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) {
-    for (const src of Object.values(IDLE_SPRITES)) { const i = new Image(); i.src = src; }
-  }
 }

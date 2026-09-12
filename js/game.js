@@ -20,7 +20,7 @@ import { runBreach, rarAllowed } from './breach.js';
 import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapValue, PULL_CUR } from './gacha.js';
 import { makeOpponent as _makeOpponent, pickTactic } from './rewards.js';
-import { sprite, preloadSprites } from './sprites.js';
+import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar36';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
@@ -541,7 +541,7 @@ function renderHangar(){
       <div class="hg-stage">
         <div class="hg-bigname">${esc(T.name)}</div>
         <div class="hg-sub">${esc(T.role)} · ${RR[T.rarity].ko}</div>
-        <div class="hg-hero" data-t="${T.rarity}">${sprite(rb.type,false)}</div>
+        <div class="hg-hero" data-t="${T.rarity}">${sprite(rb.type,false,{idle:true})}</div>
         <div class="hg-squad">${squadMini}</div>
       </div>
 

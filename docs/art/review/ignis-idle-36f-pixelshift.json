@@ -1,0 +1,1717 @@
+{
+  "name": "Ignis idle 36 — exact pixel translation candidate",
+  "source": "assets/ignis.png",
+  "sourceSha256": "4c855bde3487788b1ed423e50674ab2b2dbefbe60f95b677605a30fc1c8a052c",
+  "size": [
+    440,
+    420
+  ],
+  "frameCount": 36,
+  "durationMs": 3000,
+  "loop": true,
+  "maxHoverPixels": 10,
+  "maxPartTranslationPixels": 2,
+  "guardRadiusPixels": 3,
+  "maxGlowRadiusPixels": 3,
+  "method": "Whole original pixel cutouts translated only by integer coordinates; immutable source joint guards; no resampling, rotation, warp, scaling, smoothing or alpha blending",
+  "encoding": {
+    "lossless": true,
+    "minimize_size": false,
+    "kmin": 1,
+    "kmax": 1,
+    "method": 4,
+    "fullCanvasNoBlendFrames": 36,
+    "initialFrameRepackedWithoutTransparentMarginCrop": true
+  },
+  "files": {
+    "animated": "ignis-idle-36f-pixelshift.webp",
+    "sheet": "ignis-idle-36f-pixelshift-sheet.png"
+  },
+  "grid": {
+    "columns": 6,
+    "rows": 6,
+    "frameWidth": 440,
+    "frameHeight": 420
+  },
+  "anchor": {
+    "x": 220,
+    "y": 408
+  },
+  "frames": [
+    {
+      "index": 1,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.0,
+      "flash": 0.0,
+      "addedGlowPixels": 0,
+      "averageWingLuminanceGain": 0.0,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 2,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.015794,
+      "flash": 0.0,
+      "addedGlowPixels": 0,
+      "averageWingLuminanceGain": 0.523,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 3,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.050985,
+      "flash": 0.0,
+      "addedGlowPixels": 552,
+      "averageWingLuminanceGain": 1.805,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 4,
+      "offsetX": 0,
+      "offsetY": -1,
+      "charge": 0.100483,
+      "flash": 0.0,
+      "addedGlowPixels": 1439,
+      "averageWingLuminanceGain": 3.674,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 5,
+      "offsetX": 0,
+      "offsetY": -1,
+      "charge": 0.161394,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 5.94,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 6,
+      "offsetX": 0,
+      "offsetY": -2,
+      "charge": 0.231266,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 8.523,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 7,
+      "offsetX": 0,
+      "offsetY": -3,
+      "charge": 0.307786,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 11.334,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84687,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 574
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84687
+    },
+    {
+      "index": 8,
+      "offsetX": 0,
+      "offsetY": -3,
+      "charge": 0.388692,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 14.301,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84687,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 574
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84687
+    },
+    {
+      "index": 9,
+      "offsetX": 0,
+      "offsetY": -4,
+      "charge": 0.471753,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 17.318,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84687,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 574
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84687
+    },
+    {
+      "index": 10,
+      "offsetX": 0,
+      "offsetY": -5,
+      "charge": 0.554785,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 20.429,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84592,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 645
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84592
+    },
+    {
+      "index": 11,
+      "offsetX": 0,
+      "offsetY": -6,
+      "charge": 0.63567,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 23.399,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84592,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 645
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84592
+    },
+    {
+      "index": 12,
+      "offsetX": 0,
+      "offsetY": -7,
+      "charge": 0.712393,
+      "flash": 2e-06,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 26.255,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84592,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 645
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84592
+    },
+    {
+      "index": 13,
+      "offsetX": 0,
+      "offsetY": -8,
+      "charge": 0.783073,
+      "flash": 5.9e-05,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 28.836,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 14,
+      "offsetX": 0,
+      "offsetY": -8,
+      "charge": 0.845997,
+      "flash": 0.001066,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 31.139,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 15,
+      "offsetX": 0,
+      "offsetY": -9,
+      "charge": 0.899655,
+      "flash": 0.0116,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 33.15,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 16,
+      "offsetX": 0,
+      "offsetY": -9,
+      "charge": 0.942767,
+      "flash": 0.075817,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 35.637,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 17,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 0.974311,
+      "flash": 0.297535,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 39.455,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 18,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 0.99354,
+      "flash": 0.701056,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 45.112,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 19,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 1.0,
+      "flash": 0.99177,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 48.85,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 20,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 0.99354,
+      "flash": 0.842389,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 46.859,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 21,
+      "offsetX": 0,
+      "offsetY": -10,
+      "charge": 0.974311,
+      "flash": 0.429594,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 41.139,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 22,
+      "offsetX": 0,
+      "offsetY": -9,
+      "charge": 0.942767,
+      "flash": 0.131537,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 36.439,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 23,
+      "offsetX": 0,
+      "offsetY": -9,
+      "charge": 0.899655,
+      "flash": 0.024181,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 33.193,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 24,
+      "offsetX": 0,
+      "offsetY": -8,
+      "charge": 0.845997,
+      "flash": 0.002669,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 31.139,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 25,
+      "offsetX": 0,
+      "offsetY": -8,
+      "charge": 0.783073,
+      "flash": 0.000177,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 28.836,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -2,
+          "offsetY": -1,
+          "maxPixelDisplacement": 2,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84967,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 1114
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84967
+    },
+    {
+      "index": 26,
+      "offsetX": 0,
+      "offsetY": -7,
+      "charge": 0.712393,
+      "flash": 7e-06,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 26.255,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84592,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 645
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84592
+    },
+    {
+      "index": 27,
+      "offsetX": 0,
+      "offsetY": -6,
+      "charge": 0.63567,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 23.399,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84592,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 645
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84592
+    },
+    {
+      "index": 28,
+      "offsetX": 0,
+      "offsetY": -5,
+      "charge": 0.554785,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 20.429,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": -1,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84592,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 645
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84592
+    },
+    {
+      "index": 29,
+      "offsetX": 0,
+      "offsetY": -4,
+      "charge": 0.471753,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 17.318,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84687,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 574
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84687
+    },
+    {
+      "index": 30,
+      "offsetX": 0,
+      "offsetY": -3,
+      "charge": 0.388692,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 14.301,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84687,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 574
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84687
+    },
+    {
+      "index": 31,
+      "offsetX": 0,
+      "offsetY": -3,
+      "charge": 0.307786,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 11.334,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": -1,
+          "offsetY": 0,
+          "maxPixelDisplacement": 1,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84687,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 574
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84687
+    },
+    {
+      "index": 32,
+      "offsetX": 0,
+      "offsetY": -2,
+      "charge": 0.231266,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 8.523,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 33,
+      "offsetX": 0,
+      "offsetY": -1,
+      "charge": 0.161394,
+      "flash": 0.0,
+      "addedGlowPixels": 2553,
+      "averageWingLuminanceGain": 5.94,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 34,
+      "offsetX": 0,
+      "offsetY": -1,
+      "charge": 0.100483,
+      "flash": 0.0,
+      "addedGlowPixels": 1439,
+      "averageWingLuminanceGain": 3.674,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 35,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.050985,
+      "flash": 0.0,
+      "addedGlowPixels": 552,
+      "averageWingLuminanceGain": 1.805,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 83,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    },
+    {
+      "index": 36,
+      "offsetX": 0,
+      "offsetY": 0,
+      "charge": 0.015794,
+      "flash": 0.0,
+      "addedGlowPixels": 0,
+      "averageWingLuminanceGain": 0.523,
+      "articulation": {
+        "right_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 15427
+        },
+        "left_wing": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 2859
+        },
+        "left_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 5470
+        },
+        "right_calf": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "maxPixelDisplacement": 0,
+          "sourcePixels": 4753
+        },
+        "verification": {
+          "opaqueOwnershipPixels": 84302,
+          "unownedOpaquePixels": 0,
+          "copiedPixelDifferences": 0,
+          "guardPixelDifferences": 0,
+          "repeatedSourcePixelsUnderJointGuards": 0
+        }
+      },
+      "durationMs": 84,
+      "fixedBodyPixelDifferences": 0,
+      "jointInteriorHoles": 0,
+      "opaquePixels": 84302
+    }
+  ],
+  "verification": {
+    "decodedFrames": 36,
+    "durationMs": 3000,
+    "fixedBodyPixelDifferences": 0,
+    "fixedOpaquePixels": 60871,
+    "guardPixels": 5078,
+    "jointInteriorPixels": 5041,
+    "jointInteriorHoles": 0,
+    "unownedOpaquePixels": 0,
+    "copiedPixelDifferences": 0,
+    "webpRoundtripVisibleDifferences": 0,
+    "webpRoundtripAlphaDifferences": 0,
+    "firstFrameEqualsSource": true,
+    "loopSeamMaxChannelDifference": 2,
+    "loopSeamVerticalDifference": 0,
+    "canvasEdgesTransparent": true
+  },
+  "bytes": 5993328,
+  "sha256": "7a13d9a30f77800a0fa15f56f37f399c6542d1d32a14e6d97523780752749aac"
+}

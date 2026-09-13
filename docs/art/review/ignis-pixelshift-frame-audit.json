@@ -1,0 +1,16 @@
+{
+  "framesReviewed": 36,
+  "uniqueBodyPoses": 4,
+  "opaqueCountRange": [
+    84302,
+    84967
+  ],
+  "sourceOpaqueCount": 84302,
+  "hoverUndo": "integer, 0..10px",
+  "closeups": [
+    "left-knee-foot-all36.png",
+    "right-knee-foot-all36.png",
+    "right-wing-root-all36.png",
+    "left-wing-root-all36.png"
+  ]
+}

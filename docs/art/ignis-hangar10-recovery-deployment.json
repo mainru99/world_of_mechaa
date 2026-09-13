@@ -1,0 +1,89 @@
+{
+  "commit": "f81ab1a9332a68a41c74d111435fa0fbcc78ca33",
+  "mainImplementation": "673bc64c0845d1b2eba9fcb6264fa9b64b1552af",
+  "workerVersion": "e31bc1b4-b1c7-4a52-9dd1-266b047e0d3c",
+  "assets": [
+    {
+      "path": "index.html",
+      "status": 200,
+      "bytes": 4401,
+      "contentType": "text/html",
+      "sha256": "956aaef1afe6b1564d0b67efc8d9fe8e291f68efc6a90fbf9702b6685b50c457",
+      "matches": true
+    },
+    {
+      "path": "js/game.js",
+      "status": 200,
+      "bytes": 140995,
+      "contentType": "text/javascript",
+      "sha256": "406b6a57c0089515e9a2b7ccc3836cb09b1f78db8a32717128a4e831787fdcd7",
+      "matches": true
+    },
+    {
+      "path": "js/sprites.js",
+      "status": 200,
+      "bytes": 2403,
+      "contentType": "text/javascript",
+      "sha256": "ecfc845e4fdb493626ca09aaecedd7f11fc13b3e89c8ae4e817f4f6ea4749538",
+      "matches": true
+    },
+    {
+      "path": "assets/motions/ignis-idle-10f.webp",
+      "status": 200,
+      "bytes": 1590556,
+      "contentType": "image/webp",
+      "sha256": "896834483e0e48cafd102abead15e77fc9e24c509f19078d7b8622367929c1fb",
+      "matches": true
+    },
+    {
+      "path": "style.css",
+      "status": 200,
+      "bytes": 64841,
+      "contentType": "text/css",
+      "sha256": "cf4354ce800fca481c6f41cc69ec2d93bb3b46079e320be611d0f5eb482b104d",
+      "matches": true
+    },
+    {
+      "path": "assets/ignis.png",
+      "status": 200,
+      "bytes": 267723,
+      "contentType": "image/png",
+      "sha256": "4c855bde3487788b1ed423e50674ab2b2dbefbe60f95b677605a30fc1c8a052c",
+      "matches": true
+    },
+    {
+      "path": "js/gacha.js",
+      "status": 200,
+      "bytes": 5636,
+      "contentType": "text/javascript",
+      "sha256": "00de7fdd240163d559b883faca18ef0b451d7549a6d43b93b18dd22b34c9b6d5",
+      "matches": true
+    },
+    {
+      "path": "js/stats.js",
+      "status": 200,
+      "bytes": 12965,
+      "contentType": "text/javascript",
+      "sha256": "e8a2c7681ee99efce542f3dcd4a5de88a3a37dc35cd7cf1d7fd3a178964fbdfc",
+      "matches": true
+    },
+    {
+      "path": "data/balance.js",
+      "status": 200,
+      "bytes": 67811,
+      "contentType": "text/javascript",
+      "sha256": "05fcd46e73396a7f21ace1836f13149c822bdec2396279f93dc6c410d6704f39",
+      "matches": true
+    }
+  ],
+  "health": {
+    "ok": true,
+    "db": "connected",
+    "schema_version": "12",
+    "tables": 10,
+    "accounts": 23,
+    "arena": 23,
+    "balance_ver": "8updih",
+    "ms": 660
+  }
+}

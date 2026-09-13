@@ -79,7 +79,7 @@ export const findPart = (u, parts) => parts.find(p => p.uid === u);
 function legacyStat(p) {
   const o = {}, e = p.enh || 0, cost = SLOT_COST[p.slot];
   for (const k in p.stats)
-    o[k] = k === cost ? p.stats[k] : p.stats[k] * (1 + e * (isPct(k) ? 0.08 : 0.12));
+    o[k] = k === cost ? p.stats[k] : p.stats[k] * (1 + e * (isPct(k) ? (CONST.ENH_PCT ?? 0.08) : (CONST.ENH_SCALE ?? 0.28)));
   /* ── ATK_SCALE 은 **옛 파츠에만** 건다 ──────────────────────────────
      옛 파츠의 공격력은 STAT_ROLL.atk = [6,16] 에서 굴린 '배율 전' 값이다.
      기체 기본 공격력도 배율 전 값이라(computeStats 가 거기서 곱한다) 둘의 단위를
@@ -147,7 +147,7 @@ function deriveNew(p) {
      대가가 아니라 고장이다. 인챈트는 티어가 자기 품질이라 강화를 태우지 않는다. */
   for (const k in B.stats) {
     const raw = B.stats[k];
-    add(k, raw * (raw > 0 ? rar.pos : rar.neg) * (raw > 0 ? 1 + e * (isPct(k) ? 0.08 : 0.12) : 1));
+    add(k, raw * (raw > 0 ? rar.pos : rar.neg) * (raw > 0 ? 1 + e * (isPct(k) ? (CONST.ENH_PCT ?? 0.08) : (CONST.ENH_SCALE ?? 0.28)) : 1));
   }
   if (B.range != null) range *= B.range;
   mergeFx(fx, B.fx, p.rarity);

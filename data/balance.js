@@ -1,4 +1,4 @@
-/* ==================================================================
+﻿/* ==================================================================
  * ROWAR - 밸런스 데이터 (ChatGPT 담당 · CONTRACT.md 참조)
  *
  * 클라이언트와 Cloudflare Worker 가 **같은 파일을** import 한다.
@@ -252,11 +252,11 @@ export const RARITY = [
   {k:'C', ko:'일반', w:52, n:1, mul:1.0, costMul:0.45,
    pos:1.00, neg:1.00, affixes:[1,1], tiers:{ I:85, II:15 }},
   {k:'R', ko:'정밀', w:30, n:2, mul:1.5,
-   pos:1.25, neg:1.05, affixes:[1,2], tiers:{ I:35, II:55, III:10 }},
+   pos:1.45, neg:1.15, affixes:[1,2], tiers:{ I:35, II:55, III:10 }},
   {k:'SR',ko:'시제', w:14, n:3, mul:2.2,
-   pos:1.60, neg:1.10, affixes:[2,2], tiers:{ II:35, III:55, IV:10 }},
+   pos:2.05, neg:1.25, affixes:[2,2], tiers:{ II:35, III:55, IV:10 }},
   {k:'SSR',ko:'초월',w:4,  n:3, mul:3.4,
-   pos:2.05, neg:1.15, affixes:[2,2], tiers:{ II:10, III:55, IV:35 }} ];
+   pos:2.80, neg:1.40, affixes:[2,2], tiers:{ II:10, III:55, IV:35 }} ];
 export const STAT_ROLL = { hp:[24,60], atk:[6,16], def:[5,13], spd:[3,9], crit:[.02,.05], eva:[.02,.05] };
 
 /* ══ 파츠 개편 (2026-09-11) — 베이스 · 인챈트 ═══════════════════════════
@@ -284,60 +284,60 @@ export const STAT_ROLL = { hp:[24,60], atk:[6,16], def:[5,13], spd:[3,9], crit:[
 export const PART_BASES = {
   /* 무장 — 공격. 이 슬롯이 기본적으로 지불하는 축은 속도다(SLOT_COST). */
   beamSaber:     { ko:'빔 세이버',    slot:'WEAPON', set:'assault',
-                   stats:{ atk:38, hp:-55 },                          range:0.78 },
+                   stats:{ atk:35, hp:-45 },                          range:0.78 },
   vulcan:        { ko:'발칸포',       slot:'WEAPON', set:null,
                    stats:{ atk:22, spd:2, crit:-.012 },               range:1.25 },
   railgun:       { ko:'레일건',       slot:'WEAPON', set:'precision',
-                   stats:{ atk:12, spd:1, crit:.020 },                range:0.80 },
+                   stats:{ atk:16, spd:1, crit:.020 },                range:0.80 },
   photonLance:   { ko:'포톤 랜스',    slot:'WEAPON', set:null,
-                   stats:{ atk:25, spd:1 },                           range:0.90 },
+                   stats:{ atk:24, spd:1 },                           range:0.90 },
   /* 채프 런처 — 쏠수록 느려진다. **초기화가 없다.**
      원안은 '2초 미공격 시 초기화' 였는데 1:1 에서는 자기 턴마다 반드시 공격하므로
      그 조건이 영원히 성립하지 않는다(단위를 초로 잡든 턴으로 잡든 같다).
      초기화를 빼면 오히려 원래 컨셉대로다 — 처음엔 가장 빠른 중화기, 끝엔 가장 느린. */
   chaffLauncher: { ko:'채프 런처',    slot:'WEAPON', set:null,
-                   stats:{ atk:41, spd:4 },                           range:1.30,
+                   stats:{ atk:41, spd:3 },                           range:1.30,
                    fx:{ stackSpd:-0.008, stackMax:5 } },
 
   breaker:       { ko:'브레이커',     slot:'WEAPON', set:'fortress',
-                   stats:{ atk:13, spd:-2 },                          range:1.25,
+                   stats:{ atk:17, spd:-1 },                          range:1.25,
                    fx:{ pierce:{ C:.06, R:.07, SR:.08, SSR:.09 }, pierceAmt:0.5 } },
 
   /* 프레임 — 생존. 기본 지불 축은 회피다. */
   alloyArmor:    { ko:'합금 장갑',    slot:'FRAME', set:'fortress',
-                   stats:{ hp:77, def:11, eva:-.020, crit:-.010 },   range:1.12 },
+                   stats:{ hp:80, def:11, eva:-.015, crit:-.008 },   range:1.12 },
   reactiveArmor: { ko:'리액티브 아머', slot:'FRAME', set:null,
-                   stats:{ hp:63, def:9, crit:.012, eva:-.020 },     range:1.12 },
+                   stats:{ hp:63, def:9, crit:.012, eva:-.018 },     range:1.12 },
   shieldFrame:   { ko:'실드 프레임',  slot:'FRAME', set:null,
-                   stats:{ def:16, eva:.018, spd:-1 },                range:1.12 },
+                   stats:{ def:14, eva:.014, spd:-1 },                range:1.12 },
   lightFrame:    { ko:'경량 골격',    slot:'FRAME', set:'assault',
-                   stats:{ hp:-65, def:-6, eva:.053, spd:5 },         range:0.86 },
+                   stats:{ hp:-48, def:-4, eva:.038, spd:4 },         range:0.86 },
   nanoCoat:      { ko:'나노 코팅',    slot:'FRAME', set:'precision',
-                   stats:{ hp:41, def:3, eva:.014 },                  range:0.90 },
+                   stats:{ hp:48, def:4, eva:.016 },                  range:0.90 },
 
   /* 부스터 — 기동. 기본 지불 축은 방어다. */
   thruster:      { ko:'스러스터',     slot:'BOOSTER', set:'fortress',
-                   stats:{ spd:2, hp:-50, def:17 },                   range:1.18 },
+                   stats:{ spd:2, hp:-45, def:18 },                   range:1.18 },
   floatPack:     { ko:'플로트 팩',    slot:'BOOSTER', set:null,
-                   stats:{ spd:8, def:-8 },                          range:0.84 },
+                   stats:{ spd:6, eva:.016, def:-4 },                 range:0.84 },
   boostUnit:     { ko:'부스트 유닛',  slot:'BOOSTER', set:null,
-                   stats:{ spd:7, eva:.043, hp:-45, def:-7, atk:-6 }, range:1.00 },
+                   stats:{ spd:6, eva:.034, hp:-38, def:-6, atk:-4 }, range:1.00 },
   highMobility:  { ko:'고기동 백',    slot:'BOOSTER', set:'assault',
-                   stats:{ spd:6, eva:.042, crit:.021, hp:-65, def:-10 }, range:0.82 },
+                   stats:{ spd:5, eva:.032, crit:.018, hp:-50, def:-7 }, range:0.82 },
   ambac:         { ko:'AMBAC',        slot:'BOOSTER', set:'precision',
-                   stats:{ spd:3, eva:.056, crit:.040, atk:-8, hp:-55, def:-8 }, range:0.84 },
+                   stats:{ spd:2, eva:.040, crit:.025, atk:-5, hp:-28, def:-5 }, range:0.84 },
 
   /* 코어 — 빌드 보조. 기본 지불 축은 속도다. */
   reactor:       { ko:'리액터',       slot:'CORE', set:'fortress',
-                   stats:{ hp:115, def:16, crit:-.015, eva:-.020, spd:-2 } },
+                   stats:{ hp:85, def:13, crit:-.010, eva:-.015, spd:-1 } },
   generator:     { ko:'제너레이터',   slot:'CORE', set:null,
-                   stats:{ hp:123, crit:.030, spd:-2, atk:-8 },        range:1.15 },
+                   stats:{ hp:115, crit:.028, spd:-2, atk:-6 },       range:1.15 },
   tacticalCore:  { ko:'전술 코어',    slot:'CORE', set:'precision',
-                   stats:{ def:17, crit:.035, spd:-1, eva:-.015 },    range:1.12 },
+                   stats:{ def:15, crit:.030, spd:-1, eva:-.010 },   range:1.12 },
   controlChip:   { ko:'컨트롤 칩',    slot:'CORE', set:null,
-                   stats:{ hp:65, def:10, spd:-1, crit:-.010 } },
+                   stats:{ hp:68, def:10, spd:-1, crit:-.008 } },
   overdrive:     { ko:'오버드라이브', slot:'CORE', set:'assault',
-                   stats:{ atk:27, crit:.042, spd:5, hp:-85, def:-13 } },
+                   stats:{ atk:26, crit:.038, spd:4, hp:-55, def:-8 } },
 };
 
 /* ── 인챈트 18종 ──────────────────────────────────────────
@@ -607,7 +607,9 @@ export const CONST = {
      너무 넓으면 한 방에 끝나 전투가 동전 던지기가 된다. */
   SPREAD_MIN: 0.06, SPREAD_MAX: 0.55,
   MAXLV: 60,          // 최대 레벨
-  PULL_COST: 1,       // 뽑기 1회에 드는 코어
+  PULL_COST: 1,
+  ENH_SCALE: 0.28,      // 파츠 강화 1당 일반 스탯 배수 (+28%)
+  ENH_PCT: 0.08,        // 파츠 강화 1당 퍼센트 스탯 배수 (+8% — 회피/치명 폭주 방지),       // 뽑기 1회에 드는 코어
   /* 공격력 전역 배율 — 한 판의 길이를 정하는 손잡이다. 낮출수록 길어진다.
      0.33 일 때 한 판이 약 147타(재생만 45초)였다. 그렇게 길면 큰 수의 법칙 때문에
      치명타·회피·공격력 구간이 전부 평균으로 뭉개져, 스탯이 5% 앞서면 승률이 96% 가 됐다.

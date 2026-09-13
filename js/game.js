@@ -21,6 +21,7 @@ import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapValue, PULL_CUR } from './gacha.js';
 import { makeOpponent as _makeOpponent, pickTactic } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
+import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
@@ -1467,34 +1468,58 @@ function floatDmg(side,text,cls){ const host=AR('#fighter-'+side); if(!host) ret
 function banner(txt){ const b=AR('#skillbanner'); if(!b) return; b.textContent=txt; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); }
 function blog(html){ const l=document.getElementById('blog'); if(!l) return; const d=document.createElement('div'); d.innerHTML=html; l.appendChild(d); l.scrollTop=l.scrollHeight; }
 async function playBattle(events,P,E,o){
+  const arena=document.getElementById('arena');
+  // 화면을 숨기거나 새 아레나로 바꾼 뒤에는 이전 재생이 HP·결과를 쓰지 않는다.
+  const stopped=()=>cur!=='battle'||!arena||!arena.isConnected||document.getElementById('arena')!==arena;
+  if(stopped()) return null;
+  const rain=(P.type==='ignis'||E.type==='ignis')?createIgnisRain(arena):null;
+  let rainSkill=null;
   const nameOf=s=> s==='P'?`<span class="k">${P.name}</span>`:`<span style="color:var(--bad);font-weight:700">${E.name}</span>`;
-  /* 아레나는 simulate 가 끝난 뒤에 재생하므로 P.hp 가 이미 최종값이다 — 그래서 만땅으로 시작한다.
-     점령전은 방어선 사이에 체력이 이어지므로 '들어갈 때의 값'을 따로 받는다. */
-  setHP('p', o&&o.pHp!=null?o.pHp:P.maxhp, P.maxhp);
-  setHP('e', o&&o.eHp!=null?o.eHp:E.maxhp, E.maxhp);
-  setSP('p', (o&&o.pSp)||0); setSP('e', (o&&o.eSp)||0);
-  blog(`전투 개시! <b>${P.name}</b> vs <b>${E.name}</b>`);
-  const sl=ms=>sleep(ms/battleSpeed);
-  await sl(400);
-  for(const e of events){
-    if(arenaGone()) return null;                 // 화면을 떠났으면 재생 중단(보상 없음)
-    if(e.t==='turn'){ setSP(e.side==='P'?'p':'e', e.sp); continue; }
-    if(e.t==='skill'){ banner(e.name); blog(`${nameOf(e.side)} 스킬 <b>${e.name}</b>!`); await sl(520); continue; }
-    if(e.t==='heal'){ const hS=e.side==='P'?'p':'e';
-      setHP(hS, e.hp, hS==='p'?P.maxhp:E.maxhp); floatDmg(hS,'+'+e.amt,'heal');
-      blog(`${nameOf(e.side)} 체력 <span class="h">+${e.amt}</span> 흡수`); await sl(260); continue; }
-    if(e.t==='hit'){
-      const aS=e.side==='P'?'p':'e', dS=e.dside==='P'?'p':'e';
-      await lunge(aS);
-      if(e.miss){ floatDmg(dS,'MISS','miss'); blog(`${nameOf(e.side)} 의 공격을 ${nameOf(e.dside)} 이(가) <span class="m">회피!</span>`); }
-      else{ flash(); shakeF(dS); floatDmg(dS,(e.crit?'CRIT ':'')+e.dmg,e.crit?'crit':'norm');
-        setHP(dS,e.thp, dS==='p'?P.maxhp:E.maxhp);
-        blog(`${nameOf(e.side)} → ${nameOf(e.dside)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해`); }
-      await sl(300); continue;
+  try{
+    /* 아레나는 simulate 가 끝난 뒤에 재생하므로 P.hp 가 이미 최종값이다 — 그래서 만땅으로 시작한다.
+       점령전은 방어선 사이에 체력이 이어지므로 '들어갈 때의 값'을 따로 받는다. */
+    setHP('p', o&&o.pHp!=null?o.pHp:P.maxhp, P.maxhp);
+    setHP('e', o&&o.eHp!=null?o.eHp:E.maxhp, E.maxhp);
+    setSP('p', (o&&o.pSp)||0); setSP('e', (o&&o.eSp)||0);
+    blog(`전투 개시! <b>${P.name}</b> vs <b>${E.name}</b>`);
+    const sl=ms=>sleep(ms/battleSpeed);
+    await sl(400);
+    for(const e of events){
+      if(stopped()) return null;                 // 보상 판정은 서버에 있으며 화면 재생만 중단한다.
+      if(e.t==='turn'){ rainSkill=null; setSP(e.side==='P'?'p':'e', e.sp); continue; }
+      if(e.t==='skill'){
+        rainSkill=null;
+        if(rain&&(e.side==='P'?P:E).type==='ignis'){
+          rainSkill={side:e.side,index:0,left:COMBAT_TYPES.ignis.skill.fx.hits};
+          rain.cast(e.side==='P'?'p':'e');
+        }
+        banner(e.name); blog(`${nameOf(e.side)} 스킬 <b>${e.name}</b>!`); await sl(520); continue;
+      }
+      if(e.t==='heal'){ const hS=e.side==='P'?'p':'e';
+        setHP(hS, e.hp, hS==='p'?P.maxhp:E.maxhp); floatDmg(hS,'+'+e.amt,'heal');
+        blog(`${nameOf(e.side)} 체력 <span class="h">+${e.amt}</span> 흡수`); await sl(260); continue; }
+      if(e.t==='hit'){
+        const aS=e.side==='P'?'p':'e', dS=e.dside==='P'?'p':'e';
+        // sim 의 스킬 타격은 같은 턴에 연속으로 나온다. 평타로 효과가 이어지지 않게 경계를 지킨다.
+        const isRain=!!rainSkill&&rainSkill.side===e.side;
+        if(isRain){
+          const index=rainSkill.index++;
+          if(--rainSkill.left<=0) rainSkill=null;
+          await rain.strike(aS,{miss:!!e.miss,index,speed:battleSpeed});
+        }else{ rainSkill=null; await lunge(aS); }
+        if(stopped()) return null;
+        if(e.miss){ floatDmg(dS,'MISS','miss'); blog(`${nameOf(e.side)} 의 공격을 ${nameOf(e.dside)} 이(가) <span class="m">회피!</span>`); }
+        else{ if(!isRain) flash(); shakeF(dS); floatDmg(dS,(e.crit?'CRIT ':'')+e.dmg,e.crit?'crit':'norm');
+          setHP(dS,e.thp, dS==='p'?P.maxhp:E.maxhp);
+          blog(`${nameOf(e.side)} → ${nameOf(e.dside)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해`); }
+        await sl(300); continue;
+      }
+      if(e.t==='end'){ await sl(300); return stopped()?null:e.winner; }
     }
-    if(e.t==='end'){ await sl(300); return e.winner; }
+    return stopped()?null:'P';
+  }finally{
+    if(rain) rain.dispose();
   }
-  return 'P';
 }
 function renderResult(win,rw,P,E,opp){
   shield();

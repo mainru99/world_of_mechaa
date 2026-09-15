@@ -2469,3 +2469,19 @@ ChatGPT 토큰이 떨어져 사용자가 남은 수치 작업을 Claude 에게 �
 
 > **교훈** — 운영에만 있는 경로는 운영에서 한 번은 밟아 봐야 한다.
 > 이 도구는 로컬 검사를 전부 통과하면서 운영에서는 아무것도 안 하고 성공을 보고했다.
+
+### 파츠 개편 운영 반영 완료 · 2026-09-15
+
+`npm run deploy` 까지 끝났다. 확인한 것:
+
+- `/api/health` — `ok:true` · DB connected · `schema_version` **13** · `balance_ver` **`15smta4`**
+- 파츠 **84개** 전부 `base`·`affixes`·`seed`·`lv` 보유 (`SUM(affixes IS NULL) = 0`)
+- 인챈트 개수가 등급 규칙과 일치 — C 27개/27 · R 38개/55 · SR 15개/30 · SSR 4개/8
+  (`RARITY[].affixes` 가 [1,1]·[1,2]·[2,2]·[2,2])
+- 정적 파일 해시 일치 — `js/stats.js`·`data/balance.js`·`js/gacha.js`·루트 페이지
+
+`balance_ver` 가 바뀌었으므로 기존 아레나 스냅샷은 매칭에서 걸러지고 다시 등록된다
+(의도한 동작, `DESIGN.md` §7-6). 계정 26개·아레나 26건은 배포 전후 같다.
+
+**남은 후속 과제** — `node tools/partdiversity.mjs` 확장 검사(종료 코드 1).
+원인은 규명했고 파츠 수치가 아니다. `BALANCE.md` ⓔ 와 `DESIGN.md` §7-10 참고.

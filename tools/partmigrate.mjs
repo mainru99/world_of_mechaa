@@ -20,9 +20,6 @@
  *   npx wrangler d1 execute rowar --local --file=.tmp/affixes.sql
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RARITY } from '../data/balance.js';
 import { rollAffixes } from '../js/gacha.js';
@@ -37,21 +34,29 @@ const RAR_BY = Object.fromEntries(RARITY.map(r => [r.k, r]));
    둘 다 피하려면 실제 진입점을 노드에 넘기는 것이 제일 깔끔하다. */
 const WRANGLER = fileURLToPath(new URL('../node_modules/wrangler/bin/wrangler.js', import.meta.url));
 
-/* SQL 을 임시 파일로 넘긴다. --command 로 넘기면 윈도의 셸 따옴표 규칙에 걸려
-   문장이 토막 난다 (실제로 "Unknown arguments: id,, slot,, ..." 로 깨졌다). */
+/* **읽기는 --command 로 한다. --file 로 하면 안 된다.**
+   `--remote --file` 은 SQL 파일을 업로드하고 **결과 행 대신 요약만** 돌려준다:
+       [{ "results": [{ "Total queries executed": 1, "Rows read": 84, ... }] }]
+   그걸 파츠 한 개로 읽어서 `등급 'undefined' 을 모른다` 한 줄만 찍고 종료 코드 0 으로
+   끝났다 — 운영 이관이 조용히 아무것도 안 하고 성공한 척했다(2026-09-15 실제로 겪었다).
+   `--local --file` 은 진짜 행을 주기 때문에 로컬 검사로는 영영 안 잡힌다.
+
+   따옴표 걱정은 없다 — execFileSync 에 argv 배열로 넘기므로 셸을 거치지 않는다.
+   (옛 주석이 말한 "Unknown arguments: id,, slot,," 는 shell:true 로 npx 를 부르던
+   시절의 이야기다. 그때 --file 로 도망친 것이 이 버그를 심었다.) */
 function query(sql) {
-  const dir = mkdtempSync(join(tmpdir(), 'rowar-'));
-  const file = join(dir, 'q.sql');
-  try {
-    writeFileSync(file, sql, 'utf8');
-    const out = execFileSync(process.execPath, [WRANGLER, 'd1', 'execute', 'rowar',
-      REMOTE ? '--remote' : '--local', '--json', '--file', file],
-      { encoding: 'utf8', maxBuffer: 32 << 20 });
-    /* wrangler 가 JSON 앞에 배너를 끼워 넣는 판이 있어서 첫 '[' 부터 자른다 */
-    const i = out.indexOf('[');
-    if (i < 0) throw new Error('wrangler 응답에서 JSON 을 못 찾았다:\n' + out.slice(0, 400));
-    return JSON.parse(out.slice(i))[0].results;
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  const out = execFileSync(process.execPath, [WRANGLER, 'd1', 'execute', 'rowar',
+    REMOTE ? '--remote' : '--local', '--json', '--command', sql],
+    { encoding: 'utf8', maxBuffer: 32 << 20 });
+  /* wrangler 가 JSON 앞에 배너를 끼워 넣는 판이 있어서 첫 '[' 부터 자른다 */
+  const i = out.indexOf('[');
+  if (i < 0) throw new Error('wrangler 응답에서 JSON 을 못 찾았다:\n' + out.slice(0, 400));
+  const rows = JSON.parse(out.slice(i))[0].results;
+  /* 요약이 돌아왔으면 행이 아니다. 조용히 0 개로 넘어가지 않는다. */
+  if (rows.length && !('id' in rows[0]))
+    throw new Error('wrangler 가 행 대신 요약을 돌려줬다 — 읽기에 --file 을 쓰면 이렇게 된다:\n'
+      + JSON.stringify(rows[0]));
+  return rows;
 }
 
 const rows = query(`SELECT id, slot, rarity, base, seed FROM part WHERE ${WHERE} ORDER BY id`);
@@ -64,7 +69,9 @@ if (!rows.length) {
 const lines = [], tally = {};
 for (const r of rows) {
   const rar = RAR_BY[r.rarity];
-  if (!rar) { console.error(`  ! id=${r.id} 등급 '${r.rarity}' 을 모른다 — 건너뛴다`); continue; }
+  /* 건너뛰지 않는다. 한 개라도 모르는 등급이면 읽기가 깨진 것이고, 그때 만든 SQL 을
+     적용하면 그 파츠만 영영 인챈트 없이 남는다. 멈추고 사람이 보게 한다. */
+  if (!rar) { console.error(`  ! id=${r.id} 등급 '${r.rarity}' 을 모른다 — 멈춘다`); process.exit(1); }
   if (r.seed == null) { console.error(`  ! id=${r.id} seed 가 비었다 — 013 을 먼저 돌린다`); process.exit(1); }
   const affixes = rollAffixes(r.slot, rar, mulberry32(r.seed >>> 0));
   tally[affixes.length] = (tally[affixes.length] || 0) + 1;

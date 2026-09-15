@@ -7,9 +7,9 @@
  *   ① 파츠 소유자 확인 — FK 는 소유자를 보지 않는다
  *   ② 슬롯 일치 확인   — 컬럼별 UNIQUE 는 A.s_weapon/B.s_frame 교차를 못 막는다
  */
-import { CONST } from '../data/balance.js';
+import { CONST, RARITY } from '../data/balance.js';
 import { lvCost, enhCost, serviceCost, fatOf, decayFat, skillCost, skillRate, skillMax } from '../js/stats.js';
-import { scrapValue } from '../js/gacha.js';
+import { scrapGain } from '../js/gacha.js';
 import { registerArena } from './arena.js';
 
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
@@ -27,6 +27,21 @@ const getPlayer = (env, acc) => env.DB
 const spend = (env, acc, p, { credits = 0, scrap = 0 }, now) => env.DB
   .prepare('UPDATE player SET credits=?1, scrap=?2, rev=?3, updated_at=?4 WHERE account_id=?5')
   .bind(p.credits - credits, p.scrap - scrap, p.rev + 1, now, acc);
+
+/* robot 행들에서 '끼고 있는 파츠 id' 만 뽑는다. 슬롯이 늘면 여기 한 곳만 고친다. */
+export const wornIds = robots => {
+  const s = new Set();
+  for (const r of robots) for (const v of [r.s_weapon, r.s_frame, r.s_booster, r.s_core]) if (v != null) s.add(v);
+  return s;
+};
+
+/* 일괄 분해에서 **무엇이 사라지는가**. 되돌릴 수 없는 판단이라 SQL 에 섞어 두지 않고
+   따로 뺐다 — `tools/scrapbulk.mjs` 가 이것만 따로 검사한다.
+   지키는 것 둘: 끼고 있는 것은 절대 안 지운다 · keepEnhanced 면 강화한 것도 남긴다. */
+export function bulkTargets(parts, worn, keepEnhanced) {
+  const hit = parts.filter(pt => !worn.has(pt.id) && !(keepEnhanced && (pt.enh | 0) > 0));
+  return { hit, gain: hit.reduce((t, pt) => t + scrapGain(pt.rarity, pt.enh), 0) };
+}
 
 export async function hangarAction(env, acc, body, now) {
   const action = body && body.action;
@@ -199,9 +214,7 @@ export async function hangarAction(env, acc, body, now) {
       `SELECT id FROM robot WHERE account_id = ?1
         AND (s_weapon = ?2 OR s_frame = ?2 OR s_booster = ?2 OR s_core = ?2)`).bind(acc, pt.id).first();
     if (worn) return err(400, 'part equipped');
-    /* 강화한 만큼 값을 더 쳐 준다. 안 그러면 잘못 강화한 파츠를 버리는 값이
-       강화에 쓴 스크랩보다 훨씬 적어, 실수 한 번이 그대로 손실로 굳는다. */
-    const gain = Math.round(scrapValue(pt.rarity) * (1 + (pt.enh || 0) * 0.25));
+    const gain = scrapGain(pt.rarity, pt.enh);
     if (gain <= 0) return err(400, 'cannot scrap');
     await env.DB.batch([
       env.DB.prepare('DELETE FROM part WHERE id = ?1').bind(pt.id),
@@ -209,6 +222,43 @@ export async function hangarAction(env, acc, body, now) {
         .bind(p.scrap + gain, p.rev + 1, now, acc),
     ]);
     return { ok: true, rev: p.rev + 1, scrap: p.scrap + gain, gain, uid: pt.uid };
+  }
+
+  /* ── 등급별 일괄 분해 ──────────────────────────────────────
+     파츠가 수백 개가 되면 하나씩 누르는 것이 일이 된다. 등급을 골라 한 번에 치운다.
+
+     **클라이언트가 지울 목록을 보내지 않는다.** 등급과 조건만 보내고 무엇이 지워질지는
+     서버가 정한다 — 목록을 받으면 그 목록이 맞는지 서버가 어차피 다시 다 확인해야 하고,
+     확인을 빠뜨리는 순간 남의 파츠나 장착 중인 파츠를 지우는 길이 열린다.
+
+     되돌릴 수 없는 작업이라 **확인 수단을 같이 준다.** `expect` 를 보내면 그 수와
+     실제 대상 수가 다를 때 아무것도 안 하고 되돌려 준다 — 화면이 "27개 분해"라고
+     보여 준 뒤 다른 창에서 장비를 바꿔 수가 달라졌으면, 조용히 다른 것을 지우지 않는다. */
+  if (action === 'scrapBulk') {
+    const rarity = String(body.rarity || '');
+    if (!RARITY.some(r => r.k === rarity)) return err(400, 'bad rarity');
+    const keepEnhanced = !!body.keepEnhanced;
+
+    const [{ results: mine }, { results: robots }] = await env.DB.batch([
+      env.DB.prepare('SELECT id, uid, rarity, enh FROM part WHERE account_id = ?1 AND rarity = ?2').bind(acc, rarity),
+      env.DB.prepare('SELECT s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1').bind(acc),
+    ]);
+    const { hit, gain } = bulkTargets(mine, wornIds(robots), keepEnhanced);
+    if (!hit.length) return { ok: true, rev: p.rev, scrap: p.scrap, count: 0, gain: 0, removed: [] };
+
+    /* 화면이 센 것과 다르면 멈춘다. 지운 뒤에 알려 봐야 소용이 없다. */
+    if (body.expect != null && (body.expect | 0) !== hit.length)
+      return err(409, 'part count changed');
+
+    /* DELETE 를 한 문장으로 묶는다. 300개면 문장도 300개가 되고 D1 배치 한도에 걸린다.
+       id 는 서버가 방금 읽은 정수라 그대로 넣어도 안전하다(클라이언트 값이 아니다). */
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM part WHERE account_id = ?1 AND id IN (${hit.map(x => x.id).join(',')})`).bind(acc),
+      env.DB.prepare('UPDATE player SET scrap = ?1, rev = ?2, updated_at = ?3 WHERE account_id = ?4')
+        .bind(p.scrap + gain, p.rev + 1, now, acc),
+    ]);
+    return { ok: true, rev: p.rev + 1, scrap: p.scrap + gain,
+             count: hit.length, gain, removed: hit.map(x => x.uid) };
   }
 
   return err(400, 'unknown action');

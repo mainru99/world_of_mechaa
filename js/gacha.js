@@ -36,6 +36,15 @@ export const autoScrapValue = rarity => (CONST.AUTO_SCRAP && CONST.AUTO_SCRAP[ra
    플레이어가 이 값을 보고 분해할지 정한다. */
 export const scrapValue = rarity => (CONST.SCRAP_VALUE && CONST.SCRAP_VALUE[rarity]) || 0;
 
+/* 파츠 하나를 분해했을 때 실제로 받는 양. **강화한 만큼 값을 더 쳐 준다** —
+   안 그러면 잘못 강화한 파츠를 버리는 값이 강화에 쓴 스크랩보다 훨씬 적어
+   실수 한 번이 그대로 손실로 굳는다.
+
+   화면(js/game.js)·서버(server/hangar.js)·일괄 분해가 **전부 이 함수를 쓴다.**
+   세 곳에 같은 식을 적어 두면 한쪽만 고쳐지는 날이 반드시 오고, 그때 화면에
+   적힌 값과 실제로 들어오는 값이 달라진다. */
+export const scrapGain = (rarity, enh) => Math.round(scrapValue(rarity) * (1 + (enh || 0) * 0.25));
+
 /* 뽑기 창구. 코어와 크레딧이 표를 따로 쓴다 — 같은 표에 배수만 걸면
    '크레딧으로도 에픽이 코어와 같은 비율로 나오는' 상태가 되어 코어를 쓸 이유가 없어진다. */
 export const PULL_CUR = {

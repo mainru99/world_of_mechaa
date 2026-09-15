@@ -260,13 +260,42 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0e1526;border:1px solid var(--acc);
   color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;z-index:320;box-shadow:0 10px 30px -10px #000;opacity:0;transition:.25s}
 .toast.on{opacity:1;bottom:34px}
-.inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px}
+/* 인벤토리 칸을 120px 에서 넓혔다. 파츠 개편으로 옵션이 5~7개가 되면서 120px 폭에서는
+   줄마다 접혀 칩 하나가 300px 이 됐다(실측). 넓은 칸 하나가 좁은 칸 두 개보다 짧다. */
+.inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-top:8px}
 .pchip{background:#111a30;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;transition:.12s}
 .pchip:hover{border-color:var(--acc)}
 .pchip .pn{font-weight:800} .pchip .ps{color:var(--sub);font-size:11px;margin-top:2px}
 /* 파츠 옵션 한 줄에 하나. 색을 따로 주지 않는다 — 빨간 취소선은 '안 붙는 옵션' 으로 보였다 */
 .pstat{margin-top:2px}
 .pstat .dim{color:var(--dim)}
+/* 인벤토리에서는 옵션을 가로로 이어 붙인다(partStatLine 의 compact).
+   거기서 하는 일은 '어느 것을 버릴까' 라 숫자를 정독하지 않는다 — 장착 슬롯을 고를 때는
+   한 줄에 하나로 돌아간다. 대가(음수)만 흐리게 해서 훑을 때 눈에 덜 걸리게 한다. */
+.pstat.inline{display:flex;flex-wrap:wrap;gap:0 5px;align-items:baseline;line-height:1.5}
+.pstat.inline .neg{color:var(--dim)}
+.pstat.inline .sep{color:var(--line);font-style:normal}
+.pchip .slotk{color:var(--dim);font-weight:700;margin-right:4px}
+.pchip .pfoot .ps{margin-top:0;white-space:nowrap}
+
+/* ── 인벤토리 거르개 ──────────────────────────────────────
+   파츠 수백 개를 한 줄로 늘어놓는 것이 성립하지 않는 지점에서 필요해졌다. */
+.invbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:10px}
+.fgrp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.flab{color:var(--dim);font-size:11px;margin-right:2px}
+.fchip{background:#0e1526;border:1px solid var(--line);color:var(--sub);border-radius:999px;
+  padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;transition:.12s;display:inline-flex;gap:4px;align-items:center}
+.fchip:hover{border-color:var(--acc);color:#fff}
+.fchip.on{background:var(--acc);border-color:var(--acc);color:#06203a}
+.fchip small{opacity:.65;font-weight:600}
+.fchip.on small{opacity:.8}
+.bulkb{margin-left:auto;padding:6px 12px;font-size:12px}
+.bulkrow{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:8px 0;border-bottom:1px solid var(--line)}
+.bulkrow .btn{padding:6px 12px;font-size:12px;flex:none}
+.bulkchk{display:flex;align-items:center;gap:6px;margin:8px 0;font-size:12px;color:var(--sub);cursor:pointer}
+.title .cnt{font-size:12px;font-weight:600;color:var(--dim);margin-left:8px}
+@media(max-width:560px){ .bulkb{margin-left:0;width:100%} }
 /* 고유 효과는 수치가 아니라 전투 규칙이다. 다른 옵션과 더해지는 값으로 안 보이게
    색을 달리하고 앞에 표식을 둔다. 줄이 길어지므로 줄바꿈을 허용한다. */
 .pstat.fxline{color:var(--acc2);white-space:normal;line-height:1.35}
@@ -992,3 +1021,6 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   .gacha-stage.opening .capsule-heart{animation:none;opacity:1;transform:translate(-50%,-50%) rotate(45deg) scale(1.1)}
   .gacha-stage.opening .gacha-sparks i{animation:none}
 }
+
+/* 인벤토리를 한 번에 다 그리지 않는다 — 더 보기. */
+.invmore{display:block;width:100%;margin-top:10px;padding:10px;font-size:12px}

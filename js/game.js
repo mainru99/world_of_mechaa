@@ -18,7 +18,7 @@ import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, ga
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed } from './breach.js';
 import * as net from './net.js';
-import { rollPull, rollPart as _rollPart, autoScrapValue, scrapValue, PULL_CUR } from './gacha.js';
+import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR } from './gacha.js';
 import { makeOpponent as _makeOpponent, pickTactic } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
@@ -222,10 +222,6 @@ async function unequip(slot){
   const r=await srvHangar('unequip',{robotUid:rb.uid, slot}); if(!r) return;
   rb.slots[slot]=null; commitLocal(); closeModal();
 }
-/* 분해하면 받는 스크랩. 강화한 만큼 더 쳐 준다 — 서버(server/hangar.js)와 같은 식이어야
-   화면의 숫자와 실제로 들어오는 값이 갈리지 않는다. */
-const scrapGain = p => Math.round(scrapValue(p.rarity) * (1 + (p.enh||0) * 0.25));
-
 async function scrapPart(u){
   const p=findPart(u,S.parts); if(!p) return;
   const worn = S.robots.some(r=>Object.values(r.slots).includes(u));
@@ -236,7 +232,7 @@ async function scrapPart(u){
       <div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>
     <div class="hint" style="margin:10px 0;color:var(--bad)">분해하면 되돌릴 수 없습니다.</div>
     <div class="row-btns">
-      <button class="btn big gold" onclick="ROWAR.doScrap('${u}')">분해 · 스크랩 +${fmt(scrapGain(p))}</button>
+      <button class="btn big gold" onclick="ROWAR.doScrap('${u}')">분해 · 스크랩 +${fmt(scrapGain(p.rarity,p.enh))}</button>
       <button class="btn big" onclick="ROWAR.closeModal()">그만두기</button></div>`);
 }
 async function doScrap(u){
@@ -246,6 +242,50 @@ async function doScrap(u){
   S.parts=S.parts.filter(x=>x.uid!==u); S.scrap=r.scrap;
   commitLocal(); renderWallet(); renderHangar();
   toast(p.name+' 분해 · 스크랩 +'+fmt(r.gain));
+}
+
+/* ── 등급별 일괄 분해 ──────────────────────────────────────
+   하나씩 누르는 것이 일이 되는 지점이 온다(파츠 수백 개). 등급을 골라 한 번에 치운다.
+
+   되돌릴 수 없고 한 번에 수십 개가 사라지므로 **무엇이 사라지는지 세어서 보여 준다.**
+   등급마다 개수와 받을 스크랩을 미리 적고, 누르는 순간이 아니라 그 앞에서 판단하게 한다.
+
+   **강화한 것은 기본으로 남긴다.** 스크랩을 부어 둔 파츠를 등급이 낮다는 이유로 한 번에
+   날리는 것이 이 기능의 가장 큰 사고다. 켜고 끌 수 있게 두되 기본값은 지키는 쪽이다. */
+let bulkKeepEnh = true;
+function invSpare(){ return S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid))); }
+function bulkHit(rar){ return invSpare().filter(p=> p.rarity===rar && !(bulkKeepEnh && (p.enh|0)>0)); }
+
+function bulkScrap(){
+  const rows = RARITY.map(r=>r.k).map(k=>{
+    const hit=bulkHit(k), gain=hit.reduce((t,p)=>t+scrapGain(p.rarity,p.enh),0);
+    const held=invSpare().filter(p=>p.rarity===k).length, kept=held-hit.length;
+    return `<div class="bulkrow">
+      <div><span class="tag rar-${k}">${k}</span>
+        <b>${hit.length}개</b>${kept?` <span class="dim">· 강화 ${kept}개 남김</span>`:''}</div>
+      <button class="btn ${hit.length?'gold':''}" ${hit.length?'':'disabled'}
+        onclick="ROWAR.doBulkScrap('${k}',${hit.length})">분해 +${fmt(gain)}</button></div>`;
+  }).join('');
+  openModal(`<div class="mhead">등급별 일괄 분해 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <div class="hint">장착 중인 파츠는 세지 않습니다.</div>
+    <label class="bulkchk"><input type="checkbox" ${bulkKeepEnh?'checked':''}
+      onchange="ROWAR.setBulkKeepEnh(this.checked)"> 강화한 파츠는 남기기</label>
+    ${rows}
+    <div class="hint" style="margin-top:10px;color:var(--bad)">분해하면 되돌릴 수 없습니다.</div>
+    <div class="row-btns"><button class="btn big" onclick="ROWAR.closeModal()">닫기</button></div>`);
+}
+const setBulkKeepEnh = v => { bulkKeepEnh=!!v; bulkScrap(); };
+
+async function doBulkScrap(rar, expect){
+  closeModal();
+  /* expect 를 같이 보낸다. 화면이 센 수와 서버가 셀 수가 다르면(다른 창에서 장비를
+     바꿨거나 한 경우) 서버가 아무것도 안 하고 되돌려 준다 — 조용히 다른 것을 지우지 않는다. */
+  const r=await srvHangar('scrapBulk',{rarity:rar, keepEnhanced:bulkKeepEnh, expect}); if(!r) return;
+  if(!r.count){ toast('분해할 파츠가 없습니다'); return; }
+  const gone=new Set(r.removed);
+  S.parts=S.parts.filter(p=>!gone.has(p.uid)); S.scrap=r.scrap;
+  commitLocal(); renderWallet(); renderHangar();
+  toast(`${rar} ${r.count}개 분해 · 스크랩 +${fmt(r.gain)}`);
 }
 
 /* 스킬 강화. 성공 판정은 서버가 한다 — 클라가 굴리면 될 때까지 다시 보내면 그만이다.
@@ -442,7 +482,18 @@ function setPanel(rb){
      구간  금색 (±) — 좋고 나쁨이 아니라 성향이다. 약자는 넓히고 강자는 좁힌다. */
 /* 옵션은 한 줄에 하나씩 적는다. 페널티를 빨간 취소선으로 두었더니 '적용되지 않는
    옵션'처럼 보였다. 색과 취소선을 빼고 부호(+/−)로만 구분한다 — 구간도 같은 색이다. */
-function partStatLine(p){
+/* 파츠 한 개의 옵션 줄.
+
+   `compact` 는 인벤토리용이다. 파츠 개편으로 한 파츠가 스탯 5~7개에 구간·고유 효과까지
+   달게 되면서, 한 줄에 하나씩 쌓으면 칩 하나가 **300px** 이 됐다(실측). 파츠 300개면
+   14화면을 긁어야 한다. 인벤토리에서 하는 일은 '어느 것을 버릴까' 라서 숫자를 정독하지
+   않는다 — 가로로 이어 붙여 한 줄로 만든다.
+
+   대신 **고유 효과는 압축해도 줄을 지킨다.** 그건 수치가 아니라 전투 규칙이라
+   `공격 +79` 옆에 붙여 놓으면 같은 종류로 읽힌다.
+
+   정독하는 자리(장착 슬롯 고르기)는 `compact` 없이 부른다 — 거기서는 비교가 일이다. */
+function partStatLine(p, compact){
   const ps=partStat(p), out=[];
   for(const k in ps){
     const v=ps[k], t=isPct(k)?(Math.abs(v)*100).toFixed(1)+'%':String(Math.abs(Math.round(v)));
@@ -450,14 +501,21 @@ function partStatLine(p){
        서로 지워지면 '속도 +0' 같은 줄이 생기는데, 없는 옵션을 있는 것처럼 보이게 한다. */
     if(t==='0' || t==='0.0%') continue;
     const name = k==='spread' ? '구간' : STAT_LABEL[k];
-    out.push(`<div class="pstat">${name} ${v<0?'−':'+'}${t}</div>`);
+    out.push({ neg:v<0, s:`${name} ${v<0?'−':'+'}${t}` });
   }
   /* 새 파츠의 구간은 더하기가 아니라 곱하기라 '±몇 %' 로 적으면 거짓말이 된다.
      좁히는지 넓히는지를 말로 붙인다 — ×0.86 만 보고 좋은지 나쁜지 알기 어렵다. */
   const m=partMods(p);
-  if(m.range!==1) out.push(`<div class="pstat">구간 ×${m.range.toFixed(2)} <span class="dim">(${m.range<1?'좁아짐':'넓어짐'})</span></div>`);
-  for(const t of fxLines(m.fx)) out.push(`<div class="pstat fxline">${t}</div>`);
-  return out.join(''); }
+  if(m.range!==1) out.push({ neg:false,
+    s:`구간 ×${m.range.toFixed(2)} <span class="dim">(${m.range<1?'좁아짐':'넓어짐'})</span>` });
+  const fx = fxLines(m.fx);
+  if(compact){
+    const line = out.map(o=>`<span class="st${o.neg?' neg':''}">${o.s}</span>`).join('<i class="sep">·</i>');
+    return `<div class="pstat inline">${line}</div>`
+         + fx.map(t=>`<div class="pstat fxline">${t}</div>`).join('');
+  }
+  return out.map(o=>`<div class="pstat">${o.s}</div>`).join('')
+       + fx.map(t=>`<div class="pstat fxline">${t}</div>`).join(''); }
 
 /* 고유 효과는 수치가 아니라 **전투 규칙**이다. '관통 +8' 처럼 스탯과 같은 모양으로
    적으면 다른 옵션과 더해지는 값처럼 보인다. 언제 무엇이 일어나는지를 문장으로 적는다. */
@@ -497,6 +555,50 @@ function statBar(k,v,full,range){  // full 을 주면 깎여나간 만큼을 붉
   const lost  = dmg? ` <s>−${fmt(full-v)}</s>` : '';
   return `<div class="stat"><div class="row"><b>${STAT_LABEL[k]}</b><span>${val}${lost}</span></div><div class="bar">${ghost}<i style="width:${pct}%"></i></div></div>`; }
 
+/* ── 인벤토리 거르기·정렬 ──────────────────────────────────────
+   파츠가 수백 개가 되면 '전부 한 줄로 늘어놓기' 가 성립하지 않는다.
+   저장하지 않는다 — 화면을 떠났다 오면 전체로 돌아온다. 걸러 둔 것을 잊고
+   "파츠가 사라졌다" 고 여기는 것이 거르기를 못 쓰는 것보다 나쁘다. */
+const INV_PAGE = 60;
+const invF = { slot:'', rar:'', sort:'new', limit:INV_PAGE };
+const RAR_ORDER = { C:0, R:1, SR:2, SSR:3 };
+const invMatch = p => (!invF.slot || p.slot===invF.slot) && (!invF.rar || p.rarity===invF.rar);
+function sortInv(list){
+  const a=[...list];
+  if(invF.sort==='rar') a.sort((x,y)=> (RAR_ORDER[y.rarity]-RAR_ORDER[x.rarity]) || (y.enh|0)-(x.enh|0));
+  else if(invF.sort==='enh') a.sort((x,y)=> ((y.enh|0)-(x.enh|0)) || (RAR_ORDER[y.rarity]-RAR_ORDER[x.rarity]));
+  else a.reverse();                       /* 최신 — S.parts 는 얻은 순서다 */
+  return a;
+}
+/* 거르개를 건드리면 몇 개까지 보고 있었는지는 잊는다. 무장으로 좁혀 놓고
+   '60개 더 보기' 를 그대로 물려받으면 몇 개가 남았는지 감이 안 온다. */
+function setInvF(k,v){
+  invF[k]= invF[k]===v && k!=='sort' ? '' : v;
+  invF.limit=INV_PAGE; renderHangar();
+}
+const invMore = () => { invF.limit += INV_PAGE; renderHangar(); };
+
+/* 거르개. 같은 칸을 다시 누르면 풀린다 — 끄는 법을 따로 찾게 만들지 않는다.
+   숫자를 칸마다 적어 둔다. 눌러 보고 0 개인 것을 아는 것과 누르기 전에 아는 것은 다르다. */
+function invBar(all){
+  const n = f => all.filter(f).length;
+  const chip = (k,v,label,cnt)=>`<button class="fchip${invF[k]===v?' on':''}"
+      onclick="ROWAR.setInvF('${k}','${v}')">${label}${cnt!=null?`<small>${cnt}</small>`:''}</button>`;
+  const slots = SLOTS.map(s=>chip('slot',s,SLOT_KO[s],n(p=>p.slot===s))).join('');
+  const rars  = RARITY.map(r=>r.k).filter(k=>n(p=>p.rarity===k))
+                  .map(k=>`<button class="fchip rar-${k}${invF.rar===k?' on':''}"
+                      onclick="ROWAR.setInvF('rar','${k}')">${k}<small>${n(p=>p.rarity===k)}</small></button>`).join('');
+  const sorts = [['new','최신'],['rar','등급'],['enh','강화']]
+                  .map(([v,l])=>`<button class="fchip${invF.sort===v?' on':''}"
+                      onclick="ROWAR.setInvF('sort','${v}')">${l}</button>`).join('');
+  return `<div class="invbar">
+    <div class="fgrp">${slots}</div>
+    <div class="fgrp">${rars}</div>
+    <div class="fgrp"><span class="flab">정렬</span>${sorts}</div>
+    <button class="btn bulkb" ${all.length?'':'disabled'} onclick="ROWAR.bulkScrap()">등급별 일괄 분해</button>
+  </div>`;
+}
+
 /* ------------------------------- 격납고 화면 ------------------------------- */
 function renderHangar(){
   const rb=selRobot(), T=ROBOT_TYPES[rb.type], st=computeStats(rb);
@@ -514,15 +616,21 @@ function renderHangar(){
     return `<div class="slot ${p?'filled':''}${p?enhClass(p):''}" onclick="ROWAR.openSlot('${slot}')">
       <div class="sl">${SLOT_KO[slot]}</div>
       ${p?`<div class="pn">${esc(p.name)}</div><div class="pp">${rarTag(p)}${setTag(p)}</div><div class="pp">${affixTags(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
-  const invParts = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
+  const invAll = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
+  /* 다 그리지 않는다. 칩 폭을 어떻게 잡아도 300개는 1만 픽셀이 넘고(실측), 그만한 DOM 을
+     매 렌더마다 새로 만든다. 거르개·정렬이 있으니 찾는 것은 앞쪽에 오게 만들 수 있다. */
+  const invHit = sortInv(invAll.filter(invMatch));
+  const invParts = invHit.slice(0, invF.limit);
   /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
   const inv = invParts.length? invParts.map(p=>`<div class="pchip${enhClass(p)}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
-      <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div>
-      <div class="pfoot"><span class="ps" style="color:var(--gold)">클릭 → 강화 (스크랩 ${enhCost(p.enh||0)})</span>
+      <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
+      <div class="pfoot"><span class="ps" style="color:var(--gold)">강화 ${fmt(enhCost(p.enh||0))}</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
-          title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p))}</button></div></div>`).join('')
-    : `<div class="empty">보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.</div>`;
+          title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p.rarity,p.enh))}</button></div></div>`).join('')
+    : `<div class="empty">${invAll.length?'거른 조건에 맞는 파츠가 없습니다.':'보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.'}</div>`;
+  const invMoreBtn = invHit.length>invParts.length
+    ? `<button class="btn invmore" onclick="ROWAR.invMore()">${fmt(invHit.length-invParts.length)}개 더 보기</button>` : '';
   const cost=lvCost(rb.level), fat=fatOf(rb), scost=serviceCost(rb);
   const slv=rb.skillLv|0, sk=skillCost(slv);
   /* ── 격납고 화면 ──────────────────────────────────────
@@ -614,9 +722,12 @@ function renderHangar(){
     </div>
 
     <div class="panel">
-      <h2 class="title" style="margin-top:0">파츠 인벤토리</h2>
+      <h2 class="title" style="margin-top:0">파츠 인벤토리
+        <span class="cnt">${invHit.length===invAll.length?`${invAll.length}개`:`${invHit.length} / ${invAll.length}개`}</span></h2>
       <div class="hint">누르면 <b>강화</b>(스크랩) · 장착은 위 슬롯에서 · 쓰지 않을 것은 <b>분해</b>해 스크랩으로</div>
+      ${invBar(invAll)}
       <div class="inv">${inv}</div>
+      ${invMoreBtn}
     </div>`;
 
 }
@@ -1936,6 +2047,7 @@ window.ROWAR = {
   levelUp: guard(levelUp), service: guard(service), enhance: guard(enhancePart), skillUp: guard(skillUp),
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
   openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode, guide,
+  setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
   duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,

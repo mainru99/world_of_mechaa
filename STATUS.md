@@ -198,7 +198,7 @@ curl -s https://rowar.hun7539.workers.dev/api/health     # schema_version 13 · 
 ```
 
 배포 뒤 확인할 것 — `/api/health` 의 `schema_version` 이 **13**, `balance_ver` 가
-**`15smta4`**(파츠 표를 해시에 넣어서 바뀐다). 운영 파츠 69개가 전부 `base`·`affixes` 를
+**`15smta4`**(파츠 표를 해시에 넣어서 바뀐다). 운영 파츠 84개가 전부 `base`·`affixes` 를
 갖는지 위 ③ 명령으로 본다.
 
 > **되돌리려면** 4단계 커밋을 되돌리면 옛 `genPart` 로 간다(`DESIGN.md` §9).
@@ -207,6 +207,10 @@ curl -s https://rowar.hun7539.workers.dev/api/health     # schema_version 13 · 
 ### 파츠 개편 마이그레이션 — 013 (schema_version 13)
 
 **아직 운영에 안 넣었다.** 로컬만 끝났다. 배포할 때 이 순서로 넣는다.
+
+> 2026-09-15 — 수치가 확정돼 **배포를 막던 이유는 사라졌다**. 넣기 전 점검은 끝냈다
+> (운영 84개 · 이름 21/21 매핑 · CASE 21/21 · 워커 빌드 통과 · 회귀 13종 통과).
+> 남은 것은 아래 명령을 실제로 도는 일뿐이다.
 
 ```bash
 # ① 칸을 만들고 base·lv·seed 를 채운다
@@ -224,9 +228,17 @@ npx wrangler d1 execute rowar --local --command="SELECT COUNT(*) total, SUM(base
 운영은 `--local` 을 `--remote` 로 바꾼다. **②의 `--remote` 는 ①을 운영에 넣은 뒤에
 돌려야 한다** — `seed` 가 비어 있으면 도구가 멈춘다.
 
-운영 파츠는 **69개**(C 19 · R 28 · SR 14 · SSR 4, 강화된 것 5개)다. 이름 19종이
-모두 베이스와 1:1 로 맞는다(확인함). `lv` 는 주인의 최고 기체 레벨로 채워진다 —
-지금 운영은 20계정 중 15계정이 Lv.1 이고 최고가 Lv.46 이다.
+운영 파츠는 **84개**(C 27 · R 38 · SR 15 · SSR 4, 강화된 것 5개)다 — 2026-09-15 실측.
+이름 **21종이 전부** 베이스와 1:1 로 맞는다(확인함). 마이그레이션의 CASE 도
+`PART_BASES` 21/21 을 덮는 것을 확인했다. 매핑이 빠지면 그 파츠는 `base` 가 NULL 로
+남아 구형으로 계속 굴러간다 — 망가지진 않지만 영영 새 체계로 안 넘어온다.
+`lv` 는 주인의 최고 기체 레벨로 채워진다.
+
+넣기 전에 돌려 볼 것 — 이름이 전부 베이스와 맞는지:
+
+```bash
+npx wrangler d1 execute rowar --remote --command="SELECT name, COUNT(*) n FROM part GROUP BY name ORDER BY n DESC"
+```
 
 > **`balance_ver` 가 `8updih` → `15smta4` 로 바뀐다.** 파츠 표를 해시에 넣었기 때문이다.
 > 기존 아레나 스냅샷이 매칭에서 걸러지고 다시 등록된다 — 의도한 동작이다.

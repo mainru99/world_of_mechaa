@@ -1,0 +1,3085 @@
+{
+  "source": "schema12 production stats.js; release 0bd5a8b (stats unchanged from f81ab1a)",
+  "samples": [
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "브레이커",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "atk": 16,
+          "spd": -3,
+          "spread": 0.032
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 26.4,
+        "spd": -3,
+        "spread": 0.032
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "합금 장갑",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "def": 12,
+          "eva": -0.015,
+          "spread": -0.039
+        },
+        "enh": 0
+      },
+      "expected": {
+        "def": 12,
+        "eva": -0.015,
+        "spread": -0.039
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "eva": 0.041,
+          "def": -4,
+          "spread": -0.056
+        },
+        "enh": 0
+      },
+      "expected": {
+        "eva": 0.041,
+        "def": -4,
+        "spread": -0.056
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "컨트롤 칩",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "crit": 0.042,
+          "spd": -4,
+          "spread": 0.043
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.042,
+        "spd": -4,
+        "spread": 0.043
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "채프 런처",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "crit": 0.032,
+          "spd": -2,
+          "spread": 0.026
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.03968,
+        "spd": -2,
+        "spread": 0.03224
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "합금 장갑",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "def": 18,
+          "eva": -0.012,
+          "spread": -0.068
+        },
+        "enh": 3
+      },
+      "expected": {
+        "def": 24.479999999999997,
+        "eva": -0.012,
+        "spread": -0.08432
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "플로트 팩",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "spd": 6,
+          "def": -8,
+          "spread": -0.048
+        },
+        "enh": 3
+      },
+      "expected": {
+        "spd": 8.16,
+        "def": -8,
+        "spread": -0.05952
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "컨트롤 칩",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 82,
+          "spd": -3,
+          "spread": 0.03
+        },
+        "enh": 3
+      },
+      "expected": {
+        "hp": 111.52,
+        "spd": -3,
+        "spread": 0.0372
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "채프 런처",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "atk": 9,
+          "spd": -5,
+          "spread": 0.03
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 32.67,
+        "spd": -5,
+        "spread": 0.054
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "합금 장갑",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 41,
+          "eva": -0.012,
+          "spread": -0.039
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 90.2,
+        "eva": -0.012,
+        "spread": -0.0702
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "플로트 팩",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "spd": 5,
+          "def": -6,
+          "spread": -0.028
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 11,
+        "def": -6,
+        "spread": -0.0504
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 73,
+          "spd": -4,
+          "spread": 0.035
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 160.60000000000002,
+        "spd": -4,
+        "spread": 0.06300000000000001
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "포톤 랜스",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "atk": 23,
+          "spd": -9,
+          "spread": 0.07
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 37.949999999999996,
+        "spd": -9,
+        "spread": 0.07
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "경량 골격",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 79,
+          "eva": -0.02,
+          "spread": -0.027
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 79,
+        "eva": -0.02,
+        "spread": -0.027
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "부스트 유닛",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "eva": 0.029,
+          "def": -12,
+          "spread": -0.065
+        },
+        "enh": 0
+      },
+      "expected": {
+        "eva": 0.029,
+        "def": -12,
+        "spread": -0.065
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "atk": 31,
+          "spd": -9,
+          "spread": 0.066
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 51.15,
+        "spd": -9,
+        "spread": 0.066
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "발칸포",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "atk": 21,
+          "spd": -7,
+          "spread": 0.027
+        },
+        "enh": 3
+      },
+      "expected": {
+        "atk": 47.123999999999995,
+        "spd": -7,
+        "spread": 0.03348
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "경량 골격",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "def": 23,
+          "eva": -0.01,
+          "spread": -0.045
+        },
+        "enh": 3
+      },
+      "expected": {
+        "def": 31.279999999999998,
+        "eva": -0.01,
+        "spread": -0.055799999999999995
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "플로트 팩",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "crit": 0.035,
+          "def": -10,
+          "spread": -0.069
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.0434,
+        "def": -10,
+        "spread": -0.08556000000000001
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 67,
+          "spd": -6,
+          "spread": 0.046
+        },
+        "enh": 3
+      },
+      "expected": {
+        "hp": 91.11999999999999,
+        "spd": -6,
+        "spread": 0.05704
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "포톤 랜스",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "atk": 34,
+          "spd": -6,
+          "spread": 0.036
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 123.42000000000002,
+        "spd": -6,
+        "spread": 0.0648
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "실드 프레임",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 97,
+          "eva": -0.012,
+          "spread": -0.036
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 213.4,
+        "eva": -0.012,
+        "spread": -0.0648
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "spd": 13,
+          "def": -13,
+          "spread": -0.057
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 28.6,
+        "def": -13,
+        "spread": -0.10260000000000001
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "오버드라이브",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "atk": 23,
+          "spd": -7,
+          "spread": 0.056
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 83.49,
+        "spd": -7,
+        "spread": 0.1008
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "브레이커",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "crit": 0.021,
+          "spd": -7,
+          "spread": 0.044
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.021,
+        "spd": -7,
+        "spread": 0.044
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "리액티브 아머",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 78,
+          "eva": -0.009,
+          "spread": -0.044
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 78,
+        "eva": -0.009,
+        "spread": -0.044
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "eva": 0.025,
+          "def": -14,
+          "spread": -0.067
+        },
+        "enh": 0
+      },
+      "expected": {
+        "eva": 0.025,
+        "def": -14,
+        "spread": -0.067
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "컨트롤 칩",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 149,
+          "spd": -9,
+          "spread": 0.045
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 149,
+        "spd": -9,
+        "spread": 0.045
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "채프 런처",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "crit": 0.04,
+          "spd": -11,
+          "spread": 0.067
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.0496,
+        "spd": -11,
+        "spread": 0.08308
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "리액티브 아머",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 90,
+          "eva": -0.015,
+          "spread": -0.059
+        },
+        "enh": 3
+      },
+      "expected": {
+        "hp": 122.39999999999999,
+        "eva": -0.015,
+        "spread": -0.07315999999999999
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "고기동 백",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "eva": 0.025,
+          "def": -14,
+          "spread": -0.069
+        },
+        "enh": 3
+      },
+      "expected": {
+        "eva": 0.031,
+        "def": -14,
+        "spread": -0.08556000000000001
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "리액터",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "atk": 40,
+          "spd": -11,
+          "spread": 0.026
+        },
+        "enh": 3
+      },
+      "expected": {
+        "atk": 89.75999999999998,
+        "spd": -11,
+        "spread": 0.03224
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "빔 세이버",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "atk": 33,
+          "spd": -7,
+          "spread": 0.057
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 119.79,
+        "spd": -7,
+        "spread": 0.10260000000000001
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "나노 코팅",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "def": 34,
+          "eva": -0.015,
+          "spread": -0.057
+        },
+        "enh": 10
+      },
+      "expected": {
+        "def": 74.80000000000001,
+        "eva": -0.015,
+        "spread": -0.10260000000000001
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "스러스터",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "spd": 22,
+          "def": -10,
+          "spread": -0.055
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 48.400000000000006,
+        "def": -10,
+        "spread": -0.099
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "C",
+        "ko": "일반",
+        "stats": {
+          "hp": 91,
+          "spd": -7,
+          "spread": 0.049
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 200.20000000000002,
+        "spd": -7,
+        "spread": 0.0882
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "레일건",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "atk": 41,
+          "spd": -18,
+          "spread": 0.084
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 67.64999999999999,
+        "spd": -18,
+        "spread": 0.084
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "경량 골격",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "def": 16,
+          "hp": 79,
+          "eva": -0.057,
+          "spread": -0.042
+        },
+        "enh": 0
+      },
+      "expected": {
+        "def": 16,
+        "hp": 79,
+        "eva": -0.057,
+        "spread": -0.042
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "스러스터",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.067,
+          "spd": 13,
+          "def": -18,
+          "spread": -0.084
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.067,
+        "spd": 13,
+        "def": -18,
+        "spread": -0.084
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "리액터",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "atk": 30,
+          "hp": 85,
+          "spd": -10,
+          "spread": 0.039
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 49.5,
+        "hp": 85,
+        "spd": -10,
+        "spread": 0.039
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "브레이커",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.048,
+          "atk": 14,
+          "spd": -15,
+          "spread": 0.06
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.05952,
+        "atk": 31.415999999999997,
+        "spd": -15,
+        "spread": 0.0744
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "실드 프레임",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "hp": 235,
+          "eva": -0.039,
+          "spread": -0.094
+        },
+        "enh": 3
+      },
+      "expected": {
+        "hp": 319.59999999999997,
+        "eva": -0.039,
+        "spread": -0.11656
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "spd": 10,
+          "crit": 0.038,
+          "def": -13,
+          "spread": -0.089
+        },
+        "enh": 3
+      },
+      "expected": {
+        "spd": 13.599999999999998,
+        "crit": 0.047119999999999995,
+        "def": -13,
+        "spread": -0.11036
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "컨트롤 칩",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.059,
+          "atk": 30,
+          "spd": -17,
+          "spread": 0.101
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.07315999999999999,
+        "atk": 67.32,
+        "spd": -17,
+        "spread": 0.12524000000000002
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "빔 세이버",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "atk": 28,
+          "spd": -17,
+          "spread": 0.104
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 101.64000000000001,
+        "spd": -17,
+        "spread": 0.1872
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "합금 장갑",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "def": 16,
+          "hp": 53,
+          "eva": -0.035,
+          "spread": -0.067
+        },
+        "enh": 10
+      },
+      "expected": {
+        "def": 35.2,
+        "hp": 116.60000000000001,
+        "eva": -0.035,
+        "spread": -0.12060000000000001
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "플로트 팩",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "spd": 23,
+          "def": -15,
+          "spread": -0.072
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 50.6,
+        "def": -15,
+        "spread": -0.1296
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "오버드라이브",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "hp": 114,
+          "def": 11,
+          "spd": -9,
+          "spread": 0.1
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 250.8,
+        "def": 24.200000000000003,
+        "spd": -9,
+        "spread": 0.18000000000000002
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "발칸포",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "atk": 35,
+          "crit": 0.075,
+          "spd": -23,
+          "spread": 0.046
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 57.75,
+        "crit": 0.075,
+        "spd": -23,
+        "spread": 0.046
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "나노 코팅",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "hp": 86,
+          "def": 28,
+          "eva": -0.041,
+          "spread": -0.094
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 86,
+        "def": 28,
+        "eva": -0.041,
+        "spread": -0.094
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "부스트 유닛",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "spd": 17,
+          "crit": 0.074,
+          "def": -41,
+          "spread": -0.076
+        },
+        "enh": 0
+      },
+      "expected": {
+        "spd": 17,
+        "crit": 0.074,
+        "def": -41,
+        "spread": -0.076
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "리액터",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.073,
+          "spd": -10,
+          "spread": 0.102
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.073,
+        "spd": -10,
+        "spread": 0.102
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "포톤 랜스",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "atk": 53,
+          "spd": -14,
+          "spread": 0.058
+        },
+        "enh": 3
+      },
+      "expected": {
+        "atk": 118.93199999999999,
+        "spd": -14,
+        "spread": 0.07192
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "나노 코팅",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "hp": 131,
+          "def": 40,
+          "eva": -0.049,
+          "spread": -0.078
+        },
+        "enh": 3
+      },
+      "expected": {
+        "hp": 178.16,
+        "def": 54.39999999999999,
+        "eva": -0.049,
+        "spread": -0.09672
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "플로트 팩",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "eva": 0.034,
+          "spd": 19,
+          "def": -29,
+          "spread": -0.075
+        },
+        "enh": 3
+      },
+      "expected": {
+        "eva": 0.04216,
+        "spd": 25.839999999999996,
+        "def": -29,
+        "spread": -0.093
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "hp": 188,
+          "atk": 37,
+          "spd": -25,
+          "spread": 0.079
+        },
+        "enh": 3
+      },
+      "expected": {
+        "hp": 255.67999999999998,
+        "atk": 83.02799999999998,
+        "spd": -25,
+        "spread": 0.09796
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "포톤 랜스",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "atk": 79,
+          "spd": -21,
+          "spread": 0.098
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 286.77,
+        "spd": -21,
+        "spread": 0.1764
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "경량 골격",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "hp": 109,
+          "def": 34,
+          "eva": -0.047,
+          "spread": -0.104
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 239.8,
+        "def": 74.80000000000001,
+        "eva": -0.047,
+        "spread": -0.1872
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "부스트 유닛",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.047,
+          "eva": 0.064,
+          "def": -34,
+          "spread": -0.1
+        },
+        "enh": 10
+      },
+      "expected": {
+        "crit": 0.08460000000000001,
+        "eva": 0.11520000000000001,
+        "def": -34,
+        "spread": -0.18000000000000002
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "컨트롤 칩",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "def": 24,
+          "crit": 0.064,
+          "spd": -24,
+          "spread": 0.051
+        },
+        "enh": 10
+      },
+      "expected": {
+        "def": 52.800000000000004,
+        "crit": 0.11520000000000001,
+        "spd": -24,
+        "spread": 0.09179999999999999
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "빔 세이버",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.031,
+          "atk": 43,
+          "spd": -34,
+          "spread": 0.1
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.031,
+        "atk": 70.95,
+        "spd": -34,
+        "spread": 0.1
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "나노 코팅",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "hp": 164,
+          "def": 35,
+          "eva": -0.036,
+          "spread": -0.09
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 164,
+        "def": 35,
+        "eva": -0.036,
+        "spread": -0.09
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "플로트 팩",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.091,
+          "def": -36,
+          "spread": -0.09
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.091,
+        "def": -36,
+        "spread": -0.09
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "컨트롤 칩",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.062,
+          "def": 45,
+          "spd": -34,
+          "spread": 0.089
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.062,
+        "def": 45,
+        "spd": -34,
+        "spread": 0.089
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "발칸포",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.131,
+          "spd": -33,
+          "spread": 0.049
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.16244,
+        "spd": -33,
+        "spread": 0.06076
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "나노 코팅",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "def": 76,
+          "eva": -0.036,
+          "spread": -0.091
+        },
+        "enh": 3
+      },
+      "expected": {
+        "def": 103.35999999999999,
+        "eva": -0.036,
+        "spread": -0.11284
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "고기동 백",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "spd": 24,
+          "crit": 0.07,
+          "def": -22,
+          "spread": -0.044
+        },
+        "enh": 3
+      },
+      "expected": {
+        "spd": 32.64,
+        "crit": 0.0868,
+        "def": -22,
+        "spread": -0.05456
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "hp": 165,
+          "def": 41,
+          "spd": -35,
+          "spread": 0.045
+        },
+        "enh": 3
+      },
+      "expected": {
+        "hp": 224.39999999999998,
+        "def": 55.76,
+        "spd": -35,
+        "spread": 0.055799999999999995
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "브레이커",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "atk": 104,
+          "spd": -15,
+          "spread": 0.06
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 377.52,
+        "spd": -15,
+        "spread": 0.108
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "경량 골격",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "def": 45,
+          "hp": 185,
+          "eva": -0.061,
+          "spread": -0.062
+        },
+        "enh": 10
+      },
+      "expected": {
+        "def": 99.00000000000001,
+        "hp": 407.00000000000006,
+        "eva": -0.061,
+        "spread": -0.1116
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "플로트 팩",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "spd": 36,
+          "def": -39,
+          "spread": -0.063
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 79.2,
+        "def": -39,
+        "spread": -0.1134
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "R",
+        "ko": "정밀",
+        "stats": {
+          "crit": 0.05,
+          "def": 52,
+          "spd": -25,
+          "spread": 0.089
+        },
+        "enh": 10
+      },
+      "expected": {
+        "crit": 0.09000000000000001,
+        "def": 114.4,
+        "spd": -25,
+        "spread": 0.1602
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "발칸포",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "atk": 59,
+          "crit": 0.09,
+          "spd": -17,
+          "spread": 0.11
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 97.35,
+        "crit": 0.09,
+        "spd": -17,
+        "spread": 0.11
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "실드 프레임",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "hp": 116,
+          "def": 56,
+          "eva": -0.089,
+          "spread": -0.127
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 116,
+        "def": 56,
+        "eva": -0.089,
+        "spread": -0.127
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "스러스터",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "eva": 0.09,
+          "spd": 18,
+          "crit": 0.051,
+          "def": -27,
+          "spread": -0.084
+        },
+        "enh": 0
+      },
+      "expected": {
+        "eva": 0.09,
+        "spd": 18,
+        "crit": 0.051,
+        "def": -27,
+        "spread": -0.084
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "hp": 111,
+          "def": 19,
+          "atk": 46,
+          "spd": -14,
+          "spread": 0.104
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 111,
+        "def": 19,
+        "atk": 75.89999999999999,
+        "spd": -14,
+        "spread": 0.104
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "브레이커",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "crit": 0.071,
+          "atk": 50,
+          "spd": -27,
+          "spread": 0.079
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.08804,
+        "atk": 112.19999999999999,
+        "spd": -27,
+        "spread": 0.09796
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "합금 장갑",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "hp": 332,
+          "def": 22,
+          "eva": -0.057,
+          "spread": -0.144
+        },
+        "enh": 3
+      },
+      "expected": {
+        "hp": 451.52,
+        "def": 29.919999999999998,
+        "eva": -0.057,
+        "spread": -0.17856
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "spd": 39,
+          "crit": 0.094,
+          "def": -36,
+          "spread": -0.136
+        },
+        "enh": 3
+      },
+      "expected": {
+        "spd": 53.03999999999999,
+        "crit": 0.11656,
+        "def": -36,
+        "spread": -0.16864
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "def": 41,
+          "crit": 0.058,
+          "atk": 22,
+          "spd": -22,
+          "spread": 0.113
+        },
+        "enh": 3
+      },
+      "expected": {
+        "def": 55.76,
+        "crit": 0.07192,
+        "atk": 49.367999999999995,
+        "spd": -22,
+        "spread": 0.14012
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "발칸포",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "atk": 43,
+          "crit": 0.109,
+          "spd": -12,
+          "spread": 0.082
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 156.09,
+        "crit": 0.1962,
+        "spd": -12,
+        "spread": 0.1476
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "실드 프레임",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "hp": 305,
+          "eva": -0.056,
+          "spread": -0.128
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 671,
+        "eva": -0.056,
+        "spread": -0.23040000000000002
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "spd": 19,
+          "eva": 0.045,
+          "crit": 0.089,
+          "def": -16,
+          "spread": -0.073
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 41.800000000000004,
+        "eva": 0.081,
+        "crit": 0.1602,
+        "def": -16,
+        "spread": -0.1314
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "crit": 0.065,
+          "atk": 38,
+          "hp": 100,
+          "spd": -16,
+          "spread": 0.058
+        },
+        "enh": 10
+      },
+      "expected": {
+        "crit": 0.117,
+        "atk": 137.94,
+        "hp": 220.00000000000003,
+        "spd": -16,
+        "spread": 0.1044
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "빔 세이버",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "atk": 86,
+          "crit": 0.11,
+          "spd": -24,
+          "spread": 0.153
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 141.9,
+        "crit": 0.11,
+        "spd": -24,
+        "spread": 0.153
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "나노 코팅",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "def": 99,
+          "hp": 210,
+          "eva": -0.063,
+          "spread": -0.137
+        },
+        "enh": 0
+      },
+      "expected": {
+        "def": 99,
+        "hp": 210,
+        "eva": -0.063,
+        "spread": -0.137
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "crit": 0.082,
+          "eva": 0.101,
+          "spd": 41,
+          "def": -27,
+          "spread": -0.055
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.082,
+        "eva": 0.101,
+        "spd": 41,
+        "def": -27,
+        "spread": -0.055
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "hp": 255,
+          "crit": 0.052,
+          "def": 52,
+          "spd": -19,
+          "spread": 0.103
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 255,
+        "crit": 0.052,
+        "def": 52,
+        "spd": -19,
+        "spread": 0.103
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "레일건",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "atk": 121,
+          "spd": -34,
+          "spread": 0.065
+        },
+        "enh": 3
+      },
+      "expected": {
+        "atk": 271.52399999999994,
+        "spd": -34,
+        "spread": 0.0806
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "실드 프레임",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "def": 106,
+          "hp": 160,
+          "eva": -0.049,
+          "spread": -0.073
+        },
+        "enh": 3
+      },
+      "expected": {
+        "def": 144.16,
+        "hp": 217.59999999999997,
+        "eva": -0.049,
+        "spread": -0.09051999999999999
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "고기동 백",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "eva": 0.139,
+          "crit": 0.062,
+          "def": -45,
+          "spread": -0.132
+        },
+        "enh": 3
+      },
+      "expected": {
+        "eva": 0.17236,
+        "crit": 0.07688,
+        "def": -45,
+        "spread": -0.16368000000000002
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "atk": 104,
+          "def": 25,
+          "spd": -17,
+          "spread": 0.062
+        },
+        "enh": 3
+      },
+      "expected": {
+        "atk": 233.37599999999998,
+        "def": 34,
+        "spd": -17,
+        "spread": 0.07688
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "발칸포",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "atk": 189,
+          "spd": -31,
+          "spread": 0.078
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 686.0699999999999,
+        "spd": -31,
+        "spread": 0.1404
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "경량 골격",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "def": 171,
+          "eva": -0.065,
+          "spread": -0.098
+        },
+        "enh": 10
+      },
+      "expected": {
+        "def": 376.20000000000005,
+        "eva": -0.065,
+        "spread": -0.1764
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "플로트 팩",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "spd": 71,
+          "eva": 0.096,
+          "def": -53,
+          "spread": -0.125
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 156.20000000000002,
+        "eva": 0.1728,
+        "def": -53,
+        "spread": -0.225
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "오버드라이브",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "def": 105,
+          "hp": 169,
+          "spd": -27,
+          "spread": 0.074
+        },
+        "enh": 10
+      },
+      "expected": {
+        "def": 231.00000000000003,
+        "hp": 371.8,
+        "spd": -27,
+        "spread": 0.13319999999999999
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "레일건",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "crit": 0.151,
+          "atk": 63,
+          "spd": -22,
+          "spread": 0.057
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.151,
+        "atk": 103.94999999999999,
+        "spd": -22,
+        "spread": 0.057
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "경량 골격",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "def": 51,
+          "hp": 659,
+          "eva": -0.047,
+          "spread": -0.136
+        },
+        "enh": 0
+      },
+      "expected": {
+        "def": 51,
+        "hp": 659,
+        "eva": -0.047,
+        "spread": -0.136
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "고기동 백",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "eva": 0.095,
+          "spd": 99,
+          "def": -67,
+          "spread": -0.139
+        },
+        "enh": 0
+      },
+      "expected": {
+        "eva": 0.095,
+        "spd": 99,
+        "def": -67,
+        "spread": -0.139
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "컨트롤 칩",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "def": 128,
+          "hp": 256,
+          "spd": -50,
+          "spread": 0.091
+        },
+        "enh": 0
+      },
+      "expected": {
+        "def": 128,
+        "hp": 256,
+        "spd": -50,
+        "spread": 0.091
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "채프 런처",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "crit": 0.248,
+          "spd": -27,
+          "spread": 0.106
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.30752,
+        "spd": -27,
+        "spread": 0.13144
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "나노 코팅",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "def": 44,
+          "hp": 631,
+          "eva": -0.069,
+          "spread": -0.137
+        },
+        "enh": 3
+      },
+      "expected": {
+        "def": 59.839999999999996,
+        "hp": 858.16,
+        "eva": -0.069,
+        "spread": -0.16988
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "스러스터",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "spd": 22,
+          "crit": 0.049,
+          "eva": 0.079,
+          "def": -59,
+          "spread": -0.143
+        },
+        "enh": 3
+      },
+      "expected": {
+        "spd": 29.919999999999998,
+        "crit": 0.06076,
+        "eva": 0.09796,
+        "def": -59,
+        "spread": -0.17731999999999998
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "atk": 128,
+          "def": 71,
+          "spd": -44,
+          "spread": 0.063
+        },
+        "enh": 3
+      },
+      "expected": {
+        "atk": 287.23199999999997,
+        "def": 96.55999999999999,
+        "spd": -44,
+        "spread": 0.07812
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "채프 런처",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "atk": 211,
+          "spd": -51,
+          "spread": 0.11
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 765.9300000000001,
+        "spd": -51,
+        "spread": 0.198
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "리액티브 아머",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "hp": 499,
+          "def": 38,
+          "eva": -0.047,
+          "spread": -0.078
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 1097.8000000000002,
+        "def": 83.60000000000001,
+        "eva": -0.047,
+        "spread": -0.1404
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "고기동 백",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "spd": 33,
+          "eva": 0.174,
+          "def": -76,
+          "spread": -0.105
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 72.60000000000001,
+        "eva": 0.3132,
+        "def": -76,
+        "spread": -0.189
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "SR",
+        "ko": "시제",
+        "stats": {
+          "atk": 145,
+          "hp": 307,
+          "spd": -37,
+          "spread": 0.135
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 526.35,
+        "hp": 675.4000000000001,
+        "spd": -37,
+        "spread": 0.24300000000000002
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "발칸포",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "atk": 91,
+          "crit": 0.138,
+          "spd": -26,
+          "spread": 0.17
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 150.15,
+        "crit": 0.138,
+        "spd": -26,
+        "spread": 0.17
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "실드 프레임",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "hp": 180,
+          "def": 86,
+          "eva": -0.138,
+          "spread": -0.197
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 180,
+        "def": 86,
+        "eva": -0.138,
+        "spread": -0.197
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "스러스터",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "eva": 0.139,
+          "spd": 27,
+          "crit": 0.079,
+          "def": -41,
+          "spread": -0.129
+        },
+        "enh": 0
+      },
+      "expected": {
+        "eva": 0.139,
+        "spd": 27,
+        "crit": 0.079,
+        "def": -41,
+        "spread": -0.129
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "hp": 172,
+          "def": 29,
+          "atk": 72,
+          "spd": -22,
+          "spread": 0.16
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 172,
+        "def": 29,
+        "atk": 118.8,
+        "spd": -22,
+        "spread": 0.16
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "브레이커",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "crit": 0.109,
+          "atk": 77,
+          "spd": -42,
+          "spread": 0.122
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.13516,
+        "atk": 172.78799999999995,
+        "spd": -42,
+        "spread": 0.15128
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "합금 장갑",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "hp": 514,
+          "def": 33,
+          "eva": -0.089,
+          "spread": -0.223
+        },
+        "enh": 3
+      },
+      "expected": {
+        "hp": 699.04,
+        "def": 44.879999999999995,
+        "eva": -0.089,
+        "spread": -0.27652
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "spd": 60,
+          "crit": 0.146,
+          "def": -55,
+          "spread": -0.21
+        },
+        "enh": 3
+      },
+      "expected": {
+        "spd": 81.6,
+        "crit": 0.18103999999999998,
+        "def": -55,
+        "spread": -0.26039999999999996
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "def": 63,
+          "crit": 0.09,
+          "atk": 34,
+          "spd": -34,
+          "spread": 0.174
+        },
+        "enh": 3
+      },
+      "expected": {
+        "def": 85.67999999999999,
+        "crit": 0.11159999999999999,
+        "atk": 76.29599999999999,
+        "spd": -34,
+        "spread": 0.21575999999999998
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "발칸포",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "atk": 66,
+          "crit": 0.168,
+          "spd": -18,
+          "spread": 0.127
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 239.58,
+        "crit": 0.3024,
+        "spd": -18,
+        "spread": 0.2286
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "실드 프레임",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "hp": 472,
+          "eva": -0.087,
+          "spread": -0.197
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 1038.4,
+        "eva": -0.087,
+        "spread": -0.3546
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "spd": 30,
+          "eva": 0.07,
+          "crit": 0.138,
+          "def": -25,
+          "spread": -0.112
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 66,
+        "eva": 0.12600000000000003,
+        "crit": 0.24840000000000004,
+        "def": -25,
+        "spread": -0.2016
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "crit": 0.1,
+          "atk": 59,
+          "hp": 154,
+          "spd": -25,
+          "spread": 0.09
+        },
+        "enh": 10
+      },
+      "expected": {
+        "crit": 0.18000000000000002,
+        "atk": 214.17000000000002,
+        "hp": 338.8,
+        "spd": -25,
+        "spread": 0.162
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "빔 세이버",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "atk": 133,
+          "crit": 0.169,
+          "spd": -37,
+          "spread": 0.237
+        },
+        "enh": 0
+      },
+      "expected": {
+        "atk": 219.45,
+        "crit": 0.169,
+        "spd": -37,
+        "spread": 0.237
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "나노 코팅",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "def": 152,
+          "hp": 324,
+          "eva": -0.098,
+          "spread": -0.211
+        },
+        "enh": 0
+      },
+      "expected": {
+        "def": 152,
+        "hp": 324,
+        "eva": -0.098,
+        "spread": -0.211
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "AMBAC",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "crit": 0.126,
+          "eva": 0.156,
+          "spd": 63,
+          "def": -41,
+          "spread": -0.085
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.126,
+        "eva": 0.156,
+        "spd": 63,
+        "def": -41,
+        "spread": -0.085
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "hp": 394,
+          "crit": 0.08,
+          "def": 80,
+          "spd": -30,
+          "spread": 0.159
+        },
+        "enh": 0
+      },
+      "expected": {
+        "hp": 394,
+        "crit": 0.08,
+        "def": 80,
+        "spd": -30,
+        "spread": 0.159
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "레일건",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "atk": 188,
+          "spd": -52,
+          "spread": 0.1
+        },
+        "enh": 3
+      },
+      "expected": {
+        "atk": 421.87199999999996,
+        "spd": -52,
+        "spread": 0.124
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "실드 프레임",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "def": 163,
+          "hp": 247,
+          "eva": -0.076,
+          "spread": -0.113
+        },
+        "enh": 3
+      },
+      "expected": {
+        "def": 221.67999999999998,
+        "hp": 335.91999999999996,
+        "eva": -0.076,
+        "spread": -0.14012
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "고기동 백",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "eva": 0.215,
+          "crit": 0.096,
+          "def": -69,
+          "spread": -0.204
+        },
+        "enh": 3
+      },
+      "expected": {
+        "eva": 0.2666,
+        "crit": 0.11904,
+        "def": -69,
+        "spread": -0.25295999999999996
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "atk": 160,
+          "def": 38,
+          "spd": -26,
+          "spread": 0.096
+        },
+        "enh": 3
+      },
+      "expected": {
+        "atk": 359.0399999999999,
+        "def": 51.67999999999999,
+        "spd": -26,
+        "spread": 0.11904
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "발칸포",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "atk": 291,
+          "spd": -47,
+          "spread": 0.121
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 1056.33,
+        "spd": -47,
+        "spread": 0.2178
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "경량 골격",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "def": 265,
+          "eva": -0.101,
+          "spread": -0.152
+        },
+        "enh": 10
+      },
+      "expected": {
+        "def": 583,
+        "eva": -0.101,
+        "spread": -0.2736
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "플로트 팩",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "spd": 111,
+          "eva": 0.149,
+          "def": -82,
+          "spread": -0.193
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 244.20000000000002,
+        "eva": 0.2682,
+        "def": -82,
+        "spread": -0.34740000000000004
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "오버드라이브",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "def": 161,
+          "hp": 261,
+          "spd": -41,
+          "spread": 0.114
+        },
+        "enh": 10
+      },
+      "expected": {
+        "def": 354.20000000000005,
+        "hp": 574.2,
+        "spd": -41,
+        "spread": 0.20520000000000002
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "레일건",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "crit": 0.234,
+          "atk": 98,
+          "spd": -35,
+          "spread": 0.089
+        },
+        "enh": 0
+      },
+      "expected": {
+        "crit": 0.234,
+        "atk": 161.7,
+        "spd": -35,
+        "spread": 0.089
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "경량 골격",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "def": 79,
+          "hp": 1019,
+          "eva": -0.072,
+          "spread": -0.21
+        },
+        "enh": 0
+      },
+      "expected": {
+        "def": 79,
+        "hp": 1019,
+        "eva": -0.072,
+        "spread": -0.21
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "고기동 백",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "eva": 0.147,
+          "spd": 152,
+          "def": -103,
+          "spread": -0.215
+        },
+        "enh": 0
+      },
+      "expected": {
+        "eva": 0.147,
+        "spd": 152,
+        "def": -103,
+        "spread": -0.215
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "컨트롤 칩",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "def": 199,
+          "hp": 396,
+          "spd": -77,
+          "spread": 0.141
+        },
+        "enh": 0
+      },
+      "expected": {
+        "def": 199,
+        "hp": 396,
+        "spd": -77,
+        "spread": 0.141
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "채프 런처",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "crit": 0.384,
+          "spd": -41,
+          "spread": 0.163
+        },
+        "enh": 3
+      },
+      "expected": {
+        "crit": 0.47616,
+        "spd": -41,
+        "spread": 0.20212
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "나노 코팅",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "def": 68,
+          "hp": 976,
+          "eva": -0.106,
+          "spread": -0.212
+        },
+        "enh": 3
+      },
+      "expected": {
+        "def": 92.47999999999999,
+        "hp": 1327.36,
+        "eva": -0.106,
+        "spread": -0.26288
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "스러스터",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "spd": 34,
+          "crit": 0.076,
+          "eva": 0.121,
+          "def": -92,
+          "spread": -0.22
+        },
+        "enh": 3
+      },
+      "expected": {
+        "spd": 46.239999999999995,
+        "crit": 0.09423999999999999,
+        "eva": 0.15004,
+        "def": -92,
+        "spread": -0.2728
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "전술 코어",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "atk": 198,
+          "def": 109,
+          "spd": -67,
+          "spread": 0.097
+        },
+        "enh": 3
+      },
+      "expected": {
+        "atk": 444.31199999999995,
+        "def": 148.23999999999998,
+        "spd": -67,
+        "spread": 0.12028
+      }
+    },
+    {
+      "part": {
+        "uid": "WEAPON",
+        "slot": "WEAPON",
+        "name": "채프 런처",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "atk": 327,
+          "spd": -79,
+          "spread": 0.17
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 1187.01,
+        "spd": -79,
+        "spread": 0.30600000000000005
+      }
+    },
+    {
+      "part": {
+        "uid": "FRAME",
+        "slot": "FRAME",
+        "name": "리액티브 아머",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "hp": 771,
+          "def": 58,
+          "eva": -0.072,
+          "spread": -0.121
+        },
+        "enh": 10
+      },
+      "expected": {
+        "hp": 1696.2,
+        "def": 127.60000000000001,
+        "eva": -0.072,
+        "spread": -0.2178
+      }
+    },
+    {
+      "part": {
+        "uid": "BOOSTER",
+        "slot": "BOOSTER",
+        "name": "고기동 백",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "spd": 51,
+          "eva": 0.27,
+          "def": -118,
+          "spread": -0.162
+        },
+        "enh": 10
+      },
+      "expected": {
+        "spd": 112.2,
+        "eva": 0.48600000000000004,
+        "def": -118,
+        "spread": -0.2916
+      }
+    },
+    {
+      "part": {
+        "uid": "CORE",
+        "slot": "CORE",
+        "name": "제너레이터",
+        "rarity": "SSR",
+        "ko": "초월",
+        "stats": {
+          "atk": 224,
+          "hp": 474,
+          "spd": -57,
+          "spread": 0.209
+        },
+        "enh": 10
+      },
+      "expected": {
+        "atk": 813.1200000000001,
+        "hp": 1042.8000000000002,
+        "spd": -57,
+        "spread": 0.3762
+      }
+    }
+  ]
+}

@@ -19,6 +19,8 @@ import { rollPart, BASES_BY_SLOT } from '../js/gacha.js';
 import { computeStats, partStat, partMods, isNewPart, powerOf, SLOT_ORDER } from '../js/stats.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 
+import { calibratePartPower } from './partpower.mjs';
+
 const N = Math.max(1000, parseInt(process.argv[2] || '100000', 10));
 const LV = 40;
 const REFS = ['mule', 'ranger', 'azure'];
@@ -262,69 +264,18 @@ console.log('\n⑦ 판 길이 — 양쪽 다 한 벌을 끼운 대결 (맨몸 �
      ' ' + shortest.toFixed(1) + '타)');
 }
 
-/* ── ⑧ 표시 전투력이 얼마나 맞나 — §8 의 세 번째 위험 ─────────────
-   `powerOf` 는 구간(spread)도 고유 효과(관통·스택·재생)도 안 센다. 아레나가
-   전투력 ±15% 창으로 매칭하므로, 전투력이 실제 세기를 잘못 말하면 매칭이 틀어진다.
-
-   재는 법 — 베이스 21종을 하나씩 끼우고 **전투력 증가율**과 **실제 승률**을
-   같이 잰 뒤, 둘 사이 직선을 구해 각 베이스가 그 직선에서 얼마나 벗어나는지 본다.
-   전투력이 완벽한 예보기라면 전부 직선 위에 놓인다.
-
-   2026-09-12 실측에서 드러난 것 — **고유 효과가 주범이 아니었다.**
-   오차가 가장 큰 둘(리액터 +3.1%p · 실드 프레임 +2.5%p)은 고유 효과도 구간 배수도
-   없다. `powerOf` 의 생존 항(`hp × (1+def/100) / (1-eva)`)이 방어·체력 중심 조합을
-   과소평가하는 것이 더 크다. 고유 효과 2종의 평균 오차는 -1.19%p 였다.
-
-   그래서 **고치지 않았다.** 아레나의 ±15% 창은 승률로 약 ±13%p 에 해당하는데
-   평균 오차는 1%p 아래다. 고유 효과를 전투력에 욱여넣으면(채프는 판이 길어질수록
-   약해지고 관통은 상대 방어가 높을 때만 값이 있다) 상황에 따라 달라지는 것을
-   상수로 적는 셈이라, 지금 오차보다 크게 틀릴 수 있다.
-   여기서는 **그 판단이 계속 유효한지만 지킨다.** */
-console.log('\n⑧ 표시 전투력 — 실제 세기를 얼마나 맞히나');
+/* ⑧ Independent controls preserve a positive, measured +/-15% matching window.
+   A regression fitted to 21 already-balanced parts can have a zero/negative slope;
+   it cannot calibrate the same parts' prediction error. Never abs() that slope. */
+console.log('\n⑧ 표시 전투력 — 독립 대조군으로 측정');
 {
-  const one = id => { const B = PART_BASES[id];
-    return { uid:'x', slot:B.slot, base:id, rarity:'C', ko:'일반',
-             name:B.ko, affixes:[], seed:0, lv:LV, enh:0 }; };
-  const rows = [];
-  for (const id in PART_BASES) {
-    const p = one(id);
-    let w = 0, n = 0, pw = 0, bw = 0;
-    for (const t of REFS) {
-      const rb = { type:t, level:LV, skillLv:0, fat:0, slots:{} };
-      const bare = computeStats(rb, []);
-      const mine = computeStats({ ...rb, slots:{ [p.slot]:'x' } }, [p]);
-      pw += powerOf(mine); bw += powerOf(bare);
-      for (let i = 0; i < 400; i++) {
-        const ev = simulate(makeUnit('P', t, mine), makeUnit('E', t, bare), i * 7919 + 13);
-        if (ev[ev.length - 1].winner === 'P') w++;
-        n++;
-      }
-    }
-    rows.push({ id, ko: PART_BASES[id].ko, fx: !!PART_BASES[id].fx, wr: w / n * 100, gain: (pw / bw - 1) * 100 });
-  }
-  /* 전투력 증가율 → 승률 직선 */
-  const mx = rows.reduce((s, r) => s + r.gain, 0) / rows.length;
-  const my = rows.reduce((s, r) => s + r.wr, 0) / rows.length;
-  const k = rows.reduce((s, r) => s + (r.gain - mx) * (r.wr - my), 0)
-          / rows.reduce((s, r) => s + (r.gain - mx) ** 2, 0);
-  const c = my - k * mx;
-  let sum = 0, worst = null, fxSum = 0, fxN = 0;
-  for (const r of rows) {
-    r.err = r.wr - (k * r.gain + c);
-    sum += Math.abs(r.err);
-    if (!worst || Math.abs(r.err) > Math.abs(worst.err)) worst = r;
-    if (r.fx) { fxSum += r.err; fxN++; }
-  }
-  const mae = sum / rows.length;
-  console.log(`     승률 ≈ ${k.toFixed(2)} × 전투력증가% + ${c.toFixed(1)}`);
-  console.log(`     평균 절대오차 ${mae.toFixed(2)}%p · 가장 어긋난 것 ${worst.ko} ${worst.err > 0 ? '+' : ''}${worst.err.toFixed(1)}%p` +
-              (worst.fx ? ' (고유효과)' : ' (고유효과 아님)'));
-  console.log(`     고유효과 ${fxN}종 평균 ${fxSum / fxN > 0 ? '+' : ''}${(fxSum / fxN).toFixed(2)}%p`);
-  /* 아레나 ±15% 창 = 승률로 약 ±(15×k)%p. 그 10분의 1 을 넘으면 매칭이 흔들린다. */
-  const budget = 15 * k / 10;
-  is(mae < budget, `전투력 오차가 아레나 매칭 창(±15%)에 비해 작다 (${mae.toFixed(2)} < ${budget.toFixed(2)}%p)`);
-  is(Math.abs(fxSum / fxN) < 2.0,
-     `고유 효과를 안 세는 것이 아직 감당할 만하다 (평균 ${Math.abs(fxSum / fxN).toFixed(2)}%p)`);
+  const { summary: s } = calibratePartPower();
+  console.log(`     평균 오차 ${s.mae.toFixed(2)}%p · 기체별 오차 ${s.perRefMae.toFixed(2)}%p · 허용 ${s.budget.toFixed(2)}%p`);
+  console.log(`     등가 전투력 오차 ${s.avgPowerError.toFixed(3)}% · 고유효과 ${s.fxMean.toFixed(2)}%p`);
+  is(s.identifiable, '독립 대조군이 단조 증가·거울 50%·턴 제한 미도달');
+  is(s.aggregatePass && s.perRefPass && s.equivalentPowerPass,
+     '전투력 오차가 실제 아레나 매칭 창의 1/10 미만');
+  is(s.fxPass, '고유 효과 평균 오차 절댓값 2%p 미만');
 }
 
 console.log(fail ? '\n' + R('✗ ' + fail + '건 실패') : '\n' + G('전부 통과'));

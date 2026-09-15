@@ -77,9 +77,10 @@ export const findPart = (u, parts) => parts.find(p => p.uid === u);
    spread 는 대가가 아니라 '성향' 이라 음수여도 그대로 강화를 탄다
    (SLOT_SPREAD — 프레임·부스터는 구간을 좁히는 쪽이 이득이다). */
 function legacyStat(p) {
+  // 저장된 구형 장비의 강화값은 운영 v12 그대로다. 새 베이스용 ENH_SCALE을 소급하지 않는다.
   const o = {}, e = p.enh || 0, cost = SLOT_COST[p.slot];
   for (const k in p.stats)
-    o[k] = k === cost ? p.stats[k] : p.stats[k] * (1 + e * (isPct(k) ? (CONST.ENH_PCT ?? 0.08) : (CONST.ENH_SCALE ?? 0.28)));
+    o[k] = k === cost ? p.stats[k] : p.stats[k] * (1 + e * (isPct(k) ? 0.08 : 0.12));
   /* ── ATK_SCALE 은 **옛 파츠에만** 건다 ──────────────────────────────
      옛 파츠의 공격력은 STAT_ROLL.atk = [6,16] 에서 굴린 '배율 전' 값이다.
      기체 기본 공격력도 배율 전 값이라(computeStats 가 거기서 곱한다) 둘의 단위를
@@ -324,7 +325,11 @@ export function powerOf(s) {
      average share of offense. Old snapshots without skillMul keep the old power. */
   const sm = Number.isFinite(s.skillMul) ? Math.max(1, s.skillMul) : 1;
   const skillOff = 1 + CONST.SKILL_POWER_SHARE * (sm - 1);
-  const off = s.atk * (1 + s.crit * (CONST.CRIT_MULT - 1)) * s.spd * skillOff;
+  // Chaff never resets its five-shot slowdown. Use its sustained speed for the
+  // display estimate; opening turns can be faster. No-FX/legacy power is identical.
+  const sustainedSpd = s.stackSpd < 0 && s.stackMax > 0
+    ? Math.max(1, s.spd * (1 + s.stackSpd * s.stackMax)) : s.spd;
+  const off = s.atk * (1 + s.crit * (CONST.CRIT_MULT - 1)) * sustainedSpd * skillOff;
   const sur = s.hp * (1 + s.def / 100) / Math.max(0.4, 1 - s.eva);
   return Math.round(Math.sqrt(off * sur) * POWER_K);
 }

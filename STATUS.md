@@ -6,7 +6,7 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-13 · IGNIS 10프레임 운영 복구 완료 · 36프레임은 검토용 · 파츠 배포 보류 유지
+- **마지막 갱신** — 2026-09-15 · 파츠 개편 수치 1차 확정(ⓔ) · 회귀 12종 통과 · 배포 진행
 - **스키마 버전** — 로컬 **13** · 운영 **12** (013 은 배포할 때 같이 넣는다)
 - **지금 단계** — 경제·스킬 강화·30종 기체 개성, 코어 캡슐 원화와 개방 연출은 완료했다.
   격납고·대문·뽑기 배경, 재화 아이콘 3개, 점령 지형 6개를 사용자 지시로 ChatGPT가 직접 연결했다.
@@ -32,7 +32,8 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 | 파츠 개편 6단계 | **구현·검증 완료 · 배포 보류** | 계열 판정을 base 로. 옛 2개+새 2개 섞어 끼워도 4세트 성립 |
 | 파츠 개편 7단계 | **구현·검증 완료 · 배포 보류** | D1 칸 넷 · 위조 판정 · 운영 013 은 배포 때 같이 넣는다 |
 | 파츠 개편 8단계 | **구현·화면 확인 완료 · 배포 보류** | 인챈트 딱지·구간 배수·고유 효과 문장. `powerOf` 는 재 보고 안 고치기로 |
-| 파츠 개편 9단계 | **미통과 · 배포 중단** | 끝판 장비가 개편 전의 0.54배. **수치 결정 대기(ChatGPT)** |
+| 파츠 개편 9단계 | **회귀 통과 · 배포 보류 해제** | 끝판 0.54배 → 수치 재조정으로 해소. 사다리 ×2.64 · 조합 폭 ×1.10 |
+| 파츠 개편 수치(ⓔ) | **1차 확정** | `RARITY.pos` · `ENH_SCALE` · `PART_BASES` 21종. `BALANCE.md` ⓔ 에 실측 |
 | 이미지 연결 수정본 운영 반영 | **배포 완료** | `079fb43` · Worker/정적 파일 동시 배포, 실제 URL 파일 해시·화면 확인 |
 
 원래 요청 5묶음·12파일의 그림 제작은 모두 완료했다. 잔여 11종 합계는 1,013,484 bytes다.
@@ -193,11 +194,11 @@ npx wrangler d1 execute rowar --remote --file=./server/migrations/013_part_base.
 node tools/partmigrate.mjs --remote > .tmp/affixes-remote.sql
 npx wrangler d1 execute rowar --remote --file=.tmp/affixes-remote.sql
 npm run deploy
-curl -s https://rowar.hun7539.workers.dev/api/health     # schema_version 13 · balance_ver 6r5uzb
+curl -s https://rowar.hun7539.workers.dev/api/health     # schema_version 13 · balance_ver 15smta4
 ```
 
 배포 뒤 확인할 것 — `/api/health` 의 `schema_version` 이 **13**, `balance_ver` 가
-**`6r5uzb`**(파츠 표를 해시에 넣어서 바뀐다). 운영 파츠 69개가 전부 `base`·`affixes` 를
+**`15smta4`**(파츠 표를 해시에 넣어서 바뀐다). 운영 파츠 69개가 전부 `base`·`affixes` 를
 갖는지 위 ③ 명령으로 본다.
 
 > **되돌리려면** 4단계 커밋을 되돌리면 옛 `genPart` 로 간다(`DESIGN.md` §9).
@@ -227,7 +228,7 @@ npx wrangler d1 execute rowar --local --command="SELECT COUNT(*) total, SUM(base
 모두 베이스와 1:1 로 맞는다(확인함). `lv` 는 주인의 최고 기체 레벨로 채워진다 —
 지금 운영은 20계정 중 15계정이 Lv.1 이고 최고가 Lv.46 이다.
 
-> **`balance_ver` 가 `8updih` → `6r5uzb` 로 바뀐다.** 파츠 표를 해시에 넣었기 때문이다.
+> **`balance_ver` 가 `8updih` → `15smta4` 로 바뀐다.** 파츠 표를 해시에 넣었기 때문이다.
 > 기존 아레나 스냅샷이 매칭에서 걸러지고 다시 등록된다 — 의도한 동작이다.
 
 **작업 시작 전에 이 둘을 돌려 볼 것** — 지금은 전부 통과 상태다:

@@ -17,6 +17,7 @@ import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, ga
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed } from './breach.js';
+import { weekOf, trialOf, runTrial, trialWon, foeStats } from './trial.js';
 import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
          fuseCheck, fuseCost, fuseUpRate, nextRarity } from './gacha.js';
@@ -378,6 +379,7 @@ function go(scr){ cur=scr; _sceneTerrain=null; setScene(scr); document.querySele
   else if(scr==='gacha') renderGacha();
   else if(scr==='battle') renderBattleHome();     // 대전은 여기서만 처음부터 그린다
   else if(scr==='rank') renderRank();
+  else if(scr==='trial') renderTrial();
   else if(scr==='hunt') renderHunt();
   else if(scr==='terr') renderTerr(); }
 /* 하단 티커 — 시간이 흐르는 것들만 모아 늘 보이게 한다.
@@ -1133,6 +1135,125 @@ function dropRankCache(){ _rankCache=null; _rankAt=0; _rankPage=null; }
 const RANK_PAGE = 10;
 let _rankPage = null;                 // null = 아직 안 정함 → 내가 있는 페이지로 연다
 function rankPage(n){ _rankPage = Math.max(0, n|0); renderRank(); }
+
+/* ── 주간 시련 ────────────────────────────────────────────
+   파밍으로 만든 빌드를 **시험할 자리**다. 아레나는 매번 상대가 다르고 보상이 걸려
+   있어서 '이 조합이 나은가' 를 견줄 수 없다. 여기서는 상대가 일주일 내내 고정이다.
+
+   그래서 점수가 **결정적**이다 — 같은 빌드로 다시 눌러도 같은 점수다. 점수를 올리는
+   유일한 길이 빌드를 바꾸는 것이다. 그 대신 출격비도 피로도도 횟수 제한도 없다.
+
+   규칙(js/trial.js)은 서버와 공유한다. 여기서는 **판정하지 않는다** — 서버가 낸
+   점수를 받아 적고, 재생만 같은 함수로 다시 돌린다. */
+let _trial=null, _trialAt=0;
+const TRIAL_TTL = 30000;
+function dropTrialCache(){ _trial=null; _trialAt=0; }
+
+async function renderTrial(){
+  const el=$('#sc-trial');
+  const wrap = inner => `<h2 class="title">주간 시련</h2>${inner}`;
+  if(!net.state.online){
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">주간 시련은 서버 연결이 필요합니다. 순위는 서버에 하나뿐입니다.</div></div>`);
+    return;
+  }
+  const fresh = _trial && (Date.now()-_trialAt) < TRIAL_TTL;
+  if(!fresh) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
+    <div style="font-weight:800">이번 주 시련을 불러오는 중...</div></div></div>`);
+  const r = fresh ? _trial : await net.trial(false);
+  if(r && !r.error){ _trial=r; _trialAt=Date.now(); }
+  if(!r || r.error){
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
+    return;
+  }
+  drawTrial(r);
+}
+
+function trialScoreText(sc, winBase){
+  if(sc==null) return '—';
+  return sc >= (winBase||500000)
+    ? `<b style="color:var(--gold)">${fmt(sc)}</b> <span class="tag">클리어</span>`
+    : `<b>${fmt(sc)}</b> <span class="ps" style="color:var(--dim)">피해 ${(sc/999).toFixed(0)}%</span>`;
+}
+
+function drawTrial(r){
+  const t=r.trial, M=MONSTER_TYPES[t.type]||{}, TE=TERRAIN[t.terrain]||{};
+  const rb=selRobot();
+  const left=Math.max(0, r.endsAt - Date.now());
+  const rows = r.top.length ? r.top.map(x=>`<tr class="${x.me?'me':''}">
+      <td class="rk">${x.rank}</td>
+      <td class="nm">${esc(x.nickname)}${x.me?' <span class="tag">나</span>':''}</td>
+      <td>${x.type&&ROBOT_TYPES[x.type]?esc(ROBOT_TYPES[x.type].name):'—'}</td>
+      <td class="sc">${trialScoreText(x.score, r.winBase)}</td></tr>`).join('')
+    : `<tr><td colspan="4" class="empty">아직 아무도 기록하지 않았습니다. 첫 번째가 되세요.</td></tr>`;
+
+  $('#sc-trial').innerHTML = `<h2 class="title">주간 시련</h2>
+    <div class="tr2">
+      <div class="panel">
+        <div class="dh">이번 주 상대 · ${dur(left)} 남음</div>
+        <div class="trfoe" data-terrain="${esc(t.terrain)}">
+          <div class="sprite" data-t="${esc(M.rarity||'C')}">${sprite(t.type,false)}</div>
+          <div>
+            <div class="rname">${esc(M.name||t.type)} <span class="lv">Lv.${t.level}</span></div>
+            <div class="rrole">${esc(M.role||'')}</div>
+            <div class="trterr"><b>${esc(TE.ko||t.terrain)}</b> · ${esc(TE.desc||'보정 없음')}</div>
+          </div>
+        </div>
+        <div class="hint">지형 보정은 <b>양쪽 모두</b>에 걸립니다. 이번 주 내내 상대와 지형이 같습니다.</div>
+        <div class="fpv" style="margin-top:10px">
+          <div><span>내 출전 기체</span><b>${rb?esc(ROBOT_TYPES[rb.type].name)+' Lv.'+rb.level:'없음'}</b></div>
+          <div><span>전투력</span><b>${rb?fmt(power(rb)):'—'}</b></div>
+          <div><span>내 최고 점수</span><b>${r.me?trialScoreText(r.me.score,r.winBase):'—'}</b></div>
+          <div><span>내 순위</span><b>${r.me&&r.me.rank?`${r.me.rank} / ${fmt(r.total)}`:'—'}</b></div>
+        </div>
+        <button class="btn big gold" style="margin-top:10px" onclick="ROWAR.trialRun()">도전</button>
+        <div class="hint">출격비·피로도·횟수 제한이 없습니다. <b>같은 빌드면 결과가 같습니다</b> —
+          점수를 올리려면 파츠나 기체를 바꿔야 합니다.</div>
+      </div>
+
+      <div class="panel">
+        <h2 class="title" style="margin-top:0">순위 <span class="cnt">${fmt(r.total)}명</span></h2>
+        <div class="rx"><table class="rank"><thead><tr>
+          <th>#</th><th>이름</th><th>기체</th><th>점수</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+      </div>
+    </div>`;
+}
+
+async function trialRunGo(){
+  if(!net.state.online){ toast('주간 시련은 서버 연결이 필요합니다'); return; }
+  const r = await net.trial(true);
+  if(!r || r.error){ toast(r&&r.error?('실패: '+r.error):'실패했습니다'); return; }
+  _trial = { ...(_trial||{}), ...r }; _trialAt = Date.now();
+  /* 재생 — 서버가 준 점수는 그대로 쓰고, 화면에 보여 줄 전투만 같은 규칙으로 다시 돌린다. */
+  const out = runTrial(r.stats, r.trial, 'none');
+  const M = MONSTER_TYPES[r.trial.type]||{};
+  renderArena(r.robot.type, r.trial.type, ROBOT_TYPES[r.robot.type].name, M.name||r.trial.type,
+    `주간 시련 · ${(TERRAIN[r.trial.terrain]||{}).ko||r.trial.terrain}`);
+  if(arenaGone()) return;
+  const P=makeUnit('나', r.robot.type, out.mine), E=makeUnit(M.name||r.trial.type, r.trial.type, out.foe);
+  const w = await playBattle(out.ev, P, E, {});
+  if(!w) return;
+  renderTrialResult(r);
+}
+
+function renderTrialResult(r){
+  shield(); toBattle();
+  const best = r.me ? r.me.score : r.score;
+  const isBest = r.score >= best;
+  $('#sc-battle').innerHTML = `<h2 class="title">주간 시련 결과</h2>
+    <div class="panel">
+      <div class="rname" style="color:${r.win?'var(--gold)':'var(--sub)'}">${r.win?'클리어':'실패'}</div>
+      <div class="fpv" style="margin-top:8px">
+        <div><span>이번 점수</span><b>${fmt(r.score)}</b></div>
+        <div><span>내 최고</span><b>${fmt(best)}${isBest?' <span class="tag">갱신</span>':''}</b></div>
+        <div><span>순위</span><b>${r.me&&r.me.rank?`${r.me.rank} / ${fmt(r.total)}`:'—'}</b></div>
+      </div>
+      ${isBest?'':`<div class="hint">최고 기록은 그대로입니다. 낮은 점수로는 기록이 지워지지 않습니다.</div>`}
+      <div class="hint">같은 빌드면 결과가 같습니다. 파츠나 기체를 바꾸고 다시 도전하세요.</div>
+      <button class="btn big" style="margin-top:10px" onclick="ROWAR.go('trial')">시련으로 돌아가기</button>
+      <button class="btn" style="margin-top:8px" onclick="ROWAR.go('hangar')">격납고에서 빌드 바꾸기</button>
+    </div>`;
+}
 
 async function renderRank(){
   const el=$('#sc-rank');
@@ -2171,6 +2292,7 @@ window.ROWAR = {
   openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode, guide,
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
   openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
+  trialRun: guard(trialRunGo, 1000),
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
   duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,

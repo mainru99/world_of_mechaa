@@ -265,7 +265,22 @@ CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 -- 006~008 의 모양은 이미 위 정의에 반영되어 있는데 이 값만 '6' 으로 남아 있었다.
 -- 새로 클론한 PC 가 v8 짜리 DB 를 만들어 놓고 '6' 이라고 말해, 마이그레이션이 필요한지
 -- 판단할 수 없었다(`/api/health` 의 schema_version 도 이 값을 읽는다).
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '13');
+-- 주간 시련 기록. 한 주·한 계정에 한 줄, 그 주의 최고 점수만 남는다.
+-- 점수가 결정적이라(같은 빌드면 같은 점수) 여러 번 눌러서 이득을 볼 길이 없다.
+CREATE TABLE IF NOT EXISTS trial (
+  week        INTEGER NOT NULL,
+  account_id  INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  nickname    TEXT NOT NULL,                  -- 표시용 복사본. 조인 없이 순위표를 읽는다
+  score       INTEGER NOT NULL DEFAULT 0,
+  robot_type  TEXT,
+  power       INTEGER NOT NULL DEFAULT 0,
+  tries       INTEGER NOT NULL DEFAULT 0,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (week, account_id)
+);
+CREATE INDEX IF NOT EXISTS ix_trial_rank ON trial(week, score DESC);
+
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '14');
 
 
 -- =========================================================

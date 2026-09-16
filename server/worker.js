@@ -20,6 +20,7 @@ const DAILY_CRON = '17 4 * * *';
 import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
+import { trialView, trialRun } from './trial.js';
 import { sendExped, claimExped } from './expedition.js';
 import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion, migrateArena } from './arena.js';
@@ -332,6 +333,20 @@ async function handleApi(request, env, url) {
   }
 
   /* 랭킹 — 순위는 크론이 미리 계산해 둔다. 여기서 세면 하위권이 전원을 읽는다. */
+  /* 주간 시련. 읽기와 도전 둘 다 세션이 필요하다 —
+     순위표에 내 줄을 표시하고, 도전은 내 기체를 읽어야 하기 때문이다. */
+  if (path === '/trial' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    return json(await trialView(env, sess.account_id, Date.now()));
+  }
+  if (path === '/trial' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await trialRun(env, sess.account_id, Date.now());
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+
   if (path === '/ranking' && method === 'GET') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);

@@ -19,7 +19,7 @@ import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed, applyTerrain, maxRounds } from './breach.js';
 import { weekOf, trialOf, runTrial, trialWon, foeStats } from './trial.js';
 import { raidOf, runRaid, raidSeeds, raidLeft } from './raid.js';
-import { SPEAKERS, openingOf, scriptOf } from '../data/story.js';
+import { SPEAKERS, openingOf, scriptOf, artPath } from '../data/story.js';
 import { FRONT_CELLS, readProgress, writeProgress, clearedCount, cellIndex, cellOpen,
          lockedGates, buildLines, rewardOf, unlockedBy, frontView } from './front.js';
 import * as net from './net.js';
@@ -374,11 +374,15 @@ function setTerrain(t){ _sceneTerrain = t || null; setScene(document.body.datase
    들어오면 sc-battle 이 이미 active 라 우연히 동작했지만, 토벌 탭에서 누르면
    sc-hunt 가 active 인 채여서 상대 카드가 '보이지 않는 화면 뒤'에 그려졌다.
    '토벌이 눌리기만 하고 아무 일도 안 일어난다'의 정체가 이것이다. */
-function toBattle(bg){
+function toBattle(bg, navAs){
   cur = 'battle';
   setScene(bg || 'battle');
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id==='sc-battle'));
-  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.s==='battle'));
+  /* 탭 표시는 **어디서 들어왔는지**를 가리켜야 한다. 전선의 대사와 전투는 이 화면을
+     빌려 쓸 뿐인데, 그대로 두면 새 계정의 첫 화면이 '대전' 을 가리킨다 —
+     아직 열리지도 않은 탭이다. navAs 를 주면 그 탭에 불이 남는다. */
+  const lit = navAs || 'battle';
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.s===lit));
 }
 /* 격납고를 떠나면 '새 파츠' 표를 지운다 — 인벤토리를 볼 기회가 한 번 있었다는 뜻이다.
    계속 반짝이게 두면 그 반짝임이 곧 배경이 되어 아무것도 알려 주지 못한다. */
@@ -2334,13 +2338,14 @@ async function playScript(beats, title, endLabel){
   if(!beats || !beats.length) return true;
   const ac = { stop: false, skip: false, next: null };
   _scriptAbort = ac;
-  toBattle();
+  toBattle(null, 'terr');
   const el = $('#sc-battle');
 
   el.innerHTML = `<div class="story-view" id="storyView">
     <div class="story-top"><span class="story-ttl">${esc(title || '')}</span>
       <span class="story-n" id="storyN"></span>
       <button class="story-skip" id="storySkip">건너뛰기 ▸▸</button></div>
+    <figure class="story-art" id="storyArt" hidden><img id="storyArtImg" alt=""></figure>
     <div class="story-box">
       <div class="story-spk" id="storySpk"></div>
       <p class="story-line" id="storyLine"></p>
@@ -2351,7 +2356,22 @@ async function playScript(beats, title, endLabel){
   </div>`;
 
   const view = $('#storyView'), lineEl = $('#storyLine'), spkEl = $('#storySpk'),
-        moreEl = $('#storyMore'), nEl = $('#storyN'), goEl = $('#storyGo');
+        moreEl = $('#storyMore'), nEl = $('#storyN'), goEl = $('#storyGo'),
+        artEl = $('#storyArt'), artImg = $('#storyArtImg');
+  /* 삽화 칸. **그림 파일이 없으면 칸을 통째로 접는다** — 깨진 이미지가 뜨면
+     "만들다 만 화면" 으로 읽힌다. 지금은 한 장도 없으므로 늘 접혀 있고,
+     `assets/story/` 에 파일을 넣는 순간부터 저절로 펴진다(코드는 안 바뀐다). */
+  let artKey = null;
+  const setArt = key => {
+    if(key === undefined || key === artKey) return;          // 안 적은 beat 는 앞 그림을 잇는다
+    artKey = key;
+    const src = artPath(key);
+    if(!src){ artEl.hidden = true; artImg.removeAttribute('src'); return; }
+    artImg.onload = () => { artEl.hidden = false; };
+    artImg.onerror = () => { artEl.hidden = true; };
+    artEl.hidden = true;                                      // 뜨기 전까지는 접어 둔다
+    artImg.src = src;
+  };
   const advance = () => { if(ac.next) ac.next(); };
   view.addEventListener('click', advance);
   $('#storySkip').addEventListener('click', e => { e.stopPropagation(); ac.skip = true; advance(); });
@@ -2362,6 +2382,7 @@ async function playScript(beats, title, endLabel){
     if(!$('#storyView')) { _scriptAbort = null; return false; }   // 화면을 떠났다
     /* 몇 줄이 남았는지 보여 준다. 끝이 안 보이면 읽지 않고 건너뛰게 된다. */
     nEl.textContent = `${bi + 1} / ${beats.length}`;
+    setArt(b.art);
     spkEl.innerHTML = speakerHtml(b.s);
     const sp = SPEAKERS[b.s];
     lineEl.className = 'story-line' + (sp && sp.kind === 'system' ? ' sys' : '')
@@ -2497,7 +2518,7 @@ async function runCell(id){
     markSeen(id, 'before');
     if(!ok) return;                          // 화면을 떠났다
   }
-  toBattle();
+  toBattle(null, 'terr');
   $('#sc-battle').innerHTML = `<h2 class="title">전선</h2><div class="panel"><div class="mm">
     <div class="spinner"></div><div style="font-weight:800">${esc(c.ko)} 진입 중...</div></div></div>`;
   await sleep(500);
@@ -2566,7 +2587,7 @@ function applyFront(r){
 }
 
 function renderFrontResult(r, c){
-  shield(); toBattle();
+  shield(); toBattle(null, 'terr');
   const lines = [];
   if(r.win && r.first && r.gain){
     if(r.gain.credits) lines.push(`<div class="r">크레딧 <b>+${fmt(r.gain.credits)}</b></div>`);
@@ -3242,7 +3263,16 @@ function boot(){
   new ResizeObserver(fitNav).observe(topbar);
   S=load(); save();          // 첫 실행이면 시작 기체를 바로 확정해 저장한다
   document.querySelectorAll('.nav button').forEach(b=> b.addEventListener('click',()=>go(b.dataset.s)));
-  go('hangar');
+  /* ── 첫 화면 (F장 §3) ────────────────────────────────
+     **전투를 한 번도 안 한 계정은 격납고가 아니라 전선으로 보낸다.**
+     운영 32계정 중 **21계정(66%)이 한 판도 안 싸우고 떠났다** — 기체 1기, Lv.1,
+     시작 크레딧 600 이 그대로였다. 가입하고 격납고를 본 다음 나간 것이다.
+     격납고는 '무엇을 할지 아는 사람' 의 화면이다. 처음 온 사람에게는 고를 것만 스물이다.
+
+     판단 기준이 `wins + losses === 0` 하나라 **새 컬럼이 필요 없고**, 한 판이라도
+     해 본 계정(가장 활발한 곳은 86판)은 전부 지금처럼 격납고로 간다. */
+  const untouched = !S.stat || (S.stat.wins | 0) + (S.stat.losses | 0) === 0;
+  go(untouched ? 'terr' : 'hangar');
 
   /* 게스트 계정 연결과 동기화는 화면을 막지 않는다. 실패해도 localStorage 로 계속 논다. */
   net.connect().then(async ok=>{

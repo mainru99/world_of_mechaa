@@ -10,7 +10,7 @@ import { CONST, MONSTER_TYPES } from '../data/balance.js';
 import { computeStats } from '../js/stats.js';
 import { rollPart } from '../js/gacha.js';
 import { weekOf, raidOf, runRaid, raidSeeds, raidReward, raidLeft,
-         raidDaily, dayOf, BOSSES } from '../js/raid.js';
+         raidDaily, dayOf, BOSSES, bossStats } from '../js/raid.js';
 import { raidView, raidRun } from '../server/raid.js';
 
 let bad = 0;
@@ -44,6 +44,41 @@ console.log('== ① 보스 회전 ==');
   ok(r.maxHp > r.battleHp, `막대 ${r.maxHp.toLocaleString('en-US')} > 전투 체력 ${r.battleHp.toLocaleString('en-US')}`);
 }
 
+console.log('\n== ①-2 레이드의 보스는 다른 데서 만나는 보스와 달라야 한다 ==');
+{
+  /* 같은 몬스터를 여러 콘텐츠가 함께 쓴다. 그런데 배수를 안 걸면 레이드 보스가
+     **파견 '보스' 단계의 보스보다 약하다** — 파견은 플레이어보다 30레벨 높게 세우기
+     때문이다. 그러면 레이드는 '반복 토벌' 이 되고 SR 편성이 한 판에 전멸시킨다. */
+  const huntLv = Math.min(CONST.MAXLV + CONST.HUNT.BOSS.lv, CONST.MAXLV + (CONST.OPP_LV_OVER || 0));
+  let minX = Infinity;
+  for (const b of BOSSES) {
+    const raid = Math.round(bossStats(b, CONST.MAXLV).hp * (CONST.RAID.bossX || 1));
+    const hunt = bossStats(b, huntLv).hp;
+    console.log(`  ${b.padEnd(20)} 레이드 ${String(raid).padStart(7)} · 파견 ${String(hunt).padStart(6)} · ${(raid / hunt).toFixed(2)}배`);
+    minX = Math.min(minX, raid / hunt);
+  }
+  ok(minX > 1, `가장 약한 경우에도 파견 보스보다 세다 (${minX.toFixed(2)}배)`);
+  const r = raidOf(weekOf(Date.now()));
+  ok(r.baseHp && r.battleHp === Math.round(r.baseHp * CONST.RAID.bossX),
+     `전투 체력 = 기본 ${r.baseHp} × ${CONST.RAID.bossX}`);
+}
+
+console.log('\n== ①-3 600턴 안전장치로 공짜 격파를 얻을 수 없다 ==');
+{
+  /* js/sim.js 는 600턴이 지나면 살아 있는 쪽을, 둘 다 살아 있으면 P 를 승자로 적는다.
+     runBreach 는 그 승패를 그대로 '방어선 돌파' 로 읽는다(점령이 막히지 않게 한 선택).
+     레이드는 보스 체력이 커서 그 길이 실제로 열린다 — 그대로 두면 한 대도 제대로
+     못 때린 판이 '전부 깎음 + 격파' 로 기록된다. runRaid 는 체력으로 다시 읽는다. */
+  const soft = { hp: 900000, atk: 1, def: 9999, spd: 100, crit: 0, eva: 0, spread: 0.2 };
+  const tank = { name: 'tank', type: 'mule',
+                 stats: { hp: 900000, atk: 1, def: 9999, spd: 100, crit: 0, eva: 0, spread: 0.2, hpFull: 900000 } };
+  const r = { week: 0, boss: BOSSES[0], level: 60, stats: soft, baseHp: soft.hp, battleHp: soft.hp };
+  const out = runRaid([tank], r, [12345]);
+  ok(out.rounds[0].events.length >= 600, `600턴 안전장치에 걸린 판을 만들었다 (${out.rounds[0].events.length} 이벤트)`);
+  ok(out.damage < r.battleHp, `전부 깎은 것으로 치지 않는다 (${out.damage} / ${r.battleHp})`);
+  ok(out.win === false, '격파로도 치지 않는다');
+}
+
 console.log('\n== ② 한 판 — 편성 둘이 차례로 들어간다 ==');
 {
   const r = raidOf(weekOf(Date.now()));
@@ -72,6 +107,11 @@ console.log('\n== ③ 보상 ==');
   console.log(`  전부 ${JSON.stringify(full)} · 절반 ${JSON.stringify(half)} · 0 ${JSON.stringify(none)}`);
   ok(full.cr > half.cr && half.cr > none.cr, '깎은 만큼 보상이 는다');
   ok(raidReward(r.battleHp * 99, r.battleHp, r.level).cr === full.cr, '천장을 넘지 않는다');
+  /* 서버는 **배수를 걸기 전** 체력을 기준으로 준다(server/raid.js). 그래야 보스를
+     12배로 키운 것이 경제를 같이 흔들지 않는다 — 전투의 세기와 보상의 크기는 다른 손잡이다. */
+  ok(raidReward(r.baseHp, r.baseHp, r.level).cr === full.cr &&
+     raidReward(r.battleHp, r.baseHp, r.level).cr === full.cr,
+     '보스 한 마리분(배수 전)을 깎으면 만점이고, 더 깎아도 더 주지 않는다');
   /* 하루 횟수를 곱해도 경제를 흔들 만큼은 아니어야 한다 */
   console.log(`  하루 최대 — 크레딧 ${full.cr * raidDaily()} · 스크랩 ${full.sc * raidDaily()}`);
 }
@@ -102,6 +142,8 @@ console.log('\n== ⑤ 서버 — 가짜 env.DB ==');
       if (!st.raid) st.raid = { week: a[0], boss: a[1], level: a[2], max_hp: a[3], dealt: 0, killed_at: null, killer: null };
       return {};
     }
+    if (/UPDATE raid SET boss/.test(sql)) {
+      st.raid.boss = a[0]; st.raid.level = a[1]; st.raid.max_hp = a[2]; return {}; }
     if (/UPDATE raid SET dealt/.test(sql)) { st.raid.dealt = Math.min(st.raid.max_hp, st.raid.dealt + a[0]); return {}; }
     if (/UPDATE raid SET killed_at/.test(sql)) { if (!st.raid.killed_at) { st.raid.killed_at = a[0]; st.raid.killer = a[1]; } return {}; }
     if (/SELECT damage, best, tries, day, today FROM raid_hit/.test(sql)) return st.hit;
@@ -124,6 +166,16 @@ console.log('\n== ⑤ 서버 — 가짜 env.DB ==');
   ok(v.ok && v.boss === r.boss, `view — ${v.name}`);
   ok(v.left === v.maxHp && v.dealt === 0, '처음엔 막대가 꽉 차 있다');
   ok(v.triesLeft === raidDaily(), `오늘 ${v.triesLeft}번 남았다`);
+
+  /* 주 도중에 수치가 바뀌면 이미 만들어진 행이 옛 막대를 들고 있다.
+     그대로 두면 12배로 단단해진 보스를 옛 막대에 대고 치게 된다. */
+  st.raid.max_hp = 123;
+  const v2 = await raidView(env, 1, now);
+  ok(v2.maxHp === r.maxHp && st.raid.max_hp === r.maxHp, '옛 막대를 들고 있으면 새 수치로 맞춘다');
+  st.raid.killed_at = now - 1; st.raid.max_hp = 123;
+  const v3 = await raidView(env, 1, now);
+  ok(v3.maxHp === 123, '이미 쓰러진 주는 건드리지 않는다');
+  st.raid.killed_at = null; st.raid.max_hp = r.maxHp;
 
   const a1 = await raidRun(env, 1, now);
   ok(a1.ok && a1.damage > 0, `한 번 침 — 피해 ${a1.damage}`);

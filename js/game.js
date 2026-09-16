@@ -663,7 +663,7 @@ function renderHangar(){
   const rb=selRobot(), T=ROBOT_TYPES[rb.type], st=computeStats(rb);
   const roster = S.robots.map((r,i)=>{ const t=ROBOT_TYPES[r.type];
     const inSq=S.squad.indexOf(r.uid), out=inSq>=0;
-    return `<div class="rcard ${i===S.sel?'sel':''}${out?' squad':''}" data-t="${t.rarity}" onclick="ROWAR.selectRobot(${i})">
+    return `<div class="rcard ${i===S.sel?'sel':''}${out?' squad':''}" data-t="${t.rarity}" onclick="ROWAR.openRobot(${i})">
       <span class="badge">${out?(i===S.sel?'출격':'대기'):''} Lv.${r.level}</span>
       <span class="badge rt rr-${t.rarity}">${RR[t.rarity].ko}</span>
       <div class="sprite" data-t="${t.rarity}">${sprite(r.type,false)}</div>
@@ -957,6 +957,50 @@ function fuseResult(r, mats){
       <button class="btn" onclick="ROWAR.closeModal()">확인</button>
       <button class="btn big gold" onclick="ROWAR.openFuse()">계속 합성</button>
     </div>`);
+}
+
+/* ── 기체 프리뷰 ──────────────────────────────────────────
+   로스터 카드를 누르면 **'이게 어떤 기체인가' 를 보여 준다.**
+
+   예전에는 카드를 누르는 것이 곧 편성이었다. 보려고 눌렀는데 편성이 바뀌고,
+   상대를 잡아 둔 상태였다면 그 상대까지 놓쳤다(toggleSquad 가 _pendingOpp 를 버린다).
+   **보는 것과 바꾸는 것을 갈라 둔다** — 편성은 카드의 편성 단추와 이 창의 단추로만
+   바뀐다. 선봉 바꾸기는 여기와 장면 위의 편성 아이콘(.sqm) 둘 다에 남겨 둔다. */
+function openRobot(i){
+  const r = S.robots[i]; if(!r) return;
+  const T = ROBOT_TYPES[r.type], st = computeStats(r), fat = fatOf(r);
+  const inSq = S.squad.includes(r.uid);
+  const isSel = S.robots[S.sel] && S.robots[S.sel].uid === r.uid;
+  const slots = SLOTS.map(sl => { const u = r.slots[sl], p = u && findPart(u, S.parts);
+    return `<div class="rpslot${p?' filled':''}"><b>${SLOT_KO[sl]}</b>${p
+      ? `<span>${esc(p.name)} ${rarTag(p)}${setTag(p)}</span>`
+      : `<span class="dimt">비어 있음</span>`}</div>`; }).join('');
+  openModal(`<div class="mhead">${esc(T.name)} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <div class="rprev">
+      <div class="sprite" data-t="${T.rarity}">${sprite(r.type,false)}</div>
+      <div>
+        <div class="rname">${esc(T.name)} ${robRarTag(r.type)} <span class="lv">Lv.${r.level}</span></div>
+        <div class="rrole">${esc(T.role)} · 전투력 ${fmt(power(r))}</div>
+        <div class="trterr">${inSq ? (isSel ? '편성 · 선봉' : '편성 · 예비') : '편성 밖'}${
+          fat ? ` · 피로 ${fat} / ${FAT_MAX}` : ' · 피로 없음'}</div>
+      </div>
+    </div>
+    ${['hp','atk','def','spd','crit','eva'].map(k=>statBar(k, st[k],
+        k==='hp'?st.hpFull:null, k==='atk'?atkRange(st):null)).join('')}
+    <div class="dh" style="margin-top:10px">장착</div>
+    <div class="rpslots">${slots}</div>
+    <div class="dcard skillcard" style="margin-top:10px">
+      <b>스킬 · ${T.skill.name}${r.skillLv?` <span class="tag" style="color:var(--acc2);border-color:#2a6b7a">+${r.skillLv}</span>`:''}</b>
+      <div class="fxrow">${fxTags(r.type)}</div>
+      <p>${T.skill.desc}</p>
+    </div>
+    <div class="row-btns" style="margin-top:12px">
+      ${inSq && !isSel
+        ? `<button class="btn big gold" onclick="ROWAR.closeModal();ROWAR.selectRobot(${i})">선봉으로</button>` : ''}
+      <button class="btn big${inSq?'':' gold'}"
+        onclick="ROWAR.closeModal();ROWAR.toggleSquad('${r.uid}')">${inSq?'편성 해제':'편성하기'}</button>
+    </div>
+    ${inSq?'':`<div class="hint" style="margin-top:8px">편성한 <b>${SQUAD_MAX}기</b>만 출전합니다.</div>`}`);
 }
 
 function openSlot(slot){
@@ -1431,7 +1475,10 @@ function drawRaid(r){
         <button class="btn big gold" ${can?'':'disabled'} onclick="ROWAR.raidRun()">
           ${r.killed?'격파됨':(r.triesLeft>0?'보스 공격':'오늘 도전을 다 썼습니다')}</button>
         <div class="hint">편성한 <b>두 기</b>가 차례로 들어갑니다. 선봉이 쓰러지면 예비가 이어서 깎습니다.
-          보스는 <b>매번 꽉 찬 체력</b>으로 만납니다 — 깎은 만큼이 위 막대에 더해집니다.</div>
+          보스는 <b>매번 꽉 찬 체력</b>으로 만납니다 — 깎은 만큼이 위 막대에 더해집니다.<br>
+          레이드의 보스는 파견에서 만나는 같은 보스보다 <b>훨씬 단단합니다</b>.
+          한 번에 쓰러뜨리는 것이 목표가 아니라 <b>여럿이 나눠 깎는 것</b>이 목표입니다 —
+          보상은 깎은 만큼 받습니다.</div>
       </div>
 
       <div class="panel">
@@ -1444,6 +1491,7 @@ function drawRaid(r){
 }
 
 async function raidRunGo(){
+  beginReplay();
   if(!net.state.online){ toast('보스 레이드는 서버 연결이 필요합니다'); return; }
   const r = await net.raid(true);
   if(!r || r.error){
@@ -1496,6 +1544,7 @@ function renderRaidResult(r){
 }
 
 async function trialRunGo(){
+  beginReplay();
   if(!net.state.online){ toast('주간 시련은 서버 연결이 필요합니다'); return; }
   const r = await net.trial(true);
   if(!r || r.error){ toast(r&&r.error?('실패: '+r.error):'실패했습니다'); return; }
@@ -1526,8 +1575,10 @@ function renderTrialResult(r){
       </div>
       ${isBest?'':`<div class="hint">최고 기록은 그대로입니다. 낮은 점수로는 기록이 지워지지 않습니다.</div>`}
       <div class="hint">같은 빌드면 결과가 같습니다. 파츠나 기체를 바꾸고 다시 도전하세요.</div>
-      <button class="btn big" style="margin-top:10px" onclick="ROWAR.go('trial')">시련으로 돌아가기</button>
-      <button class="btn" style="margin-top:8px" onclick="ROWAR.go('hangar')">격납고에서 빌드 바꾸기</button>
+      <div class="row-btns" style="margin-top:10px">
+        <button class="btn big" onclick="ROWAR.go('trial')">시련으로 돌아가기</button>
+        <button class="btn big" onclick="ROWAR.go('hangar')">격납고에서 빌드 바꾸기</button>
+      </div>
     </div>`;
 }
 
@@ -1918,6 +1969,7 @@ function practiceFind(){
 }
 
 async function practiceStart(){
+  beginReplay();
   const opp=_practiceOpp; if(!opp) return;
   const my=selRobot(); _battleRobot=my;
 
@@ -1957,6 +2009,7 @@ function renderPracticeResult(win,P,E){
    다시 돌려 애니메이션만 재생한다 — 결정적 시뮬이라 결과가 반드시 일치한다.
    각자 계산하면 피로도 정산 시점 차이 등으로 어긋나므로 스탯도 서버 것을 쓴다. */
 async function startBattle(){
+  beginReplay();
   const opp=_pendingOpp; if(!opp) return;
   if(!net.state.online){ toast('대전은 서버 연결이 필요합니다'); return; }
 
@@ -2040,6 +2093,7 @@ function renderArena(pType,eType,pName,eName,label,tacP,tacE){
     <div class="arena-head">
       <h2 class="title" style="margin:0">${label || (MONSTER_TYPES[eType]?'몬스터 대전':'자동 대전')}</h2>
       <button class="btn ghost spd" id="spdbtn" onclick="ROWAR.toggleSpeed()">속도 x${battleSpeed}</button>
+      <button class="btn ghost spd" id="skipbtn" onclick="ROWAR.skipReplay()">건너뛰기</button>
     </div>
     <div class="arena" id="arena">
       <div class="grid"></div><div class="vs">VS</div>
@@ -2112,9 +2166,22 @@ async function playBattle(events,P,E,o){
     setSP('p', (o&&o.pSp)||0); setSP('e', (o&&o.eSp)||0);
     blog(`전투 개시! <b>${P.name}</b> vs <b>${E.name}</b>`);
     const sl=ms=>sleep(ms/battleSpeed);
+    /* 건너뛰기 — 남은 이벤트를 애니메이션 없이 한 번에 반영하고 끝낸다.
+       마지막 체력·게이지를 그대로 그려 두므로 화면이 결과와 어긋나지 않는다. */
+    const finishNow=()=>{
+      for(const x of events){
+        if(x.t==='turn') setSP(x.side==='P'?'p':'e', x.sp);
+        else if(x.t==='heal') setHP(x.side==='P'?'p':'e', x.hp, x.side==='P'?P.maxhp:E.maxhp);
+        else if(x.t==='hit' && !x.miss) setHP(x.dside==='P'?'p':'e', x.thp, x.dside==='P'?P.maxhp:E.maxhp);
+      }
+      blog('<b>건너뜀</b> — 결과는 그대로입니다');
+      const last=events[events.length-1];
+      return stopped()?null:((last&&last.t==='end')?last.winner:'P');
+    };
     await sl(400);
     for(const e of events){
       if(stopped()) return null;                 // 보상 판정은 서버에 있으며 화면 재생만 중단한다.
+      if(_skipReplay) return finishNow();
       if(e.t==='turn'){ rainSkill=null; setSP(e.side==='P'?'p':'e', e.sp); continue; }
       if(e.t==='skill'){
         rainSkill=null;
@@ -2182,6 +2249,17 @@ function renderResult(win,rw,P,E,opp){
   renderWallet();
 }
 function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$('#spdbtn'); if(b)b.textContent='속도 x'+battleSpeed; }
+
+/* ── 건너뛰기 ─────────────────────────────────────────────
+   **결과는 이미 서버가 정했다.** 재생은 그것을 보여 주는 일일 뿐이라, 건너뛰어도
+   달라지는 것이 하나도 없다. 그래서 건너뛰기를 둘 수 있다.
+
+   레이드 보스가 단단해지면서(CONST.RAID.bossX) 한 판이 300타를 넘게 됐다 —
+   속도 x8 로도 십여 초다. 편성 둘이 차례로 들어가는 판은 그 두 배다.
+   깃발은 재생 한 묶음(레이드는 두 판)에 걸리고, 다음 재생이 시작될 때 내려간다. */
+let _skipReplay = false;
+const skipReplay = () => { _skipReplay = true; const b=$('#skipbtn'); if(b) b.textContent='건너뛰는 중'; };
+const beginReplay = () => { _skipReplay = false; };
 
 /* ------------------------------- 초기화/공개 ------------------------------- */
 /* resetSave() 가 있던 자리. 로컬 저장본만 비우는 함수였다.
@@ -2425,6 +2503,7 @@ function applyTerrAttack(r){
    서버가 준 편성·방어선·시드로 **같은 함수를 다시 돌려** 판별을 그대로 얻는다.
    전투마다 결과를 따로 받아 오지 않는 이유가 이것이다 — 그러면 재생과 결과가 갈린다. */
 async function playBreach(r){
+  beginReplay();
   const out=runBreach({ mechs:r.mechs, lines:r.lines, seeds:r.seeds, hpLeft:r.hpLeft0 });
   const node=NODE_BY[r.node];
   const total=r.lines.length;
@@ -2570,7 +2649,7 @@ window.ROWAR = {
   toggleSquad: guard(toggleSquad),
   levelUp: guard(levelUp), service: guard(service), enhance: guard(enhancePart), skillUp: guard(skillUp),
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
-  openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode, guide,
+  openSlot, openRobot, closeModal, setGacha, scrapPart, toggleSpeed, skipReplay, pickExped, openNode, guide,
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
   openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
   trialRun: guard(trialRunGo, 1000),

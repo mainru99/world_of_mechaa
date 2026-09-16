@@ -98,6 +98,10 @@ export function runBreach({ mechs, lines, seeds, hpLeft }) {
     /* 재생에 필요한 '들어갈 때의 상태'를 먼저 적어 둔다. simulate 가 P·E 를 직접 바꾼다. */
     const rec = { mi, li, seed, pHp: P.hp, pSp: P.sp, eHp: E.hp, eSp: E.sp };
     const events = simulate(P, E, seed);
+    /* 판이 끝난 뒤 방어선에 남은 체력. 승패는 아래처럼 end 이벤트로 읽지만,
+       '얼마나 깎였나' 를 재려면 실제 체력이 필요하다(레이드가 이걸로 기여를 센다). */
+    rec.eEnd = Math.max(0, E.hp);
+    rec.eMax = E.maxhp;
     /* 승패는 체력이 아니라 end 이벤트로 읽는다. 600턴 안전장치에 걸리면
        양쪽이 살아 있는 채로 P 승이 되는데, 체력으로 판단하면 여기서 갈린다. */
     rec.win = events[events.length - 1].winner === 'P';

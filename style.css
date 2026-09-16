@@ -1167,3 +1167,18 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 @media (prefers-reduced-motion: reduce){
   .rbar i::after,.trfoe.boss .sprite{animation:none}
 }
+
+/* ── 기체 프리뷰 ───────────────────────────────────────────
+   로스터 카드를 누르면 뜨는 창. **보는 것과 편성하는 것을 갈라 둔 자리**다 —
+   예전에는 카드를 누르는 것이 곧 편성이라, 보려고 눌렀다가 잡아 둔 상대를 놓쳤다. */
+.rprev{display:flex;gap:14px;align-items:center;padding:12px;margin-bottom:10px;
+  border-radius:14px;background:rgba(13,20,36,.74);border:1px solid rgba(120,150,210,.2)}
+.rprev .sprite{width:104px;height:104px;flex:none}
+.rprev > div:last-child{min-width:0}
+.rpslots{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.rpslot{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border-radius:10px;
+  font-size:12px;background:#111a30;border:1px solid var(--line)}
+.rpslot b{font-size:10px;font-weight:800;color:var(--dim);letter-spacing:1px}
+.rpslot.filled{border-color:#3a4a74}
+.rpslot .dimt{color:var(--dim)}
+@media (max-width:420px){ .rpslots{grid-template-columns:1fr} }

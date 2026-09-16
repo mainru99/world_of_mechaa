@@ -66,6 +66,17 @@ async function getBar(env, r, now) {
       `INSERT OR IGNORE INTO raid (week, boss, level, max_hp, dealt, updated_at)
          VALUES (?1,?2,?3,?4,0,?5)`).bind(r.week, r.boss, r.level, r.maxHp, now).run();
     row = await env.DB.prepare('SELECT * FROM raid WHERE week = ?1').bind(r.week).first();
+  } else if (!row.killed_at &&
+             (row.max_hp !== r.maxHp || row.boss !== r.boss || row.level !== r.level)) {
+    /* 주 도중에 수치가 바뀌면(CONST.RAID 조정, 보스 추가) 이 행은 옛 막대를 들고 있다.
+       그대로 두면 화면의 보스와 막대가 서로 다른 규칙을 따른다 — 12배로 단단해진
+       보스를 옛 막대에 대고 치면 하루 만에 넘어간다.
+       **어긋날 때만** 한 번 맞춘다. 매번 쓰면 읽기마다 쓰기가 붙어 D1 예산이 샌다.
+       이미 쓰러진 주는 건드리지 않는다 — 막대를 키우면 시체가 다시 일어선다. */
+    await env.DB.prepare(
+      'UPDATE raid SET boss = ?1, level = ?2, max_hp = ?3, updated_at = ?4 WHERE week = ?5')
+      .bind(r.boss, r.level, r.maxHp, now, r.week).run();
+    row = { ...row, boss: r.boss, level: r.level, max_hp: r.maxHp };
   }
   return row;
 }
@@ -128,7 +139,9 @@ export async function raidRun(env, acc, now) {
      커지면 '누가 얼마나 기여했나' 가 말이 안 된다. */
   const leftBefore = Math.max(0, bar.max_hp - (bar.dealt | 0));
   const dmg = Math.min(out.damage, leftBefore);
-  const rw = raidReward(dmg, r.battleHp, r.level);
+  /* 보상 기준은 **배수를 걸기 전** 보스 체력이다(js/raid.js 의 raidReward 주석).
+     전투의 세기(RAID.bossX)와 보상의 크기를 갈라 두기 위해서다. */
+  const rw = raidReward(dmg, r.baseHp || r.battleHp, r.level);
   const today = (mine && mine.day === dayOf(now)) ? (mine.today | 0) + 1 : 1;
   const kill = dmg >= leftBefore && leftBefore > 0;
 

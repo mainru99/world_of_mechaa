@@ -38,8 +38,13 @@ export function raidOf(week) {
   const i = ((w % BOSSES.length) + BOSSES.length) % BOSSES.length;   // 음수 주도 안전하게
   const boss = BOSSES[i] || BOSSES[0];
   const level = CONST.MAXLV;                      // 보스는 언제나 만렙이다. 끝 콘텐츠다
-  const stats = bossStats(boss, level);
-  return { week, boss, level, stats, battleHp: stats.hp,
+  /* **레이드의 보스는 같은 보스가 아니다.** 만렙 보스를 그대로 쓰면 파견 '보스'
+     단계에서 만나는 보스(플레이어 +30레벨)보다 오히려 약하다. 그래서 체력에만
+     배수를 건다 — 공격력까지 키우면 약한 편성이 아무것도 못 깎는다.
+     같은 몬스터라도 시련·파견·점령·레이드가 각각 제 몫으로 키워 쓴다. */
+  const raw = bossStats(boss, level);
+  const stats = { ...raw, hp: Math.max(1, Math.round(raw.hp * (RAID().bossX || 1))) };
+  return { week, boss, level, stats, baseHp: raw.hp, battleHp: stats.hp,
            maxHp: Math.max(1, Math.round(stats.hp * (RAID().hpX || 60))) };
 }
 export const bossStats = (type, level) =>
@@ -50,10 +55,18 @@ export const bossStats = (type, level) =>
 export function runRaid(mechs, r, seeds) {
   const lines = [{ name: MONSTER_TYPES[r.boss].name, type: r.boss, stats: r.stats }];
   const out = runBreach({ mechs, lines, seeds, hpLeft: [1] });
-  /* 남은 비율에서 깎은 양을 낸다. 이겼으면 전부 깎은 것이다. */
-  const leftFrac = out.win ? 0 : Math.max(0, Math.min(1, out.hpLeft[0]));
+
+  /* 깎은 양은 **보스에게 실제로 남은 체력**으로 잰다. `out.win` 으로 재면 안 된다 —
+     600턴 안전장치(js/sim.js)에 걸리면 양쪽이 살아 있는 채로 P 승이 되고,
+     runBreach 는 그걸 '방어선 돌파' 로 적는다(점령이 막히지 않게 한 선택이다).
+     레이드는 보스 체력이 커서 그 길이 열려 있다 — 그대로 두면 못 이긴 판이
+     '전부 깎음 + 격파' 로 기록된다. 그래서 여기서만 체력으로 다시 읽는다. */
+  const last = out.rounds.length ? out.rounds[out.rounds.length - 1] : null;
+  const leftFrac = last && last.eMax
+    ? Math.max(0, Math.min(1, last.eEnd / last.eMax))
+    : (out.win ? 0 : Math.max(0, Math.min(1, out.hpLeft[0])));
   const damage = Math.max(0, Math.round(r.battleHp * (1 - leftFrac)));
-  return { ...out, damage, leftFrac };
+  return { ...out, win: leftFrac <= 0, damage, leftFrac };
 }
 
 /* 시드는 (주 · 계정 · 몇 번째 도전) 에서 나온다.
@@ -70,12 +83,17 @@ export function raidSeeds(week, accountId, tries, nMechs) {
   return Array.from({ length: n }, () => Math.floor(rnd() * 4294967296) >>> 0);
 }
 
-/* 보상 — 깎은 비율에 비례한다. 전투 체력의 100% 를 깎으면(격파) 한 번치를 다 받는다.
-   레이드는 하루 횟수가 정해져 있으므로 이 값이 경제의 새 수도꼭지가 된다.
+/* 보상 — 깎은 비율에 비례한다.
+   **기준은 배수를 걸기 전 보스 체력(`baseHp`)이다.** 레이드 배수로 잰 비율을 쓰면
+   보스를 12배로 키운 순간 같은 활약의 보상이 1/12 이 된다 — 전투를 손보려다 경제까지
+   같이 바꾸게 된다. 둘은 갈라 둔다: 전투의 세기는 `RAID.bossX`, 보상의 크기는 여기.
+   그래서 '보스 한 마리분을 깎았다' 가 만점이고, 그 뜻은 배수를 바꿔도 변하지 않는다.
+
+   레이드는 하루 횟수가 정해져 있으므로 이 값이 경제의 수도꼭지가 된다.
    수치는 CONST.RAID 에 있고, 0 으로 두면 보상 없이 막대만 깎는 콘텐츠가 된다. */
-export function raidReward(damage, battleHp, level) {
+export function raidReward(damage, rewardHp, level) {
   const R = RAID();
-  const ratio = Math.max(0, Math.min(1, damage / Math.max(1, battleHp)));
+  const ratio = Math.max(0, Math.min(1, damage / Math.max(1, rewardHp)));
   const lv = Math.max(1, level | 0);
   return {
     cr: Math.round((R.crBase || 0) + (R.crLv || 0) * lv * ratio),

@@ -8,6 +8,8 @@
  */
 import { ROBOT_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR,
          RARITY, SLOTS, PART_BASES, AFFIXES, AFFIX_GROUPS, CONST } from '../data/balance.js';
+/* 분해 환급이 강화 비용을 알아야 한다 — 두 값이 갈리면 돈이 찍힌다(scrapGain 주석). */
+import { enhCost } from './stats.js';
 
 /* 0~1 비율로 다루는 스탯. 레벨 배수를 타지 않고, 강화 배수도 다르게 먹는다. */
 export const isPct = s => s === 'crit' || s === 'eva' || s === 'spread';
@@ -36,14 +38,31 @@ export const autoScrapValue = rarity => (CONST.AUTO_SCRAP && CONST.AUTO_SCRAP[ra
    플레이어가 이 값을 보고 분해할지 정한다. */
 export const scrapValue = rarity => (CONST.SCRAP_VALUE && CONST.SCRAP_VALUE[rarity]) || 0;
 
-/* 파츠 하나를 분해했을 때 실제로 받는 양. **강화한 만큼 값을 더 쳐 준다** —
-   안 그러면 잘못 강화한 파츠를 버리는 값이 강화에 쓴 스크랩보다 훨씬 적어
-   실수 한 번이 그대로 손실로 굳는다.
+/* 강화에 지금까지 들어간 스크랩의 합. +0 은 0, +1 은 enhCost(0), ... */
+export const enhSpent = enh => {
+  let t = 0;
+  for (let e = 0; e < (enh | 0); e++) t += enhCost(e);
+  return t;
+};
+
+/* 파츠 하나를 분해했을 때 실제로 받는 양.
+   **기본 가치 + 강화에 들인 것의 일부**다. 강화한 파츠를 버리는 값이 들인 것보다
+   훨씬 적으면 실수 한 번이 그대로 손실로 굳으므로, 일부는 돌려준다.
+
+   ── 예전에는 등급 가치에 강화 단계당 +25% 를 곱했다. 그게 돈을 찍어내고 있었다.
+   강화 비용은 **등급과 무관**한데(18·36·54…) 환급은 등급에 비례해서, 등급이
+   높을수록 +25% 가 비용보다 커졌다. SSR 은 18 을 넣으면 분해값이 38 올랐다 —
+   **강화하고 분해하는 것이 그냥 분해보다 이득**이라 파츠가 스크랩을 불리는
+   기계였다(SR 은 +1 에서 정확히 본전, SSR 은 +1~+3 에서 이득).
+   환급을 '들인 것의 비율' 로 바꾸면 등급이 무엇이든 이득이 될 수 없다 —
+   비율이 1 보다 작으면 되고, 그 조건은 등급 수치와 무관하게 성립한다.
+   `tools/econ.mjs` 가 이 성질을 지킨다.
 
    화면(js/game.js)·서버(server/hangar.js)·일괄 분해가 **전부 이 함수를 쓴다.**
    세 곳에 같은 식을 적어 두면 한쪽만 고쳐지는 날이 반드시 오고, 그때 화면에
    적힌 값과 실제로 들어오는 값이 달라진다. */
-export const scrapGain = (rarity, enh) => Math.round(scrapValue(rarity) * (1 + (enh || 0) * 0.25));
+export const scrapGain = (rarity, enh) =>
+  Math.round(scrapValue(rarity) + enhSpent(enh) * (CONST.ENH_REFUND ?? 0.5));
 
 /* 뽑기 창구. 코어와 크레딧이 표를 따로 쓴다 — 같은 표에 배수만 걸면
    '크레딧으로도 에픽이 코어와 같은 비율로 나오는' 상태가 되어 코어를 쓸 이유가 없어진다. */

@@ -22,6 +22,7 @@ import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
 import { trialView, trialRun } from './trial.js';
 import { raidView, raidRun } from './raid.js';
+import { frontState, frontRun } from './front.js';
 import { sendExped, claimExped } from './expedition.js';
 import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion, migrateArena } from './arena.js';
@@ -331,6 +332,23 @@ async function handleApi(request, env, url) {
     let sbody; try { sbody = await request.json(); } catch { sbody = null; }
     const r = await startBattle(env, sess.account_id, Date.now(), sbody);
     return r.ok ? json(r) : json({ ok: false, error: r.error }, r.status || 500);
+  }
+
+  /* 전선. 조회는 GET, 도전은 POST.
+     POST 가 받는 것은 **칸 id 하나**뿐이다 — 무엇으로 싸울지·시드·방어선은 서버가 정한다.
+     열린 칸인지도 서버가 진행 문자열을 읽어 확인한다(클라 판단을 믿지 않는다). */
+  if (path === '/front' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await frontState(env, sess.account_id);
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  if (path === '/front' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let fbody; try { fbody = await request.json(); } catch { fbody = {}; }
+    const r = await frontRun(env, sess.account_id, fbody, Date.now());
+    return json(r, r.ok ? 200 : (r.status || 400));
   }
 
   /* 랭킹 — 순위는 크론이 미리 계산해 둔다. 여기서 세면 하위권이 전원을 읽는다. */

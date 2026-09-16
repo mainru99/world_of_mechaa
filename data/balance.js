@@ -184,6 +184,26 @@ export const MONSTER_TYPES = {
   enemy_kabuto:{ id:'enemy_kabuto', name:'오닉스 카부토', rarity:'EP', role:'장갑 돌파형 · 갑충 군주',
     base:{"hp":791,"atk":136,"def":88,"spd":71,"crit":0.21,"eva":0.12}, grow:{"hp":45.1,"atk":10.2,"def":5.7,"spd":4.3}, spread:.28,
     skill:{"name":"모나크 브레이크","desc":"방어력 60%를 관통하는 1.1배 돌진 공격을 3회.","fx":{"mult":1.1,"hits":3,"ignoreDef":true}} },
+  /* ---- 나르(NHAR) — 전선 1장 ----
+     시나리오(docs/story/chapter1.txt)의 외계 기계문명. 다른 몬스터가 짐승 쪽 이름인 것과
+     달리 이쪽은 **기계**다 — 사람을 안 쫓고 기계만 부순다는 것이 이들의 규칙이다.
+     그림은 tools/build_nhar.py 가 만든다(난수 없음, 다시 돌려도 같다).
+
+     1장은 이 게임에서 사람이 하는 **첫 다섯 판**이라 셋 다 '읽히는' 적으로 만들었다.
+     관통·흡혈·다단히트를 여기서 쓰지 않는다 — 무엇에 맞았는지 모르는 채로 지면
+     배우는 것 없이 나간다. 복잡한 판정은 2장부터다. */
+  nhar_scout:{ id:'nhar_scout', name:'나르 척후체', rarity:'C', role:'고속 정찰형 · 결정 척후',
+    base:{"hp":424,"atk":83,"def":45,"spd":58,"crit":0.1,"eva":0.09}, grow:{"hp":44,"atk":11.1,"def":5,"spd":5.2}, spread:.18,
+    skill:{"name":"삼점 조준","desc":"0.48배 사격을 3회. 붉은 점 셋이 같은 곳을 본다.","fx":{"mult":0.48,"hits":3}} },
+  nhar_lance:{ id:'nhar_lance', name:'나르 천공체', rarity:'C', role:'광선 사격형 · 푸른 천공',
+    base:{"hp":446,"atk":78,"def":52,"spd":49,"crit":0.08,"eva":0.05}, grow:{"hp":47,"atk":10,"def":5.5,"spd":4.5}, spread:.23,
+    /* 관통을 **일부만** 준다. 시나리오의 푸른 광선은 장갑을 뚫지만, 완전 관통을
+       Lv.2 플레이어에게 걸면 방어를 올릴 이유가 사라진 채로 맞는다. */
+    skill:{"name":"푸른 천공","desc":"방어력 35%를 관통하는 1.78배 광선.","fx":{"mult":1.78,"ignoreDef":0.35}} },
+  nhar_warden:{ id:'nhar_warden', name:'나르 파수체', rarity:'UC', role:'중장 결정형 · 파수',
+    base:{"hp":636,"atk":83,"def":78,"spd":43,"crit":0.07,"eva":0.03}, grow:{"hp":63.5,"atk":9.1,"def":7.9,"spd":3.4}, spread:.3,
+    skill:{"name":"결정 증식","desc":"2.12배 결정 강타. 빗나가지 않음.","fx":{"mult":2.12,"noMiss":true}} },
+
   /* ---- 미래 보스 콘텐츠 ----
      전용 위험도 BOSS는 ROBOT_RARITY(C~EP)에 없으므로 현재 일반 매칭 풀에서 선택되지 않는다.
      향후 보스 진입/보상 UI가 직접 id를 선택할 때만 등장시킨다.

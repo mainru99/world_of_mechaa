@@ -4,7 +4,16 @@
  * **새 계정이 처음 보는 화면**이다(DESIGN.md F장 §3).
  *
  * 이야기는 `docs/story/chapter1.txt` 의 CHAPTER 1 을 따라간다.
+ * 적은 **나르(NHAR)** 셋이다 — 기존 짐승 계열 몬스터를 쓰지 않고 새로 만들었다.
+ * 사람을 안 쫓고 기계만 부수는 외계 기계라, 짐승 이름을 붙이면 세계관이 어긋난다.
+ * 그림은 `tools/build_nhar.py`, 수치는 `data/balance.js` 의 `MONSTER_TYPES` 에 있다.
  * 칸 하나 = `runBreach` 한 번. 점령전 코드를 그대로 쓴다.
+ *
+ * ── foe — 칸이 적을 눌러 세운다 ──────────────────────────
+ * 나르는 동급 기준(`tools/mon.mjs` 50%)에 맞춰 두고, **1장에서만** 체력·공격을 누른다.
+ * 몬스터 자체를 약하게 만들면 파견·토벌의 C 풀이 통째로 물러진다.
+ * 누르지 않으면 C 기체 6종 전부가 1-1 에서 **70% 넘게 진다**(실측) — 첫 판이 그러면 안 된다.
+ * 목표 곡선은 90 → 76 → 62 → 50 → 40% 이고 `tools/frontcheck.mjs` 가 지킨다.
  *
  * ── 담당 ────────────────────────────────────────────────
  * 이 파일은 **구조와 초안**이다(Claude). `lv`·`mon`·`lines`·`reward` 는 밸런스 성격이라
@@ -42,11 +51,13 @@ export const FRONT_CHAPTERS = [
     cells: [
       {
         id: 'c1-1',
+        /* 막 추락한 개체다. 이 게임에서 사람이 하는 **첫 판**이라 이겨서 나가야 한다 */
+        foe: 0.79,
         ko: '붉은 낙하',
         terrain: 'plain',
         lv: 1,
         lines: 1,                       /* 첫 판은 방어선 하나. 규칙을 하나만 보여 준다 */
-        mon: ['enemy_razorwing'],
+        mon: ['nhar_scout'],
         intro: '하늘에서 떨어진 것들이 도시를 부수기 시작한다. ' +
                '그것들은 사람을 쫓지 않는다. 기계만 찾는다.',
         outro: '정비고는 무너졌다. 통신은 끊겼고, 동생은 북부 학교에 있다.',
@@ -54,11 +65,13 @@ export const FRONT_CHAPTERS = [
       },
       {
         id: 'c1-2',
+        /* 이그니스가 아직 [PRIMARY WEAPON OFFLINE] 이다 */
+        foe: 0.62,
         ko: 'B7 격납고',
         terrain: 'plain',
         lv: 2,
         lines: 2,                       /* 같은 곳을 두 번 쳐야 뚫린다 — 이야기와 규칙이 같다 */
-        mon: ['enemy_razorwing', 'enemy_jackal'],
+        mon: ['nhar_scout', 'nhar_lance'],
         intro: '폐쇄된 AEON 연구소 지하 7층. 먼지 속에 기체 한 대가 서 있다. ' +
                '바닥에 새겨진 이름은 IGNIS. 그리고 천장이 갈라진다.',
         outro: '칼날이 같은 자리에 두 번 들어가자 장갑이 갈라졌다. ' +
@@ -67,11 +80,13 @@ export const FRONT_CHAPTERS = [
       },
       {
         id: 'c1-3',
+        /* 방위대와 같이 싸우는 자리 */
+        foe: 0.64,
         ko: '무너진 도로',
         terrain: 'ruins',
         lv: 3,
         lines: 2,
-        mon: ['enemy_jackal', 'enemy_razorwing'],
+        mon: ['nhar_lance', 'nhar_scout'],
         intro: '지상은 더 심하게 부서져 있다. 방위대 강습함이 도착했지만 ' +
                '적은 열일곱, 인류 프레임은 열둘이다.',
         outro: '학교 건물이 보인다. 한쪽 벽이 무너져 있다.',
@@ -79,11 +94,13 @@ export const FRONT_CHAPTERS = [
       },
       {
         id: 'c1-4',
+        /* 버스를 지키는 자리. 여기서부터 반반이다 */
+        foe: 0.54,
         ko: '북부 교육구',
         terrain: 'ruins',
         lv: 4,
         lines: 3,
-        mon: ['enemy_jackal', 'enemy_strix'],
+        mon: ['nhar_lance', 'nhar_warden'],
         intro: '운동장에 대피 버스가 멈춰 서 있다. 엔진에는 코어 발전기가 달려 있다. ' +
                '나르는 사람을 공격하지 않는다. 기계를 공격한다.',
         outro: '버스 문이 열리고 학생들이 내려왔다. 리안은 울지 않았다. ' +
@@ -92,11 +109,13 @@ export const FRONT_CHAPTERS = [
       },
       {
         id: 'c1-5',
+        /* 1장 보스. 한 번에 안 되면 앞 칸을 갈아 레벨을 올린다 */
+        foe: 0.56,
         ko: '봉인',
         terrain: 'ruins',
         lv: 6,
         lines: 3,
-        mon: ['enemy_strix', 'enemy_jackal', 'enemy_razorwing'],
+        mon: ['nhar_warden', 'nhar_lance', 'nhar_scout'],
         boss: true,
         intro: '구름 위로 산 같은 것이 내려온다. 함선이라기엔 너무 크다. ' +
                '표면에 붉은 빛 수백 개가 켜진다. [ARCHIVE UNIT 01. RETURN.]',

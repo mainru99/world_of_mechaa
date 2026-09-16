@@ -110,10 +110,13 @@ export function rollAffixes(slot, rar, rnd) {
   return pickAffixes(slot, ri(rar.affixes[0], rar.affixes[1], rnd), tiers, rnd);
 }
 
-export function rollPart(level, rnd, uid, forceRar, forceSlot) {
+export function rollPart(level, rnd, uid, forceRar, forceSlot, forceBase) {
   const slot = (forceSlot && SLOTS.includes(forceSlot)) ? forceSlot : pick(SLOTS, rnd);
   const rar = (forceRar && RARITY.find(r => r.k === forceRar)) || weighted(RARITY, rnd);
-  const base = pick(BASES_BY_SLOT[slot], rnd);
+  /* forceBase 는 합성이 쓴다. 그 슬롯의 베이스가 아니면 무시한다 —
+     슬롯과 어긋난 베이스를 받으면 스탯은 그 베이스 것인데 칸은 다른 물건이 된다. */
+  const base = (forceBase && PART_BASES[forceBase] && PART_BASES[forceBase].slot === slot)
+    ? forceBase : pick(BASES_BY_SLOT[slot], rnd);
   const affixes = rollAffixes(slot, rar, rnd);
   /* 티어 안 +-12% 굴림을 재현하는 씨앗. 값을 저장하지 않으므로 이것이 파츠의 몸이다. */
   const seed = Math.floor(rnd() * 4294967296) >>> 0;
@@ -142,4 +145,48 @@ export function rollPull(ownedTypes, level, rnd, uid, cur) {
     return { kind: 'part', part: rollPart(level, rnd, uid()) };
   }
   return { kind: 'bust' };
+}
+
+/* ── 합성 ────────────────────────────────────────────────
+   재료 셋을 받아 **무엇이 나오는가**만 정한다. 파츠를 지우거나 스크랩을 깎는 것은
+   부르는 쪽(서버)의 일이다 — 뽑기와 같은 규칙이다. 그래야 검사 도구가 규칙만
+   따로 돌려볼 수 있다.
+
+   fuseCheck 는 재료가 규칙에 맞는지 본다. 서버와 화면이 **같은 함수**를 쓰므로
+   '화면에서는 되는데 서버가 거절' 이 생기지 않는다. */
+export function fuseCheck(mats) {
+  const F = CONST.FUSE || {};
+  const need = F.need || 3;
+  if (!Array.isArray(mats) || mats.length !== need) return `파츠 ${need}개를 골라야 합니다`;
+  const uids = new Set(mats.map(m => m && m.uid));
+  if (uids.size !== need) return '같은 파츠를 여러 번 고를 수 없습니다';
+  if (mats.some(m => !m || !m.slot || !m.rarity)) return '알 수 없는 파츠입니다';
+  if (mats.some(m => m.slot !== mats[0].slot)) return '같은 칸의 파츠끼리만 합성합니다';
+  if (mats.some(m => m.rarity !== mats[0].rarity)) return '같은 등급끼리만 합성합니다';
+  return null;
+}
+export const fuseCost = rarity => ((CONST.FUSE && CONST.FUSE.cost) || {})[rarity] || 0;
+export const fuseUpRate = rarity => ((CONST.FUSE && CONST.FUSE.up) || {})[rarity] || 0;
+/* 등급 한 칸 위. 없으면 그대로(SSR) */
+export const nextRarity = k => {
+  const i = RARITY.findIndex(r => r.k === k);
+  return (i >= 0 && RARITY[i + 1]) ? RARITY[i + 1].k : k;
+};
+/* 재료가 정하는 결과 베이스. 셋이 모두 같으면 확정, 아니면 셋 중 하나. */
+export function fuseBase(mats, rnd) {
+  const bases = mats.map(m => m.base).filter(Boolean);
+  if (!bases.length) return null;                       // 옛 파츠(베이스 없음)는 무작위로
+  if (bases.every(b => b === bases[0])) return bases[0];
+  return pick(bases, rnd);
+}
+export function fusePart(mats, rnd, uid) {
+  const bad = fuseCheck(mats);
+  if (bad) return { error: bad };
+  const slot = mats[0].slot, rar = mats[0].rarity;
+  const up = rnd() < fuseUpRate(rar);
+  const outRar = up ? nextRarity(rar) : rar;
+  const base = fuseBase(mats, rnd);
+  const lv = Math.max(1, ...mats.map(m => m.lv | 0 || 1));
+  const part = rollPart(lv, rnd, uid, outRar, slot, base);
+  return { part, up, guaranteed: !!base && mats.every(m => m.base === mats[0].base) };
 }

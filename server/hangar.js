@@ -9,8 +9,9 @@
  */
 import { CONST, RARITY } from '../data/balance.js';
 import { lvCost, enhCost, serviceCost, fatOf, decayFat, skillCost, skillRate, skillMax } from '../js/stats.js';
-import { scrapGain } from '../js/gacha.js';
+import { scrapGain, fusePart, fuseCheck, fuseCost } from '../js/gacha.js';
 import { registerArena } from './arena.js';
+import { partOf, insertPart } from './parts.js';
 
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 const err = (status, error) => ({ ok: false, status, error });
@@ -207,6 +208,55 @@ export async function hangarAction(env, acc, body, now) {
   /* ── 파츠 분해 ── 뽑기가 더 이상 일반 등급을 자동으로 없애지 않으므로,
      치우는 일은 여기서 한다. 끼고 있는 파츠는 먼저 빼야 한다 —
      장착한 채로 지우면 robot 의 슬롯 컬럼이 없는 행을 가리킨다. */
+  /* ── 합성 ───────────────────────────────────────
+     같은 칸·같은 등급 파츠 셋을 하나로 합친다. 규칙은 js/gacha.js 의 fusePart 다 —
+     화면과 서버가 **같은 함수**를 쓰므로 '화면에서는 되는데 서버가 거절' 이 없다.
+
+     되돌릴 수 없는 작업이라 지키는 것 셋:
+       · 끼고 있는 파츠는 재료가 될 수 없다 (분해와 같은 규칙)
+       · 재화와 파츠를 **한 배치**로 처리한다. 나눠 보내면 스크랩만 나가고 파츠가 안
+         나오는 반쪽 상태가 생긴다
+       · 씨앗은 서버가 만든다. 클라가 보내면 마음에 드는 결과가 나올 때까지 고를 수 있다 */
+  if (action === 'fuse') {
+    const uids = Array.isArray(body.uids) ? body.uids.slice(0, 8) : [];
+    const rows = [];
+    for (const u of uids) {
+      const pt = await getPart(env, acc, u);
+      if (!pt) return err(404, 'part not found');
+      rows.push(pt);
+    }
+    const mats = rows.map(partOf);
+    const bad = fuseCheck(mats);
+    if (bad) return err(400, bad);
+
+    const worn = await env.DB.prepare(
+      'SELECT s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1').bind(acc).all();
+    if (rows.some(r => wornIds(worn.results || []).has(r.id))) return err(400, 'part equipped');
+
+    const cost = fuseCost(mats[0].rarity);
+    if (p.scrap < cost) return err(400, 'not enough scrap');
+
+    /* 씨앗은 서버에서 만든다. pull 과 같은 모양의 uid 를 쓰고
+       결과에 실어 보낸다 — 클라가 따로 만들면 서버 행과 uid 가 갈라 파츠를 가리킬 수 없다. */
+    let sd = (Math.random() * 4294967296) >>> 0;
+    const rnd = () => { sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0; return sd / 4294967296; };
+    const uid = 'f' + now.toString(36) + Math.floor(Math.random() * 1679616).toString(36);
+    const out = fusePart(mats, rnd, uid);
+    if (out.error) return err(400, out.error);
+
+    /* 남는 값을 **먼저** 잡아 둔다. 배치 뒤에 p.scrap 을 다시 읽으면, 읽어 온 행이
+       그 사이 갱신된 경우 한 번 더 깎인 값을 돌려주게 된다. */
+    const left = p.scrap - cost, rev = p.rev + 1;
+    await env.DB.batch([
+      ...rows.map(r => env.DB.prepare('DELETE FROM part WHERE id = ?1').bind(r.id)),
+      insertPart(env.DB, acc, out.part, now, 0),
+      env.DB.prepare('UPDATE player SET scrap = ?1, rev = ?2, updated_at = ?3 WHERE account_id = ?4')
+        .bind(left, rev, now, acc),
+    ]);
+    return { ok: true, rev, scrap: left, cost,
+             used: rows.map(r => r.uid), part: out.part, up: out.up, guaranteed: out.guaranteed };
+  }
+
   if (action === 'scrap') {
     const pt = await getPart(env, acc, body.partUid);
     if (!pt) return err(404, 'part not found');

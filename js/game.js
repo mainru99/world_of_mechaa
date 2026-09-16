@@ -18,7 +18,8 @@ import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, ga
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed } from './breach.js';
 import * as net from './net.js';
-import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR } from './gacha.js';
+import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
+         fuseCheck, fuseCost, fuseUpRate, nextRarity } from './gacha.js';
 import { makeOpponent as _makeOpponent, pickTactic } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
@@ -735,12 +736,104 @@ function renderHangar(){
       <h2 class="title" style="margin-top:0">파츠 인벤토리
         <span class="cnt">${invHit.length===invAll.length?`${invAll.length}개`:`${invHit.length} / ${invAll.length}개`}</span></h2>
       <div class="hint">누르면 <b>강화</b>(스크랩) · 장착은 위 슬롯에서 · 쓰지 않을 것은 <b>분해</b>해 스크랩으로</div>
+      <button class="btn" style="margin:8px 0 2px" onclick="ROWAR.openFuse()">파츠 합성</button>
       ${invBar(invAll)}
       <div class="inv">${inv}</div>
       ${invMoreBtn}
     </div>`;
 
 }
+/* ── 파츠 합성 ────────────────────────────────────────────
+   같은 칸·같은 등급 파츠 셋을 하나로 합친다. **재료가 결과 베이스를 정한다** —
+   셋이 모두 같은 베이스면 그 베이스가 확정으로 나오고, 섞여 있으면 셋 중 하나다.
+
+   그래서 화면이 반드시 보여 줘야 하는 것이 '지금 고른 셋이면 무엇이 나오는가' 다.
+   확정인지 아닌지를 고르는 도중에 알려 주지 않으면, 세트를 노리는 사람이 뭘 모으고
+   있는지 알 수 없다. 규칙은 서버와 **같은 함수**(fuseCheck)를 쓴다.
+
+   되돌릴 수 없으므로 마지막 버튼에만 실제 동작을 건다. 고르는 동안에는 아무 일도
+   일어나지 않는다. */
+let _fuseSel = [];
+function openFuse(){
+  _fuseSel = _fuseSel.filter(u => findPart(u, S.parts));   // 그 사이 사라진 것 정리
+  drawFuse();
+}
+function fuseToggle(u){
+  const i = _fuseSel.indexOf(u);
+  if(i >= 0) _fuseSel.splice(i, 1);
+  else if(_fuseSel.length < (CONST.FUSE?.need || 3)) _fuseSel.push(u);
+  drawFuse();
+}
+function drawFuse(){
+  const need = CONST.FUSE?.need || 3;
+  const worn = new Set(S.robots.flatMap(r => Object.values(r.slots)).filter(Boolean));
+  const pool = S.parts.filter(p => !worn.has(p.uid));
+  const sel  = _fuseSel.map(u => findPart(u, S.parts)).filter(Boolean);
+
+  /* 하나를 고르면 그 뒤로는 같은 칸·같은 등급만 고를 수 있다 —
+     못 고를 것을 눌러 보고 거절당하는 것보다, 처음부터 흐려 두는 편이 낫다. */
+  const lock = sel[0] || null;
+  const okTo = p => !lock || (p.slot === lock.slot && p.rarity === lock.rarity);
+
+  const chips = pool.length ? pool.map(p => {
+    const on = _fuseSel.includes(p.uid), dim = !on && !okTo(p);
+    return `<div class="pchip fusec${on?' on':''}${dim?' dim':''}${enhClass(p)}"
+      onclick="${dim?'':`ROWAR.fuseToggle('${p.uid}')`}">
+      <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}</div>
+      <div class="ps">${SLOT_KO[p.slot]}${p.enh?` · +${p.enh}`:''}</div></div>`;
+  }).join('') : `<div class="empty">합성할 수 있는 파츠가 없습니다. 끼고 있는 파츠는 재료가 될 수 없습니다.</div>`;
+
+  /* 결과 예고 — 확정 베이스인지, 등급이 오를 확률이 얼마인지 */
+  let fore = `<div class="hint">같은 칸·같은 등급으로 <b>${need}개</b>를 고르세요.</div>`;
+  let btn  = `<button class="btn big" disabled>${need}개를 고르세요 (${sel.length}/${need})</button>`;
+  const bad = sel.length === need ? fuseCheck(sel) : null;
+  if(sel.length === need && !bad){
+    const rar = sel[0].rarity, cost = fuseCost(rar), up = fuseUpRate(rar);
+    const bases = sel.map(p => p.base).filter(Boolean);
+    const same  = bases.length === need && bases.every(b => b === bases[0]);
+    const poor  = S.scrap < cost;
+    fore = `<div class="fpv">
+      <div><span>결과 칸</span><b>${SLOT_KO[sel[0].slot]}</b></div>
+      <div><span>베이스</span><b class="${same?'good':''}">${same
+        ? `${esc(sel[0].name)} 확정`
+        : `고른 ${need}개 중 하나 (${sel.map(p=>esc(p.name)).join(' · ')})`}</b></div>
+      <div><span>등급</span><b>${rar}${up>0
+        ? ` → <span style="color:var(--gold)">${nextRarity(rar)} ${Math.round(up*100)}%</span>`
+        : ' (더 오를 등급 없음)'}</b></div>
+      <div><span>인챈트</span><b>새로 굴립니다</b></div>
+      <div><span>비용</span><b class="${poor?'bad':''}">스크랩 ${fmt(cost)}</b></div>
+    </div>
+    ${same?'':`<div class="hint">같은 베이스로 ${need}개를 맞추면 <b>그 베이스가 확정</b>으로 나옵니다 — 세트를 맞추는 길입니다.</div>`}
+    <div class="hint" style="color:var(--bad)">재료 ${need}개는 사라집니다. 되돌릴 수 없습니다.</div>`;
+    btn = `<button class="btn big gold" ${(poor||!net.state.online)?'disabled':''} onclick="ROWAR.doFuse()">
+      ${poor?`스크랩 부족 (${fmt(cost)} 필요)`:`합성 · 스크랩 ${fmt(cost)}`}</button>`;
+  } else if(bad){
+    fore = `<div class="hint" style="color:var(--bad)">${esc(bad)}</div>`;
+  }
+
+  openModal(`<div class="mhead">파츠 합성 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    ${fore}
+    <div class="inv finv">${chips}</div>
+    ${btn}`);
+}
+async function doFuse(){
+  const need = CONST.FUSE?.need || 3;
+  const sel = _fuseSel.map(u => findPart(u, S.parts)).filter(Boolean);
+  if(sel.length !== need || fuseCheck(sel)) return;
+  const r = await srvHangar('fuse', { uids: sel.map(p => p.uid) });
+  if(!r) return;
+  closeModal();
+  /* 서버가 확정한 것만 받아 적는다. 무엇이 나올지 클라가 굴리지 않는다. */
+  const gone = new Set(r.used || sel.map(p => p.uid));
+  S.parts = S.parts.filter(p => !gone.has(p.uid));
+  if(r.part) S.parts.push(r.part);
+  S.scrap = r.scrap;
+  _fuseSel = [];
+  commitLocal(); renderWallet(); renderHangar();
+  const p = r.part;
+  toast(`${p.name} ${p.rarity} 완성${r.up?' · 등급 상승!':''}${r.guaranteed?' (확정)':''}`);
+}
+
 function openSlot(slot){
   const rb=selRobot(); const equippedHere=rb.slots[slot];
   const list=S.parts.filter(p=>p.slot===slot);
@@ -2077,6 +2170,7 @@ window.ROWAR = {
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
   openSlot, closeModal, setGacha, scrapPart, toggleSpeed, pickExped, openNode, guide,
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
+  openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
   duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,

@@ -1030,3 +1030,18 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 
 /* 인벤토리를 한 번에 다 그리지 않는다 — 더 보기. */
 .invmore{display:block;width:100%;margin-top:10px;padding:10px;font-size:12px}
+
+/* ── 파츠 합성 ─────────────────────────────────────────────
+   고르는 동안 '무엇이 나오는가' 를 계속 보여 준다. 되돌릴 수 없는 작업이라
+   누르기 전에 결과를 알 수 있어야 한다. */
+.finv{max-height:230px;overflow:auto;margin:10px 0}
+.fusec{cursor:pointer;transition:.12s}
+.fusec.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.fusec.dim{opacity:.32;cursor:not-allowed}
+.fpv{display:grid;gap:5px;margin:8px 0 6px;padding:10px 12px;border-radius:12px;
+  background:rgba(13,20,36,.74);border:1px solid rgba(120,150,210,.2)}
+.fpv > div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:12px}
+.fpv span{color:var(--dim)}
+.fpv b{color:var(--ink);text-align:right}
+.fpv b.good{color:var(--gold)}
+.fpv b.bad{color:var(--bad)}

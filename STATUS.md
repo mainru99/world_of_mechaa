@@ -6,7 +6,7 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-16 · 합성 · 주간 시련 · 보스 레이드 **운영 반영 완료** · schema 15
+- **마지막 갱신** — 2026-09-17 · 전선 1장 운영 반영 완료 · schema 16 · `balance_ver` 1dhsh9n
 - **스키마 버전** — 로컬 **15** · 운영 **15** (014·015 이관 완료, 2026-09-16)
 
 ### 2026-09-16 밤 — 개선 넷 (사용자 지적)

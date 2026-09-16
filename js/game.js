@@ -18,6 +18,7 @@ import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, ga
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed } from './breach.js';
 import { weekOf, trialOf, runTrial, trialWon, foeStats } from './trial.js';
+import { raidOf, runRaid, raidSeeds, raidLeft } from './raid.js';
 import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
          fuseCheck, fuseCost, fuseUpRate, nextRarity } from './gacha.js';
@@ -1149,9 +1150,22 @@ let _trial=null, _trialAt=0;
 const TRIAL_TTL = 30000;
 function dropTrialCache(){ _trial=null; _trialAt=0; }
 
+/* 시련 탭은 두 갈래다 — 혼자 재는 '주간 시련' 과 다 같이 깎는 '보스 레이드'.
+   탭을 하나 더 만들지 않고 여기 묶은 이유: 둘 다 주 단위 서버 공통 도전이고,
+   모바일 하단 탭이 이미 일곱 개라 여덟 번째는 48px 밑으로 내려간다. */
+let _trialTab = 'trial';
+function setTrialTab(k){ _trialTab = (k==='raid') ? 'raid' : 'trial'; renderTrial(); }
+function trialTabs(){
+  return `<div class="ttabs">
+    <button class="gtab ${_trialTab==='trial'?'on':''}" onclick="ROWAR.setTrialTab('trial')">주간 시련<span>혼자 · 결정적</span></button>
+    <button class="gtab ${_trialTab==='raid'?'on':''}"  onclick="ROWAR.setTrialTab('raid')">보스 레이드<span>다 같이 · 하루 제한</span></button>
+  </div>`;
+}
+
 async function renderTrial(){
+  if(_trialTab==='raid') return renderRaid();
   const el=$('#sc-trial');
-  const wrap = inner => `<h2 class="title">주간 시련</h2>${inner}`;
+  const wrap = inner => `${trialTabs()}<h2 class="title">주간 시련</h2>${inner}`;
   if(!net.state.online){
     el.innerHTML = wrap(`<div class="panel"><div class="hint">주간 시련은 서버 연결이 필요합니다. 순위는 서버에 하나뿐입니다.</div></div>`);
     return;
@@ -1186,7 +1200,7 @@ function drawTrial(r){
       <td class="sc">${trialScoreText(x.score, r.winBase)}</td></tr>`).join('')
     : `<tr><td colspan="4" class="empty">아직 아무도 기록하지 않았습니다. 첫 번째가 되세요.</td></tr>`;
 
-  $('#sc-trial').innerHTML = `<h2 class="title">주간 시련</h2>
+  $('#sc-trial').innerHTML = `${trialTabs()}<h2 class="title">주간 시련</h2>
     <div class="tr2">
       <div class="panel">
         <div class="dh">이번 주 상대 · ${dur(left)} 남음</div>
@@ -1216,6 +1230,137 @@ function drawTrial(r){
           <th>#</th><th>이름</th><th>기체</th><th>점수</th></tr></thead>
           <tbody>${rows}</tbody></table></div>
       </div>
+    </div>`;
+}
+
+/* ── 보스 레이드 ──────────────────────────────────────────
+   서버 전체가 하나의 체력 막대를 같이 깎는다. 혼자 하는 게임에 다른 사람이 처음
+   보이는 곳이다 — 순위표의 이름이 아니라, 내가 깎은 만큼 남들의 막대가 줄어든다.
+
+   전투는 매번 보스를 **꽉 찬 체력**으로 만난다. 막대와 전투 체력을 같이 두면 두
+   사람이 동시에 칠 때 한쪽 피해가 사라진다(js/raid.js 머리말). 그래서 화면도
+   '막대'와 '이번 판 피해'를 따로 보여 준다 — 같은 수가 아니라는 것이 보여야 한다. */
+let _raid=null, _raidAt=0;
+const RAID_TTL = 20000;
+function dropRaidCache(){ _raid=null; _raidAt=0; }
+
+async function renderRaid(){
+  const el=$('#sc-trial');
+  const wrap = inner => `${trialTabs()}<h2 class="title">보스 레이드</h2>${inner}`;
+  if(!net.state.online){
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">보스 레이드는 서버 연결이 필요합니다. 막대는 서버에 하나뿐입니다.</div></div>`);
+    return;
+  }
+  const fresh = _raid && (Date.now()-_raidAt) < RAID_TTL;
+  if(!fresh) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
+    <div style="font-weight:800">이번 주 보스를 불러오는 중...</div></div></div>`);
+  const r = fresh ? _raid : await net.raid(false);
+  if(r && !r.error){ _raid=r; _raidAt=Date.now(); }
+  if(!r || r.error){
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
+    return;
+  }
+  drawRaid(r);
+}
+
+function drawRaid(r){
+  const pct = Math.max(0, Math.min(100, (r.left / Math.max(1,r.maxHp)) * 100));
+  const left=Math.max(0, r.endsAt - Date.now());
+  const rows = r.top.length ? r.top.map(x=>`<tr class="${x.me?'me':''}">
+      <td class="rk">${x.rank}</td>
+      <td class="nm">${esc(x.nickname)}${x.me?' <span class="tag">나</span>':''}</td>
+      <td class="sc">${fmt(x.damage)}</td>
+      <td class="sc" style="color:var(--dim)">${fmt(x.best)}</td></tr>`).join('')
+    : `<tr><td colspan="4" class="empty">아직 아무도 치지 않았습니다. 첫 번째가 되세요.</td></tr>`;
+  const can = r.triesLeft>0 && !r.killed;
+
+  $('#sc-trial').innerHTML = `${trialTabs()}<h2 class="title">보스 레이드</h2>
+    <div class="tr2">
+      <div class="panel">
+        <div class="dh">이번 주 보스 · ${dur(left)} 남음</div>
+        <div class="trfoe">
+          <div class="sprite" data-t="EP">${sprite(r.boss,false)}</div>
+          <div>
+            <div class="rname">${esc(r.name)} <span class="lv">Lv.${r.level}</span></div>
+            <div class="rrole">${esc(r.role||'')}</div>
+            <div class="trterr">전투 체력 ${fmt(r.battleHp)} · 한 판에 깎을 수 있는 최대</div>
+          </div>
+        </div>
+        <div class="rbar ${r.killed?'down':''}">
+          <i style="width:${pct.toFixed(2)}%"></i>
+          <b>${r.killed?'격파됨':`${fmt(r.left)} / ${fmt(r.maxHp)}`}</b>
+        </div>
+        ${r.killed
+          ? `<div class="hint" style="color:var(--gold)">이번 주 보스는 쓰러졌습니다${r.killer?` · 마지막 일격 <b>${esc(r.killer)}</b>`:''}. 다음 주에 새 보스가 옵니다.</div>`
+          : `<div class="hint">서버 전체가 <b>하나의 막대</b>를 같이 깎습니다. ${fmt(r.joined)}명이 참가했습니다.</div>`}
+        <div class="fpv" style="margin-top:10px">
+          <div><span>오늘 남은 도전</span><b class="${can?'good':'bad'}">${r.triesLeft} / ${r.daily}</b></div>
+          <div><span>내 누적 피해</span><b>${r.me?fmt(r.me.damage):'0'}</b></div>
+          <div><span>한 판 최고</span><b>${r.me?fmt(r.me.best):'—'}</b></div>
+        </div>
+        <button class="btn big gold" ${can?'':'disabled'} onclick="ROWAR.raidRun()">
+          ${r.killed?'격파됨':(r.triesLeft>0?'보스 공격':'오늘 도전을 다 썼습니다')}</button>
+        <div class="hint">편성한 <b>두 기</b>가 차례로 들어갑니다. 선봉이 쓰러지면 예비가 이어서 깎습니다.
+          보스는 <b>매번 꽉 찬 체력</b>으로 만납니다 — 깎은 만큼이 위 막대에 더해집니다.</div>
+      </div>
+
+      <div class="panel">
+        <h2 class="title" style="margin-top:0">기여 순위 <span class="cnt">${fmt(r.joined)}명</span></h2>
+        <div class="rx"><table class="rank"><thead><tr>
+          <th>#</th><th>이름</th><th>누적 피해</th><th>한 판 최고</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+      </div>
+    </div>`;
+}
+
+async function raidRunGo(){
+  if(!net.state.online){ toast('보스 레이드는 서버 연결이 필요합니다'); return; }
+  const r = await net.raid(true);
+  if(!r || r.error){
+    toast(r&&r.error==='no tries left' ? '오늘 도전을 다 썼습니다'
+        : r&&r.error==='raid already down' ? '이번 주 보스는 이미 쓰러졌습니다'
+        : ('실패'+(r&&r.error?': '+r.error:'')));
+    dropRaidCache(); renderRaid(); return;
+  }
+  _raid = r; _raidAt = Date.now();
+  S.credits = r.credits; S.scrap = r.scrap;
+  commitLocal(); renderWallet();
+
+  /* 재생 — 서버가 준 시드로 **같은 함수**를 다시 돌린다. 결과를 따로 받지 않는 이유가
+     이것이다: 따로 받으면 재생과 기록이 갈린다(점령전과 같은 규칙). */
+  const mechs = r.mechs.map(m=>({ name: ROBOT_TYPES[m.type].name, type: m.type, stats: m.stats }));
+  const out = runRaid(mechs, { boss:r.boss.type, level:r.boss.level, stats:r.boss.stats,
+                               battleHp:r.battleHp }, r.seeds);
+  const bossName = r.name;
+  for(let i=0;i<out.rounds.length;i++){
+    const rd=out.rounds[i], M=mechs[rd.mi];
+    renderArena(M.type, r.boss.type, M.name, bossName, `보스 레이드 · ${bossName}`);
+    if(arenaGone()) return;
+    if(i>0 && rd.mi!==out.rounds[i-1].mi)
+      blog(`<b style="color:var(--bad)">선봉 격추</b> — <span class="k">${M.name}</span> 투입`);
+    const P=makeUnit(M.name,M.type,M.stats); P.hp=rd.pHp; P.sp=rd.pSp;
+    const E=makeUnit(bossName,r.boss.type,r.boss.stats); E.hp=rd.eHp; E.sp=rd.eSp;
+    if(i===0) await bossEntrance();
+    const w=await playBattle(rd.events,P,E,{pHp:rd.pHp,eHp:rd.eHp,pSp:rd.pSp,eSp:rd.eSp});
+    if(!w) return;
+    await sleep(320/battleSpeed);
+  }
+  renderRaidResult(r);
+}
+
+function renderRaidResult(r){
+  shield(); toBattle();
+  $('#sc-battle').innerHTML = `<h2 class="title">보스 레이드 결과</h2>
+    <div class="panel">
+      <div class="rname" style="color:${r.kill?'var(--gold)':'var(--acc2)'}">${r.kill?'격파!':'피해를 입혔습니다'}</div>
+      <div class="fpv" style="margin-top:8px">
+        <div><span>이번 판 피해</span><b>${fmt(r.damage)}</b>${r.raw>r.damage?` <span class="ps">(막대가 ${fmt(r.raw-r.damage)}만큼 모자랐습니다)</span>`:''}</div>
+        <div><span>내 누적</span><b>${r.me?fmt(r.me.damage):fmt(r.damage)}</b></div>
+        <div><span>보스 남은 체력</span><b>${r.killed?'격파됨':fmt(r.left)+' / '+fmt(r.maxHp)}</b></div>
+        <div><span>보상</span><b style="color:var(--gold)">크레딧 +${fmt(r.reward.cr)} · 스크랩 +${fmt(r.reward.sc)}</b></div>
+        <div><span>오늘 남은 도전</span><b>${r.triesLeft} / ${r.daily}</b></div>
+      </div>
+      <button class="btn big" style="margin-top:10px" onclick="ROWAR.go('trial')">레이드로 돌아가기</button>
     </div>`;
 }
 
@@ -2293,6 +2438,7 @@ window.ROWAR = {
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
   openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
   trialRun: guard(trialRunGo, 1000),
+  setTrialTab, raidRun: guard(raidRunGo, 1000),
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
   duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,

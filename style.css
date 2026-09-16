@@ -1059,3 +1059,16 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .trfoe::before{content:"";position:absolute;inset:0;opacity:.22;z-index:0;
   background:var(--scene-terrain,none) center/cover no-repeat}
 .rank td.sc{text-align:right;white-space:nowrap}
+
+/* ── 보스 레이드 ───────────────────────────────────────────
+   막대는 '남은 체력' 이다. 서버 전체가 같이 깎으므로 내가 안 쳐도 줄어 있다. */
+.ttabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.rbar{position:relative;height:30px;margin:12px 0 6px;border-radius:999px;overflow:hidden;
+  background:#0b1222;border:1px solid rgba(120,150,210,.24)}
+.rbar i{position:absolute;inset:0 auto 0 0;border-radius:999px;transition:width .5s ease;
+  background:linear-gradient(90deg,#8f2e2e,#e05a3a 60%,#ffb03a)}
+.rbar b{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;
+  color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);font-variant-numeric:tabular-nums}
+.rbar.down i{background:#2a3350}
+.rbar.down b{color:var(--gold)}
+.fpv b.good{color:var(--good)}

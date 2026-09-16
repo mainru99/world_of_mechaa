@@ -280,7 +280,33 @@ CREATE TABLE IF NOT EXISTS trial (
 );
 CREATE INDEX IF NOT EXISTS ix_trial_rank ON trial(week, score DESC);
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '14');
+-- 보스 레이드. 막대는 raid.dealt 한 칸에만 있고 `dealt = dealt + ?` 로만 는다 —
+-- 그 문장이 원자적이라 두 사람이 동시에 쳐도 피해가 사라지지 않는다.
+CREATE TABLE IF NOT EXISTS raid (
+  week       INTEGER PRIMARY KEY,
+  boss       TEXT    NOT NULL,
+  level      INTEGER NOT NULL,
+  max_hp     INTEGER NOT NULL,
+  dealt      INTEGER NOT NULL DEFAULT 0,
+  killed_at  INTEGER,
+  killer     TEXT,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS raid_hit (
+  week       INTEGER NOT NULL,
+  account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  nickname   TEXT    NOT NULL,
+  damage     INTEGER NOT NULL DEFAULT 0,
+  best       INTEGER NOT NULL DEFAULT 0,
+  tries      INTEGER NOT NULL DEFAULT 0,
+  day        INTEGER NOT NULL DEFAULT 0,
+  today      INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (week, account_id)
+);
+CREATE INDEX IF NOT EXISTS ix_raid_hit ON raid_hit(week, damage DESC);
+
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '15');
 
 
 -- =========================================================

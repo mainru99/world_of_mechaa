@@ -233,6 +233,13 @@ export async function ranking() {
 }
 
 /* 격납고 조작 — 서버 판정. 성공하면 서버가 확정한 값을 돌려준다. */
+/* 보스 레이드. 시련과 같은 모양이다. */
+export async function raid(run) {
+  const r = await call('/api/raid', run ? { method: 'POST', body: {} } : {});
+  if (r.ok && r.data && r.data.ok) return r.data;
+  return { error: (r.data && r.data.error) || r.error || 'raid failed' };
+}
+
 /* 주간 시련. 읽기는 GET, 도전은 POST — 도전은 기록을 바꾸므로 GET 이면 안 된다. */
 export async function trial(run) {
   const r = await call('/api/trial', run ? { method: 'POST', body: {} } : {});

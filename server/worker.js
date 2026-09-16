@@ -21,6 +21,7 @@ import { serverPull } from './pull.js';
 import { findMatch, startBattle } from './battle.js';
 import { hangarAction } from './hangar.js';
 import { trialView, trialRun } from './trial.js';
+import { raidView, raidRun } from './raid.js';
 import { sendExped, claimExped } from './expedition.js';
 import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion, migrateArena } from './arena.js';
@@ -344,6 +345,21 @@ async function handleApi(request, env, url) {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
     const r = await trialRun(env, sess.account_id, Date.now());
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+
+  /* 보스 레이드. 조회는 GET, 도전은 POST.
+     도전 요청에는 아무것도 안 실린다 — 무엇으로 싸울지, 몇 번째인지, 시드가 무엇인지
+     전부 서버가 정한다. 클라가 보내는 것은 '도전한다' 는 사실뿐이다. */
+  if (path === '/raid' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    return json(await raidView(env, sess.account_id, Date.now()));
+  }
+  if (path === '/raid' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await raidRun(env, sess.account_id, Date.now());
     return json(r, r.ok ? 200 : (r.status || 400));
   }
 

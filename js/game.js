@@ -2330,7 +2330,7 @@ function speakerHtml(s){
 }
 
 /* 대사 한 묶음을 끝까지 재생한다. 돌려주는 값: 끝까지 봤으면 true, 화면을 떠났으면 false. */
-async function playScript(beats, title){
+async function playScript(beats, title, endLabel){
   if(!beats || !beats.length) return true;
   const ac = { stop: false, skip: false, next: null };
   _scriptAbort = ac;
@@ -2339,24 +2339,29 @@ async function playScript(beats, title){
 
   el.innerHTML = `<div class="story-view" id="storyView">
     <div class="story-top"><span class="story-ttl">${esc(title || '')}</span>
+      <span class="story-n" id="storyN"></span>
       <button class="story-skip" id="storySkip">건너뛰기 ▸▸</button></div>
     <div class="story-box">
       <div class="story-spk" id="storySpk"></div>
       <p class="story-line" id="storyLine"></p>
       <div class="story-more" id="storyMore">▼</div>
+      <button class="story-go" id="storyGo" hidden>${esc(endLabel || '계속')} ▸</button>
     </div>
     <div class="story-hint">아무 곳이나 눌러 다음으로</div>
   </div>`;
 
-  const view = $('#storyView'), lineEl = $('#storyLine'),
-        spkEl = $('#storySpk'), moreEl = $('#storyMore');
+  const view = $('#storyView'), lineEl = $('#storyLine'), spkEl = $('#storySpk'),
+        moreEl = $('#storyMore'), nEl = $('#storyN'), goEl = $('#storyGo');
   const advance = () => { if(ac.next) ac.next(); };
   view.addEventListener('click', advance);
   $('#storySkip').addEventListener('click', e => { e.stopPropagation(); ac.skip = true; advance(); });
 
-  for(const b of beats){
+  for(let bi = 0; bi < beats.length; bi++){
+    const b = beats[bi], last = bi === beats.length - 1;
     if(ac.stop || ac.skip) break;
     if(!$('#storyView')) { _scriptAbort = null; return false; }   // 화면을 떠났다
+    /* 몇 줄이 남았는지 보여 준다. 끝이 안 보이면 읽지 않고 건너뛰게 된다. */
+    nEl.textContent = `${bi + 1} / ${beats.length}`;
     spkEl.innerHTML = speakerHtml(b.s);
     const sp = SPEAKERS[b.s];
     lineEl.className = 'story-line' + (sp && sp.kind === 'system' ? ' sys' : '')
@@ -2378,7 +2383,10 @@ async function playScript(beats, title){
       ac.next = () => { if(!done){ clearInterval(timer); done = true; lineEl.textContent = text; res(); } };
     });
     if(ac.stop || ac.skip) break;
-    moreEl.style.visibility = 'visible';
+    /* 마지막 줄에서는 '다음' 이 아니라 **다음에 할 일의 이름**을 띄운다 —
+       이야기가 곧바로 조작으로 넘어가야 캠페인이 이어진 느낌이 난다. */
+    moreEl.style.visibility = last ? 'hidden' : 'visible';
+    goEl.hidden = !last;
     await new Promise(res => { ac.next = res; });                  // 다음 줄까지 기다린다
   }
   _scriptAbort = null;
@@ -2416,7 +2424,7 @@ function renderFront(){
   /* 장 도입은 처음 한 번만. 볼 때마다 틀면 탭을 오갈 수가 없다. */
   if(!cellSeen(ch.id, 'open')){
     const op = openingOf(ch.id);
-    if(op){ markSeen(ch.id, 'open'); playScript(op, `${ch.no}장 ${ch.ko}`).then(ok => { if(ok) go('terr'); }); return; }
+    if(op){ markSeen(ch.id, 'open'); playScript(op, `${ch.no}장 ${ch.ko}`, '전선으로').then(ok => { if(ok) go('terr'); }); return; }
   }
   const done = clearedCount(prog), total = ch.cells.length;
 
@@ -2485,7 +2493,7 @@ async function runCell(id){
      같은 대사를 강제하면 그게 벌이 된다. */
   const pre = scriptOf(id, 'before');
   if(pre && !cellSeen(id, 'before')){
-    const ok = await playScript(pre, `${c.ko}`);
+    const ok = await playScript(pre, `${c.ko}`, '출격');
     markSeen(id, 'before');
     if(!ok) return;                          // 화면을 떠났다
   }
@@ -2503,7 +2511,7 @@ async function runCell(id){
   if(!ok) return;
   if(r.win){
     const post = scriptOf(id, 'after');
-    if(post){ const seen = await playScript(post, `${c.ko}`); markSeen(id, 'after'); if(!seen) return; }
+    if(post){ const seen = await playScript(post, `${c.ko}`, '전과 확인'); markSeen(id, 'after'); if(!seen) return; }
   }
   renderFrontResult(r, c);
 }

@@ -317,13 +317,16 @@ body[data-scene="terr"] .tpips i{background:rgba(6,12,28,.72);border-color:rgba(
    늘 같은 곳' 으로 보였다.
    js/game.js 가 body[data-terrain] 을 붙였다 뗀다 — 점령전 동안만 붙는다.
    위 body[data-scene="terr"] .tnode 규칙과 같은 그림을 쓰되, 그쪽은 칸 카드용이라
-   변수를 따로 둔다. */
-body[data-terrain]{ --scene-terrain:url('../assets/terrain/plain.webp') }
-body[data-terrain="canyon"]  { --scene-terrain:url('../assets/terrain/canyon.webp') }
-body[data-terrain="highland"]{ --scene-terrain:url('../assets/terrain/highland.webp') }
-body[data-terrain="ruins"]   { --scene-terrain:url('../assets/terrain/ruins.webp') }
-body[data-terrain="storm"]   { --scene-terrain:url('../assets/terrain/storm.webp') }
-body[data-terrain="furnace"] { --scene-terrain:url('../assets/terrain/furnace.webp') }
+   변수를 따로 둔다.
+
+   body 에만 걸지 않는다 — 카드 하나(예: 시련의 상대 카드 .trfoe)도 제 지형을 쓰고 싶어서다.
+   변수는 상속되므로 body 에 붙이면 화면 전체가, 카드에 붙이면 그 카드만 바뀐다. */
+[data-terrain]{ --scene-terrain:url('../assets/terrain/plain.webp') }
+[data-terrain="canyon"]  { --scene-terrain:url('../assets/terrain/canyon.webp') }
+[data-terrain="highland"]{ --scene-terrain:url('../assets/terrain/highland.webp') }
+[data-terrain="ruins"]   { --scene-terrain:url('../assets/terrain/ruins.webp') }
+[data-terrain="storm"]   { --scene-terrain:url('../assets/terrain/storm.webp') }
+[data-terrain="furnace"] { --scene-terrain:url('../assets/terrain/furnace.webp') }
 
 /* 진입·결과 화면 — 야간작전 배경 자리에 지형을 끼운다. */
 body[data-scene="battle"][data-terrain]{
@@ -350,4 +353,51 @@ body[data-scene="arena"][data-terrain]{
 @media(max-width:560px){
   body[data-scene="battle"][data-terrain],
   body[data-scene="arena"][data-terrain]{ background-attachment:scroll; background-position:50% center }
+}
+
+/* ══════════════════════════════════════════════════════════
+ * D · 시련 (주간 시련 · 보스 레이드)
+ *
+ * 두 탭이 한 화면을 쓰는데, 둘은 서로 다른 곳이다 —
+ *   주간 시련은 **이번 주 지형**에서 싸운다. 지형 보정이 양쪽에 걸리는 규칙이라,
+ *     어디서 싸우는지가 화면에 남아야 '이번 주는 협곡이라 회피형이 낫겠다' 가 나온다.
+ *     js/game.js 의 drawTrial 이 body[data-terrain] 을 붙인다(점령전과 같은 장치).
+ *   보스 레이드는 지형이 없다. 대신 **붉은 보스 조명**이 든다 — 탭을 바꾸면
+ *     배경부터 달라져서, 같은 화면의 다른 탭이 아니라 다른 자리처럼 느껴진다.
+ * ══════════════════════════════════════════════════════════ */
+body[data-scene="trial"]{
+  background:
+    radial-gradient(900px 420px at 50% -6%, rgba(255,91,127,.20) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(6,8,16,.62) 0%, rgba(4,6,12,.86) 72%, #04060d 100%),
+    url('../assets/backgrounds/battle-industrial-ruins.webp') center 42%/cover no-repeat;
+  background-color:#05070e;
+  background-attachment:fixed;
+}
+/* 시련 탭 — 같은 자리에 이번 주 지형을 끼운다. */
+body[data-scene="trial"][data-terrain]{
+  background:
+    radial-gradient(900px 420px at 50% -6%, rgba(255,210,74,.16) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(4,10,18,.48) 0%, rgba(3,8,14,.78) 74%, rgba(2,6,12,.9) 100%),
+    var(--scene-terrain) center center / cover no-repeat;
+  background-color:#04070d;
+  background-attachment:fixed;
+}
+body[data-scene="trial"] .title{ color:#ffd2a8 }
+body[data-scene="trial"] .title::before{ background:#ff9a4d }
+body[data-scene="trial"] .panel{
+  background:linear-gradient(180deg, rgba(20,26,44,.9), rgba(14,19,34,.88));
+  border-color:rgba(150,170,220,.18);
+  backdrop-filter:blur(2px);
+}
+body[data-scene="trial"] .nav button.active{ border-color:#ff9a4d;
+  box-shadow:0 0 18px rgba(255,154,77,.28) }
+/* 보스 조명 — 위에서 붉게 한 번 쓸고 지나간다. 레이드 탭에서만 (지형이 없을 때만) 든다. */
+body[data-scene="trial"]:not([data-terrain]) #fx::before{
+  background:radial-gradient(600px 300px at 50% 0%, rgba(255,60,90,.18) 0%, transparent 70%);
+  animation:bossLamp 4.2s ease-in-out infinite;
+}
+@keyframes bossLamp{ 0%,100%{opacity:.55} 50%{opacity:1} }
+@media(max-width:560px){
+  body[data-scene="trial"],
+  body[data-scene="trial"][data-terrain]{ background-attachment:scroll; background-position:50% center }
 }

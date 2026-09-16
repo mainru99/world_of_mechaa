@@ -160,7 +160,7 @@ function applyPull(res){
   else if(res.kind==='dupe'){ const g=res.gain; S.credits+=g.cr; S.scrap+=g.sc; S.cores+=g.co; }
   else if(res.kind==='core'){ S.cores+=res.n; }
   else if(res.kind==='credit'){ S.credits+=res.cr; }
-  else if(res.kind==='part'){ S.parts.push(res.part); }
+  else if(res.kind==='part'){ addPart(res.part); }
   else if(res.kind==='scrap'){ S.scrap+=res.n; }
   return res;
 }
@@ -373,7 +373,10 @@ function toBattle(bg){
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id==='sc-battle'));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.s==='battle'));
 }
-function go(scr){ cur=scr; _sceneTerrain=null; setScene(scr); document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
+/* 격납고를 떠나면 '새 파츠' 표를 지운다 — 인벤토리를 볼 기회가 한 번 있었다는 뜻이다.
+   계속 반짝이게 두면 그 반짝임이 곧 배경이 되어 아무것도 알려 주지 못한다. */
+function go(scr){ if(cur==='hangar' && scr!=='hangar') seenFresh();
+  cur=scr; _sceneTerrain=null; setScene(scr); document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.s===scr));
   renderWallet();
   if(scr==='hangar') renderHangar();
@@ -445,7 +448,9 @@ function renderTicker(){
   _tickHtml=html; el.innerHTML=html;
 }
 
-function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); renderTicker(); }
+/* 재화가 움직이는 자리마다 불린다 — 새 파츠 점도 여기에 얹는다.
+   파츠를 얻는 다섯 길(뽑기·대전·파견·점령·합성)이 전부 이 함수를 지난다. */
+function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); navDot(); renderTicker(); }
 /* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
    그래서 renderAll 은 대전 화면을 건드리지 않는다. 대전 화면은 go() 가 그린다. */
@@ -569,14 +574,48 @@ function statBar(k,v,full,range){  // full 을 주면 깎여나간 만큼을 붉
   const lost  = dmg? ` <s>−${fmt(full-v)}</s>` : '';
   return `<div class="stat"><div class="row"><b>${STAT_LABEL[k]}</b><span>${val}${lost}</span></div><div class="bar">${ghost}<i style="width:${pct}%"></i></div></div>`; }
 
+/* ── 새로 얻은 파츠 ────────────────────────────────────────────
+   파츠는 뽑기·대전·파견·점령·합성 다섯 군데서 들어온다. 인벤토리는 수백 개짜리
+   격자라, 그 안에서 **무엇이 방금 늘었는지**가 안 보이면 새 파츠는 사실상 없는 것이
+   된다(정렬을 '최신' 으로 바꿔 놓고 있어야만 보였다).
+
+   그래서 들어오는 길을 `addPart` 하나로 모으고, 거기서 표를 남긴다.
+   표는 **서버에 보내지 않는다** — '내가 봤는가' 는 이 브라우저의 사정이지 계정의
+   상태가 아니다. 격납고를 떠날 때 지운다. 인벤토리를 한 번 본 뒤에도 계속 반짝이면
+   그 반짝임은 곧 배경이 된다. */
+const NEW_KEY = 'rowar.new.v1';
+let _fresh = new Set();
+try{ _fresh = new Set(JSON.parse(localStorage.getItem(NEW_KEY) || '[]')); }catch(e){}
+const saveFresh = () => { try{ localStorage.setItem(NEW_KEY, JSON.stringify([..._fresh])); }catch(e){} };
+/* 파츠가 상태에 들어오는 **유일한 문**. 여기를 지나지 않으면 새 표가 안 붙는다. */
+function addPart(p){ if(!p) return p; S.parts.push(p); _fresh.add(p.uid); saveFresh(); return p; }
+const isFresh = u => _fresh.has(u);
+const freshCount = () => S.parts.reduce((n,p)=> n + (_fresh.has(p.uid)?1:0), 0);
+/* 분해·합성으로 사라진 uid 가 표에 남으면 개수가 영영 안 맞는다. */
+function pruneFresh(){
+  if(!_fresh.size) return;
+  const have = new Set(S.parts.map(p=>p.uid));
+  let cut = false;
+  for(const u of [..._fresh]) if(!have.has(u)){ _fresh.delete(u); cut = true; }
+  if(cut) saveFresh();
+}
+function seenFresh(){ if(_fresh.size){ _fresh.clear(); saveFresh(); navDot(); } }
+const freshTag = u => isFresh(u) ? '<span class="tag newt">NEW</span>' : '';
+/* 격납고 탭에 점을 찍는다 — 다른 화면에서 파츠를 얻어도 어디로 가야 할지 보인다. */
+function navDot(){
+  const b = document.querySelector('.nav button[data-s="hangar"]');
+  if(b) b.classList.toggle('hasnew', freshCount() > 0);
+}
+
 /* ── 인벤토리 거르기·정렬 ──────────────────────────────────────
    파츠가 수백 개가 되면 '전부 한 줄로 늘어놓기' 가 성립하지 않는다.
    저장하지 않는다 — 화면을 떠났다 오면 전체로 돌아온다. 걸러 둔 것을 잊고
    "파츠가 사라졌다" 고 여기는 것이 거르기를 못 쓰는 것보다 나쁘다. */
 const INV_PAGE = 60;
-const invF = { slot:'', rar:'', sort:'new', limit:INV_PAGE };
+const invF = { slot:'', rar:'', fresh:'', sort:'new', limit:INV_PAGE };
 const RAR_ORDER = { C:0, R:1, SR:2, SSR:3 };
-const invMatch = p => (!invF.slot || p.slot===invF.slot) && (!invF.rar || p.rarity===invF.rar);
+const invMatch = p => (!invF.slot || p.slot===invF.slot) && (!invF.rar || p.rarity===invF.rar)
+  && (!invF.fresh || isFresh(p.uid));
 function sortInv(list){
   const a=[...list];
   if(invF.sort==='rar') a.sort((x,y)=> (RAR_ORDER[y.rarity]-RAR_ORDER[x.rarity]) || (y.enh|0)-(x.enh|0));
@@ -605,7 +644,12 @@ function invBar(all){
   const sorts = [['new','최신'],['rar','등급'],['enh','강화']]
                   .map(([v,l])=>`<button class="fchip${invF.sort===v?' on':''}"
                       onclick="ROWAR.setInvF('sort','${v}')">${l}</button>`).join('');
+  /* 새것 거르개는 새 파츠가 있을 때만 나온다. 늘 있으면 0 개짜리 칸이 하나 더 는다. */
+  const nf = freshCount();
+  const freshChip = nf ? `<div class="fgrp"><button class="fchip newf${invF.fresh?' on':''}"
+      onclick="ROWAR.setInvF('fresh','1')">새것<small>${nf}</small></button></div>` : '';
   return `<div class="invbar">
+    ${freshChip}
     <div class="fgrp">${slots}</div>
     <div class="fgrp">${rars}</div>
     <div class="fgrp"><span class="flab">정렬</span>${sorts}</div>
@@ -615,6 +659,7 @@ function invBar(all){
 
 /* ------------------------------- 격납고 화면 ------------------------------- */
 function renderHangar(){
+  pruneFresh(); navDot();
   const rb=selRobot(), T=ROBOT_TYPES[rb.type], st=computeStats(rb);
   const roster = S.robots.map((r,i)=>{ const t=ROBOT_TYPES[r.type];
     const inSq=S.squad.indexOf(r.uid), out=inSq>=0;
@@ -637,8 +682,8 @@ function renderHangar(){
   const invParts = invHit.slice(0, invF.limit);
   /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
-  const inv = invParts.length? invParts.map(p=>`<div class="pchip${enhClass(p)}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
-      <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
+  const inv = invParts.length? invParts.map(p=>`<div class="pchip${enhClass(p)}${isFresh(p.uid)?' fresh':''}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
+      <div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
       <div class="pfoot"><span class="ps" style="color:var(--gold)">강화 ${fmt(enhCost(p.enh||0))}</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p.rarity,p.enh))}</button></div></div>`).join('')
@@ -756,7 +801,7 @@ function renderHangar(){
 
    되돌릴 수 없으므로 마지막 버튼에만 실제 동작을 건다. 고르는 동안에는 아무 일도
    일어나지 않는다. */
-let _fuseSel = [];
+let _fuseSel = [], _fuseHide = 0;
 function openFuse(){
   _fuseSel = _fuseSel.filter(u => findPart(u, S.parts));   // 그 사이 사라진 것 정리
   drawFuse();
@@ -765,28 +810,55 @@ function fuseToggle(u){
   const i = _fuseSel.indexOf(u);
   if(i >= 0) _fuseSel.splice(i, 1);
   else if(_fuseSel.length < (CONST.FUSE?.need || 3)) _fuseSel.push(u);
-  drawFuse();
+  /* 모달을 통째로 다시 그리지 않는다 — 아래 syncFuse 주석 참고 */
+  if($('#fusegrid')) syncFuse(); else drawFuse();
 }
-function drawFuse(){
+const fuseSel = () => _fuseSel.map(u => findPart(u, S.parts)).filter(Boolean);
+/* 첫 장이 칸과 등급을 정한다. 서버도 같은 규칙(fuseCheck)을 쓴다. */
+const fuseFits = (p, lock) => !lock || (p.slot === lock.slot && p.rarity === lock.rarity);
+
+/* 하나를 고르면 **같은 칸·같은 등급만 남기고 나머지가 차례로 빠져나간다.**
+   예전에는 흐리게만 두었는데, 파츠가 수십 개면 흐린 것들 사이에서 고를 것을 다시
+   찾아야 했다. 지금은 남은 것만 보이므로 두 번째·세 번째 장이 바로 눈에 든다.
+
+   여기서 모달을 다시 그리지 않는 이유가 그것이다 — 다시 그리면 빠지는 것이
+   '처음부터 없던 것' 이 되어 움직임이 없다. 무엇이 걸러졌는지는 나가는 모습으로만 안다. */
+function syncFuse(){
+  const grid = $('#fusegrid');
+  if(!grid) return drawFuse();
+  const lock = fuseSel()[0] || null;
+  clearTimeout(_fuseHide);
+  let out = 0;
+  grid.querySelectorAll('.fusec').forEach(el => {
+    const p = findPart(el.dataset.uid, S.parts);
+    if(!p) return;
+    el.classList.toggle('on', _fuseSel.includes(p.uid));
+    if(!fuseFits(p, lock)){
+      el.style.setProperty('--i', out++);   // 한꺼번에 사라지면 뭐가 빠졌는지 안 보인다. 차례로 뺀다
+      el.classList.add('gone');
+    } else if(el.classList.contains('gone')){
+      el.classList.remove('done');          // 자리를 먼저 돌려주고
+      void el.offsetWidth;                  // 한 프레임 뒤에 되돌아오는 것이 보이게 한다
+      el.classList.remove('gone');
+    }
+  });
+  /* 다 빠져나간 뒤에야 자리를 접는다. 접는 것이 먼저면 나가는 모습이 안 보인다. */
+  if(out) _fuseHide = setTimeout(() => {
+    const g = $('#fusegrid');
+    if(g) g.querySelectorAll('.fusec.gone').forEach(el => el.classList.add('done'));
+  }, 240 + out * 16);
+  paintFuse();
+}
+function paintFuse(){
+  const f = fuseInfo(), a = $('#fusefore'), b = $('#fusebtn');
+  if(a) a.innerHTML = f.fore;
+  if(b) b.innerHTML = f.btn;
+}
+
+/* 결과 예고 — 확정 베이스인지, 등급이 오를 확률이 얼마인지 */
+function fuseInfo(){
   const need = CONST.FUSE?.need || 3;
-  const worn = new Set(S.robots.flatMap(r => Object.values(r.slots)).filter(Boolean));
-  const pool = S.parts.filter(p => !worn.has(p.uid));
-  const sel  = _fuseSel.map(u => findPart(u, S.parts)).filter(Boolean);
-
-  /* 하나를 고르면 그 뒤로는 같은 칸·같은 등급만 고를 수 있다 —
-     못 고를 것을 눌러 보고 거절당하는 것보다, 처음부터 흐려 두는 편이 낫다. */
-  const lock = sel[0] || null;
-  const okTo = p => !lock || (p.slot === lock.slot && p.rarity === lock.rarity);
-
-  const chips = pool.length ? pool.map(p => {
-    const on = _fuseSel.includes(p.uid), dim = !on && !okTo(p);
-    return `<div class="pchip fusec${on?' on':''}${dim?' dim':''}${enhClass(p)}"
-      onclick="${dim?'':`ROWAR.fuseToggle('${p.uid}')`}">
-      <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}</div>
-      <div class="ps">${SLOT_KO[p.slot]}${p.enh?` · +${p.enh}`:''}</div></div>`;
-  }).join('') : `<div class="empty">합성할 수 있는 파츠가 없습니다. 끼고 있는 파츠는 재료가 될 수 없습니다.</div>`;
-
-  /* 결과 예고 — 확정 베이스인지, 등급이 오를 확률이 얼마인지 */
+  const sel = fuseSel(), lock = sel[0] || null;
   let fore = `<div class="hint">같은 칸·같은 등급으로 <b>${need}개</b>를 고르세요.</div>`;
   let btn  = `<button class="btn big" disabled>${need}개를 고르세요 (${sel.length}/${need})</button>`;
   const bad = sel.length === need ? fuseCheck(sel) : null;
@@ -812,12 +884,37 @@ function drawFuse(){
       ${poor?`스크랩 부족 (${fmt(cost)} 필요)`:`합성 · 스크랩 ${fmt(cost)}`}</button>`;
   } else if(bad){
     fore = `<div class="hint" style="color:var(--bad)">${esc(bad)}</div>`;
+  } else if(lock){
+    /* 고르는 중 — 무엇으로 좁혀졌는지와 몇 개가 남았는지. 걸러진 것들이 사라져 버리므로
+       '왜 안 보이나' 에 대한 답이 화면에 남아 있어야 한다. */
+    fore = `<div class="fpv">
+      <div><span>고르는 중</span><b>${SLOT_KO[lock.slot]} · ${lock.rarity}</b></div>
+      <div><span>남은 개수</span><b>${need - sel.length}개 더</b></div>
+    </div>
+    <div class="hint">같은 칸·같은 등급만 남겼습니다 · 고른 것을 다시 누르면 전부 돌아옵니다.</div>`;
   }
+  return { fore, btn };
+}
+
+function drawFuse(){
+  const worn = new Set(S.robots.flatMap(r => Object.values(r.slots)).filter(Boolean));
+  const ord = { WEAPON:0, FRAME:1, BOOSTER:2, CORE:3 };
+  /* 칸·등급으로 묶어 둔다. 걸러지고 남는 것들이 원래 이웃이라 빠져나간 뒤에도 줄이 흐트러지지 않는다. */
+  const pool = S.parts.filter(p => !worn.has(p.uid)).sort((x,y)=>
+    (ord[x.slot]-ord[y.slot]) || (RAR_ORDER[y.rarity]-RAR_ORDER[x.rarity]) || ((y.enh|0)-(x.enh|0)));
+  const f = fuseInfo();
+  const chips = pool.length ? pool.map((p,i)=>
+    `<div class="pchip fusec${_fuseSel.includes(p.uid)?' on':''}${enhClass(p)}${isFresh(p.uid)?' fresh':''}"
+      data-uid="${p.uid}" style="--i:${i}" onclick="ROWAR.fuseToggle('${p.uid}')">
+      <div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}</div>
+      <div class="ps">${SLOT_KO[p.slot]}${p.enh?` · +${p.enh}`:''}</div></div>`).join('')
+    : `<div class="empty">합성할 수 있는 파츠가 없습니다. 끼고 있는 파츠는 재료가 될 수 없습니다.</div>`;
 
   openModal(`<div class="mhead">파츠 합성 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
-    ${fore}
-    <div class="inv finv">${chips}</div>
-    ${btn}`);
+    <div id="fusefore">${f.fore}</div>
+    <div class="inv finv" id="fusegrid">${chips}</div>
+    <div id="fusebtn">${f.btn}</div>`);
+  if(_fuseSel.length) syncFuse();     // 다시 열었을 때 고른 것이 남아 있으면 바로 걸러 준다
 }
 async function doFuse(){
   const need = CONST.FUSE?.need || 3;
@@ -825,16 +922,41 @@ async function doFuse(){
   if(sel.length !== need || fuseCheck(sel)) return;
   const r = await srvHangar('fuse', { uids: sel.map(p => p.uid) });
   if(!r) return;
-  closeModal();
   /* 서버가 확정한 것만 받아 적는다. 무엇이 나올지 클라가 굴리지 않는다. */
   const gone = new Set(r.used || sel.map(p => p.uid));
   S.parts = S.parts.filter(p => !gone.has(p.uid));
-  if(r.part) S.parts.push(r.part);
+  if(r.part) addPart(r.part);
   S.scrap = r.scrap;
   _fuseSel = [];
   commitLocal(); renderWallet(); renderHangar();
+  fuseResult(r, sel);
+}
+/* 합성 결과 — **무엇이 나왔는지 보여 준다.**
+   예전에는 토스트 한 줄이었다. 되돌릴 수 없는 작업의 결과가 3초 뒤에 사라지는 글자
+   한 줄이면, 태운 재료가 무엇이 됐는지(인챈트·계열·구간) 영영 알 수 없다.
+   등급 색으로 빛을 내는 것은 뽑기 캡슐과 같은 규칙이다 — 결과의 무게를 색으로 먼저 안다. */
+function fuseResult(r, mats){
   const p = r.part;
-  toast(`${p.name} ${p.rarity} 완성${r.up?' · 등급 상승!':''}${r.guaranteed?' (확정)':''}`);
+  if(!p){ closeModal(); toast('합성했습니다'); return; }
+  const head = r.up ? '등급 상승!' : (r.guaranteed ? '베이스 확정' : '합성 완료');
+  openModal(`<div class="mhead">${head} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <div class="fres" data-r="${p.rarity}">
+      <div class="fresb"></div>
+      <div class="pchip fresp${enhClass(p)}">
+        <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div>
+        <div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
+      </div>
+    </div>
+    <div class="fpv">
+      <div><span>재료</span><b>${mats.map(m=>esc(m.name)).join(' · ')}</b></div>
+      <div><span>등급</span><b class="${r.up?'good':''}">${mats[0].rarity}${r.up?` → ${p.rarity}`:' 유지'}</b></div>
+      <div><span>남은 스크랩</span><b>${fmt(S.scrap)}</b></div>
+    </div>
+    <div class="hint">인벤토리에서 <span class="tag newt">NEW</span> 로 표시됩니다.</div>
+    <div class="row-btns">
+      <button class="btn" onclick="ROWAR.closeModal()">확인</button>
+      <button class="btn big gold" onclick="ROWAR.openFuse()">계속 합성</button>
+    </div>`);
 }
 
 function openSlot(slot){
@@ -842,8 +964,8 @@ function openSlot(slot){
   const list=S.parts.filter(p=>p.slot===slot);
   const rows = list.length? list.map(p=>{ const equipped = S.robots.some(r=>Object.values(r.slots).includes(p.uid));
     const onMe = equippedHere===p.uid;
-    return `<div class="pchip${enhClass(p)}" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <div><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${partStatLine(p)}</div>
+    return `<div class="pchip${enhClass(p)}${isFresh(p.uid)?' fresh':''}" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div><div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${partStatLine(p)}</div>
       ${equipped&&!onMe?`<div class="ps" style="color:var(--bad)">다른 기체 장착중</div>`:''}</div>
       <button class="btn ${onMe?'danger':''}" style="padding:8px 12px;font-size:13px"
         onclick="ROWAR.${onMe?`unequip('${slot}')`:`equip('${slot}','${p.uid}')`}">${onMe?'해제':'장착'}</button>
@@ -1157,8 +1279,8 @@ let _trialTab = 'trial';
 function setTrialTab(k){ _trialTab = (k==='raid') ? 'raid' : 'trial'; renderTrial(); }
 function trialTabs(){
   return `<div class="ttabs">
-    <button class="gtab ${_trialTab==='trial'?'on':''}" onclick="ROWAR.setTrialTab('trial')">주간 시련<span>혼자 · 결정적</span></button>
-    <button class="gtab ${_trialTab==='raid'?'on':''}"  onclick="ROWAR.setTrialTab('raid')">보스 레이드<span>다 같이 · 하루 제한</span></button>
+    <button class="gtab ${_trialTab==='trial'?'on':''}" onclick="ROWAR.setTrialTab('trial')"><em>🏅</em> 주간 시련<span>혼자 · 결정적</span></button>
+    <button class="gtab ${_trialTab==='raid'?'on':''}"  onclick="ROWAR.setTrialTab('raid')"><em>☠️</em> 보스 레이드<span>다 같이 · 하루 제한</span></button>
   </div>`;
 }
 
@@ -1191,6 +1313,9 @@ function trialScoreText(sc, winBase){
 
 function drawTrial(r){
   const t=r.trial, M=MONSTER_TYPES[t.type]||{}, TE=TERRAIN[t.terrain]||{};
+  /* 이번 주 지형을 화면 배경으로 깐다. 점령전에서 쓰던 그 장치 그대로다 —
+     지형 보정이 양쪽에 걸리는 규칙이라, 어디서 싸우는지가 화면에 남아야 한다. */
+  setTerrain(t.terrain);
   const rb=selRobot();
   const left=Math.max(0, r.endsAt - Date.now());
   const rows = r.top.length ? r.top.map(x=>`<tr class="${x.me?'me':''}">
@@ -1245,6 +1370,7 @@ const RAID_TTL = 20000;
 function dropRaidCache(){ _raid=null; _raidAt=0; }
 
 async function renderRaid(){
+  setTerrain(null);                    // 레이드는 지형이 없다 — 보스 조명만 남긴다
   const el=$('#sc-trial');
   const wrap = inner => `${trialTabs()}<h2 class="title">보스 레이드</h2>${inner}`;
   if(!net.state.online){
@@ -1265,6 +1391,9 @@ async function renderRaid(){
 
 function drawRaid(r){
   const pct = Math.max(0, Math.min(100, (r.left / Math.max(1,r.maxHp)) * 100));
+  /* 막대가 얼마 안 남으면 색이 달라진다. 숫자를 읽지 않아도 '이번 주에 넘어가겠다' 가 보여야
+     오늘 칠 이유가 생긴다. 서버 전체가 같이 깎는 막대라 내가 안 쳐도 줄어 있다. */
+  const heat = r.killed ? 'down' : (pct<=15 ? 'hot' : pct<=45 ? 'warm' : '');
   const left=Math.max(0, r.endsAt - Date.now());
   const rows = r.top.length ? r.top.map(x=>`<tr class="${x.me?'me':''}">
       <td class="rk">${x.rank}</td>
@@ -1278,15 +1407,16 @@ function drawRaid(r){
     <div class="tr2">
       <div class="panel">
         <div class="dh">이번 주 보스 · ${dur(left)} 남음</div>
-        <div class="trfoe">
+        <div class="trfoe boss${r.killed?' slain':''}">
           <div class="sprite" data-t="EP">${sprite(r.boss,false)}</div>
           <div>
+            <div class="bosstag">${r.killed?'격파':'WEEKLY BOSS'}</div>
             <div class="rname">${esc(r.name)} <span class="lv">Lv.${r.level}</span></div>
             <div class="rrole">${esc(r.role||'')}</div>
             <div class="trterr">전투 체력 ${fmt(r.battleHp)} · 한 판에 깎을 수 있는 최대</div>
           </div>
         </div>
-        <div class="rbar ${r.killed?'down':''}">
+        <div class="rbar ${heat}">
           <i style="width:${pct.toFixed(2)}%"></i>
           <b>${r.killed?'격파됨':`${fmt(r.left)} / ${fmt(r.maxHp)}`}</b>
         </div>
@@ -1329,17 +1459,18 @@ async function raidRunGo(){
   /* 재생 — 서버가 준 시드로 **같은 함수**를 다시 돌린다. 결과를 따로 받지 않는 이유가
      이것이다: 따로 받으면 재생과 기록이 갈린다(점령전과 같은 규칙). */
   const mechs = r.mechs.map(m=>({ name: ROBOT_TYPES[m.type].name, type: m.type, stats: m.stats }));
-  const out = runRaid(mechs, { boss:r.boss.type, level:r.boss.level, stats:r.boss.stats,
+  const foe = r.foe;                        // r.boss 는 몬스터 id 문자열이다 (server/raid.js 주석)
+  const out = runRaid(mechs, { boss:foe.type, level:foe.level, stats:foe.stats,
                                battleHp:r.battleHp }, r.seeds);
   const bossName = r.name;
   for(let i=0;i<out.rounds.length;i++){
     const rd=out.rounds[i], M=mechs[rd.mi];
-    renderArena(M.type, r.boss.type, M.name, bossName, `보스 레이드 · ${bossName}`);
+    renderArena(M.type, foe.type, M.name, bossName, `보스 레이드 · ${bossName}`);
     if(arenaGone()) return;
     if(i>0 && rd.mi!==out.rounds[i-1].mi)
       blog(`<b style="color:var(--bad)">선봉 격추</b> — <span class="k">${M.name}</span> 투입`);
     const P=makeUnit(M.name,M.type,M.stats); P.hp=rd.pHp; P.sp=rd.pSp;
-    const E=makeUnit(bossName,r.boss.type,r.boss.stats); E.hp=rd.eHp; E.sp=rd.eSp;
+    const E=makeUnit(bossName,foe.type,foe.stats); E.hp=rd.eHp; E.sp=rd.eSp;
     if(i===0) await bossEntrance();
     const w=await playBattle(rd.events,P,E,{pHp:rd.pHp,eHp:rd.eHp,pSp:rd.pSp,eSp:rd.eSp});
     if(!w) return;
@@ -1622,7 +1753,7 @@ async function claimExped(){
   if(!r) return;
   if(r.error){ toast(ERR_KO[r.error]||('실패: '+r.error)); return; }
   S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;
-  if(r.reward.part) S.parts.push(r.reward.part);
+  if(r.reward.part) addPart(r.reward.part);
   S.expd=null; commitLocal(); renderHunt(); renderWallet();
   const g=[`크레딧 +${fmt(r.reward.cr)}`,`스크랩 +${fmt(r.reward.sc)}`];
   if(r.reward.core) g.push(`코어 +${r.reward.core}`);
@@ -1870,7 +2001,7 @@ function applyServerBattle(r, rb){
   S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;
   S.stat.wins=r.player.wins; S.stat.losses=r.player.losses;
   rb.level=r.robot.level; rb.exp=r.robot.exp; rb.fat=r.robot.fat; rb.fatAt=r.robot.fatAt;
-  if(r.reward.part) S.parts.push(r.reward.part);
+  if(r.reward.part) addPart(r.reward.part);
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
                 lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
                 ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue, duel:r.mode==='duel' };
@@ -1888,7 +2019,7 @@ function battleRewards(win,enemyLv){
   if(win){ const cr=120+enemyLv*14+ri(0,40); let sc=18+ri(0,14); S.credits+=cr; S.scrap+=sc;
     let core=0,part=null,autoSc=0; if(R()<0.20){core=1;S.cores++;}
     if(R()<0.09){ const p=rollPart(enemyLv); autoSc=autoScrap(p);      // 예전 0.35 의 약 1/4
-      if(autoSc){ S.scrap+=autoSc; } else { part=p; S.parts.push(p); } }
+      if(autoSc){ S.scrap+=autoSc; } else { part=p; addPart(p); } }
     sc+=autoSc;
     S.stat.wins++; save(); return {win,cr,sc,core,part,lv,fat,rname}; }
   const cr=40+ri(0,20), sc=6; S.credits+=cr; S.scrap+=sc; S.stat.losses++; save();
@@ -2409,7 +2540,12 @@ function guard(fn, coolMs = 0){
     if(_busy || Date.now() < (_cool.get(key) || 0)) return;
     _busy = true;
     document.body.classList.add('busy');
+    /* 예외를 반드시 드러낸다. 예전에는 그냥 던졌는데, onclick 에서 부르는 async 함수라
+       'unhandled rejection' 으로 콘솔에만 남고 화면에는 아무 일도 안 일어났다.
+       레이드 재생이 그렇게 죽어서 '횟수는 줄었는데 창이 안 뜬다' 로 보였다.
+       조용히 실패하는 것보다 틀린 것이 보이는 편이 낫다. */
     try { return await fn.apply(this, a); }
+    catch(e){ console.error(e); toast('오류가 났습니다 · ' + ((e && e.message) || e)); }
     finally {
       _busy = false;
       if(coolMs) _cool.set(key, Date.now() + coolMs);

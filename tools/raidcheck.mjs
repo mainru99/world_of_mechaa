@@ -131,6 +131,16 @@ console.log('\n== ⑤ 서버 — 가짜 env.DB ==');
   ok(a1.triesLeft === raidDaily() - 1, '남은 횟수가 하나 줄었다');
   ok(st.player.credits === 100 + a1.reward.cr, `보상이 지급됐다 (크레딧 +${a1.reward.cr})`);
 
+  /* 응답만으로 클라가 같은 전투를 재생할 수 있어야 한다.
+     여기가 깨져 있었다 — 재생용 상대를 'boss' 라고 불렀는데 같은 응답에 화면용
+     boss(몬스터 id 문자열)가 있어서 덮였다. 클라는 예외로 죽고, 서버는 이미
+     기록한 뒤라 '도전 횟수만 줄고 창이 안 뜨는' 증상이 됐다. */
+  ok(a1.foe && a1.foe.type && a1.foe.stats, '응답이 재생용 상대(foe)를 담고 있다');
+  ok(typeof a1.boss === 'string', 'boss 는 화면용 id 문자열 그대로다');
+  const replay = runRaid(a1.mechs.map(m => ({ name: m.type, type: m.type, stats: m.stats })),
+    { boss: a1.foe.type, level: a1.foe.level, stats: a1.foe.stats, battleHp: a1.battleHp }, a1.seeds);
+  ok(replay.damage === a1.raw, `응답만으로 재생한 결과가 서버 기록과 같다 (${replay.damage})`);
+
   /* 하루 횟수를 다 쓰면 거절한다 */
   for (let i = 1; i < raidDaily(); i++) await raidRun(env, 1, now);
   const over = await raidRun(env, 1, now);

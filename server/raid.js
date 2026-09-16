@@ -160,10 +160,15 @@ export async function raidRun(env, acc, now) {
   await env.DB.batch(stmts);
 
   const after = await raidView(env, acc, now);
+  /* 재생에 필요한 상대를 `foe` 로 보낸다. **`boss` 라고 부르면 안 된다** —
+     아래 `...after` 의 boss 는 몬스터 id 문자열이고, 뒤에 퍼지므로 이 객체를 통째로
+     덮는다. 실제로 덮여서 클라의 `r.boss.stats` 가 undefined 가 되고, 재생이
+     시작되기도 전에 예외로 죽었다(도전 횟수만 줄고 화면은 안 뜨는 증상).
+     같은 이름을 두 뜻으로 쓰지 않는 것이 고침이다. */
   return { ok: true, damage: dmg, raw: out.damage, reward: rw, kill,
            credits: f.player.credits + rw.cr, scrap: f.player.scrap + rw.sc, rev: f.player.rev + 1,
            mechs: f.mechs.map(m => ({ uid: m.robot.uid, type: m.type, level: m.robot.level,
                                       power: m.power, stats: m.stats })),
-           seeds, tries, boss: { type: r.boss, level: r.level, stats: r.stats },
+           seeds, tries, foe: { type: r.boss, level: r.level, stats: r.stats },
            ...after };
 }

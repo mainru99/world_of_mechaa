@@ -988,10 +988,16 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .gacha-stage.rolling .capsule-half{filter:brightness(1.35) saturate(1.25)}
 .gacha-stage.rolling .gacha-orbit{border-color:rgba(var(--gc-rgb),.8);box-shadow:0 0 24px rgba(var(--gc-rgb),.35)}
 .gacha-stage.opening{--gc:var(--prize,#75ecff);--gc-rgb:var(--prize-rgb,117,236,255)}
-.gacha-stage.prize-C{--prize:#aebbd4;--prize-rgb:174,187,212}
-.gacha-stage.prize-R,.gacha-stage.prize-SR{--prize:#55a9ff;--prize-rgb:85,169,255}
-.gacha-stage.prize-UQ{--prize:#be7cff;--prize-rgb:190,124,255}
-.gacha-stage.prize-EP,.gacha-stage.prize-SSR,.gacha-stage.prize-GOLD{--prize:#ffd166;--prize-rgb:255,209,102}
+/* 빛깔은 화면 어디서나 쓰는 등급 색(--tC ... --tEP / --rC ... --rSSR)과 같아야 한다.
+   플레이어가 딱지에서 보던 색과 캡슐 빛이 다르면 '노란 게 나왔는데 파란 빛' 이 된다.
+   예전에는 UC 가 아예 빠져 있어 초록 등급이 기본 하늘색으로 열렸고,
+   파츠 SR 은 게임 전체에서 보라(--rSR)인데 여기서만 파랑이었다. */
+.gacha-stage.prize-C{--prize:#9aa7c2;--prize-rgb:154,167,194}
+.gacha-stage.prize-UC{--prize:#4fd07a;--prize-rgb:79,208,122}
+.gacha-stage.prize-R{--prize:#4aa3ff;--prize-rgb:74,163,255}
+.gacha-stage.prize-SR,.gacha-stage.prize-UQ{--prize:#c07bff;--prize-rgb:192,123,255}
+.gacha-stage.prize-EP,.gacha-stage.prize-SSR{--prize:#ffb03a;--prize-rgb:255,176,58}
+.gacha-stage.prize-GOLD{--prize:#ffd166;--prize-rgb:255,209,102}
 .gacha-stage.opening .capsule-rig{animation:none;transform:translateY(-4px) scale(1.07)}
 .gacha-stage.opening .capsule-top{transform:translateY(-67px) rotate(-3deg);filter:brightness(1.2)}
 .gacha-stage.opening .capsule-bottom{transform:translateY(67px) rotate(3deg);filter:brightness(.75)}

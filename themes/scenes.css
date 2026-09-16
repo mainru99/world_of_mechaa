@@ -310,3 +310,44 @@ body[data-scene="terr"] .tpips i{background:rgba(6,12,28,.72);border-color:rgba(
   body[data-scene="terr"] .tmap{gap:12px}
   body[data-scene="terr"] .tnode{min-height:166px;padding:12px}
 }
+
+/* ── 점령전 — 그 칸의 지형이 전투 배경이 된다 ─────────────────
+   지도 카드(.tnode)는 지형 그림을 쓰는데 정작 들어가서 싸우는 화면은 어느 칸이든
+   같은 야간작전 배경이었다. 칸을 고른 것이 화면에 남지 않아 '지도는 다른데 전투는
+   늘 같은 곳' 으로 보였다.
+   js/game.js 가 body[data-terrain] 을 붙였다 뗀다 — 점령전 동안만 붙는다.
+   위 body[data-scene="terr"] .tnode 규칙과 같은 그림을 쓰되, 그쪽은 칸 카드용이라
+   변수를 따로 둔다. */
+body[data-terrain]{ --scene-terrain:url('../assets/terrain/plain.webp') }
+body[data-terrain="canyon"]  { --scene-terrain:url('../assets/terrain/canyon.webp') }
+body[data-terrain="highland"]{ --scene-terrain:url('../assets/terrain/highland.webp') }
+body[data-terrain="ruins"]   { --scene-terrain:url('../assets/terrain/ruins.webp') }
+body[data-terrain="storm"]   { --scene-terrain:url('../assets/terrain/storm.webp') }
+body[data-terrain="furnace"] { --scene-terrain:url('../assets/terrain/furnace.webp') }
+
+/* 진입·결과 화면 — 야간작전 배경 자리에 지형을 끼운다. */
+body[data-scene="battle"][data-terrain]{
+  background:
+    linear-gradient(180deg,rgba(2,4,10,.10) 0%,transparent 55%,rgba(2,4,10,.55) 100%),
+    var(--scene-terrain) center center / cover no-repeat;
+  background-color:#04060d;
+  background-attachment:fixed;
+}
+/* 재생 화면 — 콕핏 HUD 는 그대로 두고 그 **아래**에 지형을 깐다.
+   HUD 격자와 비네트가 위에 남아야 '점령전도 같은 전투' 라는 느낌이 유지된다.
+   지형이 너무 밝으면 체력 막대와 전투 기록이 안 읽히므로 어둡게 한 겹 덮는다. */
+body[data-scene="arena"][data-terrain]{
+  background:
+    radial-gradient(820px 460px at 50% 6%, rgba(60,225,245,.14) 0%, transparent 62%),
+    repeating-linear-gradient(60deg,  rgba(90,230,250,.06) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(-60deg, rgba(90,230,250,.06) 0 1px, transparent 1px 26px),
+    linear-gradient(180deg, rgba(3,16,26,.42) 0%, rgba(2,10,18,.66) 78%, rgba(2,8,14,.80) 100%),
+    var(--scene-terrain) center center / cover no-repeat;
+  background-color:#02070c;
+  background-attachment:fixed;
+}
+/* 모바일 브라우저의 fixed 배경 확대·스크롤 떨림을 피한다(battle 씬과 같은 이유). */
+@media(max-width:560px){
+  body[data-scene="battle"][data-terrain],
+  body[data-scene="arena"][data-terrain]{ background-attachment:scroll; background-position:50% center }
+}

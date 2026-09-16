@@ -345,7 +345,17 @@ const esc = v => String(v == null ? '' : v)
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1600); }
 /* 배경 연출은 body[data-scene] 하나로 갈린다.
    hangar/gacha = 격납고, battle = 야간작전, arena = 콕핏 HUD */
-function setScene(name){ document.body.dataset.scene = name; }
+/* 점령전에서만 배경에 그 칸의 지형 그림을 깐다.
+   지도 카드(.tnode)는 이미 지형 그림을 쓰는데, 정작 들어가서 싸우는 화면은
+   어느 칸이든 같은 야간작전 배경이었다 — 칸을 고른 것이 화면에 남지 않았다.
+   씬이 바뀔 때마다 같이 붙였다 떼므로 다른 화면으로 새지 않는다. */
+let _sceneTerrain = null;
+function setScene(name){
+  document.body.dataset.scene = name;
+  if(_sceneTerrain) document.body.dataset.terrain = _sceneTerrain;
+  else delete document.body.dataset.terrain;
+}
+function setTerrain(t){ _sceneTerrain = t || null; setScene(document.body.dataset.scene || 'hangar'); }
 /* 대전 화면을 앞으로 꺼낸다. go('battle') 과 달리 **다시 그리지 않는다** —
    대전은 자체 흐름(찾기 → 발견 → 아레나 → 결과)이라, 여기서 renderBattleHome 을 부르면
    방금 만든 화면이 날아간다. bg 를 주면 배경만 따로 바꾼다(재생 중에는 콕핏 배경).
@@ -360,7 +370,7 @@ function toBattle(bg){
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id==='sc-battle'));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.s==='battle'));
 }
-function go(scr){ cur=scr; setScene(scr); document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
+function go(scr){ cur=scr; _sceneTerrain=null; setScene(scr); document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.s===scr));
   renderWallet();
   if(scr==='hangar') renderHangar();
@@ -850,11 +860,7 @@ async function doPull(count){
                    : r.error==='not enough credits' ? '크레딧이 부족합니다'
                    : '뽑기 실패: '+r.error); return; }
 
-  const best = r.results.reduce((a,b)=>rankOf(b)>rankOf(a)?b:a,r.results[0]);
-  const prize = (best.kind==='robot'||best.kind==='dupe') ? rarOf(best.type)
-    : best.kind==='part' ? best.part.rarity
-    : best.kind==='core' ? 'UQ'
-    : best.kind==='credit' ? 'GOLD' : 'C';
+  const prize = bestPrize(r.results);
   stage?.classList.remove('charging');
   stage?.classList.add('rolling','prize-'+prize);
   await sleep(reduced?100:520);
@@ -898,6 +904,28 @@ function showReveal(results){
     <button class="btn big" style="margin-top:12px" onclick="ROWAR.closeModal()">확인</button>`);
   renderGacha();
 }
+/* ── 개방 빛깔 ─────────────────────────────────────────────
+   캡슐이 열릴 때 나오는 빛은 **그 판에서 나온 가장 높은 등급**의 색이다.
+
+   여기에 아래 rankOf 를 쓰면 안 된다. 그건 결과 모달의 '주인공 그림' 을 고르는
+   순서라 파츠만 1~4 라는 다른 눈금을 쓴다. 그래서 **SSR 파츠(4)가 크레딧(20)
+   에게도 졌다** — 10연차에 크레딧이 하나만 섞이면 빛이 그쪽 색으로 갔다.
+   등급끼리 견주는 자리에는 등급 눈금을 따로 둔다. */
+const PRIZE_RANK = { C:0, GOLD:1, UC:2, R:3, SR:4, UQ:5, SSR:6, EP:6 };
+function prizeOf(res){
+  if(res.kind==='robot' || res.kind==='dupe') return rarOf(res.type);
+  if(res.kind==='part')   return res.part.rarity;
+  if(res.kind==='core')   return 'UQ';
+  if(res.kind==='credit') return 'GOLD';
+  return 'C';                       // 꽝 · 자동 분해
+}
+function bestPrize(results){
+  return (results||[]).reduce((a,r)=>{
+    const k = prizeOf(r);
+    return (PRIZE_RANK[k]||0) > (PRIZE_RANK[a]||0) ? k : a;
+  }, 'C');
+}
+
 function rankOf(res){ if(res.kind==='robot')return 200+RIDX[rarOf(res.type)];
   if(res.kind==='dupe')return 100+RIDX[rarOf(res.type)];
   if(res.kind==='core')return 60;
@@ -1866,6 +1894,7 @@ async function attackTerr(id, raid){
   closeModal();
   if(!net.state.online){ toast('점령전은 서버 연결이 필요합니다'); return; }
   const n=NODE_BY[id];
+  setTerrain(n && n.terrain);      // 이 칸의 지형이 전투 배경이 된다
   toBattle();
   $('#sc-battle').innerHTML = `<h2 class="title">점령전</h2><div class="panel"><div class="mm">
     <div class="spinner"></div><div style="font-weight:800">${n?n.ko:'점령지'} ${raid?'강행 진입':'진입'} 중...</div>

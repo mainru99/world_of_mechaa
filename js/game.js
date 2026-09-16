@@ -19,6 +19,7 @@ import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed, applyTerrain, maxRounds } from './breach.js';
 import { weekOf, trialOf, runTrial, trialWon, foeStats } from './trial.js';
 import { raidOf, runRaid, raidSeeds, raidLeft } from './raid.js';
+import { SPEAKERS, openingOf, scriptOf } from '../data/story.js';
 import { FRONT_CELLS, readProgress, writeProgress, clearedCount, cellIndex, cellOpen,
          lockedGates, buildLines, rewardOf, unlockedBy, frontView } from './front.js';
 import * as net from './net.js';
@@ -2291,6 +2292,99 @@ function linePips(hp){
   }).join('')}</div>`;
 }
 
+/* ── 대사 재생 ────────────────────────────────────────────
+   칸에 들어가기 전과 이긴 뒤에 대사가 흐른다. 이게 없으면 전투 다섯 판일 뿐이다.
+
+   규칙 셋.
+     ① **한 번에 한 줄.** 원작이 짧게 끊어 가고, 그 호흡이 이 이야기의 말투다.
+        여러 줄을 한꺼번에 띄우면 읽는 사람이 어디를 보는지 모른다.
+     ② **누르면 넘어간다.** 자동 재생은 읽는 속도가 사람마다 다르다는 것을 무시한다.
+        글자는 흘러나오되(타자 효과) 누르면 그 줄이 즉시 끝난다.
+     ③ **건너뛸 수 있다.** 다시 하는 사람에게 같은 대사를 강제하면 그게 벌이 된다.
+        한 번 본 칸은 아예 안 틀어 준다(cellSeen).
+
+   화면을 떠나면 약속이 풀린다 — 그래야 재생 중 탭을 옮겨도 갇히지 않는다. */
+const SPEAK_MS = 18;                       // 글자 하나당. 빠르게 — 읽는 것이 목적이다
+let _scriptAbort = null;
+
+/* 이미 본 칸은 before 를 건너뛴다. 진행 문자열과 따로 두는 이유 —
+   '깼다' 와 '봤다' 는 다르다. 지고 나온 사람도 대사는 본 것이다. */
+const seenKey = 'rowar.seen.v1';
+function cellSeen(id, when){
+  try{ return (JSON.parse(localStorage.getItem(seenKey)) || {})[id + ':' + when] === 1; }
+  catch(e){ return false; }
+}
+function markSeen(id, when){
+  try{
+    const m = JSON.parse(localStorage.getItem(seenKey)) || {};
+    m[id + ':' + when] = 1;
+    localStorage.setItem(seenKey, JSON.stringify(m));
+  }catch(e){}
+}
+
+function speakerHtml(s){
+  const sp = SPEAKERS[s];
+  if(!sp || !sp.ko) return '';
+  return `<div class="spk ${sp.kind}${sp.hostile ? ' foe' : ''}">${esc(sp.ko)}${
+    sp.note ? `<small>${esc(sp.note)}</small>` : ''}</div>`;
+}
+
+/* 대사 한 묶음을 끝까지 재생한다. 돌려주는 값: 끝까지 봤으면 true, 화면을 떠났으면 false. */
+async function playScript(beats, title){
+  if(!beats || !beats.length) return true;
+  const ac = { stop: false, skip: false, next: null };
+  _scriptAbort = ac;
+  toBattle();
+  const el = $('#sc-battle');
+
+  el.innerHTML = `<div class="story-view" id="storyView">
+    <div class="story-top"><span class="story-ttl">${esc(title || '')}</span>
+      <button class="story-skip" id="storySkip">건너뛰기 ▸▸</button></div>
+    <div class="story-box">
+      <div class="story-spk" id="storySpk"></div>
+      <p class="story-line" id="storyLine"></p>
+      <div class="story-more" id="storyMore">▼</div>
+    </div>
+    <div class="story-hint">아무 곳이나 눌러 다음으로</div>
+  </div>`;
+
+  const view = $('#storyView'), lineEl = $('#storyLine'),
+        spkEl = $('#storySpk'), moreEl = $('#storyMore');
+  const advance = () => { if(ac.next) ac.next(); };
+  view.addEventListener('click', advance);
+  $('#storySkip').addEventListener('click', e => { e.stopPropagation(); ac.skip = true; advance(); });
+
+  for(const b of beats){
+    if(ac.stop || ac.skip) break;
+    if(!$('#storyView')) { _scriptAbort = null; return false; }   // 화면을 떠났다
+    spkEl.innerHTML = speakerHtml(b.s);
+    const sp = SPEAKERS[b.s];
+    lineEl.className = 'story-line' + (sp && sp.kind === 'system' ? ' sys' : '')
+                     + (sp && sp.hostile ? ' foe' : '')
+                     + (!b.s || (sp && sp.kind === 'narr') ? ' narr' : '');
+    moreEl.style.visibility = 'hidden';
+
+    /* 글자를 흘린다. 누르면 그 줄이 즉시 끝나고, 한 번 더 누르면 다음 줄이다. */
+    const text = b.t;
+    let done = false;
+    await new Promise(res => {
+      let i = 0;
+      const timer = setInterval(() => {
+        if(ac.stop || ac.skip){ clearInterval(timer); done = true; lineEl.textContent = text; res(); return; }
+        i += 2;
+        lineEl.textContent = text.slice(0, i);
+        if(i >= text.length){ clearInterval(timer); done = true; res(); }
+      }, SPEAK_MS);
+      ac.next = () => { if(!done){ clearInterval(timer); done = true; lineEl.textContent = text; res(); } };
+    });
+    if(ac.stop || ac.skip) break;
+    moreEl.style.visibility = 'visible';
+    await new Promise(res => { ac.next = res; });                  // 다음 줄까지 기다린다
+  }
+  _scriptAbort = null;
+  return !ac.stop;
+}
+
 /* ------------------------------- 전선 화면 ------------------------------- */
 /* 점령이 *지키는 땅* 이라면 전선은 *미는 선* 이다. 한 줄기로 이어지는 진행이고,
    **새 계정이 처음 보는 화면**이다(DESIGN.md F장).
@@ -2319,6 +2413,11 @@ function renderFront(){
   const el = $('#sc-terr');
   const prog = frontProg(), maxLv = myMaxLv();
   const ch = frontView(prog, maxLv)[0];
+  /* 장 도입은 처음 한 번만. 볼 때마다 틀면 탭을 오갈 수가 없다. */
+  if(!cellSeen(ch.id, 'open')){
+    const op = openingOf(ch.id);
+    if(op){ markSeen(ch.id, 'open'); playScript(op, `${ch.no}장 ${ch.ko}`).then(ok => { if(ok) go('terr'); }); return; }
+  }
   const done = clearedCount(prog), total = ch.cells.length;
 
   const cells = ch.cells.map((c, i) => {
@@ -2381,6 +2480,15 @@ async function runCell(id){
   const c = FRONT_CELLS.find(x => x.id === id); if(!c) return;
   const rb = selRobot(); if(!rb){ toast('기체가 없습니다'); return; }
   setTerrain(c.terrain);
+
+  /* 전투 앞의 대사. **한 번 본 칸은 안 틀어 준다** — 다시 하는 사람에게
+     같은 대사를 강제하면 그게 벌이 된다. */
+  const pre = scriptOf(id, 'before');
+  if(pre && !cellSeen(id, 'before')){
+    const ok = await playScript(pre, `${c.ko}`);
+    markSeen(id, 'before');
+    if(!ok) return;                          // 화면을 떠났다
+  }
   toBattle();
   $('#sc-battle').innerHTML = `<h2 class="title">전선</h2><div class="panel"><div class="mm">
     <div class="spinner"></div><div style="font-weight:800">${esc(c.ko)} 진입 중...</div></div></div>`;
@@ -2392,7 +2500,12 @@ async function runCell(id){
   if(!r) r = runCellLocal(c);
   applyFront(r);
   const ok = await replayBreach(r, c.ko);
-  if(ok) renderFrontResult(r, c);
+  if(!ok) return;
+  if(r.win){
+    const post = scriptOf(id, 'after');
+    if(post){ const seen = await playScript(post, `${c.ko}`); markSeen(id, 'after'); if(!seen) return; }
+  }
+  renderFrontResult(r, c);
 }
 
 /* 오프라인 판정. 서버(server/front.js)와 **같은 함수들**을 쓴다 —

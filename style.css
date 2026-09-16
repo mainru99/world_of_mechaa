@@ -1227,3 +1227,49 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .funlock{margin:12px 0;padding:12px;background:#0e1526;border:1px solid var(--gold);border-radius:10px;
   text-align:center;font-size:14px;color:var(--sub)}
 .funlock b{color:var(--gold);font-size:16px}
+
+/* ── 대사 ────────────────────────────────────────────────
+   한 번에 한 줄. 원작이 짧게 끊어 가고 그 호흡이 이 이야기의 말투다.
+   화면 전체를 쓰되 배경(지형 장면)은 비친다 — 지금 어디에 서 있는지가 대사의 절반이다. */
+.story-view{
+  position:relative;min-height:60vh;display:flex;flex-direction:column;justify-content:flex-end;
+  padding:16px 0 8px;cursor:pointer;user-select:none;
+}
+.story-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:auto;gap:10px}
+.story-ttl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.story-skip{
+  background:none;border:1px solid var(--line);color:var(--dim);border-radius:99px;
+  padding:4px 12px;font-size:11.5px;font-weight:700;cursor:pointer;flex:none;
+}
+.story-skip:hover{border-color:var(--acc);color:var(--acc)}
+.story-box{
+  background:rgba(10,14,26,.92);border:1px solid var(--line);border-radius:14px;
+  padding:18px 20px 16px;min-height:132px;display:flex;flex-direction:column;
+  box-shadow:0 18px 50px -20px #000;
+}
+.story-spk{min-height:20px}
+.spk{font-weight:800;font-size:14px;color:var(--acc);letter-spacing:.01em}
+.spk small{font-weight:500;font-size:11px;color:var(--dim);margin-left:7px}
+.spk.system{color:var(--acc2);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;letter-spacing:.06em}
+.spk.system.foe{color:var(--bad)}
+.story-line{
+  margin:7px 0 0;font-size:16px;line-height:1.85;color:#eef2f9;flex:1;
+  word-break:keep-all;overflow-wrap:anywhere;
+}
+/* 기계가 뱉는 줄은 고정폭에 대괄호. 사람의 말과 섞이면 안 된다 */
+.story-line.sys{
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;color:var(--acc2);
+  letter-spacing:.02em;line-height:1.7;
+}
+.story-line.sys::before{content:"[ "} .story-line.sys::after{content:" ]"}
+.story-line.sys.foe{color:var(--bad)}
+/* 지문은 목소리가 아니다 — 한 칸 물러나 있게 */
+.story-line.narr{color:var(--sub);font-size:15px}
+.story-more{align-self:flex-end;color:var(--acc);font-size:12px;animation:storyBob 1.1s ease-in-out infinite}
+@keyframes storyBob{0%,100%{transform:translateY(0);opacity:.55}50%{transform:translateY(3px);opacity:1}}
+@media (prefers-reduced-motion: reduce){ .story-more{animation:none} }
+.story-hint{text-align:center;font-size:11px;color:var(--dim);margin-top:9px}
+@media(max-width:560px){
+  .story-view{min-height:70vh}
+  .story-line{font-size:15px}
+}

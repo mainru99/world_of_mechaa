@@ -16,9 +16,11 @@ import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, ga
          expNeed, battleExp, lvCost, enhCost,
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
-import { runBreach, rarAllowed } from './breach.js';
+import { runBreach, rarAllowed, applyTerrain, maxRounds } from './breach.js';
 import { weekOf, trialOf, runTrial, trialWon, foeStats } from './trial.js';
 import { raidOf, runRaid, raidSeeds, raidLeft } from './raid.js';
+import { FRONT_CELLS, readProgress, writeProgress, clearedCount, cellIndex, cellOpen,
+         lockedGates, buildLines, rewardOf, unlockedBy, frontView } from './front.js';
 import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
          fuseCheck, fuseCost, fuseUpRate, nextRarity } from './gacha.js';
@@ -82,7 +84,9 @@ function freshState(){         // 시작: 커먼 1기, Lv.1 — 나머지 기체
      레벨·경험치는 기체마다 따로다 — 뽑아서 키우는 것이 이 게임의 보상이다. */
   return { v:2, credits:600, cores:12, scrap:30,
     robots:[{uid:u,type:pick(BY_RARITY.C),level:1,exp:0,fat:0,skillLv:0,slots:emptySlots()}],
-    parts:[], sel:0, squad:[u], stat:{wins:0,losses:0,pulls:0} };
+    parts:[], sel:0, squad:[u], stat:{wins:0,losses:0,pulls:0},
+    /* 전선 진행. 칸마다 한 글자다 — 서버의 player.campaign 과 같은 모양(016). */
+    campaign:'' };
 }
 /* 저장본은 언제든 망가져 들어올 수 있다(다른 탭, 손수 편집, 예전 버전, 저장 중 오류).
    여기서 걸러내지 못하면 격납고가 통째로 렌더 실패해 '빈 화면 + 복구 불가'가 된다.
@@ -96,6 +100,8 @@ function normalize(j){         // 저장본에 빠진 필드 보정
   j.credits = Math.max(0, Math.round(num(j.credits, 0)));
   j.cores   = Math.max(0, Math.round(num(j.cores,   0)));
   j.scrap   = Math.max(0, Math.round(num(j.scrap,   0)));
+  /* 전선 진행. 옛 저장본에는 없다 — readProgress 가 빈 문자열도 '아직' 으로 읽는다. */
+  if(typeof j.campaign !== 'string') j.campaign = '';
   const st = j.stat && typeof j.stat==='object' ? j.stat : {};
   j.stat = { wins:Math.max(0,num(st.wins,0)), losses:Math.max(0,num(st.losses,0)), pulls:Math.max(0,num(st.pulls,0)) };
   const partIds = new Set(j.parts.map(p=>p && p.uid).filter(Boolean));
@@ -385,7 +391,7 @@ function go(scr){ if(cur==='hangar' && scr!=='hangar') seenFresh();
   else if(scr==='rank') renderRank();
   else if(scr==='trial') renderTrial();
   else if(scr==='hunt') renderHunt();
-  else if(scr==='terr') renderTerr(); }
+  else if(scr==='terr') renderTerrHome(); }
 /* 하단 티커 — 시간이 흐르는 것들만 모아 늘 보이게 한다.
    화면을 옮겨 다니지 않아도 '지금 무엇이 익어 가는지' 알 수 있어야 한다.
    **서버에 묻지 않는다** — 원정은 저장본, 점령은 지도 캐시, 피로는 계산이라
@@ -2285,9 +2291,194 @@ function linePips(hp){
   }).join('')}</div>`;
 }
 
+/* ------------------------------- 전선 화면 ------------------------------- */
+/* 점령이 *지키는 땅* 이라면 전선은 *미는 선* 이다. 한 줄기로 이어지는 진행이고,
+   **새 계정이 처음 보는 화면**이다(DESIGN.md F장).
+
+   ── 오프라인에서도 돈다 ──────────────────────────────
+   다른 모드와 다르다. 대전·뽑기·시련은 서버가 없으면 아예 막는데 전선은 막으면 안 된다 —
+   연결이 끊겼다고 **게임을 시작조차 못 하는** 화면이 되기 때문이다.
+   규칙(js/front.js)이 클라와 서버 양쪽에 같은 파일로 있으므로, 서버가 있으면 서버가
+   판정하고 없으면 같은 함수로 여기서 돌린 뒤 로컬 저장에 적는다. */
+let _frontTab = 'front';
+function setFrontTab(k){ _frontTab = (k === 'terr') ? 'terr' : 'front'; renderTerrHome(); }
+function frontTabs(){
+  return `<div class="gtabs">
+    <button class="gtab ${_frontTab==='front'?'on':''}" onclick="ROWAR.setFrontTab('front')"><em>🔻</em> 전선<span>혼자 · 한 줄기</span></button>
+    <button class="gtab ${_frontTab==='terr'?'on':''}" onclick="ROWAR.setFrontTab('terr')"><em>🗺️</em> 점령전<span>다 같이 · 지키는 땅</span></button>
+  </div>`;
+}
+function renderTerrHome(){ return _frontTab === 'terr' ? renderTerr() : renderFront(); }
+
+/* 진행은 로컬 저장에 둔다. 서버가 있으면 서버 값으로 덮어쓴다 —
+   어느 쪽이든 **읽는 자리는 한 곳**이라 화면이 둘로 갈리지 않는다. */
+const frontProg = () => readProgress(S.campaign);
+const myMaxLv = () => Math.max(1, ...S.robots.map(r => r.level | 0), 1);
+
+function renderFront(){
+  const el = $('#sc-terr');
+  const prog = frontProg(), maxLv = myMaxLv();
+  const ch = frontView(prog, maxLv)[0];
+  const done = clearedCount(prog), total = ch.cells.length;
+
+  const cells = ch.cells.map((c, i) => {
+    const st = c.cleared ? 'done' : c.open ? 'open' : 'lock';
+    const mons = c.mon.map(m => MONSTER_TYPES[m]).filter(Boolean);
+    return `<button class="fcell ${st}" ${c.open ? '' : 'disabled'} onclick="ROWAR.openCell('${c.id}')">
+      <span class="fno">${i + 1}</span>
+      <span class="fmid">
+        <span class="fnm">${esc(c.ko)}${c.boss ? ' <b class="fboss">BOSS</b>' : ''}</span>
+        <span class="fsub">${TERRAIN[c.terrain] ? esc(TERRAIN[c.terrain].ko) : esc(c.terrain)} · Lv.${c.lv} · 방어선 ${c.lines}겹</span>
+        <span class="ffoe">${mons.map(m => `<i>${esc(m.name)}</i>`).join('')}</span>
+      </span>
+      <span class="fst">${c.cleared ? '✓' : c.open ? '▶' : '🔒'}</span>
+    </button>`;
+  }).join('');
+
+  const gates = lockedGates(prog, maxLv);
+  el.innerHTML = `${frontTabs()}
+    <h2 class="title">전선 · ${ch.no}장 ${esc(ch.ko)}</h2>
+    <div class="panel fhead">
+      <div class="fsub2">${esc(ch.sub)}</div>
+      <p class="flead">${esc(ch.lead)}</p>
+      <div class="fprog"><i style="width:${done / total * 100}%"></i></div>
+      <div class="hint">${done} / ${total} 칸${net.state.online ? '' : ' · <b style="color:var(--gold)">오프라인 — 진행은 이 브라우저에 저장됩니다</b>'}</div>
+      ${gates.length ? `<div class="fgate">아직 잠긴 것 — ${gates.map(g => `<b>${esc(g.ko)}</b>`).join(' · ')}
+        <span>전선 ${gates[0].need}칸을 깨거나 기체가 Lv.${gates[0].altLv} 이 되면 열립니다</span></div>` : ''}
+    </div>
+    <div class="fcells">${cells}</div>`;
+}
+
+/* 칸 상세 — 들어가기 전에 이야기를 먼저 보여 준다. */
+function openCell(id){
+  const prog = frontProg();
+  const c = FRONT_CELLS.find(x => x.id === id); if(!c) return;
+  const i = cellIndex(id);
+  if(!cellOpen(prog, i)){ toast('앞 칸을 먼저 깨야 합니다'); return; }
+  const done = prog[i] > 0;
+  const mons = c.mon.map(m => MONSTER_TYPES[m]).filter(Boolean);
+  const rw = c.reward || {};
+  const gain = [rw.credits ? `크레딧 <b>${fmt(rw.credits)}</b>` : '',
+                rw.scrap ? `스크랩 <b>${fmt(rw.scrap)}</b>` : '',
+                rw.part ? `파츠 <b>${rw.part}</b>` : ''].filter(Boolean).join(' · ');
+  openModal(`<div class="mhead">${esc(c.ko)} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <p class="fstory">${esc(c.intro)}</p>
+    <div class="fmeta">
+      <span>${TERRAIN[c.terrain] ? esc(TERRAIN[c.terrain].ko) : esc(c.terrain)}</span>
+      <span>Lv.${c.lv}</span><span>방어선 ${c.lines}겹</span>
+    </div>
+    <div class="ffoes">${mons.map(m => `<div class="ffoe1">${sprite(m.id, false)}
+      <b>${esc(m.name)}</b><small>${esc(m.role || '')}</small></div>`).join('')}</div>
+    ${done ? `<div class="hint" style="margin:12px 0">이미 깬 칸입니다. 다시 가도 보상은 없습니다 — 파밍은 파견에서 합니다.</div>`
+           : `<div class="freward">첫 클리어 — ${gain}</div>`}
+    <div class="row-btns">
+      <button class="btn big gold" onclick="ROWAR.runCell('${id}')">출격</button>
+      <button class="btn big" onclick="ROWAR.closeModal()">그만두기</button></div>`);
+}
+
+async function runCell(id){
+  closeModal();
+  const c = FRONT_CELLS.find(x => x.id === id); if(!c) return;
+  const rb = selRobot(); if(!rb){ toast('기체가 없습니다'); return; }
+  setTerrain(c.terrain);
+  toBattle();
+  $('#sc-battle').innerHTML = `<h2 class="title">전선</h2><div class="panel"><div class="mm">
+    <div class="spinner"></div><div style="font-weight:800">${esc(c.ko)} 진입 중...</div></div></div>`;
+  await sleep(500);
+
+  /* 서버가 있으면 서버가 판정한다. 없으면 **같은 규칙 파일로** 여기서 돌린다. */
+  let r = await net.front(id);
+  if(r && r.error){ toast(ERR_KO[r.error] || ('들어가지 못했습니다: ' + r.error)); go('terr'); return; }
+  if(!r) r = runCellLocal(c);
+  applyFront(r);
+  const ok = await replayBreach(r, c.ko);
+  if(ok) renderFrontResult(r, c);
+}
+
+/* 오프라인 판정. 서버(server/front.js)와 **같은 함수들**을 쓴다 —
+   식이 두 벌이 되면 온라인과 오프라인의 결과가 갈린다. */
+function runCellLocal(c){
+  const i = cellIndex(c.id), prog = frontProg();
+  const already = prog[i] > 0;
+  const rb = selRobot();
+  const mechs = [{ name: ROBOT_TYPES[rb.type].name, type: rb.type, uid: rb.uid, level: rb.level,
+                   stats: applyTerrain(computeStats(rb, S.parts), c.terrain) }];
+  const lines = buildLines(c);
+  const seeds = Array.from({ length: maxRounds(lines.length, mechs.length) },
+                           () => (Math.random() * 4294967296) >>> 0);
+  const out = runBreach({ mechs, lines, seeds });
+
+  const perLine = Math.max(1, Math.round(battleExp(c.lv) * (CONST.TERR.EXP_LINE || 0.55)));
+  const won = out.rounds.filter(x => x.win).length, tried = out.rounds.length;
+  const amt = perLine * won + Math.round(perLine * 0.30) * (tried - won);
+  const lv = gainExp(rb, amt);
+  const add = addFat(rb, out.downed ? (CONST.TERR.FAT_DOWN || 11) : (CONST.TERR.FAT_LIVE || 4));
+
+  const gain = out.win ? rewardOf(c, already) : null;
+  const unlocked = out.win ? unlockedBy(c, prog, myMaxLv()) : null;
+  let part = null, campaign = S.campaign;
+  if(gain){
+    if(gain.part) part = rollPart(Math.max(1, rb.level | 0), Math.random,
+                                  'f' + Date.now().toString(36) + i, gain.part);
+    const next = prog.slice(); next[i] = 1; campaign = writeProgress(next);
+  }
+  return { ok: true, local: true, win: out.win, cell: c.id, first: !!gain,
+           mechs, lines, seeds, cleared: out.cleared, downed: out.downed,
+           exp: [{ uid: rb.uid, amt, from: lv.from, to: lv.to, exp: rb.exp }],
+           fat: [{ uid: rb.uid, add, now: fatOf(rb), fatAt: rb.fatAt }],
+           gain: gain ? { ...gain, part } : null, unlocked,
+           credits: S.credits + (gain ? gain.credits : 0),
+           scrap: S.scrap + (gain ? gain.scrap : 0), campaign };
+}
+
+/* 결과를 로컬에 받아 적는다. 온라인이면 서버가 이미 확정한 값이다. */
+function applyFront(r){
+  S.credits = r.credits; S.scrap = r.scrap; S.campaign = r.campaign;
+  for(const e of (r.exp || [])){ const rb = S.robots.find(x => x.uid === e.uid);
+    if(rb){ rb.level = e.to; if(e.exp != null) rb.exp = e.exp; } }
+  for(const f of (r.fat || [])){ const rb = S.robots.find(x => x.uid === f.uid);
+    if(rb){ rb.fat = f.now; if(f.fatAt != null) rb.fatAt = f.fatAt; } }
+  if(r.gain && r.gain.part) addPart(r.gain.part);
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  if(!r.local) net.cancelSync();          // 서버가 이미 최신이다
+  renderWallet();
+}
+
+function renderFrontResult(r, c){
+  shield(); toBattle();
+  const lines = [];
+  if(r.win && r.first && r.gain){
+    if(r.gain.credits) lines.push(`<div class="r">크레딧 <b>+${fmt(r.gain.credits)}</b></div>`);
+    if(r.gain.scrap) lines.push(`<div class="r">스크랩 <b>+${fmt(r.gain.scrap)}</b></div>`);
+    if(r.gain.part) lines.push(`<div class="r" style="color:var(--gold)">파츠 <b>${esc(r.gain.part.name)}</b> 획득</div>`);
+  }else if(r.win){
+    lines.push(`<div class="r" style="color:var(--dim)">이미 깬 칸이라 보상은 없습니다</div>`);
+  }else{
+    lines.push(`<div class="r">방어선 <b>${r.cleared}</b>겹 돌파</div>`);
+    lines.push(`<div class="r" style="color:var(--dim)">다시 가면 방어선은 가득 찬 상태로 돌아옵니다</div>`);
+  }
+  for(const e of (r.exp || [])){ const rb = S.robots.find(x => x.uid === e.uid); if(!rb || !e.amt) continue;
+    lines.push(`<div class="r">${ROBOT_TYPES[rb.type].name} 경험치 <b>+${fmt(e.amt)}</b>${
+      e.to > e.from ? ` · <b style="color:var(--gold)">Lv.${e.from}→${e.to}</b>` : ''}</div>`); }
+  for(const f of (r.fat || [])){ const rb = S.robots.find(x => x.uid === f.uid); if(!rb || !f.add) continue;
+    lines.push(`<div class="r" style="color:var(--bad)">${ROBOT_TYPES[rb.type].name} 피로도 +${f.add} (${f.now})</div>`); }
+
+  $('#sc-battle').innerHTML = `
+    <h2 class="title">${r.win ? '돌파' : '후퇴'} · ${esc(c.ko)}</h2>
+    <div class="panel">
+      ${r.win ? `<p class="fstory out">${esc(c.outro)}</p>` : ''}
+      <div class="rw">${lines.join('')}</div>
+      ${r.unlocked ? `<div class="funlock"><b>${esc(r.unlocked.ko)}</b>가 열렸습니다</div>` : ''}
+      <div class="row-btns">
+        <button class="btn big gold" onclick="ROWAR.go('terr')">전선으로</button>
+        <button class="btn big" onclick="ROWAR.go('hangar')">격납고</button>
+      </div>
+    </div>`;
+}
+
 async function renderTerr(){
   const el=$('#sc-terr');
-  const wrap = inner => `<h2 class="title">점령전 · 세계 지도</h2>${inner}`;
+  const wrap = inner => `${frontTabs()}<h2 class="title">점령전 · 세계 지도</h2>${inner}`;
   if(!net.state.online){
     el.innerHTML = wrap(`<div class="panel"><div class="hint">점령전은 서버 연결이 필요합니다. 지도는 서버에 하나뿐입니다.</div></div>`);
     return;
@@ -2503,9 +2694,16 @@ function applyTerrAttack(r){
    서버가 준 편성·방어선·시드로 **같은 함수를 다시 돌려** 판별을 그대로 얻는다.
    전투마다 결과를 따로 받아 오지 않는 이유가 이것이다 — 그러면 재생과 결과가 갈린다. */
 async function playBreach(r){
+  const ok = await replayBreach(r, (NODE_BY[r.node] || {}).ko || '점령지');
+  if(ok) renderBreachResult(r);
+}
+
+/* 방어선 재생만 하는 부분. 점령전과 전선이 같이 쓴다 — 결과 화면은 서로 다르지만
+   '여러 겹을 이어서 친다' 는 재생 규칙은 하나여야 한다.
+   돌려주는 값: 끝까지 재생했으면 true, 화면을 떠났으면 false. */
+async function replayBreach(r, label){
   beginReplay();
   const out=runBreach({ mechs:r.mechs, lines:r.lines, seeds:r.seeds, hpLeft:r.hpLeft0 });
-  const node=NODE_BY[r.node];
   const total=r.lines.length;
 
   for(let i=0;i<out.rounds.length;i++){
@@ -2514,9 +2712,8 @@ async function playBreach(r){
     const P=makeUnit(M.name,M.type,M.stats); P.hp=rd.pHp; P.sp=rd.pSp;
     const E=makeUnit(L.name,L.type,L.stats); E.hp=rd.eHp; E.sp=rd.eSp;
 
-    renderArena(M.type,L.type,M.name,L.name,
-      `${node?node.ko:'점령지'} · 방어선 ${rd.li+1}/${total}`);
-    if(arenaGone()) return;
+    renderArena(M.type,L.type,M.name,L.name, `${label} · 방어선 ${rd.li+1}/${total}`);
+    if(arenaGone()) return false;
     /* 두 번째 기체가 들어오는 순간이 이 규칙의 핵심이라 말로도 한 줄 남긴다. */
     if(i>0 && rd.mi!==out.rounds[i-1].mi)
       blog(`<b style="color:var(--bad)">선봉 격추</b> — <span class="k">${M.name}</span> 투입`);
@@ -2525,10 +2722,10 @@ async function playBreach(r){
 
     if(rarOf(L.type)==='BOSS') await bossEntrance();
     const w=await playBattle(rd.events,P,E,{ pHp:rd.pHp, eHp:rd.eHp, pSp:rd.pSp, eSp:rd.eSp });
-    if(!w) return;                       // 화면을 떠났다. 보상은 이미 서버에 반영됨
+    if(!w) return false;                 // 화면을 떠났다. 보상은 이미 반영됨
     await sleep(320/battleSpeed);
   }
-  renderBreachResult(r);
+  return true;
 }
 
 function renderBreachResult(r){
@@ -2576,7 +2773,7 @@ async function claimTerr(){
   if(r.error){ toast(ERR_KO[r.error]||('실패: '+r.error)); return; }
   S.credits=r.player.credits; S.scrap=r.player.scrap;
   if(r.player.cores!=null) S.cores=r.player.cores;
-  commitLocal(); dropTerrCache(); renderWallet(); renderTerr();
+  commitLocal(); dropTerrCache(); renderWallet(); renderTerrHome();
   toast(`점령지 ${r.nodes}칸 · 크레딧 +${fmt(r.cr)} · 스크랩 +${fmt(r.sc)}${r.core?` · 코어 +${r.core}`:''}`);
 }
 
@@ -2651,6 +2848,7 @@ window.ROWAR = {
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
   openSlot, openRobot, closeModal, setGacha, scrapPart, toggleSpeed, skipReplay, pickExped, openNode, guide,
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
+  setFrontTab, openCell, runCell: guard(runCell, 1000),
   openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
   trialRun: guard(trialRunGo, 1000),
   setTrialTab, raidRun: guard(raidRunGo, 1000),

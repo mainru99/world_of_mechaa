@@ -226,6 +226,16 @@ export async function territory(action, args = {}) {
            protectUntil: r.data && r.data.protectUntil, cores: r.data && r.data.cores };
 }
 
+/* 전선. 조회는 GET, 한 칸 도전은 POST(칸 id 하나).
+   **오프라인이면 null 을 돌려준다** — 부르는 쪽이 로컬로 돌린다.
+   전선은 새 계정이 처음 보는 화면이라, 연결이 끊겼다고 시작조차 못 하면 안 된다. */
+export async function front(cell) {
+  if (!state.online) return null;
+  const r = await call('/api/front', cell ? { method: 'POST', body: { cell } } : {});
+  if (r.ok && r.data && r.data.ok) { if (r.data.rev != null) setSyncedRev(r.data.rev); return r.data; }
+  return { error: (r.data && r.data.error) || r.error || 'front failed' };
+}
+
 export async function ranking() {
   if (!state.online) return null;
   const r = await call('/api/ranking');

@@ -1182,3 +1182,48 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .rpslot.filled{border-color:#3a4a74}
 .rpslot .dimt{color:var(--dim)}
 @media (max-width:420px){ .rpslots{grid-template-columns:1fr} }
+
+/* ── 전선 ────────────────────────────────────────────────
+   한 줄기로 이어지는 진행이라 **세로 한 줄**로 세운다. 점령전은 지도(격자)지만
+   전선은 순서가 규칙이라, 격자로 놓으면 어디부터 가야 하는지가 안 보인다. */
+.fhead .fsub2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.fhead .flead{margin:8px 0 14px;color:var(--sub);font-size:13.5px;line-height:1.7;max-width:60ch}
+.fprog{height:5px;background:#0e1526;border-radius:99px;overflow:hidden;margin-bottom:8px}
+.fprog i{display:block;height:100%;background:var(--acc);transition:width .4s}
+.fgate{margin-top:12px;padding:10px 12px;background:#0e1526;border-left:2px solid var(--gold);font-size:12.5px;color:var(--sub)}
+.fgate b{color:var(--gold)} .fgate span{display:block;color:var(--dim);font-size:11.5px;margin-top:3px}
+
+.fcells{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.fcell{
+  display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:center;text-align:left;
+  background:#111a30;border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  cursor:pointer;transition:.12s;color:inherit;font:inherit;width:100%;
+}
+.fcell:hover:not(:disabled){border-color:var(--acc);transform:translateX(2px)}
+.fcell:disabled{opacity:.42;cursor:not-allowed}
+.fcell.done{border-color:#2c4a3a}
+.fcell .fno{font-size:17px;font-weight:800;color:var(--dim);text-align:center;font-variant-numeric:tabular-nums}
+.fcell.open .fno{color:var(--acc)} .fcell.done .fno{color:var(--ok,#4e9d72)}
+.fmid{min-width:0;display:flex;flex-direction:column;gap:3px}
+.fnm{font-weight:800;font-size:15px}
+.fboss{font-size:10px;letter-spacing:.08em;background:var(--bad);color:#0b0e15;padding:1px 5px;border-radius:3px;vertical-align:2px}
+.fsub{font-size:11.5px;color:var(--dim)}
+.ffoe{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.ffoe i{font-style:normal;font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:99px;padding:1px 7px}
+.fcell .fst{font-size:15px;color:var(--dim)}
+
+/* 칸 상세 */
+.fstory{margin:4px 0 12px;font-size:14px;line-height:1.8;color:var(--sub)}
+.fstory.out{border-left:2px solid var(--line);padding-left:12px;color:var(--dim);margin-bottom:14px}
+.fmeta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.fmeta span{font-size:11.5px;color:var(--sub);border:1px solid var(--line);border-radius:99px;padding:2px 9px}
+.ffoes{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+.ffoe1{flex:1 1 120px;min-width:0;text-align:center;background:#0e1526;border-radius:10px;padding:8px}
+.ffoe1 .mecha{height:84px;width:auto;max-width:100%;object-fit:contain}
+.ffoe1 b{display:block;font-size:12.5px;margin-top:4px}
+.ffoe1 small{display:block;font-size:10.5px;color:var(--dim);line-height:1.4}
+.freward{margin:12px 0;font-size:12.5px;color:var(--sub)}
+.freward b{color:var(--gold)}
+.funlock{margin:12px 0;padding:12px;background:#0e1526;border:1px solid var(--gold);border-radius:10px;
+  text-align:center;font-size:14px;color:var(--sub)}
+.funlock b{color:var(--gold);font-size:16px}

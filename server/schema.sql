@@ -133,6 +133,12 @@ CREATE TABLE IF NOT EXISTS player (
   rank_cached INTEGER,                         -- 주기 계산된 순위 (NULL = 아직 없음)
   rank_at     INTEGER,                         -- 그 순위를 계산한 시각
 
+  -- 전선(016). 칸마다 한 글자 — '0' 아직 · '1' 깬 것. 1장이면 '00000'.
+  -- NULL 은 '아직 한 번도 안 봤다' 이고 코드가 빈 진행으로 읽는다.
+  -- 표를 따로 두지 않는 이유는 D1 과금이 읽은 행 기준이라서다(016 주석).
+  campaign    TEXT,
+  codex       TEXT,                            -- 도감. 아직 아무도 안 읽는다
+
   -- 레벨은 기체가 아니라 **파일럿**의 것이다. 보유한 기체는 전부 이 레벨로 싸운다.
   -- 예전에는 기체별이었는데, 경험치가 출전한 기체에만 들어가 두 번째 기체를 키울 수가
   -- 없었다(Lv.30 하나에 84판). 그래서 기체 30종과 그 대항 스킬이 전부 죽어 있었다.
@@ -306,7 +312,7 @@ CREATE TABLE IF NOT EXISTS raid_hit (
 );
 CREATE INDEX IF NOT EXISTS ix_raid_hit ON raid_hit(week, damage DESC);
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '15');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '16');
 
 
 -- =========================================================

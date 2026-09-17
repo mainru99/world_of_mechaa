@@ -2367,15 +2367,25 @@ async function playScript(beats, title, endLabel){
      "만들다 만 화면" 으로 읽힌다. 지금은 한 장도 없으므로 늘 접혀 있고,
      `assets/story/` 에 파일을 넣는 순간부터 저절로 펴진다(코드는 안 바뀐다). */
   let artKey = null;
+  /* **새 그림이 다 올 때까지 앞 그림을 그대로 둔다.** 곧바로 src 를 갈아 끼우면
+     onload 가 오기까지 칸이 접혔다 펴져서, 장면이 바뀔 때마다 대사 상자가 위아래로 튄다
+     (그림이 실제로 생기고 나서야 보이는 문제였다 — 파일이 0장일 때는 늘 접혀 있었다). */
   const setArt = key => {
     if(key === undefined || key === artKey) return;          // 안 적은 beat 는 앞 그림을 잇는다
     artKey = key;
     const src = artPath(key);
     if(!src){ artEl.hidden = true; artImg.removeAttribute('src'); return; }
-    artImg.onload = () => { artEl.hidden = false; };
-    artImg.onerror = () => { artEl.hidden = true; };
-    artEl.hidden = true;                                      // 뜨기 전까지는 접어 둔다
-    artImg.src = src;
+    const pre = new Image();
+    pre.onload  = () => { if(artKey !== key) return; artImg.src = src; artEl.hidden = false; };
+    pre.onerror = () => { if(artKey !== key) return; artEl.hidden = true; artImg.removeAttribute('src'); };
+    pre.src = src;
+  };
+  /* 다음 장면 그림을 미리 받아 둔다. 한 장이 200KB 라 넘어가는 순간에 받으면 한 박자 늦는다.
+     16장을 통째로 받지는 않는다 — 3MB 를 첫 줄에서 다 받을 이유가 없다. */
+  const prefetch = from => {
+    for(let j = from; j < beats.length; j++){
+      if(beats[j].art && beats[j].art !== artKey){ new Image().src = artPath(beats[j].art); return; }
+    }
   };
   const advance = () => { if(ac.next) ac.next(); };
   view.addEventListener('click', advance);
@@ -2393,6 +2403,7 @@ async function playScript(beats, title, endLabel){
        `body[data-scene="battle"][data-terrain]` 규칙이 그대로 그려 준다. */
     if(b.bg) setTerrain(b.bg);
     setArt(b.art);
+    prefetch(bi + 1);
     spkEl.innerHTML = speakerHtml(b.s);
     const sp = SPEAKERS[b.s];
     lineEl.className = 'story-line' + (sp && sp.kind === 'system' ? ' sys' : '')

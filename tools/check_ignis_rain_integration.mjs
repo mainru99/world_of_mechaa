@@ -22,7 +22,9 @@ const finish={t:'end',winner:'P'};
 async function run(events,P=basic(),E=basic('mule'),hooks={},speed=1){
   const calls=[];
   const state={arena:{isConnected:true},sleeps:0};
-  const ctx={COMBAT_TYPES,cur:'battle',battleSpeed:speed,
+  // playBattle 은 모듈 바깥의 _skipReplay 를 읽는다. 잘라 온 조각에는 선언이 없으므로
+  // 여기서 세워 준다 — 빠지면 ReferenceError 로 검사가 통째로 죽는다(실제로 그랬다).
+  const ctx={COMBAT_TYPES,cur:'battle',battleSpeed:speed,_skipReplay:false,
     document:{getElementById:()=>state.arena},
     setHP:(...v)=>calls.push(['hp',...v]), setSP:(...v)=>calls.push(['sp',...v]),
     blog:v=>calls.push(['log',v]), banner:v=>calls.push(['banner',v]),
@@ -128,6 +130,16 @@ for(const mode of ['initial','banner','strike-hidden','strike-replaced','lunge-r
   if(mode!=='end')assert.equal(of(r,'hp').length,2,mode+' must not publish late damage');
 }
 
+// 건너뛰기 — 남은 재생을 접고도 최종 체력을 다 쓰고, 효과를 놓고, 승자를 그대로 돌려준다.
+const skipped=await run([skill(),hit(),hit(),hit(),finish],basic(),basic('mule'),{
+  sleep:({n,ctx})=>{if(n===3)ctx._skipReplay=true;}
+});
+assert.equal(skipped.result,'P','건너뛰어도 승자는 서버가 정한 그대로다');
+assert.equal(of(skipped,'strike').length,1,'건너뛴 뒤로는 연출이 더 돌지 않는다');
+assert.equal(of(skipped,'dispose').length,1,'건너뛰기도 finally 를 지나 효과를 놓는다');
+assert.equal(of(skipped,'hp').length,6,'남은 타격의 최종 체력을 한 번에 그린다');
+assert(of(skipped,'log').some(c=>String(c[1]).includes('건너뜀')));
+
 // Unexpected rendering errors still release the effect owner.
 let disposed=0;
 const ctx={cur:'battle',document:{getElementById:()=>arena},createIgnisRain:()=>({dispose:()=>disposed++}),setHP:()=>{throw Error('fixture');}};
@@ -139,4 +151,4 @@ assert.equal(disposed,1);
 assert(source.includes("from './ignis-rain.js?v=20260913-ignis-rain1'"));
 assert(source.includes('${sprite(pType,true)}')&&source.includes('${sprite(eType,false)}'));
 assert.equal((source.match(/\{\s*idle:\s*true\s*\}/g)||[]).length,1,'Only the large hangar opts in to idle art');
-console.log('Ignis Rain integration passed: 12 real sim streams; both sides; misses; normal and other skills; hit cap; 6 cancellation paths; speed; cleanup; static battle sprites.');
+console.log('Ignis Rain integration passed: 12 real sim streams; both sides; misses; normal and other skills; hit cap; 6 cancellation paths; skip; speed; cleanup; static battle sprites.');

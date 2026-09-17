@@ -45,7 +45,14 @@ export function tierLevelAdjust(myRarities, oppRarity, myLevel) {
    Lv.1 은 언커먼의 레벨을 3 깎아 줄 수 없어(1 밑으로 못 간다) 그냥 승률 11% 짜리 판이 된다.
    그래서 새 플레이어는 한동안 자기 등급만 만나고, 레벨이 쌓이면 위 등급이 열린다.
    후보가 없는 등급이 걸리면(BOSS 처럼 봉인된 것) 커먼으로 떨어뜨린다. */
-export function pickOpponentType(ownedRarities, byRarity, rnd, myLevel) {
+/* 다섯째 인자로 등급을 직접 주면 그 안에서만 고른다 — 구간표가 등급을 정할 때 쓴다.
+   (구간이 'UQ·EP' 라면 내 소유 등급과 무관하게 그 둘 중에서 나와야 한다) */
+export function pickOpponentType(ownedRarities, byRarity, rnd, myLevel, forceRars) {
+  if (forceRars && forceRars.length) {
+    const lists = forceRars.map(k => byRarity[k]).filter(l => l && l.length);
+    const list = lists.length ? pick(lists, rnd) : byRarity.C;
+    return pick(list, rnd);
+  }
   const T = CONST.TIER_LV || {};
   const mine = Math.max(0, ...ownedRarities.map(r => T[r] || 0));
   const lv = myLevel == null ? CONST.MAXLV : myLevel;
@@ -86,6 +93,26 @@ export function partLevelValue(myParts, myLevel) {
 
 /* 레이팅 → 상대가 낄 장비. **내 장비를 보지 않는다.**
    왜 이렇게 바꿨는지는 data/balance.js 의 RATING_GEAR 주석에 적었다. */
+/* 레이팅 → 대전 몬스터 구간. 표가 없으면 null (옛 방식으로 떨어진다). */
+export function bandOf(rating) {
+  const T = CONST.MON_BAND;
+  /* 레이팅을 모르는 호출부(배열을 넘기는 옛 도구·오프라인 연습)는 구간제를 쓰지 않는다 —
+     거기서 1000 으로 넘겨 버리면 전부 1구간 몬스터를 만나게 된다. */
+  if (!T || !T.length || !Number.isFinite(rating)) return null;
+  const r = rating;
+  let out = T[0], i = 1;
+  T.forEach((row, k) => { if (r >= (row.at || 0)) { out = row; i = k + 1; } });
+  return { ...out, i, total: T.length };
+}
+/* 다음 구간까지 얼마나 남았나 — 화면이 '목표'를 보여 주는 데 쓴다. */
+export function bandNext(rating) {
+  const T = CONST.MON_BAND;
+  if (!T || !T.length) return null;
+  const r = Number.isFinite(rating) ? rating : 1000;
+  for (const row of T) if (r < (row.at || 0)) return { at: row.at, left: row.at - r };
+  return null;
+}
+
 export function gearFromRating(rating) {
   const T = CONST.RATING_GEAR;
   if (!T || !T.length) return { n: 0, rar: 'C', enh: 0, skillLv: 0 };
@@ -117,8 +144,28 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rat
   const level = clamp(myLevel + tierLevelAdjust(ownedRarities, rar, myLevel) + jit, 1, oppLvMax());
 
   if (monster) {
-    /* 몬스터는 파츠를 못 낀다. 내가 낀 만큼을 레벨로 얹어 준다.
-       (최대 레벨에서는 더 얹을 자리가 없어 그대로 쉬워진다 — 그건 감수한다) */
+    /* ── 구간제 (CONST.MON_BAND) ──────────────────────────
+       **구간 안에서 몬스터는 고정이다.** 내 레벨을 따라가지 않는다 — 그게 이 개편의
+       전부다. 레이팅이 구간을 정하고, 구간 안에서 내 성장은 온전히 남는다.
+       그리고 **몬스터도 파츠를 낀다.** 예전에는 못 껴서 그 몫을 전부 레벨로 갚았고
+       (partLevelValue), 끝판에서 레벨 상한 90 에 부딪혀 더 세울 자리가 없었다. */
+    const band = bandOf(rating);
+    if (band) {
+      const bt = pickOpponentType(ownedRarities, MONSTER_BY_RARITY, rnd, myLevel, band.rars);
+      const lv = clamp(band.lv + jit, 1, oppLvMax());
+      const bp = [], bs = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
+      const g = band.gear || {};
+      const freeB = SLOTS.slice();
+      for (let i = 0; i < (g.n | 0) && freeB.length; i++) {
+        const slot = freeB.splice(ri(0, freeB.length - 1, rnd), 1)[0];
+        const p = rollPart(lv, rnd, uid(), g.rar, slot);
+        p.enh = g.enh | 0;
+        bp.push(p); bs[slot] = p.uid;
+      }
+      return { kind: 'monster', type: bt, level: lv, skillLv: 0, parts: bp, slots: bs,
+               band: band.i, callsign: MONSTER_TYPES[bt].name };
+    }
+    /* 표가 없으면 예전 방식으로 돈다(옛 도구·오프라인 연습이 그렇다). */
     const lv = clamp(level + partLevelValue(myParts, myLevel), 1, oppLvMax());
     return { kind: 'monster', type, level: lv, skillLv, parts: [],
              slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null },

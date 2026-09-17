@@ -171,6 +171,9 @@ async function preparePending(env, accountId, me, now, credits, opts) {
       rating: opp.rating ?? null,
       name: T.name, role: T.role, rarity: T.rarity,
       skill: T.skill, parts: opp.parts, slots: opp.slots,
+      /* 몬스터 구간 — 화면이 '지금 몇 구간을 상대하고 있나' 를 보여 준다.
+         목표가 보여야 파밍에 방향이 생긴다(CONST.MON_BAND). */
+      band: opp.band ?? null, bandTotal: (CONST.MON_BAND || []).length || null,
     },
   };
 }

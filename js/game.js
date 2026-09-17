@@ -1702,7 +1702,8 @@ async function findMatch(opts){
 function setPending(o, cost, rescue, tier, mode, duel){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, skillLv:o.skillLv|0, fat:0, slots:o.slots },
-    parts:o.parts, cost:cost|0, rescue:!!rescue, tier:tier||null, mode:mode||null,
+    parts:o.parts, band:o.band||null, bandTotal:o.bandTotal||null,
+    cost:cost|0, rescue:!!rescue, tier:tier||null, mode:mode||null,
     /* 지목 대전이면 상대 편성 목록과 지금 고른 칸을 함께 들고 다닌다 —
        상대 카드에서 바로 다른 기체로 바꿔 끼울 수 있어야 하기 때문이다. */
     choices:(duel&&duel.choices)||null, pick:(duel&&duel.pick)|0, target:(duel&&duel.target)||null } : null;
@@ -1885,7 +1886,8 @@ function makeOpponent(){
      없으면 시작 레이팅(1000)으로 본다. 규칙은 서버와 같은 함수(js/rewards.js)다. */
   const o=_makeOpponent(owned, my.level, R, ()=>'E'+uid(), false, myRating());
   const rb={uid:'E'+uid(), type:o.type, level:o.level, skillLv:o.skillLv|0, slots:o.slots};
-  return {kind:o.kind==='monster'?'monster':'robot', robot:rb, parts:o.parts, callsign:o.callsign};
+  return {kind:o.kind==='monster'?'monster':'robot', robot:rb, parts:o.parts, callsign:o.callsign,
+          band:o.band||null, bandTotal:(CONST.MON_BAND||[]).length||null};
 }
 /* 상대 카드.
    전투력만 보여 주면 '이길지 질지'만 알 뿐 **무엇을 바꿀지**를 알 수 없다.
@@ -1922,11 +1924,13 @@ function showOpponent(opp, practice){
         <div>
           <div class="rname">${esc(opp.callsign)} ${monster?'<span class="tag monster-tag">몬스터</span>':robRarTag(opp.robot.type)}${
             opp.kind==='player'?' <span class="tag" style="color:var(--acc2)">플레이어</span>':''}</div>
-          <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}</div>
+          <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}${
+            opp.band?` · <span class="bandtag">구간 ${opp.band}/${opp.bandTotal||12}</span>`:''}</div>
           <div style="margin-top:6px;font-weight:800;color:var(--bad)">전투력 ${fmt(oPow)} <span style="color:var(--dim);font-weight:600">/ 나 ${fmt(myPow)}</span></div>
         </div>
       </div>
       <div class="oppstats">${['def','eva','spd'].map(cmp).join('')}</div>
+      ${oppGear(opp)}
       <div class="monster-skill"><strong>${T.skill.name}</strong> <span class="fxrow">${fxTags(opp.robot.type)}</span><span>${T.skill.desc}</span></div>
       <!-- 고르는 순간에 둘을 나란히 둔다. 내 스킬을 기억해서 오라고 하면 아무도 안 본다. -->
       <div class="my-skill"><strong>내 스킬 · ${COMBAT_TYPES[my.type].skill.name}</strong> <span class="fxrow">${fxTags(my.type)}</span><span>${COMBAT_TYPES[my.type].skill.desc}</span></div>
@@ -2096,6 +2100,31 @@ function battleRewards(win,enemyLv){
 }
 
 /* ---- 대전 아레나 & 재생 ---- */
+/* 상대가 낀 파츠를 보여 준다(2026-09-18 사용자 지시).
+   **"저렇게 강한 것도 있구나" 를 알게 하는 자리다.** 몬스터가 파츠를 끼게 되면서
+   생긴 칸인데, 플레이어 상대에게도 똑같이 뜬다 — 예전에는 아무에게도 안 보였다.
+   여기 뜨는 파츠가 곧 다음 목표가 된다. */
+function oppGear(opp){
+  const list = (opp.parts || []).filter(Boolean);
+  if(!list.length) return '';
+  const mine = new Set(Object.values(selRobot().slots || {}).filter(Boolean));
+  const myBy = {};
+  for(const u of mine){ const p = findPart(u, S.parts); if(p) myBy[p.slot] = p; }
+  return `<div class="oppgear">
+    <div class="ogl">상대 장착 <span>내 것과 나란히</span></div>
+    <div class="ogrow">${list.map(p=>{
+      const m = myBy[p.slot];
+      /* 같은 칸의 내 파츠와 견준다. 숫자가 아니라 '위/아래' 만 — 고르기 전에
+         알아야 할 것은 '내가 밀리는 칸이 어디인가' 뿐이다. */
+      const up = m && (RAR_ORDER[p.rarity] > RAR_ORDER[m.rarity]
+                    || (p.rarity===m.rarity && (p.enh|0) > (m.enh|0)));
+      return `<span class="ogp${enhClass(p)}${up?' over':''}">
+        <b>${SLOT_KO[p.slot]}</b> ${esc(p.name)} ${rarTag(p)}
+        ${m ? `<i>내 ${m.rarity}${m.enh?'+'+m.enh:''}</i>` : '<i class="none">내 칸 비었음</i>'}
+      </span>`; }).join('')}</div>
+  </div>`;
+}
+
 /* 전투가 시작되면 **양쪽 전술을 드러낸다.** 고르기 전에는 숨기고 시작하면 보여 주는 것이
    핵심이다 — 안 보여 주면 무엇이 통했는지 영영 알 수 없어 다음 판이 나아지지 않는다. */
 function renderArena(pType,eType,pName,eName,label,tacP,tacE){

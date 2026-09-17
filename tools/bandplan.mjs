@@ -67,15 +67,29 @@ function myStats(lv, g) {
   return computeStats({ uid: 'me', type: MY, level: lv, fat: 0, skillLv, slots }, parts);
 }
 
-/* 구간의 상대. 등급 풀에서 고른 몬스터들을 **고정 레벨**로 세운다. */
+/* 구간의 상대. 등급 풀에서 고른 몬스터들을 **고정 레벨**로 세운다.
+
+   **몬스터도 파츠를 낀다(2026-09-18 사용자 지시).** 예전에는 못 껴서 그 몫을 전부
+   레벨로 갚았는데, 그러다 끝판에서 상대 레벨이 90(OPP_LV_OVER 상한)에 부딪혀
+   더 세울 자리가 없었다. 파츠로 갚으면 레벨이 내 근처에 머물고, 무엇보다
+   **플레이어가 "저런 파츠도 있구나" 를 눈으로 본다.** */
 const poolOf = rar => (MONSTER_BY_RARITY[rar] || []).filter(k => MONSTER_TYPES[k].rarity !== 'BOSS');
-function winVs(lv, g, foeLv, pool, ROLLS = 12, N = 60) {
+function foeStats(type, lv, fg) {
+  const slots = { ...EMPTY }, parts = [], free = SLOTS.slice();
+  for (let i = 0; i < (fg ? fg.n : 0) && free.length; i++) {
+    const sl = free.shift();
+    const p = rollPart(lv, rnd, uid(), fg.rar, sl); p.enh = fg.enh;
+    parts.push(p); slots[sl] = p.uid;
+  }
+  return computeStats({ type, level: lv, skillLv: 0, fat: 0, slots }, parts);
+}
+function winVs(lv, g, foeLv, pool, fg, ROLLS = 12, N = 60) {
   let w = 0, t = 0;
   for (let k = 0; k < ROLLS; k++) {
     const st = myStats(lv, g);
     for (let i = 0; i < N; i++) {
       const type = pool[Math.floor(rnd() * pool.length)] || 'enemy_reaper';
-      const fs = computeStats({ type, level: foeLv, skillLv: 0, fat: 0, slots: EMPTY }, []);
+      const fs = foeStats(type, foeLv, fg);
       const ev = simulate(makeUnit('me', MY, st), makeUnit('f', type, fs),
                           (Math.floor(rnd() * 4294967296)) >>> 0);
       if (ev[ev.length - 1].winner === 'P') w++;
@@ -88,11 +102,11 @@ function winVs(lv, g, foeLv, pool, ROLLS = 12, N = 60) {
 const TARGET_IN = 45;                 // 구간에 막 들어왔을 때의 목표 승률
 const FOE_MAX = CONST.MAXLV + (CONST.OPP_LV_OVER || 0);
 /* 진입 승률이 목표에 닿는 상대 레벨을 이분 탐색한다. 승률은 레벨에 대해 단조감소다. */
-function solveFoe(lv, g, pool, target) {
+function solveFoe(lv, g, pool, fg, target) {
   let lo = 1, hi = FOE_MAX;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    if (winVs(lv, g, mid, pool, 6, 40) > target) lo = mid + 1; else hi = mid;
+    if (winVs(lv, g, mid, pool, fg, 6, 40) > target) lo = mid + 1; else hi = mid;
   }
   return lo;
 }
@@ -122,11 +136,26 @@ function plan(N) {
        손으로 lv0+1 을 줘 봤더니 전 구간이 91~100% 였다 — 장비가 레벨 3~7 어치라
        내 레벨만 보고 세우면 상대가 한참 아래에 선다. 몬스터는 파츠를 못 끼므로
        그 몫을 레벨로 갚아야 하고, 얼마나 갚을지는 재서 정하는 것이 맞다. */
-    const foeLv = solveFoe(lv0, gIn, pool, TARGET_IN);
-    bands.push({ i: i + 1, lv0, lv1, foeLv, rars, pool,
+    /* 몬스터의 장비는 **그 구간에 막 들어온 플레이어와 같은 급**으로 준다.
+       '나와 비슷하게 갖춘 적' 이라야 파츠가 눈에 들어오고, 이겨서 얻고 싶어진다. */
+    const fg = gIn;
+    let foeLv = solveFoe(lv0, gIn, pool, fg, TARGET_IN);
+    /* 다듬기 — 탐색은 거칠게(6벌×40판) 돌리므로 한 단계씩 어긋난다.
+       레벨 1 이 승률 15%p 라 그 어긋남이 그대로 '막히는 구간' 이 된다.
+       이웃 둘을 정밀하게 재서 목표에 가장 가까운 쪽을 고른다. */
+    {
+      let best = null;
+      for (const cand of [foeLv - 1, foeLv, foeLv + 1]) {
+        if (cand < 1 || cand > FOE_MAX) continue;
+        const w = winVs(lv0, gIn, cand, pool, fg);
+        if (!best || Math.abs(w - TARGET_IN) < Math.abs(best.w - TARGET_IN)) best = { cand, w };
+      }
+      foeLv = best.cand;
+    }
+    bands.push({ i: i + 1, lv0, lv1, foeLv, rars, pool, fg,
                  gIn, gOut, battles: Math.round(total / N),
-                 win0: winVs(lv0, gIn, foeLv, pool),
-                 win1: winVs(lv1, gOut, foeLv, pool) });
+                 win0: winVs(lv0, gIn, foeLv, pool, fg),
+                 win1: winVs(lv1, gOut, foeLv, pool, fg) });
   }
   return bands;
 }
@@ -137,17 +166,16 @@ for (const N of COUNTS) {
   out[N] = b;
   if (JSON_OUT) continue;
   console.log(`\n═══ ${N}구간 ═══   (구간당 약 ${b[0].battles}판)\n`);
-  console.log('구간  내 레벨   상대Lv  등급 풀      진입 장비     졸업 장비      진입    졸업   계단');
+  console.log('구간  내 레벨   상대Lv  등급 풀      상대 장비     진입 장비     졸업 장비      진입    졸업');
   b.forEach((x, i) => {
-    const step = i === 0 ? '' : (x.win0 - b[i - 1].win1).toFixed(0) + '%p';
     console.log(
       String(x.i).padStart(3) +
       `  ${x.lv0}~${x.lv1}`.padEnd(10) +
       String(x.foeLv).padStart(5) + '   ' +
       x.rars.join('·').padEnd(11) +
+      gearKo(x.fg).padEnd(13) +
       gearKo(x.gIn).padEnd(13) + gearKo(x.gOut).padEnd(14) +
-      (x.win0.toFixed(0) + '%').padStart(6) + (x.win1.toFixed(0) + '%').padStart(7) +
-      step.padStart(8));
+      (x.win0.toFixed(0) + '%').padStart(6) + (x.win1.toFixed(0) + '%').padStart(7));
   });
   const ins = b.map(x => x.win0), outs = b.map(x => x.win1);
   const steps = b.slice(1).map((x, i) => x.win0 - b[i].win1);

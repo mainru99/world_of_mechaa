@@ -1298,3 +1298,25 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .story-art{margin:0 0 12px;display:flex;justify-content:center}
 .story-art img{max-width:100%;max-height:38vh;width:auto;border-radius:12px;
   border:1px solid var(--line);box-shadow:0 14px 40px -18px #000}
+
+/* ── 상대가 낀 파츠 ────────────────────────────────────────
+   "저렇게 강한 것도 있구나" 를 알게 하는 자리다(2026-09-18 사용자 지시).
+   몬스터가 파츠를 끼게 되면서 생겼고, 플레이어 상대에게도 똑같이 뜬다.
+   내 같은 칸과 나란히 두는 이유 — 고르기 전에 알아야 할 것은 숫자가 아니라
+   '내가 밀리는 칸이 어디인가' 다. */
+.oppgear{margin-top:10px;padding:10px 12px;border-radius:12px;
+  background:rgba(13,20,36,.6);border:1px solid rgba(120,150,210,.18)}
+.ogl{font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--dim);margin-bottom:7px}
+.ogl span{font-weight:600;letter-spacing:0;opacity:.75}
+.ogrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.ogp{display:block;padding:6px 9px;border-radius:9px;font-size:11.5px;
+  background:#111a30;border:1px solid var(--line)}
+.ogp b{display:block;font-size:10px;font-weight:800;color:var(--dim);letter-spacing:1px;margin-bottom:1px}
+.ogp i{display:block;font-style:normal;font-size:10.5px;color:var(--dim);margin-top:2px}
+.ogp i.none{color:var(--bad)}
+/* 내 것보다 위인 칸만 붉게. 전부 칠하면 아무것도 안 읽힌다. */
+.ogp.over{border-color:rgba(255,91,127,.45);background:rgba(48,14,24,.5)}
+.ogp.over i{color:var(--bad)}
+/* 구간 딱지 — 지금 몇 단계를 상대하고 있나. 목표가 보여야 파밍에 방향이 생긴다. */
+.bandtag{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:6px;
+  color:var(--acc2);border:1px solid #2a6b7a;background:rgba(42,107,122,.16)}

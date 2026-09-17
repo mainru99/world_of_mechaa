@@ -21,6 +21,11 @@ import { makeOpponent, gearFromRating } from '../js/rewards.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 
 const JSON_OUT = process.argv.includes('--json');
+/* `--enh N` 을 주면 **내 파츠의 강화만** N 으로 고정한다. 상대는 그대로다.
+   RATING_GEAR 표가 구간마다 강화를 0 으로 되돌리는데(4xR+4 → 2xSR+0), 그 되돌림이
+   승률 계단의 원인인지 가르기 위한 손잡이다. */
+const ENH_ARG = process.argv.indexOf('--enh');
+const FORCE_ENH = ENH_ARG >= 0 ? parseInt(process.argv[ENH_ARG + 1], 10) : null;
 const EMPTY = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
 const SLOTS = ['WEAPON', 'FRAME', 'BOOSTER', 'CORE'];
 let sd = 20260917;
@@ -44,7 +49,7 @@ function me(type, stage) {
   for (let i = 0; i < (g.n | 0) && free.length; i++) {
     const sl = free.shift();
     const p = rollPart(stage.level, rnd, uid(), g.rar, sl);
-    p.enh = g.enh | 0; parts.push(p); slots[sl] = p.uid;
+    p.enh = FORCE_ENH != null ? FORCE_ENH : (g.enh | 0); parts.push(p); slots[sl] = p.uid;
   }
   const rb = { uid: 'me', type, level: stage.level, fat: 0, skillLv: g.skillLv | 0, slots };
   return { rb, parts, stats: computeStats(rb, parts) };
@@ -54,21 +59,26 @@ const OWNED = ['C', 'UC', 'R'];
 const MY = 'azure';
 const N = 300;
 
+const ROLLS = 24;          // 내 파츠도 굴림이다. 한 벌만 보면 굴림 운이 곡선으로 보인다
 const rows = [];
 for (const st of STAGES) {
-  const m = me(MY, st);
-  const myAtk = m.stats.atk, myPow = powerOf(m.stats);
+  /* 내 쪽도 여러 벌 굴려 평균을 쓴다. 한 벌만 재면 '표가 내려간 자리' 와
+     '그냥 나쁘게 굴린 자리' 를 못 가른다. */
+  const mine = Array.from({ length: ROLLS }, () => me(MY, st));
+  const m = mine[0];
+  const myAtk = mine.reduce((t, x) => t + x.stats.atk, 0) / ROLLS;
+  const myPow = mine.reduce((t, x) => t + powerOf(x.stats), 0) / ROLLS;
   let oAtk = 0, oPow = 0, oLv = 0, win = 0, n = 0;
   for (let i = 0; i < N; i++) {
     const opp = makeOpponent(OWNED, st.level, rnd, uid, true, st.rating);   // true = 몬스터 고정
     const os = computeStats({ type: opp.type, level: opp.level, skillLv: 0, fat: 0, slots: EMPTY }, []);
     oAtk += os.atk; oPow += powerOf(os); oLv += opp.level; n++;
-    const P = makeUnit('me', MY, m.stats), E = makeUnit('opp', opp.type, os);
+    const P = makeUnit('me', MY, mine[i % ROLLS].stats), E = makeUnit('opp', opp.type, os);
     const ev = simulate(P, E, (Math.floor(rnd() * 4294967296)) >>> 0);
     if (ev[ev.length - 1].winner === 'P') win++;
   }
   rows.push({ rating: st.rating, level: st.level,
-              gear: `${st.gear.n}x${st.gear.rar}+${st.gear.enh}`,
+              gear: `${st.gear.n}x${st.gear.rar}+${FORCE_ENH != null ? FORCE_ENH : st.gear.enh}`,
               myAtk: Math.round(myAtk), myPow: Math.round(myPow),
               oppAtk: Math.round(oAtk / n), oppPow: Math.round(oPow / n),
               oppLv: +(oLv / n).toFixed(1), ratio: +(oAtk / n / myAtk).toFixed(3),

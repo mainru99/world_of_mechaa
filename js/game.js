@@ -2339,6 +2339,9 @@ function speakerHtml(s){
 }
 
 /* 대사 한 묶음을 끝까지 재생한다. 돌려주는 값: 끝까지 봤으면 true, 화면을 떠났으면 false. */
+/* 대사 구간 사이를 넘어가는 '지금 걸린 그림'. before → 전투 → after 가 각각 다른
+   playScript 라, 여기 두지 않으면 구간이 바뀔 때마다 그림이 사라진다. */
+let _storyArt = null;
 async function playScript(beats, title, endLabel){
   if(!beats || !beats.length) return true;
   const ac = { stop: false, skip: false, next: null };
@@ -2366,13 +2369,18 @@ async function playScript(beats, title, endLabel){
   /* 삽화 칸. **그림 파일이 없으면 칸을 통째로 접는다** — 깨진 이미지가 뜨면
      "만들다 만 화면" 으로 읽힌다. 지금은 한 장도 없으므로 늘 접혀 있고,
      `assets/story/` 에 파일을 넣는 순간부터 저절로 펴진다(코드는 안 바뀐다). */
-  let artKey = null;
+  /* **앞 구간의 그림을 이어받는다.** before / 전투 / after 가 각각 다른 playScript 라
+     매번 null 로 시작했는데, 그러면 그림을 안 적은 대목이 통째로 빈 채로 흐른다
+     (129줄 중 22줄이 그랬다 — 특히 1-3 전투 후 5줄은 전부 빈 화면이었다).
+     전투 전후는 **같은 장소**이므로 앞 그림이 걸려 있는 편이 맞다. */
+  let artKey = _storyArt;
+  if(artKey) { artImg.src = artPath(artKey); artEl.hidden = false; }
   /* **새 그림이 다 올 때까지 앞 그림을 그대로 둔다.** 곧바로 src 를 갈아 끼우면
      onload 가 오기까지 칸이 접혔다 펴져서, 장면이 바뀔 때마다 대사 상자가 위아래로 튄다
      (그림이 실제로 생기고 나서야 보이는 문제였다 — 파일이 0장일 때는 늘 접혀 있었다). */
   const setArt = key => {
     if(key === undefined || key === artKey) return;          // 안 적은 beat 는 앞 그림을 잇는다
-    artKey = key;
+    artKey = _storyArt = key;
     const src = artPath(key);
     if(!src){ artEl.hidden = true; artImg.removeAttribute('src'); return; }
     const pre = new Image();

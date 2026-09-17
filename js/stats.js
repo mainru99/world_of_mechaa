@@ -339,7 +339,18 @@ export const power = (robot, parts) => powerOf(computeStats(robot, parts));
 export const expNeed   = lv => Math.round(60 + lv * lv * 1.6 + lv * 22);  // lv → lv+1 에 필요한 경험치
 export const battleExp = enemyLv => 26 + enemyLv * 9;                     // 승리 시 획득(패배는 35%)
 export const lvCost    = lv => Math.round(80 + lv * lv * 4 + lv * 40);
-export const enhCost   = e => (e + 1) * 18;
+/* 파츠 강화 — 비용과 성공 확률. 화면(표시)·서버(판정)·검사가 같은 함수를 쓴다.
+   수치는 `CONST.PART_ENH` 에 있다. 없으면 예전 값(18·36·54… · 100%)으로 돈다. */
+export const enhMax    = () => (CONST.PART_ENH && CONST.PART_ENH.max) || 10;
+export const enhCost   = e => {
+  const P = CONST.PART_ENH;
+  return P ? Math.round(P.base + (e | 0) * P.step) : (e + 1) * 18;
+};
+export const enhRate   = e => {
+  const r = CONST.PART_ENH && CONST.PART_ENH.rate;
+  if (!r) return 1;
+  return e >= r.length ? 0 : r[e];
+};
 
 /* 스킬 강화 — 비용과 성공 확률. 서버(판정)와 클라(표시)가 같은 함수를 쓴다.
    두 벌로 두면 화면에 적힌 확률과 실제로 굴리는 확률이 갈린다. */

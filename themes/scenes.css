@@ -327,6 +327,10 @@ body[data-scene="terr"] .tpips i{background:rgba(6,12,28,.72);border-color:rgba(
 [data-terrain="ruins"]   { --scene-terrain:url('../assets/terrain/ruins.webp') }
 [data-terrain="storm"]   { --scene-terrain:url('../assets/terrain/storm.webp') }
 [data-terrain="furnace"] { --scene-terrain:url('../assets/terrain/furnace.webp') }
+/* 지형이 아닌 '장소'도 같은 손잡이로 건다 — 전선 대사가 장면마다 배경을 바꾼다
+   (data/story.js 의 `bg`). 지형 여섯 장만으로는 격납고 안과 부서진 도시를 못 그린다. */
+[data-terrain="hangar"]  { --scene-terrain:url('../assets/backgrounds/hangar.webp') }
+[data-terrain="city"]    { --scene-terrain:url('../assets/backgrounds/battle-industrial-ruins.webp') }
 
 /* 진입·결과 화면 — 야간작전 배경 자리에 지형을 끼운다. */
 body[data-scene="battle"][data-terrain]{

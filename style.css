@@ -422,6 +422,11 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 
 .gate-start{ margin-top:6px }
 .gate-acct{ width:100% }
+/* 대문의 로그인 칸 — 아이디·비밀번호가 한 줄, 단추가 그 아래. 좁은 화면에서도 안 깨진다. */
+.gate-login{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:2px }
+.gate-login .ainput{ margin:0; min-width:0 }
+.gate-login .gate-in{ grid-column:1 / -1 }
+@media (max-width:380px){ .gate-login{ grid-template-columns:1fr } }
 .gate-foot{ margin-top:14px; font-size:11px; color:var(--dim) }
 .gate-foot .dot{ margin:0 6px }
 
@@ -1217,12 +1222,19 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .fstory.out{border-left:2px solid var(--line);padding-left:12px;color:var(--dim);margin-bottom:14px}
 .fmeta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .fmeta span{font-size:11.5px;color:var(--sub);border:1px solid var(--line);border-radius:99px;padding:2px 9px}
-.ffoes{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px}
-.ffoe1{flex:1 1 120px;min-width:0;text-align:center;background:#0e1526;border-radius:10px;padding:8px}
-.ffoe1 .mecha{height:84px;width:auto;max-width:100%;object-fit:contain}
-.ffoe1 b{display:block;font-size:12.5px;margin-top:4px}
-.ffoe1 small{display:block;font-size:10.5px;color:var(--dim);line-height:1.4}
-.freward{margin:12px 0;font-size:12.5px;color:var(--sub)}
+/* 적 카드 — 한 마리일 때 칸을 가로로 늘리지 않는다.
+   `flex:1` 이면 한 마리가 창 폭을 다 차지해서, 84px 스프라이트가 빈 상자 한가운데
+   떠 있는 모양이 된다(사용자 지적). 폭을 묶고 가운데로 모은다. */
+.ffoes{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;justify-content:center}
+.ffoe1{flex:0 1 168px;min-width:0;text-align:center;border-radius:12px;padding:10px 8px 9px;
+  background:linear-gradient(180deg,#141d33,#0d1424);border:1px solid var(--line)}
+.ffoe1 .mecha{height:104px;width:auto;max-width:100%;object-fit:contain;object-position:50% 100%}
+.ffoe1 b{display:block;font-size:13px;margin-top:6px}
+.ffoe1 small{display:block;font-size:10.5px;color:var(--dim);line-height:1.4;margin-top:1px}
+.fmeta{justify-content:center}
+/* 첫 클리어 보상 — 글줄이 아니라 띠로. 눌러야 할 이유가 단추 바로 위에 있어야 한다. */
+.freward{margin:12px 0;padding:9px 12px;border-radius:10px;font-size:12.5px;color:var(--sub);
+  background:rgba(255,210,74,.07);border:1px solid rgba(255,210,74,.28);text-align:center}
 .freward b{color:var(--gold)}
 .funlock{margin:12px 0;padding:12px;background:#0e1526;border:1px solid var(--gold);border-radius:10px;
   text-align:center;font-size:14px;color:var(--sub)}

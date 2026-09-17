@@ -20,6 +20,7 @@ import { ROBOT_TYPES, SLOTS } from '../data/balance.js';
 import { computeStats } from '../js/stats.js';
 import { applyTerrain, runBreach, maxRounds } from '../js/breach.js';
 import { mulberry32 } from '../js/sim.js';
+import { frontRun } from '../server/front.js';
 import { FRONT_CELLS, buildLines, readProgress, writeProgress,
          cellOpen, gateOpen, clearedCount, unlockedBy, rewardOf } from '../js/front.js';
 
@@ -122,6 +123,41 @@ console.log('\n== ④ 규칙 ==');
   const b = JSON.stringify(buildLines(FRONT_CELLS[2]));
   is(a === b, '같은 칸은 몇 번을 불러도 같은 방어선이다');
   is(FRONT_CELLS.every(c => buildLines(c).length === c.lines), '방어선 수가 lines 와 같다');
+}
+
+console.log('\n== ⑤ 서버 응답만으로 재생할 수 있는가 — 가짜 env.DB ==');
+{
+  /* **이 검사가 없어서 1장이 통째로 막혔다.** 서버는 정상 판정하고 기록까지 했는데,
+     응답에서 mechs·lines 의 `stats` 를 빼고 보내서 클라의 재생이
+     `makeUnit(name, type, undefined)` 에서 죽었다. 피로도만 늘고 화면은 안 떴다.
+     오프라인 경로는 stats 를 직접 만들어 쓰므로 여기가 안 잡혔다 —
+     **서버 경로를 따로 봐야 한다.** (레이드에서 같은 모양의 버그가 한 번 더 있었다) */
+  const rb = { id: 1, uid: 'r1', type: STARTERS[0], level: 3, exp: 0, fat: 0, fat_at: 0, skill_lv: 0,
+               s_weapon: null, s_frame: null, s_booster: null, s_core: null };
+  const st = { player: { nickname: 'T', credits: 100, scrap: 10, rev: 1, level: 3,
+                         sel_robot: 1, squad1: 1, squad2: null, expd_robot: null, campaign: null } };
+  const run = (sql, a) => {
+    if (/FROM player WHERE account_id/.test(sql)) return { ...st.player };
+    if (/FROM robot WHERE account_id/.test(sql)) return { results: [rb] };
+    if (/FROM part WHERE account_id/.test(sql)) return { results: [] };
+    if (/UPDATE player SET/.test(sql)) { st.player.campaign = a[2]; return {}; }
+    return {};
+  };
+  const env = { DB: { prepare: sql => ({ bind: (...a) => ({
+    first: async () => run(sql, a), all: async () => run(sql, a), run: async () => run(sql, a) }) }),
+    batch: async l => { for (const x of l) await x.run(); return []; } } };
+
+  const r = await frontRun(env, 1, { cell: FRONT_CELLS[0].id }, Date.now());
+  is(r && r.ok, `1-1 판정 — ${r && r.ok ? (r.win ? '승' : '패') : 'error: ' + (r && r.error)}`);
+  is(Array.isArray(r.mechs) && r.mechs.every(m => m.stats && m.stats.hp > 0), '응답의 mechs 가 stats 를 담고 있다');
+  is(Array.isArray(r.lines) && r.lines.every(l => l.stats && l.stats.hp > 0), '응답의 lines 가 stats 를 담고 있다');
+  /* 클라가 하는 일을 그대로 한다 — 응답만 가지고 같은 돌파를 다시 돌린다 */
+  let replay = null, boom = null;
+  try { replay = runBreach({ mechs: r.mechs, lines: r.lines, seeds: r.seeds, hpLeft: r.hpLeft0 }); }
+  catch (e) { boom = e.message; }
+  is(!boom, boom ? `재생이 죽었다 — ${boom}` : '응답만으로 재생이 돈다');
+  is(replay && replay.win === r.win && replay.rounds.length === r.rounds.length,
+     '재생 결과가 서버 기록과 같다 (승패·판 수)');
 }
 
 console.log(fail ? R(`\n${fail}개 실패`) : G('\n전부 통과'));

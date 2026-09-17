@@ -154,8 +154,11 @@ export async function frontRun(env, acc, body, now) {
 
   return { ok: true, rev, win: r.win, cell: cell.id, first: !!gain,
            rounds: r.rounds, downed: r.downed, cleared: r.cleared,
-           lines: lines.map(l => ({ name: l.name, type: l.type, level: l.level })),
-           mechs: mechs.map(m => ({ uid: m.uid, type: m.type, name: m.name })),
+           /* 클라는 이 셋으로 **같은 돌파를 다시 돌려** 애니메이션만 재생한다.
+              그래서 `stats` 를 빼면 안 된다 — 빼고 보냈더니 재생이
+              `makeUnit(name, type, undefined)` 에서 죽었다(피로도·보상은 이미 적힌 뒤라
+              '횟수만 늘고 화면은 안 뜨는' 증상이 됐다). 점령전과 같은 모양으로 보낸다. */
+           lines, mechs,
            seeds, exp: expOut, fat: fatOut,
            gain: gain ? { ...gain, part: part || null } : null,
            unlocked, credits, scrap, campaign };

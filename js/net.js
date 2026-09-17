@@ -33,7 +33,9 @@ export const token = () => ls.get(TOK_KEY);
 export const clearSession = () => ls.del(TOK_KEY);
 
 /* 서버 상태. online 이 아니면 화면에 '오프라인'을 표시하고 게임은 그대로 돈다. */
-export const state = { online: false, accountId: null, guest: true, loginId: null, checkedAt: 0, error: null };
+export const state = { online: false, accountId: null, guest: true, loginId: null, checkedAt: 0, error: null,
+  /* 아직 계정이 없다 — '시작하기' 를 누르면 그때 만든다(connect 의 create 옵션) */
+  needGuest: false };
 
 async function call(path, { method = 'GET', body, auth = true, timeout = 8000 } = {}) {
   const ctl = new AbortController();
@@ -59,14 +61,20 @@ async function call(path, { method = 'GET', body, auth = true, timeout = 8000 } 
 }
 
 /* 게스트로 접속한다. 이미 토큰이 있으면 그걸로 확인만 하고,
-   없거나 만료됐으면 device_key 로 새로 발급받는다. */
-export async function connect() {
+   없거나 만료됐으면 device_key 로 새로 발급받는다.
+
+   `create: false` 를 주면 **계정을 만들지 않는다** — 있는 토큰으로 확인만 하고,
+   없으면 `state.needGuest` 를 세운 채 오프라인으로 남는다.
+   화면을 여는 것만으로 계정이 생기면, 구경만 하고 떠난 사람 몫까지 account·player·
+   robot·arena_entry 행이 쌓인다(실제로 그렇게 쌓였다). 계정은 '시작하기' 가 만든다. */
+export async function connect(opt) {
+  const create = !opt || opt.create !== false;
   state.checkedAt = Date.now();
 
   if (token()) {
     const r = await call('/api/me');
     if (r.ok && r.data && r.data.ok) {
-      Object.assign(state, { online: true, accountId: r.data.account_id, guest: !!r.data.guest, loginId: r.data.login_id || null, error: null });
+      Object.assign(state, { online: true, accountId: r.data.account_id, guest: !!r.data.guest, loginId: r.data.login_id || null, error: null, needGuest: false });
       return r.data;
     }
     if (r.status === 401) clearSession();      // 만료·폐기된 토큰이면 버리고 새로 받는다
@@ -76,6 +84,11 @@ export async function connect() {
     }
   }
 
+  /* 여기서부터가 '계정을 만들 수도 있는' 자리다. 부르는 쪽이 허락해야 지난다. */
+  if (!create) {
+    Object.assign(state, { online: false, needGuest: true, error: null });
+    return null;
+  }
   const g = await call('/api/auth/guest', { method: 'POST', body: { device_key: deviceKey() }, auth: false });
   if (!(g.ok && g.data && g.data.ok)) {
     Object.assign(state, { online: false, error: (g.data && g.data.error) || g.error || 'connect failed' });
@@ -85,7 +98,7 @@ export async function connect() {
 
   const r = await call('/api/me');
   if (r.ok && r.data && r.data.ok) {
-    Object.assign(state, { online: true, accountId: r.data.account_id, guest: !!r.data.guest, loginId: r.data.login_id || null, error: null });
+    Object.assign(state, { online: true, accountId: r.data.account_id, guest: !!r.data.guest, loginId: r.data.login_id || null, error: null, needGuest: false });
     return r.data;
   }
   Object.assign(state, { online: false, error: 'me failed' });
@@ -269,6 +282,9 @@ export async function hangar(action, args = {}) {
  * 비밀번호는 이 함수 밖으로 나가지 않는다 — 저장하지도, 로그에 남기지도 않는다.
  */
 export async function register(loginId, password) {
+  /* 가입은 게스트 계정을 정식 계정으로 **올리는** 일이다. 아직 계정이 없으면 여기서 만든다 —
+     '시작하기' 를 거치지 않고 대문에서 바로 가입하는 길도 열려 있어야 한다. */
+  if (!state.online && state.needGuest) await connect({ create: true });
   if (!state.online) return { error: '서버 연결이 필요합니다' };
   const r = await call('/api/auth/register', { method: 'POST', body: { login_id: loginId, password } });
   if (r.ok && r.data && r.data.ok) {
@@ -288,7 +304,7 @@ export async function login(loginId, password) {
   ls.set(TOK_KEY, r.data.token);
   ls.del(REV_KEY);
   cancelSync();
-  Object.assign(state, { online: true, accountId: r.data.account_id, guest: false, loginId: r.data.login_id, error: null });
+  Object.assign(state, { online: true, accountId: r.data.account_id, guest: false, loginId: r.data.login_id, error: null, needGuest: false });
   return { ok: true, accountId: r.data.account_id, loginId: r.data.login_id };
 }
 

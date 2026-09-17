@@ -13,7 +13,7 @@ import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf 
 import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs, atkRange,
          setKeyOf, setCounts, setActive,
          skillCost, skillRate, skillMax, skillMul,
-         expNeed, battleExp, lvCost, enhCost,
+         expNeed, battleExp, lvCost, enhCost, enhRate, enhMax,
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed, applyTerrain, maxRounds } from './breach.js';
@@ -312,8 +312,13 @@ async function skillUp(){
 
 async function enhancePart(u){
   const p=findPart(u,S.parts); if(!p) return;
+  const was=p.enh|0;
   const r=await srvHangar('enhance',{partUid:u}); if(!r) return;
-  p.enh=r.enh; S.scrap=r.scrap; commitLocal(); toast(p.name+' +'+p.enh);
+  p.enh=r.enh; S.scrap=r.scrap; commitLocal();
+  /* 실패해도 단계는 그대로다. 그래도 **말은 해 줘야 한다** — 스크랩만 줄고 아무 말이
+     없으면 눌린 건지 아닌지 모른다. 다음 확률을 같이 적어 다시 누를지 고르게 한다. */
+  if(r.failed) toast(`${p.name} 강화 실패 · 스크랩 −${fmt(r.cost)} (다음도 ${Math.round(enhRate(was)*100)}%)`);
+  else toast(`${p.name} +${p.enh}`);
 }
 async function service(){
   const rb=selRobot();
@@ -693,9 +698,9 @@ function renderHangar(){
   const invParts = invHit.slice(0, invF.limit);
   /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
-  const inv = invParts.length? invParts.map(p=>`<div class="pchip${enhClass(p)}${isFresh(p.uid)?' fresh':''}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화(스크랩 ${enhCost(p.enh||0)})">
+  const inv = invParts.length? invParts.map(p=>`<div class="pchip${enhClass(p)}${isFresh(p.uid)?' fresh':''}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화 — 스크랩 ${enhCost(p.enh||0)} · 성공 ${Math.round(enhRate(p.enh||0)*100)}%">
       <div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
-      <div class="pfoot"><span class="ps" style="color:var(--gold)">강화 ${fmt(enhCost(p.enh||0))}</span>
+      <div class="pfoot"><span class="ps" style="color:var(--gold)">강화 ${fmt(enhCost(p.enh||0))}${(p.enh|0)>=enhMax()?'':` <span style="color:var(--dim)">${Math.round(enhRate(p.enh||0)*100)}%</span>`}</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p.rarity,p.enh))}</button></div></div>`).join('')
     : `<div class="empty">${invAll.length?'거른 조건에 맞는 파츠가 없습니다.':'보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.'}</div>`;
@@ -2382,6 +2387,11 @@ async function playScript(beats, title, endLabel){
     if(!$('#storyView')) { _scriptAbort = null; return false; }   // 화면을 떠났다
     /* 몇 줄이 남았는지 보여 준다. 끝이 안 보이면 읽지 않고 건너뛰게 된다. */
     nEl.textContent = `${bi + 1} / ${beats.length}`;
+    /* 장면이 바뀌면 **배경도 바뀐다.** 삽화(art)는 아직 한 장도 없어서 칸이 늘 접혀
+       있었고, 그래서 129줄이 같은 그림 앞에서 흘렀다 — 캠페인이 아니라 자막이었다.
+       배경은 이미 가진 것(지형 6장 + 격납고·폐허 배경)으로 지금 당장 바꿀 수 있다.
+       `body[data-scene="battle"][data-terrain]` 규칙이 그대로 그려 준다. */
+    if(b.bg) setTerrain(b.bg);
     setArt(b.art);
     spkEl.innerHTML = speakerHtml(b.s);
     const sp = SPEAKERS[b.s];
@@ -2501,7 +2511,7 @@ function openCell(id){
            : `<div class="freward">첫 클리어 — ${gain}</div>`}
     <div class="row-btns">
       <button class="btn big gold" onclick="ROWAR.runCell('${id}')">출격</button>
-      <button class="btn big" onclick="ROWAR.closeModal()">그만두기</button></div>`);
+      <button class="btn big ghost" onclick="ROWAR.closeModal()">그만두기</button></div>`);
 }
 
 async function runCell(id){
@@ -3169,7 +3179,29 @@ function guide(){
 /* 계정 화면 — 게스트면 승격/로그인, 정식이면 로그아웃 */
 function accountScreen(){
   const s=net.state;
-  if(!s.online){ toast('서버에 연결되지 않았습니다'); return; }
+  /* 아직 계정이 없는 사람(needGuest)도 여기 들어와야 한다 — 가입과 로그인이 여기 있다.
+     가입은 net.register 가 필요하면 그 자리에서 게스트를 만들어 올린다. */
+  if(!s.online && !s.needGuest){ toast('서버에 연결되지 않았습니다'); return; }
+  if(s.needGuest){
+    openModal(`<div class="mhead">계정 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+      <div class="acctbox">
+        <p class="hint">아직 계정을 만들지 않았습니다. <b>시작하기</b>를 누르면 게스트로 시작하고,
+          아래에서 바로 정식 계정을 만들 수도 있습니다.</p>
+        <div class="asec">
+          <div class="atitle">정식 계정 만들기</div>
+          <input id="rg-id" class="ainput" placeholder="아이디 (영문·숫자·밑줄 4~20자)" maxlength="20" autocomplete="username">
+          <input id="rg-pw" class="ainput" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="new-password">
+          <button class="btn big gold" onclick="ROWAR.doRegister()">정식 계정으로 만들기</button>
+        </div>
+        <div class="asec">
+          <div class="atitle">이미 계정이 있다면</div>
+          <input id="lg-id" class="ainput" placeholder="아이디" maxlength="20" autocomplete="username">
+          <input id="lg-pw" class="ainput" type="password" placeholder="비밀번호" autocomplete="current-password">
+          <button class="btn big" onclick="ROWAR.doLogin()">로그인</button>
+        </div>
+      </div>`);
+    return;
+  }
 
   if(!s.guest){
     openModal(`<div class="mhead">계정 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
@@ -3214,15 +3246,20 @@ async function doRegister(){
   closeModal(); renderAcct(); renderGate();
   toast('정식 계정이 되었습니다 · '+r.loginId);
 }
+/* 로그인 뒤에 할 일. 대문의 로그인 칸과 계정 창이 **같은 함수**를 쓴다 —
+   두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
+async function afterLogin(r){
+  const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
+  if(remote){ S=normalize(remote.state); save(); net.cancelSync(); }
+  renderAcct(); renderGate(); renderAll();
+  toast(r.loginId+' 으로 로그인했습니다');
+}
 async function doLogin(){
   const id=$('#lg-id').value.trim(), pw=$('#lg-pw').value;
   const r=await net.login(id, pw);
   if(r.error){ toast(r.error); return; }
   closeModal();
-  const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
-  if(remote){ S=normalize(remote.state); save(); net.cancelSync(); }
-  renderAcct(); renderGate(); renderAll();
-  toast(r.loginId+' 으로 로그인했습니다');
+  await afterLogin(r);
 }
 async function doLogout(){
   await net.logout();
@@ -3236,12 +3273,28 @@ async function doLogout(){
 function renderGate(){
   const el=$('#gate-who'); if(!el) return;
   const s=net.state;
-  if(!s.online){ el.textContent='오프라인 · 서버에 연결하지 못했습니다'; el.className='gate-who off'; }
+  if(s.needGuest){ el.textContent='시작하면 게스트로 접속합니다'; el.className='gate-who guest'; }
+  else if(!s.online){ el.textContent='오프라인 · 서버에 연결하지 못했습니다'; el.className='gate-who off'; }
   else if(s.guest){ el.textContent='게스트 #'+String(s.accountId).padStart(4,'0')+'로 시작합니다'; el.className='gate-who guest'; }
   else { el.textContent=s.loginId+' 님으로 접속했습니다'; el.className='gate-who on'; }
 }
-function openGate(){
+/* 대문을 연다. **게스트 계정이 여기서 처음 만들어진다.**
+   예전에는 화면을 여는 것만으로 만들어졌다 — 구경만 하고 떠난 사람 몫까지
+   account·player·robot·arena_entry 행이 쌓였다. 계정은 '시작한 사람' 에게만 준다. */
+async function openGate(){
   const g=$('#gate'); if(!g) return;
+  if(net.state.needGuest){
+    const btn=$('#gate-start'), was=btn && btn.textContent;
+    if(btn){ btn.disabled=true; btn.textContent='접속 중...'; }
+    try{
+      await net.connect({ create:true });
+      renderAcct(); renderGate();
+      if(net.state.online) await syncOnConnect();
+      renderAll();
+    }catch(e){ console.error(e); }
+    if(btn){ btn.disabled=false; btn.textContent=was||'시작하기'; }
+    /* 접속에 실패해도 문은 연다 — 오프라인으로도 놀 수 있는 게 이 게임의 규칙이다. */
+  }
   g.classList.add('hide'); document.body.classList.remove('gated');
 }
 function initGate(){
@@ -3250,6 +3303,19 @@ function initGate(){
   /* 대문을 닫지 않는다. 계정 창은 대문 위에 뜨고, 닫으면 다시 대문으로 돌아온다.
      로그인/가입을 마쳐도 '시작하기'를 누르기 전까지는 게임에 들어가지 않는다. */
   $('#gate-acct').addEventListener('click', accountScreen);
+  /* 대문에서 바로 로그인. 성공하면 문을 열고 들어간다 — 로그인은 곧 '시작' 이다. */
+  $('#gate-login').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = $('#gate-id').value.trim(), pw = $('#gate-pw').value;
+    if(!id || !pw){ toast('아이디와 비밀번호를 넣으세요'); return; }
+    const btn = $('#gate-in'); btn.disabled = true; btn.textContent = '로그인 중...';
+    const r = await net.login(id, pw);
+    btn.disabled = false; btn.textContent = '로그인';
+    if(r.error){ toast(r.error); return; }
+    $('#gate-pw').value = '';
+    await afterLogin(r);
+    openGate();
+  });
   renderGate();
 }
 
@@ -3274,8 +3340,10 @@ function boot(){
   const untouched = !S.stat || (S.stat.wins | 0) + (S.stat.losses | 0) === 0;
   go(untouched ? 'terr' : 'hangar');
 
-  /* 게스트 계정 연결과 동기화는 화면을 막지 않는다. 실패해도 localStorage 로 계속 논다. */
-  net.connect().then(async ok=>{
+  /* 게스트 계정 연결과 동기화는 화면을 막지 않는다. 실패해도 localStorage 로 계속 논다.
+     **계정을 새로 만들지는 않는다**(create:false) — 이미 토큰이 있는 사람만 이어서 붙는다.
+     처음 온 사람의 계정은 '시작하기' 가 만든다(openGate). */
+  net.connect({ create:false }).then(async ok=>{
     renderAcct(); renderGate();
     if(ok) await syncOnConnect();
     renderAll();   // 접속 전에 그려 둔 화면에는 '오프라인' 안내가 남아 있다

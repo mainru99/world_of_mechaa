@@ -8,7 +8,7 @@
  *   ② 슬롯 일치 확인   — 컬럼별 UNIQUE 는 A.s_weapon/B.s_frame 교차를 못 막는다
  */
 import { CONST, RARITY } from '../data/balance.js';
-import { lvCost, enhCost, serviceCost, fatOf, decayFat, skillCost, skillRate, skillMax } from '../js/stats.js';
+import { lvCost, enhCost, enhRate, enhMax, serviceCost, fatOf, decayFat, skillCost, skillRate, skillMax } from '../js/stats.js';
 import { scrapGain, fusePart, fuseCheck, fuseCost } from '../js/gacha.js';
 import { registerArena } from './arena.js';
 import { partOf, insertPart } from './parts.js';
@@ -91,9 +91,17 @@ export async function hangarAction(env, acc, body, now) {
   if (action === 'enhance') {
     const pt = await getPart(env, acc, body.partUid);
     if (!pt) return err(404, 'part not found');
-    if (pt.enh >= 10) return err(400, 'max enhanced');
+    if (pt.enh >= enhMax()) return err(400, 'max enhanced');
     const cost = enhCost(pt.enh);
     if (p.scrap < cost) return err(400, 'not enough scrap');
+    /* **확률은 서버가 굴린다.** 클라가 굴려 보내면 성공할 때까지 다시 굴리면 그만이다.
+       실패해도 단계는 안 내려가고 파츠도 안 깨진다 — 재화만 나간다. */
+    const roll = crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+    const okUp = roll < enhRate(pt.enh);
+    if (!okUp) {
+      await spend(env, acc, p, { scrap: cost }, now).run();
+      return { ok: true, rev: p.rev + 1, scrap: p.scrap - cost, enh: pt.enh, cost, failed: true };
+    }
     await env.DB.batch([
       env.DB.prepare('UPDATE part SET enh = ?1 WHERE id = ?2').bind(pt.enh + 1, pt.id),
       spend(env, acc, p, { scrap: cost }, now),

@@ -11,7 +11,7 @@
 
    node tools/econ.mjs */
 import { CONST, RARITY } from '../data/balance.js';
-import { enhCost, lvCost, skillCost } from '../js/stats.js';
+import { enhCost, enhRate, enhMax, lvCost, skillCost, skillRate, skillMax } from '../js/stats.js';
 import { scrapGain, scrapValue, enhSpent, autoScrapValue,
          fuseCost } from '../js/gacha.js';
 
@@ -93,7 +93,27 @@ console.log('\n== ⑤ 나가는 곳이 살아 있는가 ==');
   ok(enhCost(9) > enhCost(0), `강화 비용이 오른다 (+0 ${enhCost(0)} → +9 ${enhCost(9)})`);
   const s0 = skillCost(0), s9 = skillCost(9);
   ok(s9.cr > s0.cr, `스킬 강화 비용이 오른다 (${s0.cr} → ${s9.cr} 크레딧)`);
-  console.log(`  파츠 한 벌(4개)을 +10 까지: 스크랩 ${enhSpent(10) * 4}`);
+}
+
+console.log('\n== ⑥ 강화는 얼마나 무거운가 — 확률까지 친 기대값 ==');
+{
+  /* 명목 비용만 보면 실제 부담을 못 본다. 확률이 붙은 뒤로는 **기대 시도 횟수**가
+     진짜 값이다. 사용자가 "너무 쉽고 저렴하다" 고 한 자리라 수치를 여기 남긴다. */
+  let tries = 0, scrap = 0;
+  for (let e = 0; e < enhMax(); e++) { const p = enhRate(e); tries += 1 / p; scrap += enhCost(e) / p; }
+  console.log(`  파츠 +10 — 기대 ${tries.toFixed(1)}회 · 스크랩 ${Math.round(scrap)} (명목합 ${enhSpent(enhMax())})`);
+  console.log('  단계별 ' + [...Array(enhMax())].map((_, e) => `${e}:${enhCost(e)}/${Math.round(enhRate(e) * 100)}%`).join(' '));
+  let st = 0, cr = 0;
+  for (let l = 0; l < skillMax(); l++) { st += 1 / skillRate(l); cr += skillCost(l).cr / skillRate(l); }
+  console.log(`  스킬 +10 — 기대 ${st.toFixed(1)}회 · 크레딧 ${Math.round(cr)}`);
+  console.log(`  파츠 한 벌(4개)을 +10 까지: 스크랩 약 ${Math.round(scrap * 4)}`);
+
+  ok([...Array(enhMax())].every((_, e) => enhRate(e) > 0 && enhRate(e) <= 1), '강화 확률이 0 초과 1 이하다');
+  /* 첫 몇 단계는 확실해야 한다. 전선 1장을 도는 사람에게 첫 강화부터 실패를 보이면
+     배우는 것 없이 재화만 잃는다. */
+  ok(enhRate(0) === 1, '첫 강화는 반드시 성공한다');
+  ok([...Array(enhMax() - 1)].every((_, e) => enhRate(e + 1) <= enhRate(e)), '뒤로 갈수록 어려워진다');
+  ok([...Array(skillMax() - 1)].every((_, l) => skillRate(l + 1) <= skillRate(l)), '스킬도 뒤로 갈수록 어려워진다');
 }
 
 console.log(bad ? `\n✗ ${bad}건 실패` : '\n전부 통과');

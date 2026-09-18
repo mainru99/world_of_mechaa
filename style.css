@@ -15,6 +15,11 @@ body{
   color:var(--ink);
   font-family:"Segoe UI","맑은 고딕",system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
+  /* 한글은 어절(띄어쓰기)에서 줄을 넘긴다. 브라우저 기본값은 한글을 **글자 단위**로 끊어서
+     '시험을 보는 신 / 참이' 처럼 단어 한가운데서 넘어갔다(대사창 .story-line 만 따로 막혀 있었다).
+     한 어절이 칸보다 길 때만 그 자리에서 끊는다 — anywhere 가 아니라 break-word 라서
+     칸의 최소 폭(min-content)은 건드리지 않는다. */
+  word-break:keep-all;overflow-wrap:break-word;
 }
 #app{max-width:760px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
 
@@ -816,7 +821,10 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   .gx-side .row-btns .btn{width:100%}
 
   /* 지도는 왼쪽에서 두 줄을 통째로 쓰고, 요약과 설명이 오른쪽에 쌓인다 */
-  .tx{grid-template-columns:minmax(0,1fr) 380px;
+  /* 윗줄은 요약 높이만큼만(auto), 아랫줄이 지도의 나머지를 다 가진다(1fr).
+     예전엔 두 줄이 모두 auto 라 긴 지도가 높이를 두 줄에 나눠 줘서, 안내 칸이 요약과
+     떨어져 지도 중간쯤에 떠 있었다. fr 줄을 걸친 항목은 auto 줄 크기 계산에서 빠진다. */
+  .tx{grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:auto 1fr;
       grid-template-areas:"map sum" "map info";align-items:start}
   .tx > .tmap{grid-area:map}
   .tx > .tsum{grid-area:sum}
@@ -897,6 +905,12 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
      숫자·영문 약 110자 — '한 줄이 120자를 넘지 않게' 라는 원래 뜻은 그대로다. */
   .screen .hint{max-width:60em}
   .hg-dock .hint{max-width:none}                   /* 도킹 패널은 이미 좁다 */
+  /* 넓은 칸(진열 격자 등) 밑에 붙는 꼬리 안내문 — 칸 폭을 다 쓴다. 60em 에 묶이면 PC 에서도
+     한 줄이면 될 것이 두 줄이 됐다. 좁은 화면에서는 이 규칙 밖이라 어절에서 알아서 넘어간다 */
+  .screen .hint.wide{max-width:none}
+  /* 장 도입문 — 문장 안에서는 줄을 바꾸지 않는다(leadHtml). 폭은 .flead 의 46em 그대로 —
+     이야기 글이라 한 줄로 늘이면(2장이 약 1,050px) 오히려 읽기 힘들다. 그래서 문장 사이에서만 넘어간다 */
+  .flead .snt{white-space:nowrap}
 
   /* 화면을 가로지르는 버튼 띠를 막는다 */
   .screen > .panel > .btn.big{max-width:420px}
@@ -1195,7 +1209,8 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
    한 줄기로 이어지는 진행이라 **세로 한 줄**로 세운다. 점령전은 지도(격자)지만
    전선은 순서가 규칙이라, 격자로 놓으면 어디부터 가야 하는지가 안 보인다. */
 .fhead .fsub2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:700}
-.fhead .flead{margin:8px 0 14px;color:var(--sub);font-size:13.5px;line-height:1.7;max-width:60ch}
+/* 폭은 em 으로 잰다 — 예전 60ch 는 라틴 '0' 의 폭이라 한글로는 33자 남짓에서 잘렸다(.hint 와 같은 병) */
+.fhead .flead{margin:8px 0 14px;color:var(--sub);font-size:13.5px;line-height:1.7;max-width:46em}
 .fprog{height:5px;background:#0e1526;border-radius:99px;overflow:hidden;margin-bottom:8px}
 .fprog i{display:block;height:100%;background:var(--acc);transition:width .4s}
 .fgate{margin-top:12px;padding:10px 12px;background:#0e1526;border-left:2px solid var(--gold);font-size:12.5px;color:var(--sub)}
@@ -1362,36 +1377,52 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .cxt.on{background:rgba(255,210,74,.18);color:var(--gold);border-color:var(--gold)}
 .cxt.lock{color:var(--dim);font-weight:700;cursor:default}
 /* 아직 못 얻은 칭호 — 이름이 깨진 신호처럼 보인다.
-   평소에는 붉은·청록 테두리가 살짝 어긋난 정지 상태이고(움직임을 끈 사람도 '깨짐' 은 읽힌다),
-   3.2초마다 한 번 짧게 찢어진다. 찢어지는 구간은 주기의 8% 뿐이라 이름은 늘 읽힌다. */
-.cxt .gl{position:relative;display:inline-block;
-  text-shadow:-1px 0 rgba(255,91,127,.45),1px 0 rgba(123,240,255,.45);
+   글자를 가로 세 띠로 잘라 어긋나게 둔다 — 위 띠(붉게)는 왼쪽, 가운데(흐리게)는 조금 오른쪽,
+   아래 띠(청록)는 오른쪽. **띠 사이를 비워 둔다**(30~38% · 60~68%) — 한글은 가운데 가로획이 많아
+   그 줄이 지워지면 글자꼴이 무너진다. 그래서 **글자인 것은 보이지만 읽히지는 않는다.**
+   (처음 판은 띠를 3px 만 어긋나게 하고 빈틈이 없어 확대하면 그대로 읽혔다)
+   그 위에 3.2초마다 한 번 크게 찢어진다(주기의 8%). 칭호마다 --d 로 때를 엇갈린다.
+   움직임을 끈 사람에게도 정지 상태의 어긋남은 그대로라 이름은 여전히 안 읽힌다.
+   .gl 자신은 투명하게 두고 자리만 잡는다 — 보이는 것은 세 띠뿐이다. */
+.cxt .gl{position:relative;display:inline-block;white-space:nowrap;color:transparent;
   animation:cxGlBase 3.2s steps(1) infinite;animation-delay:var(--d,0s)}
+.cxt .gl .gm{display:inline-block;color:var(--dim);clip-path:inset(38% 0 40% 0);transform:translateX(2px);filter:blur(.5px);
+  animation:cxGlM 3.2s steps(1) infinite;animation-delay:var(--d,0s)}
 .cxt .gl::before,.cxt .gl::after{content:attr(data-t);position:absolute;inset:0;pointer-events:none;
-  opacity:0;text-shadow:none;animation:3.2s steps(1) infinite;animation-delay:var(--d,0s)}
-.cxt .gl::before{color:var(--bad);animation-name:cxGlA}
-.cxt .gl::after{color:var(--acc2);animation-name:cxGlB}
+  filter:blur(.4px);animation:3.2s steps(1) infinite;animation-delay:var(--d,0s)}
+.cxt .gl::before{color:rgba(255,91,127,.85);clip-path:inset(0 0 70% 0);transform:translateX(-5px);animation-name:cxGlA}
+.cxt .gl::after{color:rgba(123,240,255,.8);clip-path:inset(68% 0 0 0);transform:translateX(5px);animation-name:cxGlB}
 @keyframes cxGlBase{
-  0%,87%,95%,100%{transform:none;opacity:1}
-  88%{transform:skewX(-8deg);opacity:.75} 90%{transform:translateX(1px)} 92%{transform:skewX(6deg);opacity:.85}
+  0%,87%,95%,100%{transform:none}
+  88%{transform:skewX(-10deg)} 90%{transform:translateX(2px)} 92%{transform:skewX(8deg)}
+}
+@keyframes cxGlM{
+  0%,87%,95%,100%{clip-path:inset(38% 0 40% 0);transform:translateX(2px)}
+  88%{clip-path:inset(10% 0 60% 0);transform:translateX(4px)}
+  90%{clip-path:inset(55% 0 5% 0);transform:translateX(-4px)}
+  92%{clip-path:inset(25% 0 45% 0);transform:translateX(2px)}
 }
 @keyframes cxGlA{
-  0%,87%,95%,100%{opacity:0;transform:none;clip-path:inset(0)}
-  88%{opacity:.9;transform:translate(-3px,0);clip-path:inset(0 0 62% 0)}
-  90%{opacity:.9;transform:translate(2px,0);clip-path:inset(38% 0 30% 0)}
-  92%{opacity:.9;transform:translate(-1px,0);clip-path:inset(72% 0 0 0)}
+  0%,87%,95%,100%{clip-path:inset(0 0 70% 0);transform:translateX(-5px)}
+  88%{clip-path:inset(0 0 40% 0);transform:translateX(-7px)}
+  90%{clip-path:inset(40% 0 30% 0);transform:translateX(5px)}
+  92%{clip-path:inset(70% 0 0 0);transform:translateX(-4px)}
 }
 @keyframes cxGlB{
-  0%,87%,95%,100%{opacity:0;transform:none;clip-path:inset(0)}
-  88%{opacity:.8;transform:translate(3px,0);clip-path:inset(55% 0 12% 0)}
-  90%{opacity:.8;transform:translate(-2px,0);clip-path:inset(0 0 70% 0)}
-  92%{opacity:.8;transform:translate(1px,0);clip-path:inset(20% 0 50% 0)}
+  0%,87%,95%,100%{clip-path:inset(68% 0 0 0);transform:translateX(5px)}
+  88%{clip-path:inset(50% 0 10% 0);transform:translateX(7px)}
+  90%{clip-path:inset(0 0 70% 0);transform:translateX(-5px)}
+  92%{clip-path:inset(20% 0 50% 0);transform:translateX(4px)}
 }
 @media (prefers-reduced-motion:reduce){
-  .cxt .gl,.cxt .gl::before,.cxt .gl::after{animation:none}
+  .cxt .gl,.cxt .gl .gm,.cxt .gl::before,.cxt .gl::after{animation:none}
 }
 .ttabs.cx3{grid-template-columns:1fr 1fr 1fr}
-.cx3 .gtab{text-align:left}
+/* 아이콘과 이름만 가운데로. 탭이 세로 flex 라 text-align 은 안 먹고, 통째로 가운데 정렬하면
+   진행 막대(.cxbar)까지 글자 폭으로 줄어든다 — 막대만 다시 늘린다 */
+.cx3 .gtab{text-align:left;align-items:center}
+.cx3 .gtab em{margin-right:0}
+.cx3 .gtab .cxbar{align-self:stretch}
 .cxbar{position:relative;display:flex;align-items:baseline;gap:4px;margin-top:6px;padding-bottom:6px;font-size:12px}
 .cxbar b{font-size:15px}
 .cxbar span{color:var(--dim);font-weight:600}

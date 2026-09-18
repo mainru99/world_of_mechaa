@@ -1204,8 +1204,7 @@ async function renderShop(){
         <button class="btn ghost" ${S.credits<sh.refresh?'disabled':''} onclick="ROWAR.shopRefresh()">지금 새로 굴리기 · ${fmt(sh.refresh)} 크레딧</button>
       </div>
       <div class="shgrid">${sh.stock.map(card).join('')}</div>
-      <div class="hint" style="margin-top:10px">칸마다 무엇이 나올지 확률로 정해집니다 — 파츠 ${CONST.SHOP.kind.part}% · 기체 조각 ${CONST.SHOP.kind.shard}% · 스크랩 ${CONST.SHOP.kind.scrap}% · <b>코어 ${CONST.SHOP.kind.core}%</b>.
-        높은 등급일수록 드물고 비쌉니다. 새로 굴릴수록 값이 오릅니다(이번 주기 ${sh.refreshed}번).</div>
+      <div class="hint wide" style="margin-top:10px">칸마다 무엇이 나올지 확률로 정해집니다 — 파츠&nbsp;${CONST.SHOP.kind.part}% · 기체&nbsp;조각&nbsp;${CONST.SHOP.kind.shard}% · 스크랩&nbsp;${CONST.SHOP.kind.scrap}% · <b>코어&nbsp;${CONST.SHOP.kind.core}%</b>. 높은 등급일수록 드물고 비쌉니다. 새로 굴릴수록 값이 오릅니다(이번&nbsp;주기&nbsp;${sh.refreshed}번).</div>
     </div>`);
 }
 
@@ -1962,7 +1961,7 @@ async function renderCodex(){
     const on = cx.t === t.id;
     return t.got
       ? `<button class="cxt got${on?' on':''}" onclick="ROWAR.codexTitle('${on?'':t.id}')" title="${on?'떼기':'달기'}">${esc(t.name)}${on?' ✓':''}</button>`
-      : `<span class="cxt lock"><span class="gl" data-t="${esc(t.name)}" style="--d:${(i*0.73%3.2).toFixed(2)}s">${esc(t.name)}</span></span>`;
+      : `<span class="cxt lock"><span class="gl" data-t="${esc(t.name)}" style="--d:${(i*0.73%3.2).toFixed(2)}s"><span class="gm">${esc(t.name)}</span></span></span>`;
   }).join('');
 
   const tabs = G.map(([g,ko,em]) => `<button class="gtab ${_codexGroup===g?'on':''}" onclick="ROWAR.setCodexGroup('${g}')">
@@ -2969,7 +2968,7 @@ function renderFront(){
     <h2 class="title">전선 · ${ch.no}장 ${esc(ch.ko)}</h2>
     <div class="panel fhead">
       <div class="fsub2">${esc(ch.sub)}</div>
-      <p class="flead">${esc(ch.lead)}</p>
+      <p class="flead">${leadHtml(ch.lead)}</p>
       <div class="fprog"><i style="width:${done / total * 100}%"></i></div>
       <div class="hint">${done} / ${total} 칸${net.state.online ? '' : ' · <b style="color:var(--gold)">오프라인 — 진행은 이 브라우저에 저장됩니다</b>'}</div>
       ${gates.length ? `<div class="fgate">아직 잠긴 것 — ${gates.map(g => `<b>${esc(g.ko)}</b>`).join(' · ')}
@@ -2977,6 +2976,11 @@ function renderFront(){
     </div>
     <div class="fcells">${cells}</div>`;
 }
+
+/* 장 도입문을 문장 단위로 싼다. 넓은 화면에서는 **문장 안에서 줄을 바꾸지 않는다** —
+   어절에서 끊어도 '가장 낡은 / 기체로' 처럼 꾸밈말과 꾸밈 받는 말이 갈라지면 어색하다.
+   좁은 화면에서는 이 규칙이 풀려 어절에서 넘어간다(style.css .flead .snt). */
+const leadHtml = t => String(t || '').split(/(?<=[.!?…])\s+/).map(s => `<span class="snt">${esc(s)}</span>`).join(' ');
 
 /* 칸 상세 — 들어가기 전에 이야기를 먼저 보여 준다. */
 function openCell(id){

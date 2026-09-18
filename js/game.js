@@ -10,6 +10,7 @@ import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, 
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST,
          AFFIXES, TERRITORY, TERRAIN, PART_BASES } from '../data/balance.js';
 import { shardNeed, shardKey, bagView } from './shop.js';
+import { parsePresets, presetCheck, PRESET_MAX, NAME_MAX } from './preset.js';
 import { parseCodex, codexView, codexRewards, codexTitles, codexActivatable, codexNext, actCost,
          titleName, GROUPS, GROUP_KO } from './codex.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
@@ -235,6 +236,70 @@ async function unequip(slot){
   const r=await srvHangar('unequip',{robotUid:rb.uid, slot}); if(!r) return;
   rb.slots[slot]=null; commitLocal(); closeModal();
 }
+/* ── 빌드 프리셋 (5순위 I) ──────────────────────────────
+   파츠 조합을 다섯 칸에 저장해 두고 한 번에 바꿔 끼운다. 계정에 붙는다(파츠가 계정 공용이라서).
+   저장은 **지금 이 기체가 끼고 있는 것**을 서버가 읽어 적는다. 적용은 장착과 같은 규칙 —
+   다른 기체가 끼고 있으면 떼어 오고, 분해해서 없는 파츠는 건너뛴다. */
+const presetsNow = () => parsePresets(S.presets);
+function presetBar(){
+  const list = presetsNow();
+  if(!list.some(Boolean)) return '';
+  return `<div class="pset-bar">${list.map((x,i)=> x
+    ? `<button class="pset-chip" onclick="ROWAR.applyPreset(${i})" title="이 기체에 입히기">${esc(x.n)}</button>` : '').join('')}</div>`;
+}
+function presetLines(x){
+  const chk = presetCheck(x, S.parts);
+  return SLOTS.map(sl=>{
+    const u = x.s[sl], pt = u && findPart(u, S.parts);
+    const v = !u ? '<i class="none">비움</i>'
+      : chk.missing.includes(sl) ? '<i class="gone">분해됨 — 건너뜀</i>'
+      : `${esc(pt.name)} ${rarTag(pt)}`;
+    return `<div class="pset-ln"><b>${SLOT_KO[sl]}</b> ${v}</div>`;
+  }).join('');
+}
+function openPresets(){
+  const rb = selRobot(), list = presetsNow();
+  const T = ROBOT_TYPES[rb.type];
+  const rows = list.map((x,i)=>`<div class="pset-row">
+      <div class="pset-h"><input class="ainput pset-name" id="psn${i}" maxlength="${NAME_MAX}" value="${esc(x ? x.n : `프리셋 ${i+1}`)}">
+        ${x ? '' : '<span class="hint">빈 칸</span>'}</div>
+      ${x ? `<div class="pset-lns">${presetLines(x)}</div>` : ''}
+      <div class="row-btns">
+        ${x ? `<button class="btn gold" onclick="ROWAR.applyPreset(${i})">${esc(T.name)}에 입히기</button>` : ''}
+        <button class="btn" onclick="ROWAR.savePreset(${i})">${x ? '지금 장착으로 덮어쓰기' : '지금 장착 저장'}</button>
+        ${x ? `<button class="btn ghost" onclick="ROWAR.deletePreset(${i})">삭제</button>` : ''}
+      </div></div>`).join('');
+  openModal(`<div class="mhead">빌드 프리셋 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <div class="hint" style="margin-bottom:10px">지금 <b>${esc(T.name)}</b>이 끼고 있는 파츠를 저장하고, 어느 기체에든 한 번에 입힙니다.
+      다른 기체가 끼고 있던 파츠는 떼어 옵니다.</div>
+    <div class="pset-list">${rows}</div>`);
+}
+async function savePreset(i){
+  const rb = selRobot();
+  const name = ($('#psn'+i) || {}).value || '';
+  const r = await srvHangar('presetSave', { i, robotUid: rb.uid, name }); if(!r) return;
+  S.presets = r.presets; commitLocal(); openPresets();
+  toast(`「${r.presets[i].n}」 저장`);
+}
+async function deletePreset(i){
+  const r = await srvHangar('presetDelete', { i }); if(!r) return;
+  S.presets = r.presets; commitLocal(); openPresets();
+  toast('프리셋을 지웠습니다');
+}
+async function applyPreset(i){
+  const rb = selRobot(), x = presetsNow()[i]; if(!x) return;
+  const r = await srvHangar('presetApply', { i, robotUid: rb.uid }); if(!r) return;
+  /* 서버가 끼운 그대로 받아 적는다 — 다른 기체에서 떼어 온 것까지 */
+  for(const [sl,u] of Object.entries(r.applied || {})){
+    for(const o of S.robots) for(const s2 of SLOTS) if(o.slots[s2]===u) o.slots[s2]=null;
+    rb.slots[sl] = u;
+  }
+  for(const sl of (r.emptied || [])) rb.slots[sl] = null;
+  closeModal(); commitLocal();
+  const miss = (r.missing || []).map(sl=>SLOT_KO[sl]);
+  toast(`「${x.n}」 입힘` + (miss.length ? ` · ${miss.join('·')} 은(는) 분해되어 건너뜀` : ''));
+}
+
 async function scrapPart(u){
   const p=findPart(u,S.parts); if(!p) return;
   const worn = S.robots.some(r=>Object.values(r.slots).includes(u));
@@ -759,8 +824,9 @@ function renderHangar(){
         </div>
 
         <div class="dcard">
-          <div class="dh">장착</div>
+          <div class="dh">장착 <button class="pset-open" onclick="ROWAR.openPresets()">빌드 프리셋 ▸</button></div>
           <div class="slots">${slotsHtml}</div>
+          ${presetBar()}
           ${setPanel(rb)}
         </div>
 
@@ -3426,6 +3492,7 @@ window.ROWAR = {
   toggleSquad: guard(toggleSquad),
   levelUp: guard(levelUp), service: guard(service), enhance: guard(enhancePart), skillUp: guard(skillUp),
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
+  openPresets, savePreset: guard(savePreset, 600), deletePreset: guard(deletePreset, 600), applyPreset: guard(applyPreset, 600),
   openSlot, openRobot, closeModal, setGacha, scrapPart, toggleSpeed, skipReplay, pickExped, openNode, guide,
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
   setFrontTab, setFrontCh, openCell, runCell: guard(runCell, 1000),
@@ -3486,6 +3553,7 @@ async function syncOnConnect(){
     takeBand(remote.band);
     if(remote.codex) _codexRaw = remote.codex;
     S.items = remote.items || {};
+    S.presets = parsePresets(remote.presets);
     save();
     net.cancelSync();                        // 방금 받은 걸 도로 올릴 필요는 없다
     renderAll();
@@ -3684,7 +3752,7 @@ async function doRegister(){
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 async function afterLogin(r){
   const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
-  if(remote){ S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex; S.items=remote.items||{}; save(); net.cancelSync(); }
+  if(remote){ S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex; S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync(); }
   renderAcct(); renderGate(); renderAll();
   toast(r.loginId+' 으로 로그인했습니다');
 }

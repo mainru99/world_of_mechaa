@@ -12,6 +12,7 @@ import { lvCost, enhCost, enhRate, enhMax, serviceCost, fatOf, decayFat, skillCo
 import { scrapGain, fusePart, fuseCheck, fuseCost } from '../js/gacha.js';
 import { registerArena } from './arena.js';
 import { partOf, insertPart } from './parts.js';
+import { parsePresets, cleanName, presetCheck, PRESET_MAX } from '../js/preset.js';
 
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 const err = (status, error) => ({ ok: false, status, error });
@@ -21,7 +22,7 @@ const getRobot = (env, acc, uid) => env.DB
 const getPart = (env, acc, uid) => env.DB
   .prepare('SELECT * FROM part WHERE account_id = ?1 AND uid = ?2').bind(acc, uid).first();
 const getPlayer = (env, acc) => env.DB
-  .prepare('SELECT credits, cores, scrap, rev, sel_robot, squad1, squad2, pending_match, expd_robot FROM player WHERE account_id = ?1')
+  .prepare('SELECT credits, cores, scrap, rev, sel_robot, squad1, squad2, pending_match, expd_robot, presets FROM player WHERE account_id = ?1')
   .bind(acc).first();
 
 /* 재화를 깎고 rev 를 올린다. 두 곳에서 같은 문장을 쓰지 않으려고 묶었다. */
@@ -71,6 +72,64 @@ export async function hangarAction(env, acc, body, now) {
     await env.DB.batch(stmts);
     await registerArena(env, acc, now);   // 방어 편성이 바뀌었다
     return { ok: true, rev: p.rev + 1 };
+  }
+
+  /* ── 빌드 프리셋 (5순위 I) ─────────────────────────────
+     저장 · 삭제 · 적용. 저장은 **지금 이 기체가 끼고 있는 것**을 적는다 — 클라가 보낸 목록을
+     믿지 않는다(남의 파츠 uid 를 적어 둘 틈을 안 만든다). 적용은 장착과 같은 규칙으로 끼운다. */
+  if (action === 'presetSave' || action === 'presetDelete' || action === 'presetApply') {
+    const i = body.i | 0;
+    if (i < 0 || i >= PRESET_MAX) return err(400, 'bad preset slot');
+    const list = parsePresets(p.presets);
+
+    if (action === 'presetDelete') {
+      list[i] = null;
+      await env.DB.prepare('UPDATE player SET presets = ?1, updated_at = ?2 WHERE account_id = ?3')
+        .bind(JSON.stringify(list), now, acc).run();
+      return { ok: true, presets: list };
+    }
+
+    const rb = await getRobot(env, acc, body.robotUid);
+    if (!rb) return err(404, 'robot not found');
+
+    if (action === 'presetSave') {
+      const ids = Object.values(SLOT_COL).map(c => rb[c]).filter(v => v != null);
+      const rows = ids.length ? ((await env.DB.prepare(
+        `SELECT id, uid FROM part WHERE account_id = ?1 AND id IN (${ids.map((_, k) => '?' + (k + 2)).join(',')})`)
+        .bind(acc, ...ids).all()).results || []) : [];
+      const uidOf = new Map(rows.map(r => [r.id, r.uid]));
+      const slots = {};
+      for (const [sl, c] of Object.entries(SLOT_COL)) slots[sl] = rb[c] != null ? (uidOf.get(rb[c]) || null) : null;
+      list[i] = { n: cleanName(body.name, i), s: slots };
+      await env.DB.prepare('UPDATE player SET presets = ?1, updated_at = ?2 WHERE account_id = ?3')
+        .bind(JSON.stringify(list), now, acc).run();
+      return { ok: true, presets: list };
+    }
+
+    /* 적용 */
+    const pre = list[i];
+    if (!pre) return err(400, 'empty preset');
+    const want = Object.values(pre.s).filter(Boolean);
+    const rows = want.length ? ((await env.DB.prepare(
+      `SELECT id, uid, slot FROM part WHERE account_id = ?1 AND uid IN (${want.map((_, k) => '?' + (k + 2)).join(',')})`)
+      .bind(acc, ...want).all()).results || []) : [];
+    const chk = presetCheck(pre, rows);
+    const idOf = new Map(rows.map(r => [r.uid, r.id]));
+    const stmts = [];
+    for (const [sl, u] of Object.entries(chk.ok)) {
+      const pid = idOf.get(u);
+      /* 다른 기체(또는 다른 칸)가 물고 있으면 먼저 떼어 낸다 — 장착과 같은 규칙 */
+      for (const c of Object.values(SLOT_COL))
+        stmts.push(env.DB.prepare(`UPDATE robot SET ${c} = NULL WHERE account_id = ?1 AND ${c} = ?2`).bind(acc, pid));
+      stmts.push(env.DB.prepare(`UPDATE robot SET ${SLOT_COL[sl]} = ?1 WHERE id = ?2`).bind(pid, rb.id));
+    }
+    /* 프리셋에서 비워 둔 칸은 뗀다. 분해로 없어진 칸(missing)은 **손대지 않는다** —
+       지금 끼고 있는 것까지 벗기면 적용 한 번에 기체가 맨몸이 된다. */
+    for (const sl of chk.empty) stmts.push(env.DB.prepare(`UPDATE robot SET ${SLOT_COL[sl]} = NULL WHERE id = ?1`).bind(rb.id));
+    stmts.push(env.DB.prepare('UPDATE player SET rev = ?1, updated_at = ?2 WHERE account_id = ?3').bind(p.rev + 1, now, acc));
+    await env.DB.batch(stmts);
+    await registerArena(env, acc, now);   // 방어 편성이 바뀌었다
+    return { ok: true, rev: p.rev + 1, applied: chk.ok, emptied: chk.empty, missing: chk.missing };
   }
 
   /* ── 해제 ── */

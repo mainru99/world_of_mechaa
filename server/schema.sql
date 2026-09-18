@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS player (
   -- 상점·보관함(019). items = { 'shard:<기체id>': 개수 } · shop = { p, n, lv, b }. 모양은 js/shop.js 머리말
   items       TEXT,
   shop        TEXT,
+  presets     TEXT,                            -- 빌드 프리셋(020). 모양은 js/preset.js 머리말
 
   -- 레벨은 기체가 아니라 **파일럿**의 것이다. 보유한 기체는 전부 이 레벨로 싸운다.
   -- 예전에는 기체별이었는데, 경험치가 출전한 기체에만 들어가 두 번째 기체를 키울 수가
@@ -338,7 +339,7 @@ BEGIN
 END;
 
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '19');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '20');
 
 
 -- =========================================================

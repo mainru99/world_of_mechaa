@@ -1424,3 +1424,20 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .fch span{display:block;font-size:11px;font-weight:600;color:var(--dim);margin-top:2px}
 .fch.on{border-color:var(--acc);background:linear-gradient(180deg,#18223c,#141d34);color:var(--ink)}
 .fch:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── 빌드 프리셋 (2026-09-18 · 5순위 I) ── */
+.pset-open{float:right;font-size:11px;font-weight:800;padding:3px 9px;border-radius:8px;cursor:pointer;
+  color:var(--acc2);background:rgba(90,160,255,.08);border:1px solid rgba(90,160,255,.4)}
+.pset-bar{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pset-chip{font-size:12px;font-weight:800;padding:5px 11px;border-radius:999px;cursor:pointer;
+  color:var(--ink);background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.pset-chip:hover{border-color:var(--acc)}
+.pset-list{display:flex;flex-direction:column;gap:10px;max-height:62vh;overflow:auto}
+.pset-row{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:rgba(255,255,255,.02)}
+.pset-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pset-name{flex:1;min-width:0;font-weight:800}
+.pset-lns{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin-bottom:8px;font-size:12px}
+.pset-ln b{color:var(--dim);font-weight:700;margin-right:4px}
+.pset-ln i{font-style:normal;color:var(--dim)}
+.pset-ln i.gone{color:var(--bad)}
+@media (max-width:560px){ .pset-lns{grid-template-columns:1fr} }

@@ -11,6 +11,7 @@
  */
 import { parseCodex } from '../js/codex.js';
 import { parseItems } from '../js/shop.js';
+import { parsePresets } from '../js/preset.js';
 import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
 import { expedView } from './expedition.js';
 import { PART_COLS, partOf, insertPart, updatePart, partChanged, checkNewPart } from './parts.js';
@@ -189,7 +190,7 @@ export async function noteMigration(env, accountId, clamped, now) {
 /* ── 읽기 ──────────────────────────────────────────────── */
 export async function loadState(env, accountId) {
   const p = await env.DB.prepare(
-    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items,
+    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items, presets,
             sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!p) return null;
@@ -217,6 +218,8 @@ export async function loadState(env, accountId) {
     codex: parseCodex(p.codex),
     /* 보관함 — 기체 조각 등. 모양은 js/shop.js 머리말 */
     items: parseItems(p.items),
+    /* 빌드 프리셋 다섯 칸. 모양은 js/preset.js 머리말 */
+    presets: parsePresets(p.presets),
     state: {
       v: 2, credits: p.credits, cores: p.cores, scrap: p.scrap,
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },

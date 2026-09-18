@@ -652,14 +652,22 @@ export const CONST = {
        rars  나오는 몬스터 등급
        gear  몬스터가 끼는 파츠 — 개수 n · 등급 rar · 강화 enh
 
-     실측(tools/bandplan.mjs) — 진입 평균 44% · 졸업 평균 90% · 막히는 구간 0개.
+     ── 앞 두 줄(Lv.1 · Lv.6 · Lv.11) — 2026-09-18 덧붙였다 ──
+     처음 표는 1구간이 Lv.4 였고 2구간이 Lv.16 이었다. 그런데 **새 계정의 첫 기체는 grit(C)**
+     인데 표를 azure(R) 로만 쟀다. 운영에서 새 계정이 1구간에 10판 2승을 했다(Lv.1~3 grit
+     승률 0~4%). 1구간을 Lv.1 로 내리고, 5승이면 Lv.5 쯤에 오르므로 Lv.16 까지 사이에 두 칸을
+     끼웠다. grit·azure·mule 로 시드 4개씩 걸어 전부 끝 구간에 닿는다(tools/bandwalk.mjs --my).
+
+     실측(tools/bandplan.mjs, 끼우기 전 12구간) — 진입 평균 44% · 졸업 평균 90% · 막히는 구간 0개.
      구간에 45% 로 들어가 80~100% 로 졸업한다. 뒷부분이 싱거운 것은 의도다 —
      뚫고 들어가 고생하다 압도하며 거두는 자리가 파밍의 리듬이다.
      ※ 값 조정은 ChatGPT 담당(2026-09-18 부터 당분간 Claude 가 대신한다).
        구간 하나의 난이도는 `node tools/bandplan.mjs 12`, 구간을 오가는 흐름은
        `node tools/bandwalk.mjs` 로 잰다. */
   MON_BAND: [
-    { at:    0, lv:  4, rars: ['C'],          gear: { n: 0, rar: 'C',   enh:  0 } },
+    { at:    0, lv:  1, rars: ['C'],          gear: { n: 0, rar: 'C',   enh:  0 } },
+    { at: 1030, lv:  6, rars: ['C'],          gear: { n: 0, rar: 'C',   enh:  0 } },
+    { at: 1055, lv: 11, rars: ['C'],          gear: { n: 1, rar: 'C',   enh:  0 } },
     { at: 1080, lv: 16, rars: ['C'],          gear: { n: 1, rar: 'C',   enh:  0 } },
     { at: 1160, lv: 23, rars: ['C', 'UC'],    gear: { n: 2, rar: 'C',   enh:  1 } },
     { at: 1250, lv: 30, rars: ['C', 'UC'],    gear: { n: 2, rar: 'R',   enh:  1 } },

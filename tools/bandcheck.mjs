@@ -12,6 +12,7 @@
  * node tools/bandcheck.mjs */
 import { CONST, MONSTER_TYPES, RARITY } from '../data/balance.js';
 import { computeStats, powerOf } from '../js/stats.js';
+import { makeUnit, simulate } from '../js/sim.js';
 import { bandRow, bandStart, bandStep, bandGoal, gearFromRating, makeOpponent } from '../js/rewards.js';
 
 let bad = 0;
@@ -32,6 +33,21 @@ ok(B.every(r => r.lv >= 1 && r.lv <= CONST.MAXLV + (CONST.OPP_LV_OVER || 0)),
 ok(B.every(r => (r.rars || []).length && r.rars.every(k => k !== 'BOSS')),
    '등급 풀이 비어 있지 않고 보스가 섞이지 않았다');
 ok(B.every(r => r.gear && r.gear.n >= 0 && r.gear.n <= 4), '장비 개수가 0~4 다');
+
+/* **새 계정이 첫 판부터 막히면 안 된다.** 첫 기체는 grit(C) 이고 파츠도 없다.
+   예전 표는 1구간이 Lv.4 라 Lv.1~3 grit 의 승률이 0~4% 였고, 운영에서 새 계정이 실제로
+   10판에 2승을 했다(2026-09-18). 구간표를 R 기체(azure)로만 재서 못 봤다. */
+{
+  let w = 0; const N = 300;
+  for (let k = 0; k < N; k++) {
+    const o = makeOpponent(['C'], 1, rnd, uid, true, 1000, 1);
+    const me = computeStats({ type: 'grit', level: 1, skillLv: 0, fat: 0, slots: EMPTY }, []);
+    const os = computeStats({ type: o.type, level: o.level, skillLv: 0, fat: 0, slots: o.slots }, o.parts);
+    const ev = simulate(makeUnit('a', 'grit', me), makeUnit('b', o.type, os), (rnd() * 4294967296) >>> 0);
+    if (ev[ev.length - 1].winner === 'P') w++;
+  }
+  ok(w / N >= 0.3, `새 계정(grit Lv.1, 파츠 없음)이 1구간에서 30% 넘게 이긴다 — ${(w / N * 100).toFixed(0)}%`);
+}
 
 console.log('\n== ② 표가 뒤로 가지 않는가 — 예전 RATING_GEAR 의 병이다 ==');
 {

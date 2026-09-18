@@ -20,7 +20,9 @@
  *   node tools/bandwalk.mjs            몬스터 구간 — 대전만 (가장 나쁜 경우)
  *   node tools/bandwalk.mjs 1          밖에서(전선·파견·원정) 경험치를 ×2 받는다
  *   node tools/bandwalk.mjs --robot    로봇 판의 레이팅 흐름
- *   --seed N                           시드를 바꾼다 */
+ *   --seed N                           시드를 바꾼다
+ *   --my grit                          내 기체를 바꾼다. **새 계정의 첫 기체가 grit(C)** 이라
+ *                                      앞 구간은 이걸로 봐야 한다 (azure 는 R 이라 앞 구간이 싱겁다) */
 import { CONST, ROBOT_TYPES } from '../data/balance.js';
 import { computeStats, expNeed, battleExp } from '../js/stats.js';
 import { rollPart } from '../js/gacha.js';
@@ -30,10 +32,10 @@ import { makeOpponent, bandStep } from '../js/rewards.js';
 const argv = process.argv.slice(2);
 const flag = k => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
 const ROBOT = argv.includes('--robot');
-const nums = argv.filter((a, i) => !a.startsWith('--') && argv[i - 1] !== '--seed');
+const nums = argv.filter((a, i) => !a.startsWith('--') && !['--seed', '--my'].includes(argv[i - 1]));
 const OUTSIDE = nums.length ? Number(nums[0]) : 0;
 const SEED = Number(flag('--seed') || 20260918);
-const MY = 'azure';
+const MY = flag('--my') || 'azure';
 
 const EMPTY = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
 const SLOTS = Object.keys(EMPTY);
@@ -79,25 +81,38 @@ const grow = mult => {
 };
 
 if (ROBOT) {
-  /* ── 로봇 판 — 레이팅 흐름 ── 생성 로봇은 rating=null 이라 기대 0.5 → ±K/2 */
+  /* ── 로봇 판 — 레이팅 흐름 ── 생성 로봇은 rating=null 이라 기대 0.5 → ±K/2
+     40판 창 하나의 최고값은 시드 하나에 크게 흔들린다(같은 표에서 75~93%). 그래서 시드 넷을
+     걸어 **각 시드의 최고값을 평균**해 판정한다. 첫 시드만 표로 찍는다. */
   const STEP = Math.round(CONST.RATING_K.pve * 0.5);
-  let rating = 1000, win40 = [], worst = 0;
-  console.log(`\n생성 로봇 판만 — 밖에서 받는 경험치 ×${(1 + OUTSIDE).toFixed(1)}`);
-  console.log('   판수  Lv   내 장비       레이팅   최근 40판');
-  while (n < 5000 && level < CONST.MAXLV) {
-    const f = fight(level, rating, null, false);
-    rating = Math.max(0, rating + (f.win ? STEP : -STEP));
-    win40.push(f.win); grow(1); n++;
-    if (n % 40 === 0) {
-      const wr = win40.filter(Boolean).length / win40.length; win40 = [];
-      worst = Math.max(worst, wr);
-      console.log(`  ${String(n).padStart(5)}  ${String(level).padStart(2)}   ${f.gear.padEnd(12)} ${String(rating).padStart(6)}   ${(wr * 100).toFixed(0).padStart(3)}%`);
+  const worsts = [];
+  for (let s = 0; s < 4; s++) {
+    sd = SEED + s; level = 1; exp = 0; n = 0;
+    let rating = 1000, win40 = [], worst = 0;
+    if (!s) {
+      console.log(`
+생성 로봇 판만 — 밖에서 받는 경험치 ×${(1 + OUTSIDE).toFixed(1)}`);
+      console.log('   판수  Lv   내 장비       레이팅   최근 40판');
     }
+    while (n < 5000 && level < CONST.MAXLV) {
+      const f = fight(level, rating, null, false);
+      rating = Math.max(0, rating + (f.win ? STEP : -STEP));
+      win40.push(f.win); grow(1); n++;
+      if (n % 40 === 0) {
+        const wr = win40.filter(Boolean).length / win40.length; win40 = [];
+        worst = Math.max(worst, wr);
+        if (!s) console.log(`  ${String(n).padStart(5)}  ${String(level).padStart(2)}   ${f.gear.padEnd(12)} ${String(rating).padStart(6)}   ${(wr * 100).toFixed(0).padStart(3)}%`);
+      }
+    }
+    worsts.push(worst);
+    console.log(`  시드 ${SEED + s} — Lv.${level} · 레이팅 ${rating} · ${n}판 · 40판 창 최고 ${(worst * 100).toFixed(0)}%`);
   }
-  console.log(`\n  도달 — Lv.${level} · 레이팅 ${rating} · ${n}판 · 40판 창 최고 승률 ${(worst * 100).toFixed(0)}%`);
+  const mean = worsts.reduce((a, b) => a + b, 0) / worsts.length;
+  console.log(`
+  40판 창 최고 승률 — 시드 넷 평균 ${(mean * 100).toFixed(0)}%`);
   /* 예전 표(되돌림 네 줄)는 1620~2400 에서 90~100% 로 치솟았다. 그러면 레이팅이 실력과
      무관하게 쌓여 랭킹이 '판 수' 가 된다. */
-  if (worst > 0.88) { console.log(R('  ✗ 로봇 판이 한 구간에서 거의 전승이다 — RATING_GEAR 에 약해지는 줄이 있다')); process.exit(1); }
+  if (mean > 0.86) { console.log(R('  ✗ 로봇 판이 한 구간에서 거의 전승이다 — RATING_GEAR 에 약해지는 줄이 있다')); process.exit(1); }
   console.log(G('  ✓ 로봇 판 승률이 튀지 않는다'));
   process.exit(0);
 }
@@ -106,7 +121,11 @@ if (ROBOT) {
 let band = 1, pts = 0;
 const log = [];
 const between = 1 / CONST.MONSTER_RATE;          // 몬스터 한 판 사이에 치르는 판 수(자기 포함)
-while (n < 3000 && level < CONST.MAXLV) {
+/* 만렙 뒤에도 대전은 계속한다. 끝 구간에 닿거나 만렙 뒤 AFTER 판을 넘으면 멈춘다. */
+const AFTER = 60;
+let atMax = 0;
+while (n < 3000 && (level < CONST.MAXLV || (band < CONST.MON_BAND.length && atMax < AFTER))) {
+  if (level >= CONST.MAXLV) atMax++;
   const f = fight(level, null, band, true);
   log.push({ b: band, win: f.win, lv: level, gear: f.gear });
   const st = bandStep(band, pts, f.win);
@@ -138,11 +157,11 @@ console.log(`\n  도달 — Lv.${level} · 구간 ${band}/${B.length}`);
 console.log(`  구간 전환 ${runs.length - 1}번 (강등 ${down}) · 2판 이하만 머문 것 ${churn}번`);
 
 /* 판정 — 구간제가 약속한 셋.
-     ① 대전만 해도 끝 구간에 닿는다 (파밍은 강제가 아니라 가속)
+     ① 대전만 해도 끝 구간에 닿는다 — 만렙 뒤 AFTER 판 안에 (파밍은 강제가 아니라 가속)
      ② 한 구간에 갇히지 않는다 (30판 넘게 머물며 35% 미만)
      ③ 경계에서 흔들리지 않는다 (2판 이하 체류가 구간 수를 넘지 않는다) */
 let bad = 0;
-if (!OUTSIDE && band < B.length) { console.log(R(`  ✗ 대전만으로는 끝 구간에 못 닿는다 (${band}/${B.length})`)); bad++; }
+if (!OUTSIDE && band < B.length) { console.log(R(`  ✗ 대전만으로는 만렙 뒤 ${AFTER}판 안에 끝 구간에 못 닿는다 (${band}/${B.length})`)); bad++; }
 if (stuck) { console.log(R(`  ✗ 갇힌 구간 ${stuck}개`)); bad++; }
 if (churn > B.length) { console.log(R(`  ✗ 경계에서 흔들린다 — 2판 이하 체류 ${churn}번`)); bad++; }
 if (!OUTSIDE && flat > 3) console.log(`  · 처음 6판을 전승한 구간 ${flat}개 — 들어갈 때 이미 너무 세다`);

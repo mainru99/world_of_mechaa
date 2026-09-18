@@ -129,3 +129,18 @@ export const rarAllowed = (rar, maxRar) =>
 /* 지형이 spread 를 건드리므로, 스냅샷에 spread 가 없는 옛 아레나 등록분도 채워 준다. */
 export const withSpread = (st, type) =>
   st.spread != null ? st : { ...st, spread: spreadOf(type) };
+
+/* 도감용 — 돌파 한 번에서 **몬스터가 지키던** 방어선을 [{type, win}] 로.
+   닿은 방어선마다 한 번 만났고, 뚫었으면 처치다. 한 방어선을 기체 둘이 번갈아 쳐도 한 번이다.
+   사람의 기체가 지키는 방어선(점령한 칸)은 kind 가 monster 가 아니라서 빠진다. */
+export function codexLines(lines, rounds) {
+  const out = new Map();
+  for (const x of rounds || []) {
+    const L = lines[x.li];
+    if (!L || (L.kind && L.kind !== 'monster')) continue;
+    const o = out.get(x.li) || { type: L.type, win: false };
+    if (x.win) o.win = true;
+    out.set(x.li, o);
+  }
+  return [...out.values()];
+}

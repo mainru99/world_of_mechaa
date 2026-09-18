@@ -10,6 +10,7 @@
  * 읽는 행 — player 1 + robot N + part N + trial 1. 아레나 한 판과 비슷하다.
  * 순위표는 상위 10 + 내 1 + 인원 1 이라 인원이 늘어도 그대로다.
  */
+import { codexMonsterStmt } from './codex.js';
 import { computeStats, power } from '../js/stats.js';
 import { weekOf, weekEnd, trialOf, runTrial, trialWon, TRIAL_WIN_BASE } from '../js/trial.js';
 import { PART_COLS, partOf } from './parts.js';
@@ -105,6 +106,9 @@ export async function trialRun(env, acc, now) {
        robot_type = CASE WHEN ?4 > trial.score THEN ?5 ELSE trial.robot_type END,
        power      = CASE WHEN ?4 > trial.score THEN ?6 ELSE trial.power END`)
     .bind(week, acc, f.nickname, out.score, f.robot.type, pw, now).run();
+  /* 도감 — 이번 주 상대를 만났고, 시련을 넘었으면 처치다. */
+  const cs = codexMonsterStmt(env.DB, acc, [{ type: t.type, win: trialWon(out.score) }]);
+  if (cs) await cs.run();
 
   return { ok: true, week, trial: t, score: out.score, win: trialWon(out.score),
            robot: f.robot, parts: f.parts, stats: st, foe: out.foe,

@@ -270,6 +270,14 @@ export async function trial(run) {
   return { error: (r.data && r.data.error) || r.error || 'trial failed' };
 }
 
+/* 도감. 인자 없이 부르면 조회(GET), action 을 주면 보상 받기·칭호 달기(POST). */
+export async function codex(action, args = {}) {
+  if (!state.online) return null;
+  const r = await call('/api/codex', action ? { method: 'POST', body: { action, ...args } } : {});
+  if (r.ok && r.data && r.data.ok) { if (r.data.rev != null) setSyncedRev(r.data.rev); return r.data; }
+  return { error: (r.data && r.data.error) || r.error || 'codex failed', status: r.status };
+}
+
 export async function hangar(action, args = {}) {
   if (!state.online) return null;
   const r = await call('/api/hangar', { method: 'POST', body: { action, ...args } });

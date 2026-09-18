@@ -13,6 +13,8 @@
  * 전투 규칙 자체는 js/breach.js 에 있다. 서버와 클라가 같은 파일을 쓰고, 시드도 서버가
  * 준다 — 그래서 화면에 보이는 전투와 확정된 결과가 갈릴 수 없다.
  */
+import { codexMonsterStmt } from './codex.js';
+import { codexLines } from '../js/breach.js';
 import { CONST, TERRITORY, MONSTER_TYPES, ROBOT_TYPES, SLOTS } from '../data/balance.js';
 import { computeStats, powerOf, gainExp, addFat, fatOf, decayFat, sortieCost } from '../js/stats.js';
 import { battleExpFor } from '../js/rewards.js';
@@ -397,6 +399,9 @@ export async function attackNode(env, accountId, now, nodeId, wantRaid) {
   stmts.push(env.DB.prepare(
     'UPDATE player SET credits=?1, scrap=?2, cores=?3, rev=?4, updated_at=?5 WHERE account_id=?6')
     .bind(credits, scrap, cores, rev, now, accountId));
+  /* 도감 — 몬스터가 지키는 방어선만 적는다(주인이 있는 칸은 사람의 기체다). */
+  const cs = codexMonsterStmt(env.DB, accountId, codexLines(lines, r.rounds));
+  if (cs) stmts.push(cs);
   await env.DB.batch(stmts);
 
   /* 점령했으면 내 방어 스냅샷을 최신으로 올려 둔다 — 이제 이 칸을 내 기체가 지킨다.

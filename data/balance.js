@@ -686,6 +686,57 @@ export const CONST = {
      `node tools/bandwalk.mjs` 로 다시 잰다. */
   MON_BAND_STEP: { up: 5, down: 3 },
 
+  /* ── 도감 (2026-09-18 사용자 지시) ──────────────────────────
+     몬스터 16 · 기체 30 · 파츠 84칸(21종 × 4등급). 채우면 보상과 칭호를 준다.
+
+     first  — 칸 하나를 **처음** 채울 때. 몬스터는 '처치', 기체·파츠는 '가져 본 적 있음'.
+              등급이 높을수록 크게. 뽑기로 얻은 기체는 이미 코어를 치렀으므로 작게 되돌려 준다.
+     steps  — 갈래마다 개수 이정표. 칭호가 붙은 줄이 있다.
+     all    — 세 갈래를 다 채웠을 때.
+
+     총액(한 사람이 전부 채우면) — 스크랩 4,180 · 코어 86.
+     코어는 대전만 434판(Lv.60)에 약 70개가 들어온다(승리의 20%). 도감이 평생 그만큼을 더 준다.
+     처음 짠 값은 코어 158 이라 뽑기 수입을 두 배로 만들어 줄였다.
+     스크랩은 강화 +0→+10 한 번(SSR 기준 약 1,300)의 몇 배 규모라 **평생 한 번 받는 목돈**이고,
+     매일 들어오는 수입이 아니므로 강화 경제를 흔들지 않는다.
+     ※ 값 조정은 ChatGPT 담당(2026-09-18 부터 당분간 Claude 가 대신한다). */
+  CODEX: {
+    first: {
+      monster: { C: { sc: 15 }, UC: { sc: 25 }, R: { sc: 40, co: 1 }, UQ: { sc: 60, co: 1 },
+                 EP: { sc: 90, co: 1 }, BOSS: { sc: 150, co: 2 } },
+      robot:   { C: { sc: 10 }, UC: { sc: 20 }, R: { sc: 30 }, UQ: { sc: 50 }, EP: { sc: 80, co: 1 } },
+      part:    { C: { sc: 5 }, R: { sc: 10 }, SR: { sc: 20 }, SSR: { sc: 40 } },
+    },
+    steps: {
+      monster: [ { n: 4,  co: 2 },
+                 { n: 8,  co: 3,  title: 'hunter' },
+                 { n: 13, co: 5,  title: 'tracker' },      // 보스 셋을 빼면 13종이다
+                 { n: 16, co: 8,  title: 'giantslayer' } ],
+      robot:   [ { n: 6,  co: 2 },
+                 { n: 12, co: 3,  title: 'mechanic' },
+                 { n: 18, co: 4 },
+                 { n: 24, co: 5 },
+                 { n: 30, co: 8,  title: 'hangarlord' } ],
+      part:    [ { n: 21, co: 2,  title: 'scavenger' },
+                 { n: 42, co: 3 },
+                 { n: 63, co: 5,  title: 'artificer' },
+                 { n: 84, co: 8,  title: 'forgemaster' } ],
+    },
+    all: { co: 10, sc: 500, title: 'legend' },
+    /* 칭호 이름. 키는 저장값이라 **바꾸거나 지우지 않는다** — 이름만 고친다. */
+    titles: {
+      hunter:      '사냥꾼',
+      tracker:     '전장의 추적자',
+      giantslayer: '거신 살해자',
+      mechanic:    '정비사',
+      hangarlord:  '격납고의 주인',
+      scavenger:   '고철 줍는 자',
+      artificer:   '부품 장인',
+      forgemaster: '공방장',
+      legend:      '잿빛 성단의 전설',
+    },
+  },
+
   RATING_GEAR: [
     { at:    0, n: 0, rar: 'C',   enh:  0, skillLv:  0 },
     { at: 1060, n: 1, rar: 'C',   enh:  0, skillLv:  0 },

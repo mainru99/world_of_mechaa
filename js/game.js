@@ -8,7 +8,8 @@
  * ================================================================== */
 import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR,
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST,
-         AFFIXES, TERRITORY, TERRAIN } from '../data/balance.js';
+         AFFIXES, TERRITORY, TERRAIN, PART_BASES } from '../data/balance.js';
+import { parseCodex, codexView, codexRewards, codexTitles, titleName } from './codex.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
 import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs, atkRange,
          setKeyOf, setCounts, setActive,
@@ -1603,9 +1604,21 @@ function renderTrialResult(r){
     </div>`;
 }
 
+/* 랭킹 화면은 두 갈래다 — 순위와 도감. 칭호가 순위표에 뜨므로 한자리에 둔다. */
+let _rankTab = 'rank';
+function setRankTab(k){ _rankTab = k==='codex' ? 'codex' : 'rank'; renderRank(); }
+function rankTabs(){
+  return `<div class="ttabs">
+    <button class="gtab ${_rankTab==='rank'?'on':''}" onclick="ROWAR.setRankTab('rank')"><em>🏆</em> 순위<span>대전 전적</span></button>
+    <button class="gtab ${_rankTab==='codex'?'on':''}" onclick="ROWAR.setRankTab('codex')"><em>📖</em> 도감<span>수집 · 칭호${codexDueBadge()}</span></button>
+  </div>`;
+}
+const titleChip = id => { const n=titleName(id); return n ? ` <span class="ttl">${esc(n)}</span>` : ''; };
+
 async function renderRank(){
+  if(_rankTab==='codex') return renderCodex();
   const el=$('#sc-rank');
-  const wrap = inner => `<h2 class="title">랭킹</h2>${inner}`;
+  const wrap = inner => `${rankTabs()}<h2 class="title">랭킹</h2>${inner}`;
   if(!net.state.online){
     el.innerHTML = wrap(`<div class="panel"><div class="hint">랭킹은 서버 연결이 필요합니다.</div></div>`);
     return;
@@ -1616,6 +1629,8 @@ async function renderRank(){
 
   const r = fresh ? _rankCache : await net.ranking();
   if(r && !r.error){ _rankCache=r; _rankAt=Date.now(); }
+  /* 기다리는 사이 도감 탭으로 넘어갔으면 그리지 않는다 — 늦게 온 순위표가 도감을 덮는다. */
+  if(_rankTab!=='rank') return;
   if(!r || r.error){
     el.innerHTML = wrap(`<div class="panel"><div class="hint">순위를 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
     return;
@@ -1644,7 +1659,7 @@ async function renderRank(){
   const rows = page.map(t=>`
     <tr class="${t.me?'mine':''}">
       <td class="rk">${t.rank}</td>
-      <td class="nm">${esc(t.nickname)}${t.me?' <span class="tag">나</span>':''}</td>
+      <td class="nm">${esc(t.nickname)}${titleChip(t.title)}${t.me?' <span class="tag">나</span>':''}</td>
       <td class="rt">${wr(t.wins, t.losses)}</td>
       <td class="wl">${t.wins}승 ${t.losses}패</td>
     </tr>`).join('');
@@ -1679,6 +1694,138 @@ async function renderRank(){
         <div class="hint">표에는 상위 ${fmt(list.length)}명까지 나옵니다 · 한 쪽에 ${RANK_PAGE}명</div>
       </div>
     </div>`);
+}
+
+/* ── 도감 ────────────────────────────────────────────────
+   무엇을 채웠고 무엇이 남았나. **규칙은 js/codex.js 한 곳**이다 — 서버가 보상을 줄 때도
+   같은 함수로 센다. 원본(몬스터 기록·받은 보상·칭호)만 서버에서 받고, 기체·파츠는
+   이미 들고 있는 S 를 쓴다.
+
+   못 만난 칸은 **실루엣 + 등급 + ?** 로 둔다(사용자 지시). 모양과 등급이 보이면
+   '저 자리에 무언가 있다' 가 목표가 된다. 이름·능력치는 가린다. */
+let _codexRaw = null, _codexAt = 0, _codexGroup = 'monster';
+const CODEX_TTL = 60000;
+function codexNow(){ return codexView(_codexRaw || {}, S.robots || [], S.parts || []); }
+/* 탭 머리에 붙는 '받을 보상 있음' 점. 원본을 아직 안 받았으면 안 띄운다(틀린 숫자보다 없는 게 낫다). */
+function codexDueBadge(){
+  if(!_codexRaw) return '';
+  const n = codexRewards(codexNow()).items.length;
+  return n ? ` <i class="cxdot">${n}</i>` : '';
+}
+function setCodexGroup(g){ _codexGroup = ['monster','robot','part'].includes(g) ? g : 'monster'; renderCodex(); }
+
+async function renderCodex(){
+  const el=$('#sc-rank');
+  const wrap = inner => `${rankTabs()}<h2 class="title">도감</h2>${inner}`;
+  if(!net.state.online){
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">도감은 서버 연결이 필요합니다 — 처치 기록이 서버에 있습니다.</div></div>`);
+    return;
+  }
+  if(!_codexRaw || Date.now()-_codexAt > CODEX_TTL){
+    if(!_codexRaw) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
+      <div style="font-weight:800">도감을 펼치는 중...</div></div></div>`);
+    const r = await net.codex();
+    if(r && !r.error){ _codexRaw = r.codex; _codexAt = Date.now(); }
+    if(_rankTab!=='codex') return;                 // 기다리는 사이 순위 탭으로 돌아갔다
+    else if(!_codexRaw){
+      el.innerHTML = wrap(`<div class="panel"><div class="hint">도감을 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
+      return;
+    }
+  }
+  const v = codexNow(), due = codexRewards(v), titles = codexTitles(v), cx = parseCodex(_codexRaw);
+  const G = [['monster','몬스터','👾'],['robot','기체','🤖'],['part','파츠','🔩']];
+  const bar = g => { const c=v.count[g]; const pct=Math.round(c.done/c.total*100);
+    return `<div class="cxbar"><b>${c.done}</b><span>/ ${c.total}</span><i style="width:${pct}%"></i></div>`; };
+
+  /* 보상 — 한 번에 다 받는다. 하나씩 누르게 하면 84칸짜리 파츠 도감이 버튼 84개가 된다. */
+  const dueHtml = due.items.length ? `
+    <div class="cxdue">
+      <div><b>받을 보상 ${due.items.length}건</b>
+        <span>${due.total.sc?`스크랩 +${fmt(due.total.sc)}`:''}${due.total.sc&&due.total.co?' · ':''}${due.total.co?`코어 +${due.total.co}`:''}</span>
+        <div class="hint">${due.items.slice(0,4).map(x=>esc(x.label)).join(' · ')}${due.items.length>4?` 외 ${due.items.length-4}건`:''}</div></div>
+      <button class="btn gold" onclick="ROWAR.codexClaim()">모두 받기</button>
+    </div>` : '';
+
+  /* 칭호 — 열린 것은 눌러 단다. 잠긴 것은 조건을 보여 준다(그게 다음 목표다). */
+  const GK = {monster:'몬스터', robot:'기체', part:'파츠', all:'전부'};
+  const tHtml = titles.map(t => {
+    const on = cx.t === t.id;
+    const cond = t.group==='all' ? '도감 완성' : `${GK[t.group]} ${t.need}칸`;
+    return t.got
+      ? `<button class="cxt got${on?' on':''}" onclick="ROWAR.codexTitle('${on?'':t.id}')" title="${on?'떼기':'달기'}">${esc(t.name)}${on?' ✓':''}</button>`
+      : `<span class="cxt lock" title="${cond}">🔒 ${esc(t.name)} <i>${cond}${t.have!=null?` · ${t.have}/${t.need}`:''}</i></span>`;
+  }).join('');
+
+  const tabs = G.map(([g,ko,em]) => `<button class="gtab ${_codexGroup===g?'on':''}" onclick="ROWAR.setCodexGroup('${g}')">
+      <em>${em}</em> ${ko}${bar(g)}</button>`).join('');
+
+  let body = '';
+  if(_codexGroup==='monster'){
+    body = `<div class="cxgrid">${v.monsters.map(m => {
+      const T = MONSTER_TYPES[m.id];
+      const known = m.seen > 0;
+      const state = m.done ? `처치 ${fmt(m.kills)}` : known ? '만났다 · 미처치' : '?';
+      return `<div class="cxc ${m.done?'done':known?'seen':'unk'}" data-t="${m.rarity}">
+        <div class="cxs">${sprite(m.id,false)}${known?'':'<i class="q">?</i>'}</div>
+        <div class="cxn">${known?esc(T.name):'???'}</div>
+        <div class="cxm"><span class="tag ${m.rarity==='BOSS'?'monster-tag':'rar-'+m.rarity}">${m.rarity}</span> ${state}</div>
+      </div>`; }).join('')}</div>
+      <div class="hint">몬스터는 <b>이겨야</b> 채워집니다. 대전·파견·전선·점령·시련·레이드 어디서든 됩니다.</div>`;
+  } else if(_codexGroup==='robot'){
+    body = `<div class="cxgrid">${v.robots.map(r => {
+      const T = ROBOT_TYPES[r.id];
+      return `<div class="cxc ${r.done?'done':'unk'}" data-t="${r.rarity}">
+        <div class="cxs">${sprite(r.id,false)}${r.done?'':'<i class="q">?</i>'}</div>
+        <div class="cxn">${r.done?esc(T.name):'???'}</div>
+        <div class="cxm">${robRarTag(r.id)} ${r.done?esc(T.role.split('·')[0].trim()):'?'}</div>
+      </div>`; }).join('')}</div>
+      <div class="hint">한 번이라도 가져 본 기체는 분해해도 도감에 남습니다.</div>`;
+  } else {
+    /* 파츠는 21종 × 4등급 표. 카드 84장보다 '어느 종류의 어느 등급이 비었나' 가 한눈에 읽힌다. */
+    const RARS = RARITY.map(r=>r.k);
+    const bySlot = {};
+    for(const p of v.parts){ ((bySlot[p.slot] ||= {})[p.base] ||= {})[p.rarity] = p.done; }
+    body = `<table class="cxpt"><thead><tr><th>파츠</th>${RARS.map(r=>`<th><span class="tag rar-${r}">${r}</span></th>`).join('')}</tr></thead><tbody>
+      ${SLOTS.map(sl => `<tr class="sl"><td colspan="${RARS.length+1}">${SLOT_KO[sl]}</td></tr>` +
+        Object.entries(bySlot[sl]||{}).map(([b,row]) => {
+          const any = RARS.some(r=>row[r]);
+          return `<tr><td class="pb">${any?esc(PART_BASES[b].ko):'???'}</td>${RARS.map(r =>
+            `<td class="${row[r]?'on':'off'}">${row[r]?'●':'?'}</td>`).join('')}</tr>`; }).join('')
+      ).join('')}
+      </tbody></table>
+      <div class="hint">가져 본 적이 있으면 채워집니다. 도감이 생기기 전에 분해한 파츠는 다시 얻어야 합니다.</div>`;
+  }
+
+  el.innerHTML = wrap(`
+    ${dueHtml}
+    <div class="panel"><div class="dh">칭호 <span class="hint">순위표에 이름과 함께 뜹니다</span></div>
+      <div class="cxts">${tHtml}</div></div>
+    <div class="ttabs cx3">${tabs}</div>
+    <div class="panel">${body}</div>`);
+}
+
+async function codexClaim(){
+  const r = await net.codex('claim');
+  if(!r || r.error){
+    if(r && r.status===409){ _codexAt = 0; await renderCodex(); toast('기록이 방금 바뀌었습니다 — 다시 눌러 주세요'); return; }
+    toast('보상을 받지 못했습니다'+(r&&r.error?' · '+r.error:'')); return;
+  }
+  S.cores = r.cores; S.scrap = r.scrap;
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  net.cancelSync();
+  const cx = parseCodex(_codexRaw); for(const x of r.claimed) cx.c[x.key]=1; _codexRaw = cx;
+  renderWallet(); renderCodex();
+  const t = r.claimed.filter(x=>x.title).map(x=>titleName(x.title)).filter(Boolean);
+  toast(`도감 보상 ${r.claimed.length}건 · ${r.total.sc?'스크랩 +'+fmt(r.total.sc):''}${r.total.sc&&r.total.co?' · ':''}${r.total.co?'코어 +'+r.total.co:''}`
+        + (t.length?` · 칭호 「${t.join('」「')}」 열림`:''));
+}
+async function codexTitle(id){
+  const r = await net.codex('title', { id: id || null });
+  if(!r || r.error){ toast('칭호를 바꾸지 못했습니다'+(r&&r.error?' · '+r.error:'')); return; }
+  const cx = parseCodex(_codexRaw); cx.t = r.title; _codexRaw = cx;
+  dropRankCache();                               // 순위표에 뜨는 칭호가 바뀌었다
+  renderCodex();
+  toast(r.title ? `칭호 「${titleName(r.title)}」 을(를) 달았습니다` : '칭호를 뗐습니다');
 }
 
 /* 상대는 서버가 고른다. 상대 레벨이 보상에 들어가므로 클라가 고르게 두면
@@ -3089,6 +3236,7 @@ window.ROWAR = {
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
   duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,
+  setRankTab, setCodexGroup, codexClaim: guard(codexClaim, 1000), codexTitle: guard(codexTitle, 800),
   practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
   setTactic,
   sendExped: guard(sendExped), claimExped: guard(claimExped),
@@ -3135,6 +3283,7 @@ async function syncOnConnect(){
   const adopt = msg => {
     S = normalize(remote.state);
     takeBand(remote.band);
+    if(remote.codex) _codexRaw = remote.codex;
     save();
     net.cancelSync();                        // 방금 받은 걸 도로 올릴 필요는 없다
     renderAll();
@@ -3333,7 +3482,7 @@ async function doRegister(){
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 async function afterLogin(r){
   const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
-  if(remote){ S=normalize(remote.state); takeBand(remote.band); save(); net.cancelSync(); }
+  if(remote){ S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex; save(); net.cancelSync(); }
   renderAcct(); renderGate(); renderAll();
   toast(r.loginId+' 으로 로그인했습니다');
 }

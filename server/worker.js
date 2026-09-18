@@ -23,6 +23,7 @@ import { hangarAction } from './hangar.js';
 import { trialView, trialRun } from './trial.js';
 import { raidView, raidRun } from './raid.js';
 import { frontState, frontRun } from './front.js';
+import { codexRun, codexGet } from './codex.js';
 import { sendExped, claimExped } from './expedition.js';
 import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion, migrateArena } from './arena.js';
@@ -348,6 +349,21 @@ async function handleApi(request, env, url) {
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
     let fbody; try { fbody = await request.json(); } catch { fbody = {}; }
     const r = await frontRun(env, sess.account_id, fbody, Date.now());
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+
+  /* 도감. 보는 것은 /api/state 로 이미 온다(도감 원본 + 기체·파츠). 여기는 **바꾸는 것**만 —
+     보상 받기와 칭호 달기. 무엇을 받을 수 있는지는 서버가 js/codex.js 로 다시 센다. */
+  if (path === '/codex' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    return json(await codexGet(env, sess.account_id));
+  }
+  if (path === '/codex' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let cbody; try { cbody = await request.json(); } catch { cbody = {}; }
+    const r = await codexRun(env, sess.account_id, Date.now(), cbody);
     return json(r, r.ok ? 200 : (r.status || 400));
   }
 

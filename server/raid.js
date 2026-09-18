@@ -8,6 +8,7 @@
  *   ② 하루 횟수를 서버가 센다. 클라가 보내는 값은 아무것도 믿지 않는다 —
  *      도전 요청에 실리는 것은 '도전한다' 는 사실뿐이다.
  */
+import { codexMonsterStmt } from './codex.js';
 import { computeStats, power } from '../js/stats.js';
 import { weekOf, weekEnd, raidOf, runRaid, raidSeeds, raidReward,
          raidLeft, raidDaily, dayOf } from '../js/raid.js';
@@ -170,6 +171,9 @@ export async function raidRun(env, acc, now) {
   if (kill) stmts.push(env.DB.prepare(
     'UPDATE raid SET killed_at = ?1, killer = ?2 WHERE week = ?3 AND killed_at IS NULL')
     .bind(now, f.player.nickname, r.week));
+  /* 도감 — 보스를 만났고, 마지막 일격을 넣었으면 처치다. */
+  const cs = codexMonsterStmt(env.DB, acc, [{ type: r.boss, win: kill }]);
+  if (cs) stmts.push(cs);
   await env.DB.batch(stmts);
 
   const after = await raidView(env, acc, now);

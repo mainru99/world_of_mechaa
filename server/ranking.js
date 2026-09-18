@@ -54,11 +54,11 @@ async function loadStats(env) {
 /* 조회 비용을 상수로 묶는다 — 상위 50행 + 내 1행 + 통계 1행. 인원이 늘어도 그대로다. */
 export async function ranking(env, accountId) {
   const top = (await env.DB.prepare(
-    `SELECT account_id, nickname, rating, wins, losses
+    `SELECT account_id, nickname, rating, wins, losses, json_extract(codex, '$.t') AS title
        FROM player ORDER BY rating DESC, account_id LIMIT ?1`).bind(TOP_N).all()).results || [];
 
   const me = await env.DB.prepare(
-    `SELECT nickname, rating, wins, losses, rank_cached, rank_at
+    `SELECT nickname, rating, wins, losses, rank_cached, rank_at, json_extract(codex, '$.t') AS title
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!me) return { ok: false, status: 404, error: 'no player' };
 
@@ -86,9 +86,12 @@ export async function ranking(env, accountId) {
     top: top.map((r, i) => ({
       rank: i + 1, nickname: r.nickname, rating: r.rating,
       wins: r.wins, losses: r.losses, me: r.account_id === accountId,
+      /* 도감 칭호. 이름이 아니라 키를 내린다 — 이름은 화면이 CONST.CODEX.titles 에서 찾는다
+         (이름을 고쳐도 저장값이 안 바뀌게). 없는 키면 titleName 이 null 이라 안 뜬다. */
+      title: r.title || null,
     })),
     me: {
-      nickname: me.nickname, rating: me.rating, wins: me.wins, losses: me.losses,
+      nickname: me.nickname, rating: me.rating, wins: me.wins, losses: me.losses, title: me.title || null,
       rank, live,                      // live = 캐시가 아니라 지금 센 값
       rank_at: me.rank_at || null,
     },

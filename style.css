@@ -1328,3 +1328,53 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .bandgoal .bgm i.neg{background:var(--bad);border-color:var(--bad)}
 .result .r.bandup{color:var(--gold,#f5c542);font-weight:900;font-size:1.08em;letter-spacing:.02em}
 .result .r.banddn{color:var(--bad);font-weight:700}
+
+/* ── 도감 (2026-09-18) ─────────────────────────────────────
+   못 만난 칸은 실루엣 + 등급 + ?. 스프라이트를 검게 칠하고(brightness 0) 윤곽만 남긴다. */
+.cxdot,.gtab .cxdot{display:inline-block;width:auto;min-width:16px;height:16px;padding:0 4px;margin-left:4px;border-radius:8px;
+  background:var(--bad);color:#fff;font-size:10px;font-style:normal;line-height:16px;text-align:center;vertical-align:1px}
+.cxdue{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:12px 14px;
+  border-radius:12px;border:1px solid rgba(255,210,74,.45);background:linear-gradient(180deg,rgba(255,210,74,.10),rgba(255,210,74,.03))}
+.cxdue b{color:var(--gold);margin-right:8px}
+.cxdue span{font-weight:700}
+.cxdue .hint{margin-top:3px}
+.cxts{display:flex;flex-wrap:wrap;gap:6px}
+.cxt{font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;border:1px solid var(--line,#2a3450);background:rgba(255,255,255,.03)}
+.cxt.got{cursor:pointer;color:var(--ink);border-color:rgba(255,210,74,.5)}
+.cxt.got:hover{background:rgba(255,210,74,.10)}
+.cxt.on{background:rgba(255,210,74,.18);color:var(--gold);border-color:var(--gold)}
+.cxt.lock{color:var(--dim);font-weight:700}
+.cxt.lock i{font-style:normal;font-weight:600;font-size:11px;opacity:.8;margin-left:4px}
+.ttabs.cx3{grid-template-columns:1fr 1fr 1fr}
+.cx3 .gtab{text-align:left}
+.cxbar{position:relative;display:flex;align-items:baseline;gap:4px;margin-top:6px;padding-bottom:6px;font-size:12px}
+.cxbar b{font-size:15px}
+.cxbar span{color:var(--dim);font-weight:600}
+.cxbar i{position:absolute;left:0;bottom:0;height:3px;border-radius:2px;background:var(--acc);max-width:100%}
+.cxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px;margin-bottom:10px}
+.cxc{border:1px solid var(--line,#2a3450);border-radius:12px;padding:8px 8px 10px;text-align:center;background:rgba(255,255,255,.02)}
+.cxc.done{border-color:rgba(123,240,255,.35);background:rgba(123,240,255,.04)}
+.cxs{position:relative;height:84px;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.cxs img,.cxs svg,.cxs canvas{max-height:84px;max-width:100%}
+.cxc.unk .cxs>*:not(.q){filter:brightness(0) contrast(1);opacity:.55}
+.cxc.seen .cxs>*:not(.q){filter:saturate(.25) brightness(.8)}
+.cxs .q{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-style:normal;
+  font-size:34px;font-weight:900;color:rgba(255,255,255,.55);text-shadow:0 2px 8px rgba(0,0,0,.6)}
+.cxn{font-weight:800;font-size:12.5px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cxc.unk .cxn{color:var(--dim);letter-spacing:.12em}
+.cxm{font-size:11px;color:var(--dim);margin-top:3px;font-weight:600}
+.cxpt{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px}
+.cxpt th{padding:6px 4px;text-align:center;font-weight:700;color:var(--dim)}
+.cxpt th:first-child{text-align:left}
+.cxpt td{padding:5px 4px;text-align:center;border-top:1px solid rgba(255,255,255,.05)}
+.cxpt td.pb{text-align:left;font-weight:700}
+.cxpt tr.sl td{padding-top:10px;text-align:left;font-size:11px;color:var(--acc2);font-weight:800;letter-spacing:.08em;border-top:none}
+.cxpt td.on{color:var(--good);font-size:14px}
+.cxpt td.off{color:rgba(255,255,255,.22);font-weight:800}
+.ttl{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 7px;margin-left:4px;border-radius:6px;
+  color:var(--gold);border:1px solid rgba(255,210,74,.45);background:rgba(255,210,74,.08);vertical-align:1px}
+@media (max-width:560px){
+  .cxdue{flex-direction:column;align-items:stretch}
+  .cxgrid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+  .cxs{height:68px}
+}

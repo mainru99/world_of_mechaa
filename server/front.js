@@ -11,6 +11,8 @@
  * 읽는 행 — player 1 + robot N + part N. 점령전 한 번과 같다.
  * 진행은 `player.campaign` 한 칸이라 **표가 늘지 않는다**(마이그레이션 016).
  */
+import { codexMonsterStmt } from './codex.js';
+import { codexLines } from '../js/breach.js';
 import { CONST, ROBOT_TYPES, SLOTS } from '../data/balance.js';
 import { computeStats, fatOf, decayFat, gainExp, addFat, battleExp } from '../js/stats.js';
 import { applyTerrain, runBreach, maxRounds } from '../js/breach.js';
@@ -150,6 +152,9 @@ export async function frontRun(env, acc, body, now) {
   stmts.push(env.DB.prepare(
     'UPDATE player SET credits=?1, scrap=?2, campaign=?3, rev=?4, updated_at=?5 WHERE account_id=?6')
     .bind(credits, scrap, campaign, rev, now, acc));
+  /* 도감 — 닿은 방어선마다 한 번 만났고, 뚫은 방어선은 처치다. */
+  const cs = codexMonsterStmt(env.DB, acc, codexLines(lines, r.rounds));
+  if (cs) stmts.push(cs);
   await env.DB.batch(stmts);
 
   return { ok: true, rev, win: r.win, cell: cell.id, first: !!gain,

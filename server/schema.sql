@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS player (
   -- NULL 은 '아직 한 번도 안 봤다' 이고 코드가 빈 진행으로 읽는다.
   -- 표를 따로 두지 않는 이유는 D1 과금이 읽은 행 기준이라서다(016 주석).
   campaign    TEXT,
-  codex       TEXT,                            -- 도감. 아직 아무도 안 읽는다
+  codex       TEXT,                            -- 도감(JSON). 모양은 js/codex.js 머리말. 기체·파츠는 트리거(018)가 적는다
 
   -- 대전 몬스터 구간(017). 몬스터 판 승패로 오르내린다 — +5 승급 · −3 강등.
   -- NULL 은 '아직 안 잡혔다' 이고 첫 대전에서 레이팅으로 자리를 잡는다.
@@ -317,7 +317,24 @@ CREATE TABLE IF NOT EXISTS raid_hit (
 );
 CREATE INDEX IF NOT EXISTS ix_raid_hit ON raid_hit(week, damage DESC);
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '17');
+-- ── 도감 트리거(018) — 기체·파츠가 들어오면 player.codex 에 적는다. 설명은 migrations/018 ──
+CREATE TRIGGER IF NOT EXISTS codex_part AFTER INSERT ON part
+WHEN NEW.base IS NOT NULL
+BEGIN
+  UPDATE player
+     SET codex = json_set(COALESCE(codex, '{}'), '$.p.' || json_quote(NEW.base || ':' || NEW.rarity), 1)
+   WHERE account_id = NEW.account_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS codex_robot AFTER INSERT ON robot
+BEGIN
+  UPDATE player
+     SET codex = json_set(COALESCE(codex, '{}'), '$.r.' || json_quote(NEW.type), 1)
+   WHERE account_id = NEW.account_id;
+END;
+
+
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '18');
 
 
 -- =========================================================

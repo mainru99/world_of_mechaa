@@ -15,6 +15,7 @@ import { computeStats, power, gainExp, addFat, fatOf, decayFat,
          sortieCost, rescueCredits } from '../js/stats.js';
 import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickTactic,
          bandStart, bandStep, bandGoal } from '../js/rewards.js';
+import { codexMonsterStmt } from './codex.js';
 import { registerArena, pickOpponentFromArena, pickOpponentByNickname, ratingDelta } from './arena.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 import { PART_COLS, partOf, insertPart } from './parts.js';
@@ -379,6 +380,12 @@ export async function startBattle(env, accountId, now, body) {
       .bind(accountId, opp.accountId, String(seed),
             JSON.stringify(statP), JSON.stringify(statE),
             win ? accountId : opp.accountId, delta, now));
+  }
+
+  /* 도감 — 몬스터와 싸웠으면 만난 수·처치 수를 적는다(대전·토벌·비상 출격 모두). */
+  if (opp.kind === 'monster') {
+    const cs = codexMonsterStmt(env.DB, accountId, [{ type: opp.type, win }]);
+    if (cs) stmts.push(cs);
   }
 
   await env.DB.batch(stmts);

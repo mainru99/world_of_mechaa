@@ -13,7 +13,8 @@
 import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
 import { computeStats, power, gainExp, addFat, fatOf, decayFat,
          sortieCost, rescueCredits } from '../js/stats.js';
-import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickTactic } from '../js/rewards.js';
+import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickTactic,
+         bandStart, bandStep, bandGoal } from '../js/rewards.js';
 import { registerArena, pickOpponentFromArena, pickOpponentByNickname, ratingDelta } from './arena.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 import { PART_COLS, partOf, insertPart } from './parts.js';
@@ -31,7 +32,7 @@ const COMBAT = { ...ROBOT_TYPES, ...MONSTER_TYPES };
    나갈 수 있는 것은 편성(squad1/squad2)에 든 두 기뿐이다. */
 async function loadFighter(env, accountId) {
   const p = await env.DB.prepare(
-    'SELECT sel_robot, credits, rating, squad1, squad2 FROM player WHERE account_id = ?1')
+    'SELECT sel_robot, credits, rating, mband, mband_pts, squad1, squad2 FROM player WHERE account_id = ?1')
     .bind(accountId).first();
   const robots = (await env.DB.prepare(
     'SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
@@ -58,6 +59,9 @@ async function loadFighter(env, accountId) {
     row,
     credits: p ? p.credits : 0,
     rating: p && p.rating != null ? p.rating : 1000,   // 상대 장비를 여기에 맞춘다
+    /* 대전 몬스터 구간과 승급 점수. 칸이 비었으면 레이팅으로 자리를 잡는다(bandStart). */
+    band: bandStart(p && p.mband, p && p.rating != null ? p.rating : 1000),
+    bandPts: (p && p.mband_pts) | 0,
     robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots },
     parts: used,
     /* 상대 등급 보정은 '보유한' 기체 전부를 본다 — 편성에 없어도 내 전력이다 */
@@ -158,7 +162,7 @@ async function preparePending(env, accountId, me, now, credits, opts) {
   }
   /* 상대 장비는 **내 레이팅**에 맞춘다. 내가 낀 파츠를 따라가면 좋은 파츠를 껴도
      상대가 같이 세져 이득이 즉시 상쇄된다(data/balance.js 의 RATING_GEAR 주석 참고). */
-  if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid, rescue, me.rating);
+  if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid, rescue, me.rating, me.band);
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
 
   const T = COMBAT[opp.type];
@@ -174,6 +178,8 @@ async function preparePending(env, accountId, me, now, credits, opts) {
       /* 몬스터 구간 — 화면이 '지금 몇 구간을 상대하고 있나' 를 보여 준다.
          목표가 보여야 파밍에 방향이 생긴다(CONST.MON_BAND). */
       band: opp.band ?? null, bandTotal: (CONST.MON_BAND || []).length || null,
+      /* 승급까지 몇 승 · 강등까지 몇 패. 몬스터일 때만 뜻이 있다 — 비상 출격은 안 움직인다. */
+      bandGoal: opp.kind === 'monster' && !rescue ? bandGoal(me.band, me.bandPts) : null,
     },
   };
 }
@@ -318,6 +324,17 @@ export async function startBattle(env, accountId, now, body) {
   const losses = prow.losses + (duel ? 0 : win ? 0 : 1);
   const rev = prow.rev + 1;
 
+  /* ── 대전 몬스터 구간 ── 몬스터 판 승패로 오르내린다(CONST.MON_BAND_STEP).
+     **아레나의 정상 출격만** 센다. 비상 출격은 구제 장치라 벌이 되면 안 되고,
+     토벌은 등급을 내가 고르는 콘텐츠라 성적으로 볼 수 없다(레이팅과 같은 이유).
+     다음 상대를 잡기 **전에** 움직여야 승급한 판 바로 다음부터 새 구간 몬스터가 나온다. */
+  let bandMove = null;
+  if (mode === 'arena' && !rescue && opp.kind === 'monster') {
+    const st = bandStep(me.band, me.bandPts, win);
+    bandMove = { from: me.band, to: st.band, moved: st.moved };
+    me.band = st.band; me.bandPts = st.pts;
+  }
+
   /* 다음 상대를 지금 잡아 둔다. 레벨이 올랐을 수 있으니 정산 뒤에 고른다.
      pending_match 는 어차피 이 UPDATE 에서 건드리므로 쓰기가 늘지 않는다. */
   /* '한 판 더' 는 같은 등급을 계속 사냥한다. 돈이 떨어지면 조용히 아레나로 되돌아간다. */
@@ -332,8 +349,9 @@ export async function startBattle(env, accountId, now, body) {
     .bind(me.robot.level, me.robot.exp, me.robot.fat, me.robot.fatAt, me.row.id));
   stmts.push(env.DB.prepare(
     `UPDATE player SET credits=?1, cores=?2, scrap=?3, wins=?4, losses=?5, rev=?6,
-       pending_match=?7, updated_at=?8 WHERE account_id=?9`)
-    .bind(credits, cores, scrap, wins, losses, rev, next.json, now, accountId));
+       pending_match=?7, updated_at=?8, mband=?10, mband_pts=?11 WHERE account_id=?9`)
+    .bind(credits, cores, scrap, wins, losses, rev, next.json, now, accountId,
+          me.band, me.bandPts));
 
   /* 레이팅은 **아레나에서만** 움직인다.
        · 사람 상대      — 겨루기의 본체라 폭이 크다 (K = RATING_K.pvp)
@@ -378,6 +396,8 @@ export async function startBattle(env, accountId, now, body) {
     opponent: { kind: opp.kind, type: opp.type, level: opp.level, skillLv: opp.skillLv | 0,
                 callsign: opp.callsign, parts: opp.parts, slots: opp.slots },
     ratingDelta: delta,
+    /* 구간 변화 — moved: +1 승급 · −1 강등 · 0 그대로. 몬스터 판이 아니면 null. */
+    band: bandMove && { ...bandMove, ...bandGoal(me.band, me.bandPts) },
     reward: { cr: rw.cr, sc: rw.sc, core: rw.core, part: rw.part,
               lv: { amt: lv.amt, from: lv.from, to: lv.to }, fat: { add: fatAdd, now: fatOf(me.robot) } },
     cost, rescue, mode, tier,              // 이번 판에 실제로 낸 출격비와 모드

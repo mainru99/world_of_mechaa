@@ -139,6 +139,11 @@ CREATE TABLE IF NOT EXISTS player (
   campaign    TEXT,
   codex       TEXT,                            -- 도감. 아직 아무도 안 읽는다
 
+  -- 대전 몬스터 구간(017). 몬스터 판 승패로 오르내린다 — +5 승급 · −3 강등.
+  -- NULL 은 '아직 안 잡혔다' 이고 첫 대전에서 레이팅으로 자리를 잡는다.
+  mband       INTEGER,
+  mband_pts   INTEGER NOT NULL DEFAULT 0,
+
   -- 레벨은 기체가 아니라 **파일럿**의 것이다. 보유한 기체는 전부 이 레벨로 싸운다.
   -- 예전에는 기체별이었는데, 경험치가 출전한 기체에만 들어가 두 번째 기체를 키울 수가
   -- 없었다(Lv.30 하나에 84판). 그래서 기체 30종과 그 대항 스킬이 전부 죽어 있었다.
@@ -312,7 +317,7 @@ CREATE TABLE IF NOT EXISTS raid_hit (
 );
 CREATE INDEX IF NOT EXISTS ix_raid_hit ON raid_hit(week, damage DESC);
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '16');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '17');
 
 
 -- =========================================================

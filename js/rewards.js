@@ -93,24 +93,69 @@ export function partLevelValue(myParts, myLevel) {
 
 /* 레이팅 → 상대가 낄 장비. **내 장비를 보지 않는다.**
    왜 이렇게 바꿨는지는 data/balance.js 의 RATING_GEAR 주석에 적었다. */
-/* 레이팅 → 대전 몬스터 구간. 표가 없으면 null (옛 방식으로 떨어진다). */
+/* ── 대전 몬스터 구간 — **몬스터 판 승패로 오르내린다** ─────────────
+   처음에는 레이팅으로 골랐다. 그런데 레이팅은 몬스터 판에서 **움직이지 않는다**
+   (server/battle.js — 레이팅은 생성 로봇·사람 상대에서만 움직인다). 그래서 구간이
+   몬스터를 이기든 지든 상관없이 로봇 판 성적으로만 정해졌고, 실측하니
+   앞 구간은 승률 94~100%, 뒤 구간은 4~42% 였다 — 구간이 내 실력을 전혀 따라오지 않았다.
+
+   그래서 구간을 **자기 점수**로 움직인다. 이 구간 몬스터를 이기면 +1, 지면 −1.
+     +up(5)   에 닿으면 승급 — 다음 구간, 점수 0 에서 다시
+     −down(3) 에 닿으면 강등 — 앞 구간, 점수 0 에서 다시
+   **이겨야 오른다**는 약속은 그대로다. 그리고 구간을 올리는 것이 **그 구간의 몬스터를
+   이긴 것**이 되어, 구간이 곧 '몬스터를 이길 수 있는 세기'가 된다.
+
+   올라가는 데 5 · 내려가는 데 3 인 이유 — 들어가자마자 한 판 지고 되돌아오면
+   '이길 판과 질 판이 번갈아 오는' 대기가 된다(tools/bandwalk.mjs 가 잰다).
+   반대로 강등이 너무 멀면 못 이기는 구간에 갇힌다. 3 이 그 사이다. */
+
+/* 몇 번째 구간(1부터)의 줄. 표가 없으면 null. */
+export function bandRow(i) {
+  const T = CONST.MON_BAND;
+  if (!T || !T.length || !Number.isFinite(i)) return null;
+  const k = Math.max(1, Math.min(T.length, i | 0));
+  return { ...T[k - 1], i: k, total: T.length };
+}
+
+/* 레이팅 → 구간. **처음 한 번 자리를 잡을 때만** 쓴다(구간 칸이 비어 있는 계정).
+   그 뒤로는 bandStep 이 움직인다. 레이팅을 모르는 호출부(배열을 넘기는 옛 도구)는 null. */
 export function bandOf(rating) {
   const T = CONST.MON_BAND;
-  /* 레이팅을 모르는 호출부(배열을 넘기는 옛 도구·오프라인 연습)는 구간제를 쓰지 않는다 —
-     거기서 1000 으로 넘겨 버리면 전부 1구간 몬스터를 만나게 된다. */
   if (!T || !T.length || !Number.isFinite(rating)) return null;
-  const r = rating;
-  let out = T[0], i = 1;
-  T.forEach((row, k) => { if (r >= (row.at || 0)) { out = row; i = k + 1; } });
-  return { ...out, i, total: T.length };
+  let i = 1;
+  T.forEach((row, k) => { if (rating >= (row.at || 0)) i = k + 1; });
+  return bandRow(i);
 }
-/* 다음 구간까지 얼마나 남았나 — 화면이 '목표'를 보여 주는 데 쓴다. */
-export function bandNext(rating) {
-  const T = CONST.MON_BAND;
-  if (!T || !T.length) return null;
-  const r = Number.isFinite(rating) ? rating : 1000;
-  for (const row of T) if (r < (row.at || 0)) return { at: row.at, left: row.at - r };
-  return null;
+
+/* 구간 칸이 비었으면 레이팅으로 자리를 잡는다 — 이 기능을 넣기 전의 계정이 어제 보던
+   구간에서 그대로 시작하게 한다. 잘못 잡혀도 몇 판 안에 점수가 바로잡는다. */
+export function bandStart(band, rating) {
+  if (Number.isFinite(band) && band >= 1) return bandRow(band)?.i ?? 1;
+  return bandOf(Number.isFinite(rating) ? rating : 1000)?.i ?? 1;
+}
+
+/* 한 판 뒤의 구간과 점수. moved: +1 승급 · −1 강등 · 0 그대로.
+   끝 구간에서는 더 오를 데가 없고, 첫 구간에서는 더 내려갈 데가 없다 —
+   그때 점수를 문턱 한 칸 앞에서 멈춰 둔다(무한히 쌓였다가 한 번에 쏟아지지 않게). */
+export function bandStep(band, pts, win) {
+  const T = CONST.MON_BAND || [];
+  const S = CONST.MON_BAND_STEP || { up: 5, down: 3 };
+  let b = Math.max(1, Math.min(T.length || 1, band | 0 || 1));
+  let p = (pts | 0) + (win ? 1 : -1), moved = 0;
+  if (p >= S.up && b < T.length) { b++; p = 0; moved = 1; }
+  else if (p <= -S.down && b > 1) { b--; p = 0; moved = -1; }
+  else p = Math.max(-S.down + 1, Math.min(S.up - 1, p));
+  return { band: b, pts: p, moved };
+}
+
+/* 화면이 '목표'를 보여 주는 데 쓴다 — 승급까지 몇 승, 강등까지 몇 패. */
+export function bandGoal(band, pts) {
+  const T = CONST.MON_BAND || [];
+  const S = CONST.MON_BAND_STEP || { up: 5, down: 3 };
+  const b = Math.max(1, Math.min(T.length || 1, band | 0 || 1));
+  return { band: b, total: T.length, pts: pts | 0,
+           up: b < T.length ? S.up - (pts | 0) : null,
+           down: b > 1 ? S.down + (pts | 0) : null };
 }
 
 export function gearFromRating(rating) {
@@ -126,7 +171,7 @@ export function gearFromRating(rating) {
    여섯 번째 인자는 **레이팅**이다. 예전에는 '내가 낀 파츠'였는데, 그러면 장비를 갖출수록
    상대도 같이 세져 이득이 즉시 상쇄됐다(거울 대치). 배열이 들어오면 예전 방식으로
    품질을 뽑아 쓴다 — 레이팅을 모르는 호출부(오프라인 연습·옛 도구)를 위한 길이다. */
-export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rating) {
+export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rating, band) {
   /* 배열이면 '내가 낀 파츠'로 본다 — 레이팅을 모르는 옛 호출부(검증 도구)를 위한 길이다.
      그 밖에는 레이팅으로 본다. 레이팅 0 이면 장비 없음이 되므로 tools/match.mjs 가
      '맨몸 플레이어'로 쓰는 0 도 그대로 맞는다. */
@@ -148,9 +193,11 @@ export function makeOpponent(ownedRarities, myLevel, rnd, uid, forceMonster, rat
        **구간 안에서 몬스터는 고정이다.** 내 레벨을 따라가지 않는다 — 그게 이 개편의
        전부다. 레이팅이 구간을 정하고, 구간 안에서 내 성장은 온전히 남는다.
        그리고 **몬스터도 파츠를 낀다.** 예전에는 못 껴서 그 몫을 전부 레벨로 갚았고
-       (partLevelValue), 끝판에서 레벨 상한 90 에 부딪혀 더 세울 자리가 없었다. */
-    const band = bandOf(rating);
-    if (band) {
+       (partLevelValue), 끝판에서 레벨 상한 90 에 부딪혀 더 세울 자리가 없었다.
+       일곱째 인자 band 가 구간이다(bandStep 이 움직인다). 없으면 레이팅으로 자리를 잡는다. */
+    const row = Number.isFinite(band) && band >= 1 ? bandRow(band) : bandOf(rating);
+    if (row) {
+      const band = row;
       const bt = pickOpponentType(ownedRarities, MONSTER_BY_RARITY, rnd, myLevel, band.rars);
       const lv = clamp(band.lv + jit, 1, oppLvMax());
       const bp = [], bs = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };

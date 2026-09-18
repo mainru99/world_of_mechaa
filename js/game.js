@@ -25,7 +25,7 @@ import { FRONT_CELLS, readProgress, writeProgress, clearedCount, cellIndex, cell
 import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
          fuseCheck, fuseCost, fuseUpRate, nextRarity } from './gacha.js';
-import { makeOpponent as _makeOpponent, pickTactic } from './rewards.js';
+import { makeOpponent as _makeOpponent, pickTactic, bandStart, bandGoal } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 
@@ -1310,6 +1310,11 @@ function myRating(){
   const me = _rankCache && _rankCache.me;
   return (me && Number.isFinite(me.rating)) ? me.rating : 1000;
 }
+/* 대전 몬스터 구간과 승급 점수. 서버가 정본이다 — 불러올 때와 몬스터 판이 끝날 때 받아 적는다.
+   i 가 null 이면 아직 안 잡힌 계정이고, 서버와 같은 규칙(bandStart)으로 레이팅에서 자리를 본다. */
+let _band = { i:null, pts:0 };
+function takeBand(b){ if(b && typeof b==='object') _band = { i: b.i ?? b.to ?? _band.i, pts: b.pts|0 }; }
+function myBand(){ return bandStart(_band.i, myRating()); }
 const RANK_TTL = 90000;
 /* 캐시를 버릴 때 페이지도 되돌린다 — 순위가 움직였으면 다시 '내가 있는 쪽'을 열어야 한다 */
 function dropRankCache(){ _rankCache=null; _rankAt=0; _rankPage=null; }
@@ -1702,7 +1707,7 @@ async function findMatch(opts){
 function setPending(o, cost, rescue, tier, mode, duel){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, skillLv:o.skillLv|0, fat:0, slots:o.slots },
-    parts:o.parts, band:o.band||null, bandTotal:o.bandTotal||null,
+    parts:o.parts, band:o.band||null, bandTotal:o.bandTotal||null, bandGoal:o.bandGoal||null,
     cost:cost|0, rescue:!!rescue, tier:tier||null, mode:mode||null,
     /* 지목 대전이면 상대 편성 목록과 지금 고른 칸을 함께 들고 다닌다 —
        상대 카드에서 바로 다른 기체로 바꿔 끼울 수 있어야 하기 때문이다. */
@@ -1884,10 +1889,11 @@ function makeOpponent(){
   /* 상대 장비는 **내 레이팅**에 맞춘다 — 내가 낀 파츠가 아니라.
      연습 대전이라 서버에 묻지 않고, 랭킹 화면이 받아 둔 값이 있으면 쓴다.
      없으면 시작 레이팅(1000)으로 본다. 규칙은 서버와 같은 함수(js/rewards.js)다. */
-  const o=_makeOpponent(owned, my.level, R, ()=>'E'+uid(), false, myRating());
+  const o=_makeOpponent(owned, my.level, R, ()=>'E'+uid(), false, myRating(), myBand());
   const rb={uid:'E'+uid(), type:o.type, level:o.level, skillLv:o.skillLv|0, slots:o.slots};
   return {kind:o.kind==='monster'?'monster':'robot', robot:rb, parts:o.parts, callsign:o.callsign,
-          band:o.band||null, bandTotal:(CONST.MON_BAND||[]).length||null};
+          band:o.band||null, bandTotal:(CONST.MON_BAND||[]).length||null,
+          bandGoal:o.kind==='monster'?bandGoal(myBand(), _band.pts):null};
 }
 /* 상대 카드.
    전투력만 보여 주면 '이길지 질지'만 알 뿐 **무엇을 바꿀지**를 알 수 없다.
@@ -1926,6 +1932,7 @@ function showOpponent(opp, practice){
             opp.kind==='player'?' <span class="tag" style="color:var(--acc2)">플레이어</span>':''}</div>
           <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}${
             opp.band?` · <span class="bandtag">구간 ${opp.band}/${opp.bandTotal||12}</span>`:''}</div>
+          ${bandLine(opp.bandGoal)}
           <div style="margin-top:6px;font-weight:800;color:var(--bad)">전투력 ${fmt(oPow)} <span style="color:var(--dim);font-weight:600">/ 나 ${fmt(myPow)}</span></div>
         </div>
       </div>
@@ -2077,7 +2084,9 @@ function applyServerBattle(r, rb){
   if(r.reward.part) addPart(r.reward.part);
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
                 lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
-                ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue, duel:r.mode==='duel' };
+                ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue, duel:r.mode==='duel',
+                band:r.band||null };
+  if(r.band) takeBand(r.band);
   if(r.ratingDelta) dropRankCache();     // 내 순위가 실제로 움직였다
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();                              // 서버가 이미 최신이다
@@ -2097,6 +2106,25 @@ function battleRewards(win,enemyLv){
     S.stat.wins++; save(); return {win,cr,sc,core,part,lv,fat,rname}; }
   const cr=40+ri(0,20), sc=6; S.credits+=cr; S.scrap+=sc; S.stat.losses++; save();
   return {win,cr,sc,core:0,part:null,lv,fat,rname};
+}
+
+/* 구간 목표 한 줄 — '승급까지 3승 · 강등까지 2패'.
+   구간제의 약속은 '이기면 오른다' 이고, 그게 보여야 파밍에 방향이 생긴다. */
+function bandText(g){
+  if(!g) return '';
+  const up = g.up==null ? '끝 구간' : `승급까지 ${g.up}승`;
+  const dn = g.down==null ? '' : ` · 강등까지 ${g.down}패`;
+  return `구간 ${g.band}/${g.total} · ${up}${dn}`;
+}
+function bandLine(g){
+  if(!g) return '';
+  const S_ = CONST.MON_BAND_STEP || {up:5, down:3};
+  /* 점수를 칸으로 그린다. 왼쪽이 강등 쪽, 오른쪽이 승급 쪽이다. */
+  const cells=[];
+  /* 강등이 없는 첫 구간은 왼쪽 칸을, 승급이 없는 끝 구간은 오른쪽 칸을 안 그린다 */
+  for(let k=(g.down==null?0:-S_.down+1);k<=(g.up==null?0:S_.up-1);k++)
+    cells.push(`<i class="${k===0?'z ':''}${(g.pts>0&&k>0&&k<=g.pts)?'on':(g.pts<0&&k<0&&k>=g.pts)?'neg':''}"></i>`);
+  return `<div class="bandgoal"><span class="bgm">${cells.join('')}</span>${bandText(g)}</div>`;
 }
 
 /* ---- 대전 아레나 & 재생 ---- */
@@ -2280,6 +2308,12 @@ function renderResult(win,rw,P,E,opp){
     if(rw.fat.add) rewards.push(`<div class="r" style="color:var(--bad)">피로도 +${rw.fat.add}  (누적 ${rw.fat.now} / ${FAT_MAX})</div>`);
     if(rw.core) rewards.push(`<div class="r" style="color:var(--acc2)">코어 +${rw.core}</div>`);
     if(rw.part) rewards.push(`<div class="r">파츠: ${rw.part.name} <span class="tag rar-${rw.part.rarity}">${rw.part.rarity}</span></div>`);
+    /* 구간 승급·강등. 몬스터 판에서만 온다. 승급은 이 게임에서 가장 뚜렷한 '목표 달성' 이라
+       맨 위에 크게 둔다. 그대로면 남은 승수만 조용히 적는다. */
+    const b=rw.band;
+    if(b && b.moved>0) rewards.unshift(`<div class="r bandup">구간 승급!  ${b.from} → <b>${b.to}</b> / ${b.total}</div>`);
+    else if(b && b.moved<0) rewards.unshift(`<div class="r banddn">구간 강등  ${b.from} → ${b.to} / ${b.total} · 이 구간에서 다시 쌓으면 돌아갑니다</div>`);
+    else if(b) rewards.push(`<div class="r" style="color:var(--dim)">${bandText(b)}</div>`);
   }
   $('#sc-battle').innerHTML = `
     <div class="panel result">
@@ -3100,6 +3134,7 @@ async function syncOnConnect(){
      서버가 모르는 진행은 애초에 있을 수 없다. */
   const adopt = msg => {
     S = normalize(remote.state);
+    takeBand(remote.band);
     save();
     net.cancelSync();                        // 방금 받은 걸 도로 올릴 필요는 없다
     renderAll();
@@ -3298,7 +3333,7 @@ async function doRegister(){
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 async function afterLogin(r){
   const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
-  if(remote){ S=normalize(remote.state); save(); net.cancelSync(); }
+  if(remote){ S=normalize(remote.state); takeBand(remote.band); save(); net.cancelSync(); }
   renderAcct(); renderGate(); renderAll();
   toast(r.loginId+' 으로 로그인했습니다');
 }

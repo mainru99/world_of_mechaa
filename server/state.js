@@ -187,7 +187,7 @@ export async function noteMigration(env, accountId, clamped, now) {
 /* ── 읽기 ──────────────────────────────────────────────── */
 export async function loadState(env, accountId) {
   const p = await env.DB.prepare(
-    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev,
+    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts,
             sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!p) return null;
@@ -207,6 +207,9 @@ export async function loadState(env, accountId) {
     rev: p.rev,
     nickname: p.nickname,
     rating: p.rating,
+    /* 대전 몬스터 구간과 승급 점수. 칸이 비었으면 첫 대전에서 레이팅으로 잡힌다 —
+       그 전까지는 화면도 같은 규칙(bandStart)으로 보여 준다. */
+    band: { i: p.mband ?? null, pts: p.mband_pts | 0 },
     state: {
       v: 2, credits: p.credits, cores: p.cores, scrap: p.scrap,
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },

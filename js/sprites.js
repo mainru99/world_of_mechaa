@@ -12,12 +12,16 @@
  * 초상화(격납고/뽑기)는 원본 방향 그대로 쓴다.
  * 오른쪽을 보는 그림을 추가하면 FACE_RIGHT 에 id 를 넣으면 된다. */
 import { ROBOT_IDS, MONSTER_IDS, isMonster } from './units.js';
+import { MONSTER_TYPES } from '../data/balance.js';
 
 const FACE_RIGHT = {};                  // 원본이 이미 오른쪽을 보는 id
 const CACHE_BUST = '?v=20260917-nhar';
 const IDLE_SPRITES = { ignis: 'assets/motions/ignis-idle-10f.webp?v=20260912-hangar10-recovery' };
 
-export const assetPath = id => 'assets/' + (isMonster(id) ? 'monsters/' : '') + id + '.png' + CACHE_BUST;
+/* 그림이 아직 없는 몬스터는 MONSTER_TYPES[id].sprite 의 그림을 빌려 쓴다(2장 적 셋이 그렇다).
+   빌려 온 id 가 기체면 기체 폴더에서 찾는다. 그림 파일이 들어오면 balance.js 의 sprite 줄만 지운다. */
+const artId = id => (MONSTER_TYPES[id] && MONSTER_TYPES[id].sprite) || id;
+export const assetPath = id => { const a = artId(id); return 'assets/' + (isMonster(a) ? 'monsters/' : '') + a + '.png' + CACHE_BUST; };
 
 export function sprite(id, faceRight, { idle: animateIdle = false } = {}) {
   const known = ROBOT_IDS.includes(id) || MONSTER_IDS.includes(id);

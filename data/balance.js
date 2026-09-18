@@ -204,6 +204,28 @@ export const MONSTER_TYPES = {
     base:{"hp":636,"atk":83,"def":78,"spd":43,"crit":0.07,"eva":0.03}, grow:{"hp":63.5,"atk":9.1,"def":7.9,"spd":3.4}, spread:.3,
     skill:{"name":"결정 증식","desc":"2.12배 결정 강타. 빗나가지 않음.","fx":{"mult":2.12,"noMiss":true}} },
 
+  /* ---- 2장 '하이브 제로의 신참' (2026-09-18) ----
+     원작 docs/story/chapter2.txt. 1장 나르와 **같은 체급**으로 둔다(mon.mjs 동급 50% 기준).
+     세기는 전선 칸의 foe 가 누른다 — 몬스터 자체를 약하게 만들면 대전·파견 풀이 물러진다.
+
+     `sprite` — **그림이 올 때까지 빌려 쓰는 그림**이다. 그림 파일(assets/monsters/<id>.png)이
+     들어오면 이 줄만 지우면 된다. (나르도 임시 그림으로 먼저 나갔다가 손그림으로 바뀌었다) */
+  choir_drone:{ id:'choir_drone', name:'성가대 무장 드론', rarity:'C', role:'자동포 제압형 · 식별 지워짐',
+    sprite:'enemy_razorwing',
+    base:{"hp":418,"atk":82,"def":43,"spd":61,"crit":0.09,"eva":0.1}, grow:{"hp":43.6,"atk":11.1,"def":4.8,"spd":5.4}, spread:.2,
+    /* 원작 — 프레임 절반 크기에 군용 자동포. 훈련탄이 아니라 실탄이다 */
+    skill:{"name":"실탄 난사","desc":"0.45배 자동포를 3회. 훈련탄이 아니다.","fx":{"mult":0.45,"hits":3}} },
+  nhar_spider:{ id:'nhar_spider', name:'나르 거미', rarity:'C', role:'기계 포식형 · 결정 거미',
+    sprite:'nhar_scout',
+    base:{"hp":388,"atk":84,"def":40,"spd":64,"crit":0.11,"eva":0.12}, grow:{"hp":40,"atk":11.2,"def":4.4,"spd":5.6}, spread:.2,
+    /* 원작 — 작은 칼날이 장갑 틈으로 들어온다. 사람보다 기계를 먼저 문다 */
+    skill:{"name":"관절 절단","desc":"장갑 틈을 파고드는 1.55배 칼날. 빗나가지 않음.","fx":{"mult":1.55,"noMiss":true}} },
+  choir_frame:{ id:'choir_frame', name:'백색 성가대 프레임', rarity:'UC', role:'융합 개조형 · 흑백 도장',
+    sprite:'enemy_reaper',
+    base:{"hp":598,"atk":84,"def":70,"spd":46,"crit":0.075,"eva":0.045}, grow:{"hp":59.4,"atk":9.4,"def":7.2,"spd":3.7}, spread:.27,
+    /* 원작 — 인간 기체에 나르 결정을 심었다. 움직임이 너무 부드럽다 */
+    skill:{"name":"검은 결정 칼날","desc":"방어력 30%를 관통하는 1.8배 결정 칼날.","fx":{"mult":1.8,"ignoreDef":0.3}} },
+
   /* ---- 미래 보스 콘텐츠 ----
      전용 위험도 BOSS는 ROBOT_RARITY(C~EP)에 없으므로 현재 일반 매칭 풀에서 선택되지 않는다.
      향후 보스 진입/보상 UI가 직접 id를 선택할 때만 등장시킨다.
@@ -746,8 +768,8 @@ export const CONST = {
     },
     refund: { cr: 1.02, co: 0.9 },
     steps: {
-      monster: [ { n: 4 }, { n: 8, title: 'hunter' }, { n: 13, title: 'tracker' },   // 보스 셋을 빼면 13종이다
-                 { n: 16, title: 'giantslayer' } ],
+      monster: [ { n: 4 }, { n: 8, title: 'hunter' }, { n: 16, title: 'tracker' },   // 보스 셋을 빼면 16종이다(2장 셋 포함)
+                 { n: 19, title: 'giantslayer' } ],
       robot:   [ { n: 6 }, { n: 12, title: 'mechanic' }, { n: 18 }, { n: 24 }, { n: 30, title: 'hangarlord' } ],
       part:    [ { n: 10 }, { n: 21, title: 'scavenger' }, { n: 42 }, { n: 63, title: 'artificer' },
                  { n: 84, title: 'forgemaster' } ],

@@ -17,11 +17,12 @@
  * node tools/frontcheck.mjs 2000     더 정밀하게
  */
 import { ROBOT_TYPES, SLOTS } from '../data/balance.js';
+import { rollPart } from '../js/gacha.js';
 import { computeStats } from '../js/stats.js';
 import { applyTerrain, runBreach, maxRounds } from '../js/breach.js';
 import { mulberry32 } from '../js/sim.js';
 import { frontRun } from '../server/front.js';
-import { FRONT_CELLS, buildLines, readProgress, writeProgress,
+import { FRONT_CHAPTERS, FRONT_CELLS, buildLines, readProgress, writeProgress,
          cellOpen, gateOpen, clearedCount, unlockedBy, rewardOf } from '../js/front.js';
 
 const N = Math.max(50, parseInt(process.argv[2] || '400', 10));
@@ -35,13 +36,22 @@ const is = (c, m) => { console.log('  ' + (c ? G('✓') : R('✗')) + ' ' + m); 
    평균과 함께 **최저**를 본다. 가장 나쁜 기체를 받은 사람이 진짜 신규다. */
 const STARTERS = Object.keys(ROBOT_TYPES).filter(k => ROBOT_TYPES[k].rarity === 'C');
 
-function mech(type, lv) {
+/* 2장부터는 1장 보상 파츠를 낀다 — C(1-2) · C(1-4) · R(1-5). 칸이 겹치지 않게 무장·프레임·코어에.
+   값은 고정 시드로 굴린다(판마다 장비가 바뀌면 칸의 난이도가 아니라 운을 재게 된다). */
+const CH1_KIT = [['WEAPON', 'C'], ['FRAME', 'C'], ['CORE', 'R']];
+function mech(type, lv, kit) {
   const slots = {}; for (const s of SLOTS) slots[s] = null;
-  return { robot: { uid: 'me', type, level: lv, exp: 0, fat: 0, skillLv: 0, slots }, parts: [] };
+  const parts = [];
+  if (kit) {
+    const rnd = mulberry32(0xc2c2);
+    kit.forEach(([sl, rar], i) => { const p = rollPart(Math.max(1, lv - 2), rnd, 'k' + i, rar, sl); parts.push(p); slots[sl] = p.uid; });
+  }
+  return { robot: { uid: 'me', type, level: lv, exp: 0, fat: 0, skillLv: 0, slots }, parts };
 }
+const KIT_OF = cell => cell.id.startsWith('c1-') ? null : CH1_KIT;
 function one(cell, type, lv, n) {
   const lines = buildLines(cell);
-  const m = mech(type, lv);
+  const m = mech(type, lv, KIT_OF(cell));
   const mechs = [{ name: ROBOT_TYPES[type].name, type, uid: 'me', level: lv,
                    stats: applyTerrain(computeStats(m.robot, m.parts), cell.terrain) }];
   let win = 0, turns = 0;
@@ -77,8 +87,9 @@ console.log('== ① 맨몸 신병 (Lv.1 · 새 계정이 정확히 이 상태) =
 }
 
 console.log('\n== ② 권장 레벨에서 각 칸 ==');
+const CH1 = FRONT_CHAPTERS[0].cells, CH2 = (FRONT_CHAPTERS[1] || { cells: [] }).cells;
 const rates = [];
-for (const c of FRONT_CELLS) {
+for (const c of CH1) {
   const r = play(c, c.lv, N);
   rates.push(r.rate);
   const mark = r.rate < 25 ? R('막힘') : r.rate > 97 ? Y('시시함') : G('ok');
@@ -91,12 +102,32 @@ is(rates[0] >= 85, '1-1 은 권장 레벨에서도 거의 이긴다');
 console.log('\n== ③ 오르막인가 ==');
 {
   /* 같은 레벨로 전 칸을 돌려 난이도만 견준다. 칸마다 lv 가 다르면 뭐가 어려운지 안 갈린다. */
-  const flat = FRONT_CELLS.map(c => play(c, 6, Math.min(N, 300)).rate);
+  const flat = CH1.map(c => play(c, 6, Math.min(N, 300)).rate);
   console.log('  Lv.6 고정 승률 — ' + flat.map(v => v.toFixed(0) + '%').join(' → '));
   let bad = 0;
   for (let i = 1; i < flat.length; i++) if (flat[i] > flat[i - 1] + 8) bad++;
   is(!bad, `뒤로 갈수록 어려워진다 (뒤집힌 곳 ${bad})`);
   is(flat[0] - flat[flat.length - 1] >= 10, `첫 칸과 끝 칸의 차이가 있다 (${(flat[0] - flat[flat.length - 1]).toFixed(0)}%p)`);
+}
+
+console.log('\n== ②-b 2장 — 1장 보상 파츠(C·C·R)를 낀 C 기체, 권장 레벨 ==');
+if (CH2.length) {
+  /* 목표 곡선 — 1장과 같은 모양으로 한 번 더 오른다. 2장 첫 칸은 1장 끝보다 쉽다(새 장의 숨) */
+  const WANT = [85, 75, 65, 55, 47, 40];
+  const r2 = [];
+  for (const [k, c] of CH2.entries()) {
+    const r = play(c, c.lv, N);
+    r2.push(r.rate);
+    const w = WANT[k] ?? 40, off = r.rate - w;
+    const mark = r.rate < 25 ? R('막힘') : Math.abs(off) > 8 ? Y(`목표 ${w}%`) : G('ok');
+    console.log(`  ${c.id}  ${c.ko.padEnd(12)} Lv.${String(c.lv).padStart(2)} ${c.lines}겹 foe ${(c.foe ?? 1).toFixed(3)}  ` +
+                `평균 ${r.rate.toFixed(1).padStart(5)}%  최저 ${r.low.toFixed(1).padStart(5)}%  ${r.turns.toFixed(1).padStart(5)}턴  ${mark}`);
+  }
+  is(r2.every(v => v >= 25), '2장에 막히는 칸이 없다 (25% 이상)');
+  is(r2.every((v, k) => Math.abs(v - (WANT[k] ?? 40)) <= 8), `2장 목표 곡선 ${WANT.join('→')} 에서 ±8%p 안`);
+  let inv = 0; for (let k = 1; k < r2.length; k++) if (r2[k] > r2[k - 1] + 6) inv++;
+  is(!inv, `2장도 뒤로 갈수록 어려워진다 (뒤집힌 곳 ${inv})`);
+  is(CH2.some(c => c.boss), '2장에도 보스 칸이 있다');
 }
 
 console.log('\n== ④ 규칙 ==');
@@ -112,13 +143,17 @@ console.log('\n== ④ 규칙 ==');
   is(gateOpen('gacha', empty, 32), '이미 키운 계정은 전선 없이도 열린다 (기존 계정 보호)');
   is(gateOpen('gacha', readProgress('11111'), 1), '1장을 깨면 뽑기가 열린다');
 
-  const last = FRONT_CELLS[FRONT_CELLS.length - 1];
-  is(!!unlockedBy(last, readProgress('11110'), 1), '마지막 칸을 깨면 해금이 뜬다');
+  const last = CH1[CH1.length - 1];
+  is(!!unlockedBy(last, readProgress('11110'), 1), '1장 마지막 칸을 깨면 해금이 뜬다');
   is(!unlockedBy(last, readProgress('11111'), 1), '이미 깬 칸은 다시 해금을 안 띄운다');
 
   is(!!rewardOf(FRONT_CELLS[0], false), '첫 클리어는 보상이 있다');
   is(!rewardOf(FRONT_CELLS[0], true), '다시 깨면 보상이 없다 — 파밍 자리가 아니다');
 
+  is(cellOpen(readProgress('11111'), CH1.length) && !cellOpen(readProgress('11110'), CH1.length),
+     '2장 첫 칸은 1장 마지막 칸을 깨야 열린다');
+  is(readProgress('11111').length === FRONT_CELLS.length && writeProgress(readProgress('11111')).startsWith('11111'),
+     '장이 늘어도 옛 진행(1장 5글자)이 제자리에서 읽힌다');
   const a = JSON.stringify(buildLines(FRONT_CELLS[2]));
   const b = JSON.stringify(buildLines(FRONT_CELLS[2]));
   is(a === b, '같은 칸은 몇 번을 불러도 같은 방어선이다');

@@ -1415,3 +1415,12 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .bgbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--acc),var(--acc2))}
 .bgbar span{position:relative;display:block;text-align:center;font-size:11px;font-weight:800;line-height:16px}
 @media (max-width:560px){ .shgrid{grid-template-columns:1fr} .ttabs.sh3 .gtab span{display:none} }
+
+/* ── 전선 장 탭 (2026-09-18 · 2장) ── */
+.fchs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.fch{flex:1;min-width:160px;text-align:left;padding:9px 12px;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;
+  color:var(--sub);background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.fch b{color:var(--ink);margin-right:4px}
+.fch span{display:block;font-size:11px;font-weight:600;color:var(--dim);margin-top:2px}
+.fch.on{border-color:var(--acc);background:linear-gradient(180deg,#18223c,#141d34);color:var(--ink)}
+.fch:disabled{opacity:.5;cursor:not-allowed}

@@ -22,8 +22,8 @@ import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed, applyTerrain, maxRounds } from './breach.js';
 import { weekOf, trialOf, runTrial, trialWon, foeStats } from './trial.js';
 import { raidOf, runRaid, raidSeeds, raidLeft } from './raid.js';
-import { SPEAKERS, openingOf, scriptOf, artPath } from '../data/story.js';
-import { FRONT_CELLS, readProgress, writeProgress, clearedCount, cellIndex, cellOpen,
+import { SPEAKERS, openingOf, closingOf, scriptOf, artPath } from '../data/story.js';
+import { FRONT_CHAPTERS, FRONT_CELLS, readProgress, writeProgress, clearedCount, cellIndex, cellOpen,
          lockedGates, buildLines, rewardOf, unlockedBy, frontView } from './front.js';
 import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
@@ -2851,16 +2851,35 @@ function renderTerrHome(){ return _frontTab === 'terr' ? renderTerr() : renderFr
 const frontProg = () => readProgress(S.campaign);
 const myMaxLv = () => Math.max(1, ...S.robots.map(r => r.level | 0), 1);
 
+/* 장 고르기. 기본은 **지금 밀고 있는 장** — 아직 안 깬 칸 중 열린 첫 칸이 있는 장이다.
+   다 깼으면 마지막 장. 앞 장을 다 깨야 다음 장의 첫 칸이 열리므로(cellOpen) 장에 따로 잠금을 달지 않는다. */
+let _frontCh = null;
+function setFrontCh(id){ _frontCh = id; renderFront(); }
+function currentChapter(view){
+  const live = view.find(ch => ch.cells.some(c => c.open && !c.cleared));
+  return (live || view[view.length - 1]).id;
+}
+function chapterOfCell(id){ return FRONT_CHAPTERS.find(ch => ch.cells.some(c => c.id === id)) || null; }
+
 function renderFront(){
   const el = $('#sc-terr');
   const prog = frontProg(), maxLv = myMaxLv();
-  const ch = frontView(prog, maxLv)[0];
+  const view = frontView(prog, maxLv);
+  if(!_frontCh || !view.some(v => v.id === _frontCh)) _frontCh = currentChapter(view);
+  const ch = view.find(v => v.id === _frontCh);
+  /* 장이 둘 이상이면 위에 장 탭. 첫 칸이 안 열린 장은 잠근다(앞 장을 깨면 열린다). */
+  const chTabs = view.length > 1 ? `<div class="fchs">${view.map(v => {
+      const open = v.cells[0].open, done = v.cells.filter(c => c.cleared).length;
+      return `<button class="fch ${v.id === ch.id ? 'on' : ''}" ${open ? '' : 'disabled'} onclick="ROWAR.setFrontCh('${v.id}')">
+        <b>${v.no}장</b> ${esc(v.ko)}<span>${open ? `${done} / ${v.cells.length}` : '🔒 앞 장을 깨면 열립니다'}</span></button>`;
+    }).join('')}</div>` : '';
   /* 장 도입은 처음 한 번만. 볼 때마다 틀면 탭을 오갈 수가 없다. */
   if(!cellSeen(ch.id, 'open')){
     const op = openingOf(ch.id);
     if(op){ markSeen(ch.id, 'open'); playScript(op, `${ch.no}장 ${ch.ko}`, '전선으로').then(ok => { if(ok) go('terr'); }); return; }
   }
-  const done = clearedCount(prog), total = ch.cells.length;
+  /* 진행은 **이 장 안에서** 센다. 전체로 세면 2장 화면이 '5 / 6 칸' 같은 엉뚱한 값을 띄운다. */
+  const done = ch.cells.filter(c => c.cleared).length, total = ch.cells.length;
 
   const cells = ch.cells.map((c, i) => {
     const st = c.cleared ? 'done' : c.open ? 'open' : 'lock';
@@ -2877,7 +2896,7 @@ function renderFront(){
   }).join('');
 
   const gates = lockedGates(prog, maxLv);
-  el.innerHTML = `${frontTabs()}
+  el.innerHTML = `${frontTabs()}${chTabs}
     <h2 class="title">전선 · ${ch.no}장 ${esc(ch.ko)}</h2>
     <div class="panel fhead">
       <div class="fsub2">${esc(ch.sub)}</div>
@@ -2946,6 +2965,12 @@ async function runCell(id){
   if(r.win){
     const post = scriptOf(id, 'after');
     if(post){ const seen = await playScript(post, `${c.ko}`, '전과 확인'); markSeen(id, 'after'); if(!seen) return; }
+    /* 장의 마지막 칸이면 장 마무리를 한 번 흘린다(2장 23~28절 — 후일담이 칸 하나에 다 안 들어간다) */
+    const chp = chapterOfCell(id);
+    if(chp && chp.cells[chp.cells.length - 1].id === id && !cellSeen(chp.id, 'close')){
+      const close = closingOf(chp.id);
+      if(close){ markSeen(chp.id, 'close'); const ok2 = await playScript(close, `${chp.no}장 ${chp.ko}`, '다음으로'); if(!ok2) return; }
+    }
   }
   renderFrontResult(r, c);
 }
@@ -3403,7 +3428,7 @@ window.ROWAR = {
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
   openSlot, openRobot, closeModal, setGacha, scrapPart, toggleSpeed, skipReplay, pickExped, openNode, guide,
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
-  setFrontTab, openCell, runCell: guard(runCell, 1000),
+  setFrontTab, setFrontCh, openCell, runCell: guard(runCell, 1000),
   openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
   trialRun: guard(trialRunGo, 1000),
   setTrialTab, raidRun: guard(raidRunGo, 1000),

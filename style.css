@@ -891,8 +891,11 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   main > .screen{max-width:1280px;margin:0 auto}
   #sc-hangar{max-width:none}                       /* 격납고는 장면이라 폭을 다 쓴다 */
 
-  /* 글줄 — 읽는 폭을 넘기지 않는다 */
-  .screen .hint{max-width:78ch}
+  /* 글줄 — 읽는 폭을 넘기지 않는다.
+     예전 값 78ch 는 라틴 '0' 의 폭이라 한글(글자 하나가 약 1em)에서는 40자 남짓에 잘려,
+     한 줄이면 될 문장이 끝 두세 글자만 다음 줄로 떨어졌다. em 으로 재면 한글 약 60자 ·
+     숫자·영문 약 110자 — '한 줄이 120자를 넘지 않게' 라는 원래 뜻은 그대로다. */
+  .screen .hint{max-width:60em}
   .hg-dock .hint{max-width:none}                   /* 도킹 패널은 이미 좁다 */
 
   /* 화면을 가로지르는 버튼 띠를 막는다 */
@@ -1357,8 +1360,36 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .cxt.got{cursor:pointer;color:var(--ink);border-color:rgba(255,210,74,.5)}
 .cxt.got:hover{background:rgba(255,210,74,.10)}
 .cxt.on{background:rgba(255,210,74,.18);color:var(--gold);border-color:var(--gold)}
-.cxt.lock{color:var(--dim);font-weight:700}
-.cxt.lock i{font-style:normal;font-weight:600;font-size:11px;opacity:.8;margin-left:4px}
+.cxt.lock{color:var(--dim);font-weight:700;cursor:default}
+/* 아직 못 얻은 칭호 — 이름이 깨진 신호처럼 보인다.
+   평소에는 붉은·청록 테두리가 살짝 어긋난 정지 상태이고(움직임을 끈 사람도 '깨짐' 은 읽힌다),
+   3.2초마다 한 번 짧게 찢어진다. 찢어지는 구간은 주기의 8% 뿐이라 이름은 늘 읽힌다. */
+.cxt .gl{position:relative;display:inline-block;
+  text-shadow:-1px 0 rgba(255,91,127,.45),1px 0 rgba(123,240,255,.45);
+  animation:cxGlBase 3.2s steps(1) infinite;animation-delay:var(--d,0s)}
+.cxt .gl::before,.cxt .gl::after{content:attr(data-t);position:absolute;inset:0;pointer-events:none;
+  opacity:0;text-shadow:none;animation:3.2s steps(1) infinite;animation-delay:var(--d,0s)}
+.cxt .gl::before{color:var(--bad);animation-name:cxGlA}
+.cxt .gl::after{color:var(--acc2);animation-name:cxGlB}
+@keyframes cxGlBase{
+  0%,87%,95%,100%{transform:none;opacity:1}
+  88%{transform:skewX(-8deg);opacity:.75} 90%{transform:translateX(1px)} 92%{transform:skewX(6deg);opacity:.85}
+}
+@keyframes cxGlA{
+  0%,87%,95%,100%{opacity:0;transform:none;clip-path:inset(0)}
+  88%{opacity:.9;transform:translate(-3px,0);clip-path:inset(0 0 62% 0)}
+  90%{opacity:.9;transform:translate(2px,0);clip-path:inset(38% 0 30% 0)}
+  92%{opacity:.9;transform:translate(-1px,0);clip-path:inset(72% 0 0 0)}
+}
+@keyframes cxGlB{
+  0%,87%,95%,100%{opacity:0;transform:none;clip-path:inset(0)}
+  88%{opacity:.8;transform:translate(3px,0);clip-path:inset(55% 0 12% 0)}
+  90%{opacity:.8;transform:translate(-2px,0);clip-path:inset(0 0 70% 0)}
+  92%{opacity:.8;transform:translate(1px,0);clip-path:inset(20% 0 50% 0)}
+}
+@media (prefers-reduced-motion:reduce){
+  .cxt .gl,.cxt .gl::before,.cxt .gl::after{animation:none}
+}
 .ttabs.cx3{grid-template-columns:1fr 1fr 1fr}
 .cx3 .gtab{text-align:left}
 .cxbar{position:relative;display:flex;align-items:baseline;gap:4px;margin-top:6px;padding-bottom:6px;font-size:12px}

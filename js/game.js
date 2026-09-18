@@ -1937,11 +1937,12 @@ async function renderCodex(){
   const bar = g => { const c=v.count[g]; const pct=Math.round(c.on/c.total*100);
     return `<div class="cxbar"><b>${c.on}</b><span>/ ${c.total}${c.got>c.on?` · 모음 ${c.got}`:''}</span><i style="width:${pct}%"></i></div>`; };
 
-  /* 넘은 이정표 — 활성화에 쓴 것을 돌려받는다. */
+  /* 넘은 이정표 — 활성화에 쓴 것을 돌려받는다.
+     **얼마를 돌려받는지는 받기 전에 알리지 않는다**(사용자 결정 2026-09-18 — 모르고 받으면 기분이 좋다).
+     금액은 '받기' 를 누른 뒤의 알림(codexClaim 의 toast)에서만 보인다. */
   const dueHtml = due.items.length ? `
     <div class="cxdue">
       <div><b>이정표 ${due.items.length}개 달성</b>
-        <span>${costTxt(due.total) ? '환급 '+costTxt(due.total) : ''}</span>
         <div class="hint">${due.items.map(x=>esc(x.label)+(x.title?` · 칭호 「${esc(titleName(x.title))}」`:'')).join(' / ')}</div></div>
       <button class="btn gold" onclick="ROWAR.codexClaim()">받기</button>
     </div>` : '';
@@ -1950,26 +1951,28 @@ async function renderCodex(){
   const actHtml = act.list.length ? `
     <div class="cxact">
       <div><b>활성화 대기 ${act.list.length}칸</b> <span>${costTxt(act.total)}</span>
-        <div class="hint">모은 칸은 활성화해야 이정표에 셉니다. 이정표에 닿으면 쓴 크레딧은 +2%, 코어는 90% 를 돌려받습니다.</div></div>
+        <div class="hint">모은 칸은 활성화해야 이정표에 셉니다.</div></div>
       <button class="btn" ${affordAll?'':'disabled'} onclick="ROWAR.codexActivate('all')">${affordAll?'모두 활성화':'재화 부족'}</button>
     </div>` : '';
 
-  const GK = {monster:'몬스터', robot:'기체', part:'파츠', all:'전부'};
-  const tHtml = titles.map(t => {
+  /* 칭호는 이름만 보인다 — 무엇을 해야 얻는지는 밝히지 않는다(얻는 순간이 발견이 되게).
+     아직 못 얻은 칭호는 이름이 깨진 신호처럼 흔들린다. --d 로 칭호마다 흔들리는 때를 엇갈린다 —
+     한꺼번에 흔들리면 화면 전체가 떨린다. */
+  const tHtml = titles.map((t, i) => {
     const on = cx.t === t.id;
-    const cond = t.group==='all' ? '도감 완성' : `${GK[t.group]} ${t.need}칸 활성화`;
     return t.got
       ? `<button class="cxt got${on?' on':''}" onclick="ROWAR.codexTitle('${on?'':t.id}')" title="${on?'떼기':'달기'}">${esc(t.name)}${on?' ✓':''}</button>`
-      : `<span class="cxt lock" title="${cond}">🔒 ${esc(t.name)} <i>${cond}${t.have!=null?` · ${t.have}/${t.need}`:''}</i></span>`;
+      : `<span class="cxt lock"><span class="gl" data-t="${esc(t.name)}" style="--d:${(i*0.73%3.2).toFixed(2)}s">${esc(t.name)}</span></span>`;
   }).join('');
 
   const tabs = G.map(([g,ko,em]) => `<button class="gtab ${_codexGroup===g?'on':''}" onclick="ROWAR.setCodexGroup('${g}')">
       <em>${em}</em> ${ko}${bar(g)}</button>`).join('');
 
-  /* 다음 이정표 — 몇 칸 더 켜면 얼마를 돌려받나. 이게 이 화면의 목표다. */
+  /* 다음 이정표 — 몇 칸 더 켜면 닿나. 이게 이 화면의 목표다.
+     돌려받는 금액과 칭호 이름은 적지 않는다 — 둘 다 닿은 뒤에 알게 한다. */
   const nx = codexNext(v, _codexGroup);
   const nextHtml = nx ? `<div class="cxnext">다음 이정표 <b>${GROUP_KO[_codexGroup]} ${nx.n}칸</b> · ${nx.left}칸 남음
-      ${costTxt(nx.pending)?` · 닿으면 환급 <b>${costTxt(nx.pending)}</b>`:''}${nx.title?` · 칭호 「${esc(titleName(nx.title))}」`:''}</div>`
+      ${nx.title?' · 새 칭호':''}</div>`
     : `<div class="cxnext">${GROUP_KO[_codexGroup]} 이정표를 모두 넘었습니다</div>`;
 
   /* 칸의 아래줄 — 모았으면 활성화 버튼, 켰으면 표시, 못 모았으면 ? */
@@ -1987,7 +1990,7 @@ async function renderCodex(){
       return `<div class="cxc ${known && !m.got ? 'seen' : cls(m)}" data-t="${m.rarity}">
         <div class="cxs">${sprite(m.id,false)}${known?'':'<i class="q">?</i>'}</div>
         <div class="cxn">${known?esc(T.name):'???'}</div>
-        <div class="cxm"><span class="tag ${m.rarity==='BOSS'?'monster-tag':'rar-'+m.rarity}">${m.rarity}</span> ${state}</div>
+        <div class="cxm"><span class="tag ${m.rarity==='BOSS'?'monster-tag':'rr-'+m.rarity}">${m.rarity}</span> ${state}</div>
         ${foot(m)}
       </div>`; }).join('')}</div>
       <div class="hint">몬스터는 <b>이겨야</b> 모입니다. 대전·파견·전선·점령·시련·레이드 어디서든 됩니다.</div>`;
@@ -1997,7 +2000,7 @@ async function renderCodex(){
       return `<div class="cxc ${cls(r)}" data-t="${r.rarity}">
         <div class="cxs">${sprite(r.id,false)}${r.got?'':'<i class="q">?</i>'}</div>
         <div class="cxn">${r.got?esc(T.name):'???'}</div>
-        <div class="cxm">${robRarTag(r.id)} ${r.got?esc(T.role.split('·')[0].trim()):'?'}</div>
+        <div class="cxm"><span class="tag rr-${r.rarity}">${r.rarity}</span> ${r.got?esc(T.role.split('·')[0].trim()):'?'}</div>
         ${foot(r)}
       </div>`; }).join('')}</div>
       <div class="hint">한 번이라도 가져 본 기체는 분해해도 도감에 남습니다.</div>`;
@@ -2251,7 +2254,7 @@ function renderHunt(){
   $('#sc-hunt').innerHTML = `<div class="hx">${renderExped()}
     <div class="panel">
       <h2 class="title" style="margin-top:0">토벌 · 사냥터</h2>
-      <div class="hint"><b>스크랩과 파츠</b>를 얻습니다 · 크레딧은 적고 순위는 오르지 않습니다 · 등급이 높을수록 강합니다</div>
+      <div class="hint"><b>스크랩과 파츠</b>를 얻습니다 · 크레딧은 적고 <b>경험치는 거의 없으며</b> 순위는 오르지 않습니다 · 등급이 높을수록 강합니다</div>
       <div class="hunt-list" style="margin-top:10px">${rows}</div>
       <div class="hint" style="margin-top:8px">출전 · ${ROBOT_TYPES[rb.type].name} Lv.${rb.level} · 보유 ${fmt(S.credits)} 크레딧</div>
     </div></div>`;
@@ -3135,6 +3138,9 @@ async function renderTerr(){
 
   const r = fresh ? _terr : await net.territory('view');
   if(r && !r.error){ _terr=r; _terrAt=Date.now(); }
+  /* 기다리는 사이 '전선' 탭으로 갔거나 화면을 떠났으면 그리지 않는다 — 안 막으면 늦게 온
+     지도가 전선 화면을 덮는다(도감·순위에서 났던 것과 같은 모양). 받은 지도는 위에서 캐시했다. */
+  if(_frontTab !== 'terr' || cur !== 'terr') return;
   if(!r || r.error){
     el.innerHTML = wrap(`<div class="panel"><div class="hint">지도를 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
     return;
@@ -3182,7 +3188,9 @@ function drawTerr(r){
   /* 지도는 3열 4행이 곧 '안쪽에서 입구까지'라 열 수를 바꿀 수 없다. 그래서 한 판에
      쌓으면 칸 하나가 419px 까지 늘어나 카드가 납작해진다. 넓은 화면에서는 지도를
      왼쪽 단에 넣어 폭을 잡아 주고, 요약과 설명을 오른쪽에 세운다. */
-  $('#sc-terr').innerHTML = `<h2 class="title">점령전 · 세계 지도</h2>
+  /* 탭을 꼭 같이 그린다. 로딩·오류 화면은 wrap() 이 붙여 주는데 여기만 빠져서, 지도가 뜨는
+     순간 '전선' 으로 돌아갈 단추가 사라졌다. */
+  $('#sc-terr').innerHTML = `${frontTabs()}<h2 class="title">점령전 · 세계 지도</h2>
     <div class="tx">
     <div class="panel tsum">
       <div class="trow">

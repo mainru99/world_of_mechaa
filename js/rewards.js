@@ -282,8 +282,10 @@ export function makeHuntTarget(tier, myLevel, rnd, uid) {
 export function rollHuntRewards(win, tier, enemyLv, rnd, uid) {
   const H = CONST.HUNT[tier] || CONST.HUNT.C;
   const base = rollBattleRewards(win, enemyLv, rnd, uid);
+  /* 경험치는 대전의 CONST.HUNT_EXP_X 배 — 파밍 자리라 레벨업 수단이 되면 안 된다 */
+  const X = CONST.HUNT_EXP_X ?? 1;
   if (!win) return { ...base, cr: Math.round(base.cr * H.crX), sc: Math.round(base.sc * H.scX * 0.4),
-                     core: 0, part: null, tier };
+                     expGain: Math.round(base.expGain * X), core: 0, part: null, tier };
 
   let sc = Math.round((18 + ri(0, 14, rnd)) * H.scX);
   let part = null;
@@ -295,7 +297,7 @@ export function rollHuntRewards(win, tier, enemyLv, rnd, uid) {
   return { win: true, tier,
            cr: Math.round((120 + enemyLv * 14) * H.crX),
            sc, core: rnd() < H.coreP ? 1 : 0, part,
-           expGain: base.expGain, fatAdd: base.fatAdd };
+           expGain: Math.max(1, Math.round(base.expGain * X)), fatAdd: base.fatAdd };
 }
 
 /* 승패에 따른 보상 굴림. 상태를 바꾸지 않고 '무엇을 줄지'만 돌려준다.

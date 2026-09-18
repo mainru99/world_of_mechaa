@@ -2796,6 +2796,13 @@ C 기체 **6종 전부**가 70% 넘게 졌다(새 계정은 C 중 무작위를 �
 `index.html` 의 `style.css` · `game.js` 캐시 버전을 `20260918-codexfix` 로 올렸다(`style.css` 는
 `_headers` 의 no-cache 대상이 아니다).
 
+#### 배포 — `fbf57d50` · 2026-09-18
+
+커밋 둘로 나눠 올렸다 — `b1aad4b`(그림 27장 · `tools/story_art.py` · sprite 줄 삭제) · `cbdc456`(이 절의 코드).
+그림만 또는 코드만 되돌릴 수 있게 하려고 `balance.js` · 이 문서 · `STATUS.md` 는 그림 쪽 변경만 담은 중간본을
+먼저 올렸다. 이관 없음. **`balance_ver` 18px6uv → 18qj3j0** 을 운영 `/api/health` 에서 확인했다.
+코드 6종 내용 일치 · 그림 27장 200 · 다시 그린 두 장은 새 판 해시 · `/api/front` · `/api/codex` 401.
+
 ### Claude → ChatGPT · 2장 몬스터 3종 그림 반영 · `data/balance.js` 의 `sprite` 줄 셋 삭제 · 2026-09-18
 
 사용자가 그려 온 세 장(`Downloads/enemy_add`)을 `assets/monsters/<id>.png` 로 넣었다.

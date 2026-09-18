@@ -6,11 +6,13 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-18 · 2장 삽화 24장 · 몬스터 3종 그림 · schema **20** · `balance_ver` **18px6uv**
-- **스키마 버전** — 로컬 **20** · 운영 **20** (020 이관 → 배포 순서로 반영, 2026-09-18)
-- **운영 확인** — 2026-09-18 배포 `ad044340` · schema 20 · `balance_ver` 18px6uv · 계정 33 · 새 파일 해시 8종 로컬과 일치.
-  시험 계정 #19·#35~#38 은 사용자가 지웠다. 이번 배포는 **시험 계정을 만들지 않았다** — 프리셋·2장 서버 경로는
-  `presetcheck`·`frontcheck` 가 진짜 SQLite 위에서 본다
+- **마지막 갱신** — 2026-09-18 · 2장 삽화 24장 · 몬스터 3종 그림 · 버그 둘·개선 넷 · schema **20** · `balance_ver` **18qj3j0**
+- **스키마 버전** — 로컬 **20** · 운영 **20** (이번 배포는 이관 없음)
+- **운영 확인** — 2026-09-18 배포 `fbf57d50` (커밋 `b1aad4b` 그림 · `cbdc456` 코드) · schema 20 · `balance_ver` **18qj3j0** · 계정 33.
+  코드 6종(index · game · rewards · balance · style · story) **내용 일치**(줄바꿈 무시 — 회사 PC 는 CRLF 로 배포한다) ·
+  그림 27장(2장 삽화 24 · 몬스터 3) 200 · 다시 그린 `ch2-diner` · `ch2-exit` 는 새 판 해시로 확인 · `/api/front` · `/api/codex` 401.
+  배포 직후 첫 요청에서 `ch2-diner` 가 한 번 404 였다 — 엣지에 새 목록이 퍼지기 전이었고, 다시 받으니 세 번 다 200.
+  **배포 확인은 해시가 아니라 내용 비교로 한다** — 로컬(LF)과 운영(배포한 PC 의 줄바꿈)이 달라 해시는 늘 어긋난다
 
 ### 2026-09-18 — 버그 둘 · 개선 넷 (사용자 지시)
 

@@ -1338,6 +1338,20 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .cxdue b{color:var(--gold);margin-right:8px}
 .cxdue span{font-weight:700}
 .cxdue .hint{margin-top:3px}
+.cxact{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:12px 14px;
+  border-radius:12px;border:1px solid rgba(90,160,255,.45);background:rgba(90,160,255,.07)}
+.cxact b{color:var(--acc2);margin-right:8px}
+.cxact .hint{margin-top:3px}
+.cxnext{font-size:12.5px;color:var(--sub);margin-bottom:10px}
+.cxnext b{color:var(--ink)}
+.cxc.got{border-color:rgba(90,160,255,.35)}
+.cxc.got .cxs>*:not(.q){filter:saturate(.55)}
+.cxbtn{margin-top:6px;width:100%;font-size:10.5px;font-weight:800;padding:4px 2px;border-radius:8px;cursor:pointer;
+  color:var(--acc2);border:1px solid rgba(90,160,255,.45);background:rgba(90,160,255,.08)}
+.cxbtn:hover{background:rgba(90,160,255,.18)}
+.cxon{display:inline-block;margin-top:6px;font-size:10.5px;font-weight:800;color:var(--good)}
+.cxpt td.got button{cursor:pointer;font-size:14px;font-weight:900;color:var(--acc2);background:none;border:1px solid rgba(90,160,255,.45);
+  border-radius:6px;width:26px;height:22px;line-height:18px}
 .cxts{display:flex;flex-wrap:wrap;gap:6px}
 .cxt{font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;border:1px solid var(--line,#2a3450);background:rgba(255,255,255,.03)}
 .cxt.got{cursor:pointer;color:var(--ink);border-color:rgba(255,210,74,.5)}
@@ -1374,7 +1388,30 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .ttl{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 7px;margin-left:4px;border-radius:6px;
   color:var(--gold);border:1px solid rgba(255,210,74,.45);background:rgba(255,210,74,.08);vertical-align:1px}
 @media (max-width:560px){
-  .cxdue{flex-direction:column;align-items:stretch}
+  .cxdue,.cxact{flex-direction:column;align-items:stretch}
   .cxgrid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
   .cxs{height:68px}
 }
+
+/* ── 상점 · 보관함 (2026-09-18) ──────────────────────────── */
+.ttabs.sh3{grid-template-columns:1fr 1fr 1fr}
+.shhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.shhead b{margin-right:6px}
+.shgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+.shc,.bgr{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
+.bgr+.bgr{margin-top:8px}
+.shc.sold{opacity:.45}
+.shc.k-core{border-color:rgba(255,210,74,.55);background:rgba(255,210,74,.06)}
+.shc .btn,.bgr .btn{white-space:nowrap;flex:none}
+.shb{flex:1;min-width:0}
+.shn{font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.shi{flex:none;width:52px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:11px;font-weight:800;color:var(--sub);overflow:hidden}
+.shi.spr img,.shi.spr svg,.shi.spr canvas{max-width:48px;max-height:48px}
+.shi.core{border-color:rgba(255,210,74,.5)}
+.shi.big{font-size:26px}
+.bgr.ready{border-color:rgba(255,210,74,.55)}
+.bgbar{position:relative;height:16px;margin-top:5px;border-radius:8px;background:rgba(255,255,255,.06);overflow:hidden}
+.bgbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+.bgbar span{position:relative;display:block;text-align:center;font-size:11px;font-weight:800;line-height:16px}
+@media (max-width:560px){ .shgrid{grid-template-columns:1fr} .ttabs.sh3 .gtab span{display:none} }

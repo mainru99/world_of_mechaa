@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>ROWAR · 로봇 배틀 프로토타입</title>
-<link rel="stylesheet" href="style.css?v=20260918-codex">
-<link rel="stylesheet" href="themes/scenes.css?v=20260918-codex">
+<link rel="stylesheet" href="style.css?v=20260918-shop">
+<link rel="stylesheet" href="themes/scenes.css?v=20260918-shop">
 </head>
 <body data-scene="hangar">
 <!-- 화면별 배경 연출 레이어. 전부 pointer-events:none 이라 조작을 막지 않는다 -->
@@ -58,7 +58,7 @@
          둘로 나누면 js 의 [data-s] 바인딩과 active 표시가 두 벌이 된다. -->
     <div class="rlogo">ROWAR</div>
     <button data-s="hangar" class="active"><em>🛠️</em> 격납고</button>
-    <button data-s="gacha"><em>🎁</em> 뽑기</button>
+    <button data-s="gacha"><em>🛒</em> 상점</button>
     <button data-s="battle"><em>⚔️</em> 대전</button>
     <button data-s="hunt"><em>🎯</em> 파견</button>
     <button data-s="terr"><em>🗺️</em> 전역</button>
@@ -95,6 +95,6 @@
 
 <!-- ES 모듈이라 file:// 로 직접 열면 동작하지 않는다. README 의 로컬 서버 안내 참고.
      인라인 onclick="ROWAR.x()" 는 js/game.js 가 window.ROWAR 를 대입하므로 그대로 동작한다. -->
-<script type="module" src="js/game.js?v=20260918-codex"></script>
+<script type="module" src="js/game.js?v=20260918-shop"></script>
 </body>
 </html>

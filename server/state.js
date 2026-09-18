@@ -10,6 +10,7 @@
  * 아직 확인하지 않는다 — 그건 서버가 뽑기·전투를 직접 판정하는 다음 단계의 일이다.
  */
 import { parseCodex } from '../js/codex.js';
+import { parseItems } from '../js/shop.js';
 import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
 import { expedView } from './expedition.js';
 import { PART_COLS, partOf, insertPart, updatePart, partChanged, checkNewPart } from './parts.js';
@@ -188,7 +189,7 @@ export async function noteMigration(env, accountId, clamped, now) {
 /* ── 읽기 ──────────────────────────────────────────────── */
 export async function loadState(env, accountId) {
   const p = await env.DB.prepare(
-    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex,
+    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items,
             sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!p) return null;
@@ -214,6 +215,8 @@ export async function loadState(env, accountId) {
     /* 도감 원본. 채운 것·받을 보상·칭호는 화면이 js/codex.js 로 계산한다(서버와 같은 함수).
        기체·파츠는 여기 state 에 이미 있으므로 따로 안 보낸다. */
     codex: parseCodex(p.codex),
+    /* 보관함 — 기체 조각 등. 모양은 js/shop.js 머리말 */
+    items: parseItems(p.items),
     state: {
       v: 2, credits: p.credits, cores: p.cores, scrap: p.scrap,
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },

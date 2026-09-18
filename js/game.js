@@ -9,7 +9,9 @@
 import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR,
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST,
          AFFIXES, TERRITORY, TERRAIN, PART_BASES } from '../data/balance.js';
-import { parseCodex, codexView, codexRewards, codexTitles, titleName } from './codex.js';
+import { shardNeed, shardKey, bagView } from './shop.js';
+import { parseCodex, codexView, codexRewards, codexTitles, codexActivatable, codexNext, actCost,
+         titleName, GROUPS, GROUP_KO } from './codex.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
 import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, gainExp, addFat, decayFat, fatNextMs, fatRecoverMs, atkRange,
          setKeyOf, setCounts, setActive,
@@ -1064,7 +1066,137 @@ function gachaStageHtml(){
   </div>`;
 }
 
+/* ── 상점 · 보관함 (2026-09-18 사용자 지시) ─────────────────
+   뽑기 화면을 세 갈래로 나눈다 — 뽑기(그대로) · 상점(주기마다 바뀌는 진열) · 보관함(기체 조각).
+   진열·값·조각 수는 **서버가 js/shop.js 로 정한다.** 화면은 받은 진열을 그리고 누른 칸의
+   서명(sig)을 함께 보낸다 — 주기가 넘어가 진열이 바뀐 뒤 옛 화면으로 누르면 서버가 거절한다. */
+let _gTab = 'pull', _shop = null, _shopAt = 0;
+const SHOP_TTL = 60000;
+function setShopTab(k){ _gTab = ['pull','shop','bag'].includes(k) ? k : 'pull'; renderGacha(); }
+function shopTabs(){
+  const bagN = Object.entries(S.items||{}).filter(([k,v])=>k.startsWith('shard:') && v>0 &&
+    v >= shardNeed(k.slice(6))).length;
+  return `<div class="ttabs sh3">
+    <button class="gtab ${_gTab==='pull'?'on':''}" onclick="ROWAR.setShopTab('pull')"><em>🎁</em> 뽑기<span>코어 · 크레딧 캡슐</span></button>
+    <button class="gtab ${_gTab==='shop'?'on':''}" onclick="ROWAR.setShopTab('shop')"><em>🛒</em> 상점<span>${CONST.SHOP.periodH}시간마다 진열 교체</span></button>
+    <button class="gtab ${_gTab==='bag'?'on':''}"  onclick="ROWAR.setShopTab('bag')"><em>🎒</em> 보관함<span>기체 조각${bagN?` <i class="cxdot">${bagN}</i>`:''}</span></button>
+  </div>`;
+}
+const leftTxt = ms => { const m = Math.max(0, Math.ceil(ms/60000)); return m>=60 ? `${Math.floor(m/60)}시간 ${m%60}분` : `${m}분`; };
+
+/* 서버가 확정한 재화·보관함을 받아 적는다 — 상점 쪽 동작이 같이 쓴다. */
+function shopApply(r){
+  _shop = r; _shopAt = Date.now();
+  S.credits = r.credits; S.cores = r.cores; S.scrap = r.scrap; S.items = r.items || {};
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  net.cancelSync();
+  renderWallet();
+}
+
+async function renderShop(){
+  const el = $('#sc-gacha');
+  const wrap = inner => `${shopTabs()}<h2 class="title">상점</h2>${inner}`;
+  if(!net.state.online){ el.innerHTML = wrap(`<div class="panel"><div class="hint">상점은 서버 연결이 필요합니다.</div></div>`); return; }
+  const stale = !_shop || Date.now()-_shopAt > SHOP_TTL || (_shop.endsAt && Date.now() >= _shop.endsAt);
+  if(stale){
+    if(!_shop) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div><div style="font-weight:800">진열을 살피는 중...</div></div></div>`);
+    const r = await net.shop();
+    if(_gTab!=='shop') return;                    // 기다리는 사이 다른 갈래로 옮겼다
+    if(r && !r.error) shopApply(r);
+    else if(!_shop){ el.innerHTML = wrap(`<div class="panel"><div class="hint">상점을 열지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`); return; }
+  }
+  const sh = _shop;
+  const left = sh.endsAt - Date.now();
+  const card = x => {
+    const afford = S.credits >= x.price;
+    let icon='', name='', sub='';
+    if(x.kind==='part'){
+      icon = `<div class="shi slot">${SLOT_KO[x.part.slot]}</div>`;
+      name = `${esc(x.part.name)} ${rarTag(x.part)}`;
+      sub = `파츠 · Lv.${x.part.lv||sh.lv}`;
+    } else if(x.kind==='shard'){
+      const T = ROBOT_TYPES[x.type], have = (S.items||{})[shardKey(x.type)]|0, need = shardNeed(x.type);
+      icon = `<div class="shi spr" data-t="${T.rarity}">${sprite(x.type,false)}</div>`;
+      name = `${esc(T.name)} 조각 ×${x.qty} ${robRarTag(x.type)}`;
+      sub = `보유 ${have} / 조립 ${need}${S.robots.some(r=>r.type===x.type)?' · 이미 가진 기체(조립하면 자원)':''}`;
+    } else if(x.kind==='scrap'){
+      icon = `<div class="shi big">🔩</div>`; name = `스크랩 ×${x.qty}`; sub = '강화 재료';
+    } else {
+      icon = `<div class="shi core big">💠</div>`; name = `코어 ×${x.qty}`; sub = '드물게 들어온다';
+    }
+    return `<div class="shc ${x.sold?'sold':''} k-${x.kind}">
+      ${icon}
+      <div class="shb"><div class="shn">${name}</div><div class="hint">${sub}</div></div>
+      <button class="btn ${x.kind==='core'?'gold':''}" ${x.sold||!afford?'disabled':''}
+        onclick="ROWAR.shopBuy(${x.i})">${x.sold?'판매 완료':`${fmt(x.price)} 크레딧`}</button>
+    </div>`;
+  };
+  el.innerHTML = wrap(`
+    <div class="panel">
+      <div class="shhead">
+        <div><b>이번 진열</b> <span class="hint">${leftTxt(left)} 뒤 새 진열 · 값은 레벨 ${sh.lv} 기준</span></div>
+        <button class="btn ghost" ${S.credits<sh.refresh?'disabled':''} onclick="ROWAR.shopRefresh()">지금 새로 굴리기 · ${fmt(sh.refresh)} 크레딧</button>
+      </div>
+      <div class="shgrid">${sh.stock.map(card).join('')}</div>
+      <div class="hint" style="margin-top:10px">칸마다 무엇이 나올지 확률로 정해집니다 — 파츠 ${CONST.SHOP.kind.part}% · 기체 조각 ${CONST.SHOP.kind.shard}% · 스크랩 ${CONST.SHOP.kind.scrap}% · <b>코어 ${CONST.SHOP.kind.core}%</b>.
+        높은 등급일수록 드물고 비쌉니다. 새로 굴릴수록 값이 오릅니다(이번 주기 ${sh.refreshed}번).</div>
+    </div>`);
+}
+
+async function renderBag(){
+  const el = $('#sc-gacha');
+  const bag = bagView(S.items||{}, S.robots.map(r=>r.type));
+  const row = b => {
+    const T = ROBOT_TYPES[b.type], pct = Math.min(100, Math.round(b.have/b.need*100));
+    return `<div class="bgr ${b.ready?'ready':''}">
+      <div class="shi spr" data-t="${T.rarity}">${sprite(b.type,false)}</div>
+      <div class="shb"><div class="shn">${esc(T.name)} 조각 ${robRarTag(b.type)}</div>
+        <div class="bgbar"><i style="width:${pct}%"></i><span>${b.have} / ${b.need}</span></div>
+        ${b.owned?'<div class="hint">이미 가진 기체 — 조립하면 뽑기의 중복과 같이 자원으로 바뀝니다</div>':''}</div>
+      <button class="btn ${b.ready?'gold':''}" ${b.ready&&net.state.online?'':'disabled'} onclick="ROWAR.shopAssemble('${b.type}')">${b.ready?'조립':'부족'}</button>
+    </div>`;
+  };
+  el.innerHTML = `${shopTabs()}<h2 class="title">보관함</h2>
+    <div class="panel">
+      ${bag.length ? bag.map(row).join('') : `<div class="hint">비어 있습니다. <b>상점</b>에서 기체 조각을 살 수 있습니다 — 모으면 그 기체를 조립합니다.</div>`}
+      <div class="hint" style="margin-top:10px">조립에 필요한 조각 — ${Object.entries(CONST.SHARD_NEED).map(([k,v])=>`${k} ${v}개`).join(' · ')}</div>
+    </div>`;
+}
+
+async function shopBuy(i){
+  const x = _shop && _shop.stock.find(s=>s.i===i);
+  if(!x) return;
+  const r = await net.shop('buy', { slot: i, sig: x.sig });
+  if(!r || r.error){
+    if(r && r.status===409){ _shopAt=0; await renderShop(); toast('진열이 바뀌었습니다 — 다시 확인해 주세요'); return; }
+    toast(r && r.error==='not enough credits' ? `크레딧이 모자랍니다 · 필요 ${fmt(r.need)}` : '사지 못했습니다'+(r&&r.error?' · '+r.error:'')); return;
+  }
+  if(r.bought.kind==='part') addPart(r.bought.part);
+  shopApply(r); renderShop();
+  const b = r.bought;
+  toast(b.kind==='part' ? `${b.part.name} (${b.rarity}) 구입 — 격납고 파츠함에 들어갔습니다`
+      : b.kind==='shard' ? `${ROBOT_TYPES[b.type].name} 조각 ×${b.qty} — 보관함에 들어갔습니다`
+      : b.kind==='scrap' ? `스크랩 +${b.qty}` : `코어 +${b.qty}`);
+}
+async function shopRefresh(){
+  const r = await net.shop('refresh');
+  if(!r || r.error){ toast('새로 굴리지 못했습니다'+(r&&r.error?' · '+r.error:'')); if(r&&r.status===409){_shopAt=0; renderShop();} return; }
+  shopApply(r); renderShop();
+  toast(`진열을 새로 굴렸습니다 · −${fmt(r.spent)} 크레딧`);
+}
+async function shopAssemble(type){
+  const r = await net.shop('assemble', { type });
+  if(!r || r.error){ toast('조립하지 못했습니다'+(r&&r.error?' · '+r.error:'')); return; }
+  const a = r.assembled;
+  if(!a.dupe) S.robots.push({uid:a.uid,type:a.type,level:1,exp:0,fat:0,skillLv:0,slots:emptySlots()});
+  shopApply(r); renderBag();
+  toast(a.dupe ? `${ROBOT_TYPES[type].name} — 이미 가진 기체라 자원으로 바뀌었습니다 (크레딧 +${fmt(a.gain.cr)} · 스크랩 +${a.gain.sc}${a.gain.co?` · 코어 +${a.gain.co}`:''})`
+               : `${ROBOT_TYPES[type].name} 조립 완료! 격납고에 들어갔습니다`);
+}
+
 function renderGacha(){
+  if(_gTab==='shop') return renderShop();
+  if(_gTab==='bag') return renderBag();
   const C = PULL_CUR[gCur];
   const table = gCur==='credit' ? PULL_TABLE_CR : PULL_TABLE;
   const rars  = gCur==='credit' ? ROBOT_RARITY_CR : ROBOT_RARITY;
@@ -1091,7 +1223,7 @@ function renderGacha(){
   /* 넓은 화면에서는 왼쪽에 캡슐 무대, 오른쪽에 확률과 버튼을 둔다.
      한 판에 쌓으면 무대가 1,250px 로 늘어나 가운데에 캡슐 하나만 떠 있고,
      정작 누를 버튼 둘은 640px 로 잘려 왼쪽 끝에 붙는다. */
-  $('#sc-gacha').innerHTML = `
+  $('#sc-gacha').innerHTML = `${shopTabs()}
     <h2 class="title">뽑기</h2>
     <div class="gx">
       <div class="panel">
@@ -1697,22 +1829,24 @@ async function renderRank(){
 }
 
 /* ── 도감 ────────────────────────────────────────────────
-   무엇을 채웠고 무엇이 남았나. **규칙은 js/codex.js 한 곳**이다 — 서버가 보상을 줄 때도
-   같은 함수로 센다. 원본(몬스터 기록·받은 보상·칭호)만 서버에서 받고, 기체·파츠는
-   이미 들고 있는 S 를 쓴다.
+   모은다 → 재화를 내고 활성화한다 → 이정표에 닿으면 활성화에 쓴 것을 돌려받는다(+칭호).
+   **규칙은 js/codex.js 한 곳**이다 — 서버가 비용을 받고 돌려줄 때도 같은 함수로 센다.
+   원본(몬스터 기록·활성화·받은 것·칭호)만 서버에서 받고, 기체·파츠는 이미 들고 있는 S 를 쓴다.
 
    못 만난 칸은 **실루엣 + 등급 + ?** 로 둔다(사용자 지시). 모양과 등급이 보이면
    '저 자리에 무언가 있다' 가 목표가 된다. 이름·능력치는 가린다. */
 let _codexRaw = null, _codexAt = 0, _codexGroup = 'monster';
 const CODEX_TTL = 60000;
 function codexNow(){ return codexView(_codexRaw || {}, S.robots || [], S.parts || []); }
-/* 탭 머리에 붙는 '받을 보상 있음' 점. 원본을 아직 안 받았으면 안 띄운다(틀린 숫자보다 없는 게 낫다). */
+/* 탭 머리의 숫자 — 받을 이정표 + 켤 수 있는 칸. 원본을 아직 안 받았으면 안 띄운다. */
 function codexDueBadge(){
   if(!_codexRaw) return '';
-  const n = codexRewards(codexNow()).items.length;
+  const v = codexNow();
+  const n = codexRewards(v).items.length + codexActivatable(v).list.length;
   return n ? ` <i class="cxdot">${n}</i>` : '';
 }
-function setCodexGroup(g){ _codexGroup = ['monster','robot','part'].includes(g) ? g : 'monster'; renderCodex(); }
+function setCodexGroup(g){ _codexGroup = GROUPS.includes(g) ? g : 'monster'; renderCodex(); }
+const costTxt = c => [c.cr?`${fmt(c.cr)} 크레딧`:'', c.co?`코어 ${c.co}`:''].filter(Boolean).join(' · ');
 
 async function renderCodex(){
   const el=$('#sc-rank');
@@ -1727,30 +1861,37 @@ async function renderCodex(){
     const r = await net.codex();
     if(r && !r.error){ _codexRaw = r.codex; _codexAt = Date.now(); }
     if(_rankTab!=='codex') return;                 // 기다리는 사이 순위 탭으로 돌아갔다
-    else if(!_codexRaw){
+    if(!_codexRaw){
       el.innerHTML = wrap(`<div class="panel"><div class="hint">도감을 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
       return;
     }
   }
-  const v = codexNow(), due = codexRewards(v), titles = codexTitles(v), cx = parseCodex(_codexRaw);
+  const v = codexNow(), due = codexRewards(v), act = codexActivatable(v), titles = codexTitles(v), cx = parseCodex(_codexRaw);
   const G = [['monster','몬스터','👾'],['robot','기체','🤖'],['part','파츠','🔩']];
-  const bar = g => { const c=v.count[g]; const pct=Math.round(c.done/c.total*100);
-    return `<div class="cxbar"><b>${c.done}</b><span>/ ${c.total}</span><i style="width:${pct}%"></i></div>`; };
+  const bar = g => { const c=v.count[g]; const pct=Math.round(c.on/c.total*100);
+    return `<div class="cxbar"><b>${c.on}</b><span>/ ${c.total}${c.got>c.on?` · 모음 ${c.got}`:''}</span><i style="width:${pct}%"></i></div>`; };
 
-  /* 보상 — 한 번에 다 받는다. 하나씩 누르게 하면 84칸짜리 파츠 도감이 버튼 84개가 된다. */
+  /* 넘은 이정표 — 활성화에 쓴 것을 돌려받는다. */
   const dueHtml = due.items.length ? `
     <div class="cxdue">
-      <div><b>받을 보상 ${due.items.length}건</b>
-        <span>${due.total.sc?`스크랩 +${fmt(due.total.sc)}`:''}${due.total.sc&&due.total.co?' · ':''}${due.total.co?`코어 +${due.total.co}`:''}</span>
-        <div class="hint">${due.items.slice(0,4).map(x=>esc(x.label)).join(' · ')}${due.items.length>4?` 외 ${due.items.length-4}건`:''}</div></div>
-      <button class="btn gold" onclick="ROWAR.codexClaim()">모두 받기</button>
+      <div><b>이정표 ${due.items.length}개 달성</b>
+        <span>${costTxt(due.total) ? '환급 '+costTxt(due.total) : ''}</span>
+        <div class="hint">${due.items.map(x=>esc(x.label)+(x.title?` · 칭호 「${esc(titleName(x.title))}」`:'')).join(' / ')}</div></div>
+      <button class="btn gold" onclick="ROWAR.codexClaim()">받기</button>
+    </div>` : '';
+  /* 켤 수 있는 칸 — 전부 한 번에. 한 칸씩은 카드의 버튼으로 켠다. */
+  const affordAll = S.credits >= act.total.cr && S.cores >= act.total.co;
+  const actHtml = act.list.length ? `
+    <div class="cxact">
+      <div><b>활성화 대기 ${act.list.length}칸</b> <span>${costTxt(act.total)}</span>
+        <div class="hint">모은 칸은 활성화해야 이정표에 셉니다. 이정표에 닿으면 쓴 크레딧은 +2%, 코어는 90% 를 돌려받습니다.</div></div>
+      <button class="btn" ${affordAll?'':'disabled'} onclick="ROWAR.codexActivate('all')">${affordAll?'모두 활성화':'재화 부족'}</button>
     </div>` : '';
 
-  /* 칭호 — 열린 것은 눌러 단다. 잠긴 것은 조건을 보여 준다(그게 다음 목표다). */
   const GK = {monster:'몬스터', robot:'기체', part:'파츠', all:'전부'};
   const tHtml = titles.map(t => {
     const on = cx.t === t.id;
-    const cond = t.group==='all' ? '도감 완성' : `${GK[t.group]} ${t.need}칸`;
+    const cond = t.group==='all' ? '도감 완성' : `${GK[t.group]} ${t.need}칸 활성화`;
     return t.got
       ? `<button class="cxt got${on?' on':''}" onclick="ROWAR.codexTitle('${on?'':t.id}')" title="${on?'떼기':'달기'}">${esc(t.name)}${on?' ✓':''}</button>`
       : `<span class="cxt lock" title="${cond}">🔒 ${esc(t.name)} <i>${cond}${t.have!=null?` · ${t.have}/${t.need}`:''}</i></span>`;
@@ -1759,65 +1900,98 @@ async function renderCodex(){
   const tabs = G.map(([g,ko,em]) => `<button class="gtab ${_codexGroup===g?'on':''}" onclick="ROWAR.setCodexGroup('${g}')">
       <em>${em}</em> ${ko}${bar(g)}</button>`).join('');
 
+  /* 다음 이정표 — 몇 칸 더 켜면 얼마를 돌려받나. 이게 이 화면의 목표다. */
+  const nx = codexNext(v, _codexGroup);
+  const nextHtml = nx ? `<div class="cxnext">다음 이정표 <b>${GROUP_KO[_codexGroup]} ${nx.n}칸</b> · ${nx.left}칸 남음
+      ${costTxt(nx.pending)?` · 닿으면 환급 <b>${costTxt(nx.pending)}</b>`:''}${nx.title?` · 칭호 「${esc(titleName(nx.title))}」`:''}</div>`
+    : `<div class="cxnext">${GROUP_KO[_codexGroup]} 이정표를 모두 넘었습니다</div>`;
+
+  /* 칸의 아래줄 — 모았으면 활성화 버튼, 켰으면 표시, 못 모았으면 ? */
+  const foot = x => x.on ? '<span class="cxon">활성</span>'
+    : x.got ? `<button class="cxbtn" onclick="ROWAR.codexActivate('${x.key}')" title="${costTxt(x.cost)}">활성화 · ${costTxt(x.cost)}</button>`
+    : '';
+  const cls = x => x.on ? 'done' : x.got ? 'got' : 'unk';
+
   let body = '';
   if(_codexGroup==='monster'){
     body = `<div class="cxgrid">${v.monsters.map(m => {
       const T = MONSTER_TYPES[m.id];
       const known = m.seen > 0;
-      const state = m.done ? `처치 ${fmt(m.kills)}` : known ? '만났다 · 미처치' : '?';
-      return `<div class="cxc ${m.done?'done':known?'seen':'unk'}" data-t="${m.rarity}">
+      const state = m.kills ? `처치 ${fmt(m.kills)}` : known ? '만났다 · 미처치' : '?';
+      return `<div class="cxc ${known && !m.got ? 'seen' : cls(m)}" data-t="${m.rarity}">
         <div class="cxs">${sprite(m.id,false)}${known?'':'<i class="q">?</i>'}</div>
         <div class="cxn">${known?esc(T.name):'???'}</div>
         <div class="cxm"><span class="tag ${m.rarity==='BOSS'?'monster-tag':'rar-'+m.rarity}">${m.rarity}</span> ${state}</div>
+        ${foot(m)}
       </div>`; }).join('')}</div>
-      <div class="hint">몬스터는 <b>이겨야</b> 채워집니다. 대전·파견·전선·점령·시련·레이드 어디서든 됩니다.</div>`;
+      <div class="hint">몬스터는 <b>이겨야</b> 모입니다. 대전·파견·전선·점령·시련·레이드 어디서든 됩니다.</div>`;
   } else if(_codexGroup==='robot'){
     body = `<div class="cxgrid">${v.robots.map(r => {
       const T = ROBOT_TYPES[r.id];
-      return `<div class="cxc ${r.done?'done':'unk'}" data-t="${r.rarity}">
-        <div class="cxs">${sprite(r.id,false)}${r.done?'':'<i class="q">?</i>'}</div>
-        <div class="cxn">${r.done?esc(T.name):'???'}</div>
-        <div class="cxm">${robRarTag(r.id)} ${r.done?esc(T.role.split('·')[0].trim()):'?'}</div>
+      return `<div class="cxc ${cls(r)}" data-t="${r.rarity}">
+        <div class="cxs">${sprite(r.id,false)}${r.got?'':'<i class="q">?</i>'}</div>
+        <div class="cxn">${r.got?esc(T.name):'???'}</div>
+        <div class="cxm">${robRarTag(r.id)} ${r.got?esc(T.role.split('·')[0].trim()):'?'}</div>
+        ${foot(r)}
       </div>`; }).join('')}</div>
       <div class="hint">한 번이라도 가져 본 기체는 분해해도 도감에 남습니다.</div>`;
   } else {
-    /* 파츠는 21종 × 4등급 표. 카드 84장보다 '어느 종류의 어느 등급이 비었나' 가 한눈에 읽힌다. */
+    /* 파츠는 21종 × 4등급 표. 칸 하나가 곧 활성화 버튼이다. */
     const RARS = RARITY.map(r=>r.k);
     const bySlot = {};
-    for(const p of v.parts){ ((bySlot[p.slot] ||= {})[p.base] ||= {})[p.rarity] = p.done; }
+    for(const p of v.parts){ ((bySlot[p.slot] ||= {})[p.base] ||= {})[p.rarity] = p; }
+    const td = p => p.on ? `<td class="on" title="활성">●</td>`
+      : p.got ? `<td class="got"><button onclick="ROWAR.codexActivate('${p.key}')" title="활성화 · ${costTxt(p.cost)}">○</button></td>`
+      : `<td class="off">?</td>`;
     body = `<table class="cxpt"><thead><tr><th>파츠</th>${RARS.map(r=>`<th><span class="tag rar-${r}">${r}</span></th>`).join('')}</tr></thead><tbody>
       ${SLOTS.map(sl => `<tr class="sl"><td colspan="${RARS.length+1}">${SLOT_KO[sl]}</td></tr>` +
         Object.entries(bySlot[sl]||{}).map(([b,row]) => {
-          const any = RARS.some(r=>row[r]);
-          return `<tr><td class="pb">${any?esc(PART_BASES[b].ko):'???'}</td>${RARS.map(r =>
-            `<td class="${row[r]?'on':'off'}">${row[r]?'●':'?'}</td>`).join('')}</tr>`; }).join('')
+          const any = RARS.some(r=>row[r] && row[r].got);
+          return `<tr><td class="pb">${any?esc(PART_BASES[b].ko):'???'}</td>${RARS.map(r => td(row[r])).join('')}</tr>`; }).join('')
       ).join('')}
       </tbody></table>
-      <div class="hint">가져 본 적이 있으면 채워집니다. 도감이 생기기 전에 분해한 파츠는 다시 얻어야 합니다.</div>`;
+      <div class="hint">● 활성 · ○ 모았음(눌러서 활성화) · ? 아직. 활성화 값 — ${RARS.map(r=>`${r} ${costTxt(actCost('part', r))}`).join(' / ')}</div>`;
   }
 
   el.innerHTML = wrap(`
-    ${dueHtml}
+    ${dueHtml}${actHtml}
     <div class="panel"><div class="dh">칭호 <span class="hint">순위표에 이름과 함께 뜹니다</span></div>
       <div class="cxts">${tHtml}</div></div>
     <div class="ttabs cx3">${tabs}</div>
-    <div class="panel">${body}</div>`);
+    <div class="panel">${nextHtml}${body}</div>`);
 }
 
-async function codexClaim(){
-  const r = await net.codex('claim');
-  if(!r || r.error){
-    if(r && r.status===409){ _codexAt = 0; await renderCodex(); toast('기록이 방금 바뀌었습니다 — 다시 눌러 주세요'); return; }
-    toast('보상을 받지 못했습니다'+(r&&r.error?' · '+r.error:'')); return;
-  }
-  S.cores = r.cores; S.scrap = r.scrap;
+/* 서버가 확정한 재화를 받아 적는다 — 도감 쪽 세 동작이 같이 쓴다. */
+function codexApply(r){
+  S.credits = r.credits; S.cores = r.cores;
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();
-  const cx = parseCodex(_codexRaw); for(const x of r.claimed) cx.c[x.key]=1; _codexRaw = cx;
-  renderWallet(); renderCodex();
+  renderWallet();
+}
+async function codexRetry(r, what){
+  if(r && r.status===409){ _codexAt = 0; await renderCodex(); toast('기록이 방금 바뀌었습니다 — 다시 눌러 주세요'); return true; }
+  if(r && r.error==='not enough'){ toast(`재화가 모자랍니다 · 필요 ${costTxt(r.need||{})}`); return true; }
+  toast(what+(r&&r.error?' · '+r.error:'')); return true;
+}
+async function codexActivate(key){
+  const r = await net.codex('activate', { keys: key==='all' ? 'all' : [key] });
+  if(!r || r.error) return codexRetry(r, '활성화하지 못했습니다');
+  codexApply(r);
+  const cx = parseCodex(_codexRaw); for(const k of r.activated) cx.a[k]=1; _codexRaw = cx;
+  renderCodex();
+  const due = codexRewards(codexNow()).items.length;
+  toast(`${r.activated.length}칸 활성화 · ${costTxt(r.spent)}` + (due?` · 이정표 ${due}개 달성 — 받기를 누르세요`:''));
+}
+async function codexClaim(){
+  const r = await net.codex('claim');
+  if(!r || r.error) return codexRetry(r, '받지 못했습니다');
+  codexApply(r);
+  const cx = parseCodex(_codexRaw);
+  for(const x of r.claimed) cx.c[x.key]=1;
+  _codexRaw = cx; _codexAt = 0;                  // 돌려받은 칸 표시(rf)는 서버에서 다시 받는다
+  await renderCodex();
   const t = r.claimed.filter(x=>x.title).map(x=>titleName(x.title)).filter(Boolean);
-  toast(`도감 보상 ${r.claimed.length}건 · ${r.total.sc?'스크랩 +'+fmt(r.total.sc):''}${r.total.sc&&r.total.co?' · ':''}${r.total.co?'코어 +'+r.total.co:''}`
-        + (t.length?` · 칭호 「${t.join('」「')}」 열림`:''));
+  toast(`이정표 ${r.claimed.length}개 · ${costTxt(r.total)||'환급 없음'} 돌려받음` + (t.length?` · 칭호 「${t.join('」「')}」 열림`:''));
 }
 async function codexTitle(id){
   const r = await net.codex('title', { id: id || null });
@@ -3237,6 +3411,8 @@ window.ROWAR = {
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
   duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,
   setRankTab, setCodexGroup, codexClaim: guard(codexClaim, 1000), codexTitle: guard(codexTitle, 800),
+  codexActivate: guard(codexActivate, 600),
+  setShopTab, shopBuy: guard(shopBuy, 600), shopRefresh: guard(shopRefresh, 800), shopAssemble: guard(shopAssemble, 800),
   practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
   setTactic,
   sendExped: guard(sendExped), claimExped: guard(claimExped),
@@ -3284,6 +3460,7 @@ async function syncOnConnect(){
     S = normalize(remote.state);
     takeBand(remote.band);
     if(remote.codex) _codexRaw = remote.codex;
+    S.items = remote.items || {};
     save();
     net.cancelSync();                        // 방금 받은 걸 도로 올릴 필요는 없다
     renderAll();
@@ -3482,7 +3659,7 @@ async function doRegister(){
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 async function afterLogin(r){
   const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
-  if(remote){ S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex; save(); net.cancelSync(); }
+  if(remote){ S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex; S.items=remote.items||{}; save(); net.cancelSync(); }
   renderAcct(); renderGate(); renderAll();
   toast(r.loginId+' 으로 로그인했습니다');
 }

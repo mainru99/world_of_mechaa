@@ -270,12 +270,20 @@ export async function trial(run) {
   return { error: (r.data && r.data.error) || r.error || 'trial failed' };
 }
 
+/* 상점. 인자 없이 부르면 진열(GET), action 을 주면 사기·새로 굴리기·조립(POST). */
+export async function shop(action, args = {}) {
+  if (!state.online) return null;
+  const r = await call('/api/shop', action ? { method: 'POST', body: { action, ...args } } : {});
+  if (r.ok && r.data && r.data.ok) { if (r.data.rev != null) setSyncedRev(r.data.rev); return r.data; }
+  return { ...(r.data || {}), error: (r.data && r.data.error) || r.error || 'shop failed', status: r.status };
+}
+
 /* 도감. 인자 없이 부르면 조회(GET), action 을 주면 보상 받기·칭호 달기(POST). */
 export async function codex(action, args = {}) {
   if (!state.online) return null;
   const r = await call('/api/codex', action ? { method: 'POST', body: { action, ...args } } : {});
   if (r.ok && r.data && r.data.ok) { if (r.data.rev != null) setSyncedRev(r.data.rev); return r.data; }
-  return { error: (r.data && r.data.error) || r.error || 'codex failed', status: r.status };
+  return { ...(r.data || {}), error: (r.data && r.data.error) || r.error || 'codex failed', status: r.status };
 }
 
 export async function hangar(action, args = {}) {

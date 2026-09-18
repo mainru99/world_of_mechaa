@@ -24,6 +24,7 @@ import { trialView, trialRun } from './trial.js';
 import { raidView, raidRun } from './raid.js';
 import { frontState, frontRun } from './front.js';
 import { codexRun, codexGet } from './codex.js';
+import { shopView, shopRun } from './shop.js';
 import { sendExped, claimExped } from './expedition.js';
 import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion, migrateArena } from './arena.js';
@@ -354,6 +355,21 @@ async function handleApi(request, env, url) {
 
   /* 도감. 보는 것은 /api/state 로 이미 온다(도감 원본 + 기체·파츠). 여기는 **바꾸는 것**만 —
      보상 받기와 칭호 달기. 무엇을 받을 수 있는지는 서버가 js/codex.js 로 다시 센다. */
+  /* 상점 — 진열 보기(GET) · 사기 / 새로 굴리기 / 조각 조립(POST). 값은 서버가 js/shop.js 로 다시 센다. */
+  if (path === '/shop' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await shopView(env, sess.account_id, Date.now());
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  if (path === '/shop' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let sbody; try { sbody = await request.json(); } catch { sbody = {}; }
+    const r = await shopRun(env, sess.account_id, Date.now(), sbody);
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+
   if (path === '/codex' && method === 'GET') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);

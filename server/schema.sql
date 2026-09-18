@@ -144,6 +144,10 @@ CREATE TABLE IF NOT EXISTS player (
   mband       INTEGER,
   mband_pts   INTEGER NOT NULL DEFAULT 0,
 
+  -- 상점·보관함(019). items = { 'shard:<기체id>': 개수 } · shop = { p, n, lv, b }. 모양은 js/shop.js 머리말
+  items       TEXT,
+  shop        TEXT,
+
   -- 레벨은 기체가 아니라 **파일럿**의 것이다. 보유한 기체는 전부 이 레벨로 싸운다.
   -- 예전에는 기체별이었는데, 경험치가 출전한 기체에만 들어가 두 번째 기체를 키울 수가
   -- 없었다(Lv.30 하나에 84판). 그래서 기체 30종과 그 대항 스킬이 전부 죽어 있었다.
@@ -334,7 +338,7 @@ BEGIN
 END;
 
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '18');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '19');
 
 
 -- =========================================================

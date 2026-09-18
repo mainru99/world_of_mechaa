@@ -6,9 +6,10 @@
  *
  *   ① 트리거 — 파츠·기체가 들어오면 도감에 적힌다 (옛 파츠는 안 적힌다)
  *   ② 몬스터 — 대전 · 전선 · 시련 · 레이드 · 점령 정산이 만난 수·처치 수를 적는다
- *   ③ 보상   — 서버가 js/codex.js 로 다시 세서 준다 · 두 번 못 받는다 · 100칸 넘게 한 번에
- *   ④ 칭호   — 잠긴 것·없는 것은 거절 · 단 것은 순위표에 뜬다
- *   ⑤ state  — /api/state 가 도감 원본을 내린다
+ *   ③ 활성화 — 재화를 낸다 · 안 모은 칸·모자란 재화·두 번 켜기는 거절 · 100칸 넘게 한 번에
+ *   ④ 이정표 — 활성화에 쓴 것을 ×1.02(크레딧) · ×0.9(코어) 로 돌려준다 · 두 번 안 준다 · 409
+ *   ⑤ 칭호   — 잠긴 것·없는 것은 거절 · 단 것은 순위표에 뜬다
+ *   ⑥ state  — /api/state 가 도감 원본을 내린다
  *
  * node --no-warnings tools/codexcheck.mjs */
 import { DatabaseSync } from 'node:sqlite';
@@ -23,7 +24,7 @@ import { codexRun, codexGet } from '../server/codex.js';
 import { loadState } from '../server/state.js';
 import { ranking } from '../server/ranking.js';
 import { insertPart } from '../server/parts.js';
-import { codexView, codexRewards, PART_KEYS } from '../js/codex.js';
+import { codexView, codexRewards, codexActivatable, PART_KEYS } from '../js/codex.js';
 import { rollPart } from '../js/gacha.js';
 
 let bad = 0;
@@ -104,21 +105,72 @@ const seenBefore = () => Object.values(cx().ms || {}).reduce((a, b) => a + b, 0)
   ok(r.ok !== false && seenBefore() > b, `점령(${nid}) — 몬스터 방어선을 적는다 (+${seenBefore() - b})${r.ok === false ? ' · ' + r.error : ''}`);
 }
 
-console.log('\n== ③ 보상 — 서버가 다시 센다 · 두 번 못 받는다 ==');
+console.log('\n== ③ 활성화 — 재화를 내고 켠다 ==');
+const money = () => q('SELECT credits, cores FROM player WHERE account_id=1');
+const view = () => codexView(q('SELECT codex FROM player WHERE account_id=1').codex,
+  db.prepare('SELECT type FROM robot WHERE account_id=1').all(),
+  db.prepare('SELECT base, rarity FROM part WHERE account_id=1 AND base IS NOT NULL').all());
+db.prepare('UPDATE player SET credits = 1000000, cores = 500 WHERE account_id=1').run();
 {
-  const before = q('SELECT cores, scrap FROM player WHERE account_id=1');
-  const expect = codexRewards(codexView(q('SELECT codex FROM player WHERE account_id=1').codex,
-    db.prepare('SELECT type FROM robot WHERE account_id=1').all(),
-    db.prepare('SELECT base, rarity FROM part WHERE account_id=1 AND base IS NOT NULL').all()));
-  const r = await codexRun(env, 1, T0 + 7000, { action: 'claim' });
-  const after = q('SELECT cores, scrap FROM player WHERE account_id=1');
-  ok(r.ok && r.claimed.length === expect.items.length, `받기 — ${r.ok ? r.claimed.length : r.error}건`);
-  ok(after.scrap - before.scrap === expect.total.sc && after.cores - before.cores === expect.total.co,
-     `재화가 계산과 같다 — 스크랩 +${after.scrap - before.scrap} · 코어 +${after.cores - before.cores}`);
-  const again = await codexRun(env, 1, T0 + 7001, { action: 'claim' });
+  const v = view(), act = codexActivatable(v);
+  ok(act.list.length > 0, `켤 수 있는 칸 ${act.list.length}개 · ${act.total.cr} 크레딧 · 코어 ${act.total.co}`);
+  const nope = await codexRun(env, 1, T0 + 6900, { action: 'claim' });
+  ok(!nope.ok && nope.error === 'nothing to claim', '모으기만 해서는 이정표를 안 넘는다 (활성화해야 센다)');
+  const locked = await codexRun(env, 1, T0 + 6901, { action: 'activate', keys: ['m:boss_astraea'] });
+  ok(!locked.ok && locked.error === 'nothing to activate', '안 모은 칸은 켤 수 없다');
+  db.prepare('UPDATE player SET credits = 0 WHERE account_id=1').run();
+  const poor = await codexRun(env, 1, T0 + 6902, { action: 'activate', keys: 'all' });
+  ok(!poor.ok && poor.error === 'not enough', '크레딧이 모자라면 거절');
+  db.prepare('UPDATE player SET credits = 1000000 WHERE account_id=1').run();
+  const b = money();
+  const r = await codexRun(env, 1, T0 + 7000, { action: 'activate', keys: 'all' });
+  const a = money();
+  ok(r.ok && r.activated.length === act.list.length, `모두 활성화 — ${r.ok ? r.activated.length : r.error}칸`);
+  ok(b.credits - a.credits === act.total.cr && b.cores - a.cores === act.total.co,
+     `재화가 계산과 같게 나갔다 — 크레딧 −${b.credits - a.credits} · 코어 −${b.cores - a.cores}`);
+  const again = await codexRun(env, 1, T0 + 7001, { action: 'activate', keys: 'all' });
+  ok(!again.ok && again.error === 'nothing to activate', '두 번 켤 수 없다');
+}
+
+console.log('\n== ④ 이정표 — 활성화에 쓴 것을 돌려받는다 (크레딧 ×1.02 · 코어 ×0.9) ==');
+{
+  /* 파츠 84칸 · 기체 30칸을 전부 모아 켠다 → 이정표를 여러 개 한꺼번에 넘는다 */
+  let k = 0;
+  for (const key of PART_KEYS) {
+    const [base, rar] = key.split(':');
+    const p = rollPart(30, rnd, 'm' + (k++), rar, PART_BASES[base].slot);
+    if (p.base !== base) { p.base = base; p.slot = PART_BASES[base].slot; }
+    await insertPart(env.DB, 1, p, T0, 0).run();
+  }
+  const { ROBOT_TYPES } = await import('../data/balance.js');
+  let rid = 10;
+  for (const type of Object.keys(ROBOT_TYPES))
+    db.prepare(`INSERT INTO robot (id, account_id, type, level, uid, created_at) VALUES (?, 1, ?, 1, ?, ?)`).run(rid++, type, 'rx' + rid, T0);
+  const act = codexActivatable(view());
+  const r0 = await codexRun(env, 1, T0 + 7500, { action: 'activate', keys: 'all' });
+  ok(r0.ok && r0.activated.length === act.list.length && act.list.length > 100,
+     `한 번에 ${r0.ok ? r0.activated.length : r0.error}칸 활성화 — 바인딩 한도(100)에 안 걸린다`);
+
+  const v = view();
+  const due = codexRewards(v);
+  /* 기대값 — 갈래마다 '켠 칸의 값 합' × 비율 */
+  let cr = 0, co = 0;
+  for (const g of ['monster', 'robot', 'part']) {
+    if (!due.items.some(x => x.key.startsWith('S:' + g + ':'))) continue;
+    let gc = 0, go = 0;
+    for (const x of v.by[g]) if (x.on) { gc += x.cost.cr; go += x.cost.co; }
+    cr += Math.round(gc * CONST.CODEX.refund.cr); co += Math.floor(go * CONST.CODEX.refund.co);
+  }
+  const b = money();
+  const r = await codexRun(env, 1, T0 + 8000, { action: 'claim' });
+  const a = money();
+  ok(r.ok && r.claimed.length === due.items.length, `이정표 ${r.ok ? r.claimed.length : r.error}개를 한 번에 받는다`);
+  ok(a.credits - b.credits === cr && a.cores - b.cores === co,
+     `환급 = 켠 값 × 1.02 / × 0.9 — 크레딧 +${a.credits - b.credits}(기대 ${cr}) · 코어 +${a.cores - b.cores}(기대 ${co})`);
+  const again = await codexRun(env, 1, T0 + 8001, { action: 'claim' });
   ok(!again.ok && again.error === 'nothing to claim', '두 번째 받기는 거절된다');
-  const snap = q('SELECT scrap FROM player WHERE account_id=1').scrap;
-  ok(snap === after.scrap, '두 번째 받기로 재화가 안 늘었다');
+  const cxNow = cx();
+  ok(Object.keys(cxNow.rf || {}).length === r.refunded, `돌려받은 칸 ${r.refunded}개가 표시됐다 — 다음 이정표에서 또 안 돌려준다`);
 }
 {
   /* 낙관적 잠금 — 읽은 뒤 도감이 바뀌면(그 사이 전투가 적으면) 0행이 되어 409 */
@@ -131,50 +183,34 @@ console.log('\n== ③ 보상 — 서버가 다시 센다 · 두 번 못 받는�
     }
     return real(sql);
   };
-  await insertPart(env.DB, 1, rollPart(30, rnd, 'p2', 'C', 'FRAME'), T0, 0).run();   // 받을 것 하나 만든다
-  const r = await codexRun(env, 1, T0 + 7100, { action: 'claim' });
+  /* 아직 안 켠 게 확실한 칸 — 레이드에서 만나기만 한 보스를 '처치' 로 만든다 */
+  const boss = Object.keys(MONSTER_TYPES).find(k => MONSTER_TYPES[k].rarity === 'BOSS' && !(cx().a || {})['m:' + k]);
+  db.prepare(`UPDATE player SET codex = json_set(codex, '$.mk.${boss}', 1) WHERE account_id=1`).run();
+  const r = await codexRun(env, 1, T0 + 8100, { action: 'activate', keys: ['m:' + boss] });
   env.DB.prepare = real;
-  ok(!r.ok && r.status === 409, '읽은 뒤 도감이 바뀌면 409 — 보상이 두 번 나갈 틈이 없다');
-  const r2 = await codexRun(env, 1, T0 + 7200, { action: 'claim' });
-  ok(r2.ok, '다시 누르면 받는다');
-}
-{
-  /* 오래 한 계정 — 한 번에 100칸이 넘어도 받는다 (D1 바인딩 한도 100) */
-  let k = 0;
-  for (const key of PART_KEYS) {
-    const [base, rar] = key.split(':');
-    const p = rollPart(30, rnd, 'm' + (k++), rar, PART_BASES[base].slot);
-    if (p.base !== base) { p.base = base; p.slot = PART_BASES[base].slot; }
-    await insertPart(env.DB, 1, p, T0, 0).run();
-  }
-  const { ROBOT_TYPES } = await import('../data/balance.js');
-  let rid = 10;
-  for (const type of Object.keys(ROBOT_TYPES))
-    db.prepare(`INSERT INTO robot (id, account_id, type, level, uid, created_at) VALUES (?, 1, ?, 1, ?, ?)`).run(rid++, type, 'rx' + rid, T0);
-  const r = await codexRun(env, 1, T0 + 8000, { action: 'claim' });
-  ok(r.ok && r.claimed.length > 100, `한 번에 ${r.ok ? r.claimed.length : r.error}건 — 바인딩 한도에 안 걸린다`);
-  const v = await codexGet(env, 1);
-  ok(Object.keys(v.codex.c).length > 100, `받은 표시 ${Object.keys(v.codex.c).length}개가 남았다`);
+  ok(!r.ok && r.status === 409, '읽은 뒤 도감이 바뀌면 409 — 재화가 두 번 움직일 틈이 없다');
+  const r2 = await codexRun(env, 1, T0 + 8200, { action: 'activate', keys: ['m:' + boss] });
+  ok(r2.ok, '다시 누르면 된다');
 }
 
-console.log('\n== ④ 칭호 ==');
+console.log('\n== ⑤ 칭호 ==');
 {
   const locked = await codexRun(env, 1, T0 + 9000, { action: 'title', id: 'legend' });
   ok(!locked.ok && locked.error === 'title locked', '못 연 칭호는 거절');
   const unknown = await codexRun(env, 1, T0 + 9001, { action: 'title', id: 'nope' });
   ok(!unknown.ok && unknown.error === 'unknown title', '없는 칭호는 거절');
   const r = await codexRun(env, 1, T0 + 9002, { action: 'title', id: 'forgemaster' });
-  ok(r.ok && r.title === 'forgemaster', '파츠 84칸을 채웠으니 「공방장」 을 단다');
+  ok(r.ok && r.title === 'forgemaster', '파츠 84칸을 켰으니 「공방장」 을 단다');
   const rk = await ranking(env, 1);
   ok(rk.ok && rk.top.find(t => t.me)?.title === 'forgemaster' && rk.me.title === 'forgemaster', '순위표에 칭호가 뜬다');
   const off = await codexRun(env, 1, T0 + 9003, { action: 'title', id: null });
   ok(off.ok && off.title === null && cx().t === null, '뗄 수 있다');
 }
 
-console.log('\n== ⑤ /api/state 가 도감을 내린다 ==');
+console.log('\n== ⑥ /api/state 가 도감을 내린다 ==');
 {
   const s = await loadState(env, 1);
-  ok(s && s.codex && s.codex.r && s.codex.r.azure === 1 && Object.keys(s.codex.c).length > 100, 'state.codex');
+  ok(s && s.codex && s.codex.r && s.codex.r.azure === 1 && Object.keys(s.codex.a).length > 100, 'state.codex');
 }
 
 console.log(bad ? `\n✗ ${bad}건 실패` : '\n전부 통과');

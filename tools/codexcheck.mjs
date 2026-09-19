@@ -10,6 +10,7 @@
  *   ④ 이정표 — 활성화에 쓴 것을 ×1.02(크레딧) · ×0.9(코어) 로 돌려준다 · 두 번 안 준다 · 409
  *   ⑤ 칭호   — 잠긴 것·없는 것은 거절 · 단 것은 순위표에 뜬다
  *   ⑥ state  — /api/state 가 도감 원본을 내린다
+ *   ⑦ 몬스터 단계 — 모음은 1단계 문턱부터 · 서버도 문턱 아래 활성화를 거절 · 3·4단계 확률이 설계값대로 · 계정마다 다르다
  *
  * node --no-warnings tools/codexcheck.mjs */
 import { DatabaseSync } from 'node:sqlite';
@@ -24,7 +25,7 @@ import { codexRun, codexGet } from '../server/codex.js';
 import { loadState } from '../server/state.js';
 import { ranking } from '../server/ranking.js';
 import { insertPart } from '../server/parts.js';
-import { codexView, codexRewards, codexActivatable, PART_KEYS } from '../js/codex.js';
+import { codexView, codexRewards, codexActivatable, PART_KEYS, monRule, monTier } from '../js/codex.js';
 import { rollPart } from '../js/gacha.js';
 
 let bad = 0;
@@ -185,7 +186,8 @@ console.log('\n== ④ 이정표 — 활성화에 쓴 것을 돌려받는다 (크
   };
   /* 아직 안 켠 게 확실한 칸 — 레이드에서 만나기만 한 보스를 '처치' 로 만든다 */
   const boss = Object.keys(MONSTER_TYPES).find(k => MONSTER_TYPES[k].rarity === 'BOSS' && !(cx().a || {})['m:' + k]);
-  db.prepare(`UPDATE player SET codex = json_set(codex, '$.mk.${boss}', 1) WHERE account_id=1`).run();
+  /* 모음 문턱까지 처치 — 보스는 CONST.CODEX.mon.BOSS.t[0] 번(2026-09-19 전에는 1번) */
+  db.prepare(`UPDATE player SET codex = json_set(codex, '$.mk.${boss}', ${monRule('BOSS').t[0]}) WHERE account_id=1`).run();
   const r = await codexRun(env, 1, T0 + 8100, { action: 'activate', keys: ['m:' + boss] });
   env.DB.prepare = real;
   ok(!r.ok && r.status === 409, '읽은 뒤 도감이 바뀌면 409 — 재화가 두 번 움직일 틈이 없다');
@@ -211,6 +213,45 @@ console.log('\n== ⑥ /api/state 가 도감을 내린다 ==');
 {
   const s = await loadState(env, 1);
   ok(s && s.codex && s.codex.r && s.codex.r.azure === 1 && Object.keys(s.codex.a).length > 100, 'state.codex');
+  /* 전선 진행도 같이 내려야 한다 — 빠져 있어서 새로 고칠 때마다 깬 칸이 사라져 보였다(2026-09-19) */
+  const camp = q('SELECT campaign FROM player WHERE account_id=1').campaign || '';
+  ok(s && s.state.campaign === camp, `state.campaign 이 DB 와 같다 ('${camp}')`);
+}
+
+console.log('\n== ⑦ 몬스터 단계 (2026-09-19) ==');
+{
+  const id = Object.keys(MONSTER_TYPES).find(k => MONSTER_TYPES[k].rarity === 'C');
+  const R = monRule('C');
+  const view = mk => codexView({ mk: { [id]: mk }, ms: { [id]: mk } }, [], [], 7).monsters.find(m => m.id === id);
+  ok(!view(R.t[0] - 1).got && view(R.t[0]).got, `모음은 처치 ${R.t[0]}번부터 — ${R.t[0] - 1}번은 아직`);
+  ok(view(R.t[0] - 1).next.need === R.t[0], `모으기 전에는 다음 목표가 문턱(${R.t[0]})`);
+  ok(view(R.t[1]).tier === 2 && view(R.t[1] - 1).tier === 1, `2단계는 처치 ${R.t[1]}번에 확정`);
+  ok(view(R.t[2] - 1).tier === 2, `3단계는 문턱(${R.t[2]}) 전에는 절대 안 오른다`);
+  /* 이미 켠 칸은 문턱 아래여도 모은 것 — 규칙을 바꾸기 전에 켠 사람의 칸을 빼앗지 않는다 */
+  const kept = codexView({ mk: { [id]: 1 }, a: { ['m:' + id]: 1 } }).monsters.find(m => m.id === id);
+  ok(kept.got && kept.on, '예전에 1번 잡고 켠 칸은 그대로 켜져 있다');
+  /* 서버 — 문턱 아래 몬스터는 활성화할 수 없다 */
+  const fresh = Object.keys(MONSTER_TYPES).find(k => MONSTER_TYPES[k].rarity === 'UC' && !(cx().a || {})['m:' + k]);
+  if (fresh) {
+    const t1 = monRule('UC').t[0];
+    db.prepare(`UPDATE player SET codex = json_set(codex, '$.mk.${fresh}', ${t1 - 1}) WHERE account_id=1`).run();
+    const no = await codexRun(env, 1, T0 + 9500, { action: 'activate', keys: ['m:' + fresh] });
+    ok(!no.ok, `서버도 문턱 아래(${t1 - 1}번)는 거절 — ${no.error}`);
+    db.prepare(`UPDATE player SET codex = json_set(codex, '$.mk.${fresh}', ${t1}) WHERE account_id=1`).run();
+    const yes = await codexRun(env, 1, T0 + 9501, { action: 'activate', keys: ['m:' + fresh] });
+    ok(yes.ok, `문턱(${t1}번)에 닿으면 켜진다`);
+  } else ok(false, '안 켠 UC 몬스터가 없어 서버 문턱 검사를 못 했다');
+  /* 확률 — 3단계에 처음 닿는 처치 수의 평균이 '문턱 + 1/p' 근처. 계정 400개 */
+  const reach = salt => { let k = R.t[2]; while (monTier(id, k, salt).tier < 3 && k < R.t[2] + 5000) k++; return k; };
+  const ks = Array.from({ length: 400 }, (_, i) => reach(i + 1));
+  const avg = ks.reduce((a, b) => a + b, 0) / ks.length, want = R.t[2] - 1 + 1 / R.p[0];
+  ok(Math.abs(avg - want) / want < 0.08, `3단계 평균 처치 ${avg.toFixed(1)} · 설계 ${want.toFixed(1)}`);
+  ok(new Set(ks).size > 100, `계정마다 다른 때 오른다 — 400계정 중 서로 다른 값 ${new Set(ks).size}개`);
+  ok(monTier(id, 5000, 3).tier === 4 && monTier(id, 5000, 3).tier === monTier(id, 5000, 3).tier,
+     '같은 계정은 몇 번 불러도 같은 단계 · 충분히 잡으면 4단계');
+  let back = false;
+  for (let k = R.t[2]; k < R.t[2] + 800; k++) if (monTier(id, k + 1, 11).tier < monTier(id, k, 11).tier) back = true;
+  ok(!back, '더 잡아서 단계가 내려가는 일은 없다');
 }
 
 console.log(bad ? `\n✗ ${bad}건 실패` : '\n전부 통과');

@@ -269,6 +269,22 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
    줄마다 접혀 칩 하나가 300px 이 됐다(실측). 넓은 칸 하나가 좁은 칸 두 개보다 짧다. */
 .inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-top:8px}
 .pchip{background:#111a30;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;transition:.12s}
+/* ── 파츠 그림 (partIco) ── 128×128 투명 그림을 칸에 담는다. **등급은 테두리 색** — 그림에는 등급이 없다.
+   작게 줄일 때는 부드럽게 줄인다(image-rendering:auto) — 픽셀아트라도 축소는 계단보다 번짐이 낫다 */
+.pico{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;vertical-align:middle;overflow:hidden;
+  border:1px solid var(--rc,var(--line));border-radius:8px;background:radial-gradient(circle at 40% 30%,#1d2b4c,#0b1120)}
+.pico img{width:100%;height:100%;display:block}
+.pico.r-C{--rc:var(--rC)} .pico.r-R{--rc:var(--rR)} .pico.r-SR{--rc:var(--rSR)} .pico.r-SSR{--rc:var(--rSSR)}
+.pico.xs{width:22px;height:22px;border-radius:5px}
+.pico.sm{width:38px;height:38px}
+.pico.md{width:56px;height:56px;border-radius:10px}
+.pico.lg{width:120px;height:120px;border-radius:18px;border-width:2px}
+.pico.vac{border-style:dashed;background:none;opacity:.5}   /* 빈 칸. .empty 는 빈 목록 안내문(padding 8px)이 이미 쓴다 — 겹치면 그림이 4px 로 눌린다 */
+/* 목록 칩 — 안쪽 구조는 그대로 두고 왼쪽에 그림 자리만 연다(칩마다 생김새가 달라 뜯어고치지 않는다) */
+.pchip.ic{position:relative;padding-left:54px;min-height:54px}
+.pchip.ic > .pico{position:absolute;left:8px;top:8px}
+/* 격납고 장착 칸 — 가운데 정렬 칸이라 그림을 위에 */
+.slot .pico{margin:4px auto 3px}
 .pchip:hover{border-color:var(--acc)}
 .pchip .pn{font-weight:800} .pchip .ps{color:var(--sub);font-size:11px;margin-top:2px}
 /* 파츠 옵션 한 줄에 하나. 색을 따로 주지 않는다 — 빨간 취소선은 '안 붙는 옵션' 으로 보였다 */
@@ -429,7 +445,7 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .gate-acct{ width:100% }
 /* 대문의 로그인 칸 — 아이디·비밀번호가 한 줄, 단추가 그 아래. 좁은 화면에서도 안 깨진다. */
 .gate-login{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:2px }
-.gate-login .ainput{ margin:0; min-width:0 }
+.gate-login .ainput{ margin:0; min-width:0; text-align:center }
 .gate-login .gate-in{ grid-column:1 / -1 }
 @media (max-width:380px){ .gate-login{ grid-template-columns:1fr } }
 .gate-foot{ margin-top:14px; font-size:11px; color:var(--dim) }
@@ -478,6 +494,11 @@ table.rank tr.mine .tag{background:#0e1526;color:var(--gold);border-color:#3d4b7
 .hunt-row .hc{grid-area:c;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
 .hunt-row .hc:before{content:"💰 ";font-size:10px}
 .hunt-row .hc.bad{color:var(--bad)}
+/* 주간 한도가 있는 줄(UQ · EP · BOSS) — 오른쪽 위에 '이번 주 n / 한도', 아래에 입장료 */
+.hunt-row.cap{grid-template-areas:"t n w" "t d c"}
+.hunt-row .hw{grid-area:w;justify-self:end;font-size:10.5px;font-weight:800;color:var(--sub);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.hunt-row .hw.out{color:var(--bad)}
 
 /* ── 출격 편성 ──────────────────────────────────────────
    레벨이 파일럿 것이 된 뒤로 격납고의 판단은 '어떤 두 기를 데려갈까'다.
@@ -1213,6 +1234,10 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .fhead .flead{margin:8px 0 14px;color:var(--sub);font-size:13.5px;line-height:1.7;max-width:46em}
 .fprog{height:5px;background:#0e1526;border-radius:99px;overflow:hidden;margin-bottom:8px}
 .fprog i{display:block;height:100%;background:var(--acc);transition:width .4s}
+.fprow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.fre{background:none;border:1px solid var(--line);color:var(--sub);border-radius:99px;
+  padding:4px 12px;font-size:11.5px;font-weight:700;cursor:pointer}
+.fre:hover{border-color:var(--acc);color:var(--acc)}
 .fgate{margin-top:12px;padding:10px 12px;background:#0e1526;border-left:2px solid var(--gold);font-size:12.5px;color:var(--sub)}
 .fgate b{color:var(--gold)} .fgate span{display:block;color:var(--dim);font-size:11.5px;margin-top:3px}
 
@@ -1246,7 +1271,8 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .ffoes{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;justify-content:center}
 .ffoe1{flex:0 1 168px;min-width:0;text-align:center;border-radius:12px;padding:10px 8px 9px;
   background:linear-gradient(180deg,#141d33,#0d1424);border:1px solid var(--line)}
-.ffoe1 .mecha{height:104px;width:auto;max-width:100%;object-fit:contain;object-position:50% 100%}
+.ffoe1 .mecha{height:104px;width:auto;max-width:100%;object-fit:contain;object-position:50% 100%;
+  margin:0 auto}   /* .mecha 는 block 이라 text-align 이 안 먹는다 — 그림이 칸 왼쪽에 붙어 있었다 */
 .ffoe1 b{display:block;font-size:13px;margin-top:6px}
 .ffoe1 small{display:block;font-size:10.5px;color:var(--dim);line-height:1.4;margin-top:1px}
 .fmeta{justify-content:center}
@@ -1316,6 +1342,19 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .story-art{margin:0 0 12px;display:flex;justify-content:center}
 .story-art img{max-width:100%;max-height:38vh;width:auto;border-radius:12px;
   border:1px solid var(--line);box-shadow:0 14px 40px -18px #000}
+/* PC — 그림을 **화면이 허락하는 만큼** 키운다(2026-09-19 사용자 지시: "지금보다 가로·세로 2배").
+   1920×940 창에서 그림은 633×357 이었고 대사 상자 밑으로 245px 가 비어 있었다.
+   정확히 2배(1266×714)로 박으면 보통 1080p 창에서 대사 상자가 화면 밖으로 밀려 **줄마다 스크롤**해야 한다 —
+   그래서 높이를 '창 높이 − 그림 밖의 것(머리줄·제목줄·대사 상자 세 줄·안내·아래 티커 ≈ 380px)' 으로 잡고
+   2배(720px)에서 멈춘다. 1920×940 에서 약 1.6배, 전체 화면(1080)에서 2배. 작은 창에서도 예전보다 작아지지 않는다.
+   폭은 대전 화면의 1000px 에 갇혀 있었으므로 대사가 떠 있을 때만 넓힌다.
+   대사 상자는 그림과 **같은 폭**으로 선다 — 넓힌 화면 폭을 그대로 쓰면 한 줄이 80자가 넘어 눈이 줄을 놓친다. */
+@media (min-width:900px){
+  #sc-battle:has(.story-view){max-width:1320px}
+  .story-view{--art-h:min(720px, max(38vh, calc(100vh - 380px)))}
+  .story-art img{max-height:var(--art-h)}
+  .story-box,.story-top{width:min(100%, max(560px, calc(var(--art-h) * 16 / 9)));align-self:center}
+}
 
 /* ── 상대가 낀 파츠 ────────────────────────────────────────
    "저렇게 강한 것도 있구나" 를 알게 하는 자리다(2026-09-18 사용자 지시).
@@ -1430,6 +1469,20 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .cxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px;margin-bottom:10px}
 .cxc{border:1px solid var(--line,#2a3450);border-radius:12px;padding:8px 8px 10px;text-align:center;background:rgba(255,255,255,.02)}
 .cxc.done{border-color:rgba(123,240,255,.35);background:rgba(123,240,255,.04)}
+/* 몬스터 도감 단계 — 활성화한 카드의 테두리(2026-09-19 사용자 지시). 1단계는 위 .done 그대로.
+   등급 색(딱지)과 헷갈리지 않게 **금속색**으로 간다 — 동 · 은 · 금. 굵기는 안쪽 고리(inset)로 더해 칸이 밀리지 않는다 */
+.cxc.done.t2{border-color:#b98150;box-shadow:inset 0 0 0 1px rgba(185,129,80,.55);background:rgba(185,129,80,.05)}
+.cxc.done.t3{border-color:#d3dcea;box-shadow:inset 0 0 0 1px rgba(211,220,234,.55),0 0 12px -4px rgba(211,220,234,.7);
+  background:rgba(211,220,234,.05)}
+.cxc.done.t4{border-color:#ffcb4d;box-shadow:inset 0 0 0 1px rgba(255,203,77,.7),0 0 16px -3px rgba(255,203,77,.75);
+  background:rgba(255,203,77,.07)}
+.cxtier{margin-top:6px;display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.35}
+.cxtier b{font-size:10.5px;font-weight:800;color:var(--good)}
+.cxtier i{font-style:normal;font-size:9px;letter-spacing:.12em;color:var(--dim)}
+.cxtier span{font-size:10px;color:var(--dim);white-space:nowrap}
+.cxc.t2 .cxtier b,.cxc.t2 .cxtier i{color:#d39a66}
+.cxc.t3 .cxtier b,.cxc.t3 .cxtier i{color:#e4ebf5}
+.cxc.t4 .cxtier b,.cxc.t4 .cxtier i{color:#ffd166}
 .cxs{position:relative;height:84px;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
 .cxs img,.cxs svg,.cxs canvas{max-height:84px;max-width:100%}
 .cxc.unk .cxs>*:not(.q){filter:brightness(0) contrast(1);opacity:.55}
@@ -1472,6 +1525,8 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .shi.spr img,.shi.spr svg,.shi.spr canvas{max-width:48px;max-height:48px}
 .shi.core{border-color:rgba(255,210,74,.5)}
 .shi.big{font-size:26px}
+.shi.pic{border:none;background:none;overflow:visible}
+.shi.pic .pico{width:52px;height:52px}   /* 칸 크기(52)에 맞춘다 — 다른 칸(기체 조각·스크랩)과 줄이 맞게 */
 .bgr.ready{border-color:rgba(255,210,74,.55)}
 .bgbar{position:relative;height:16px;margin-top:5px;border-radius:8px;background:rgba(255,255,255,.06);overflow:hidden}
 .bgbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--acc),var(--acc2))}

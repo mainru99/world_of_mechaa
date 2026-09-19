@@ -12,6 +12,7 @@
 import { parseCodex } from '../js/codex.js';
 import { parseItems } from '../js/shop.js';
 import { parsePresets } from '../js/preset.js';
+import { huntWeekView } from '../js/rewards.js';
 import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
 import { expedView } from './expedition.js';
 import { PART_COLS, partOf, insertPart, updatePart, partChanged, checkNewPart } from './parts.js';
@@ -191,7 +192,7 @@ export async function noteMigration(env, accountId, clamped, now) {
 export async function loadState(env, accountId) {
   const p = await env.DB.prepare(
     `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items, presets,
-            sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
+            campaign, hunt_wk, sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!p) return null;
 
@@ -220,9 +221,15 @@ export async function loadState(env, accountId) {
     items: parseItems(p.items),
     /* 빌드 프리셋 다섯 칸. 모양은 js/preset.js 머리말 */
     presets: parsePresets(p.presets),
+    /* 토벌 주간 입장 수(021) — 사냥터 줄에 '이번 주 3 / 21' 을 띄운다. 지난주 값이면 0 으로 내려간다 */
+    hunt: huntWeekView(p.hunt_wk, Date.now()),
     state: {
       v: 2, credits: p.credits, cores: p.cores, scrap: p.scrap,
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },
+      /* 전선 진행(016). **빠져 있었다** — 클라는 접속할 때마다 이 state 로 저장본을 갈아 끼우므로
+         (syncOnConnect adopt) 진행이 빈 문자열이 되어, 새로 고칠 때마다 깬 칸이 전부 안 깬 칸으로 보였다.
+         서버 값은 멀쩡했다 — 칸을 다시 깨면 서버가 제 진행을 돌려주어 그때만 맞았다. (2026-09-19) */
+      campaign: typeof p.campaign === 'string' ? p.campaign : '',
       /* 출격 편성 — 데려갈 수 있는 두 기. uid 로 내려 클라가 그대로 쓴다. */
       squad: [uidOf(p.squad1), uidOf(p.squad2)].filter(Boolean),
       /* 원정. endsAt 은 서버 시각이다 — 클라가 이걸로 남은 시간을 세므로 물으러 오지 않는다. */

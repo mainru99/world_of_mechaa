@@ -18,6 +18,10 @@
  *   c   { 이정표키: 1 }              — 넘은 이정표.  S:<갈래>:<n> · S:all
  *   t   칭호 키 | null              — 달고 있는 칭호
  *
+ * **몬스터의 '모음' 은 처치 수가 1단계 문턱(CONST.CODEX.mon[등급].t[0])에 닿은 것**이다 — 전에는 1번(2026-09-19).
+ *   그 위로 단계가 넷 있다(monTier). 3·4단계는 확률이 섞인다. 단계는 **저장하지 않고 처치 수에서 계산한다.**
+ *   이미 활성화한 칸은 처치 수가 문턱보다 적어도 그대로 활성이다(바꾸기 전에 켠 사람의 것을 빼앗지 않는다).
+ *
  * **기체·파츠의 '모음' 은 저장값 ∪ 지금 가진 것** 으로 본다. 도감을 넣기 전에 얻은 것도 지금
  * 들고 있으면 모은 것으로 친다 — 따로 이관을 돌리지 않아도 된다.
  * (첫 판에는 모으면 바로 보상을 줬고 그 키가 c 에 'f:…' 로 남아 있을 수 있다. 지금 규칙은 안 본다.) */
@@ -55,9 +59,56 @@ export function actCost(group, rarity) {
   return { cr: r.cr | 0, co: r.co | 0 };
 }
 
+/* ── 몬스터 도감 단계 (2026-09-19 사용자 지시) ─────────────────────────
+   단계 0 — 아직 못 모음(처치 < t[0])
+   단계 1 — 모음. 활성화할 수 있다         (처치 ≥ t[0])
+   단계 2 —                                (처치 ≥ t[1])
+   단계 3 — t[2] 번째 처치부터 **처치할 때마다 p[0]** 로 오른다
+   단계 4 — 3단계에 오른 뒤, t[3] 번째 처치부터 **처치할 때마다 p[1]** 로 오른다
+
+   **확률은 굴려서 저장하지 않는다.** '(계정, 몬스터, 단계, 몇 번째 처치)' 를 해시해서 그 처치가 붙었는지를 정한다.
+     · 저장이 없다 — 몬스터 기록은 읽지 않고 더하는 한 문장이라(server/codex.js) 굴린 결과를 적을 자리가 없다
+     · 같은 계정은 어느 기기에서 봐도 같은 단계다. 다시 불러도 바뀌지 않는다(새로 고침으로 다시 굴리는 길이 없다)
+     · 계정마다 다르다 — 모두가 '173번째에 오른다' 를 공유하지 않는다
+   단계는 보이는 것(카드 테두리 색)만 바꾼다. 서버는 단계를 쓰지 않으므로 salt 없이 불러도 된다. */
+const MON_RULE_DFLT = { t: [1, 1e9, 1e9, 1e9], p: [0, 0] };
+export const monRule = rarity => ((K().mon || {})[rarity]) || MON_RULE_DFLT;
+
+/* 32비트 해시 → [0,1). FNV-1a 뒤에 한 번 섞는다(이웃한 처치 번호가 비슷한 값이 되지 않게). */
+function roll01(salt, id, stage, k) {
+  let h = 0x811c9dc5;
+  const s = `${salt}|${id}|${stage}|${k}`;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+/* from 번째 처치부터 kills 번째까지 처음으로 붙은 처치 번호. 없으면 -1 */
+function firstHit(salt, id, stage, from, kills, p) {
+  if (!(p > 0)) return -1;
+  for (let k = Math.max(1, from); k <= kills; k++) if (roll01(salt, id, stage, k) < p) return k;
+  return -1;
+}
+
+/* 몬스터 한 종의 단계와 다음 목표.
+   next — { need: 다음 단계 문턱, chance: 문턱을 넘어 확률 구간에 들어왔나 } · 4단계면 null */
+export function monTier(id, kills, salt = 0) {
+  const T = MONSTER_TYPES[id]; if (!T) return { tier: 0, next: null };
+  const { t, p } = monRule(T.rarity);
+  kills = Math.max(0, kills | 0);
+  if (kills < t[0]) return { tier: 0, next: { need: t[0], chance: false } };
+  if (kills < t[1]) return { tier: 1, next: { need: t[1], chance: false } };
+  const k3 = firstHit(salt, id, 3, t[2], kills, p[0]);
+  if (k3 < 0) return { tier: 2, next: { need: t[2], chance: kills >= t[2] } };
+  const from4 = Math.max(t[3], k3 + 1);
+  const k4 = firstHit(salt, id, 4, from4, kills, p[1]);
+  if (k4 < 0) return { tier: 3, next: { need: from4, chance: kills >= from4 } };
+  return { tier: 4, next: null };
+}
+
 /* 도감 한 장. robots 는 [{type}], parts 는 [{base, rarity}] — 지금 가진 것.
-   칸마다 got(모았다) · on(활성화했다) · cost(활성화 값). 갈래마다 got/on/total 개수. */
-export function codexView(raw, robots = [], parts = []) {
+   칸마다 got(모았다) · on(활성화했다) · cost(활성화 값). 갈래마다 got/on/total 개수.
+   salt 는 몬스터 단계의 확률 씨앗(계정 번호). 화면만 넘긴다 — 서버의 판정(활성화·보상)은 단계를 안 본다. */
+export function codexView(raw, robots = [], parts = [], salt = 0) {
   const cx = parseCodex(raw);
   const haveR = new Set(robots.map(r => r && r.type).filter(Boolean));
   const haveP = new Set(parts.filter(p => p && p.base).map(p => p.base + ':' + p.rarity));
@@ -66,7 +117,11 @@ export function codexView(raw, robots = [], parts = []) {
 
   const monsters = MONSTER_IDS.map(id => {
     const kills = cx.mk[id] | 0, seen = Math.max(cx.ms[id] | 0, kills);
-    return { id, seen, kills, ...cell('monster', 'm:' + id, MONSTER_TYPES[id].rarity, kills > 0) };
+    const mt = monTier(id, kills, salt);
+    /* 모음 = 1단계 문턱. 이미 켠 칸은 문턱 아래여도 모은 것으로 친다(바꾸기 전에 켠 칸) */
+    const got = mt.tier >= 1 || !!cx.a['m:' + id];
+    return { id, seen, kills, tier: mt.tier, next: mt.next,
+             ...cell('monster', 'm:' + id, MONSTER_TYPES[id].rarity, got) };
   });
   const robotsV = ROBOT_IDS.map(id =>
     ({ id, ...cell('robot', 'r:' + id, ROBOT_TYPES[id].rarity, !!cx.r[id] || haveR.has(id)) }));

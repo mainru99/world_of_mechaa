@@ -14,6 +14,8 @@
  *   ⑤ 다음 몬스터가 **새 구간**에서 나온다 (승급한 바로 다음 판부터)
  *   ⑥ /api/state 가 구간을 내려 준다
  *   ⑦ 응답만으로 전투를 다시 돌리면 서버 판정과 같다 (재생이 갈리지 않는다)
+ *   ⑧ 토벌 주간 한도 — 한도만큼 들어가고 · 넘으면 찾기·시작 둘 다 막고 · 입장료는 막힌 판에 안 걷고 ·
+ *      마지막 판 뒤 다음 상대를 안 잡고 · 한도 없는 등급은 안 세고 · 일요일 0시(KST)에 풀린다 (2026-09-19)
  *
  * node --no-warnings tools/battlecheck.mjs */
 import { DatabaseSync } from 'node:sqlite';
@@ -21,7 +23,7 @@ import { readFileSync } from 'node:fs';
 import { CONST, ROBOT_TYPES } from '../data/balance.js';
 import { findMatch, startBattle } from '../server/battle.js';
 import { loadState } from '../server/state.js';
-import { bandStart, bandStep, bandRow } from '../js/rewards.js';
+import { bandStart, bandStep, bandRow, readHuntWeek, huntCap, huntResetAt } from '../js/rewards.js';
 import { makeUnit, simulate } from '../js/sim.js';
 
 let bad = 0;
@@ -135,6 +137,55 @@ console.log('\n== ⑥ /api/state 가 구간을 내려 준다 ==');
   const s = await loadState(env, 1);
   ok(s && s.band && s.band.i === 4 && s.band.pts === 2, `state.band = ${JSON.stringify(s && s.band)}`);
   ok(bandRow(s.band.i).lv > 0, '그 구간이 표에 있다');
+}
+
+console.log('\n== ⑧ 토벌 주간 입장 한도 (2026-09-19) ==');
+{
+  const cap = huntCap('BOSS');
+  ok(cap > 0 && huntCap('C') === 0, `보스는 주 ${cap}번 · C 는 한도 없음`);
+  db.prepare('UPDATE player SET credits = 99999999, hunt_wk = NULL, pending_match = NULL WHERE account_id=1').run();
+  let t = T0 + 5_000_000, last = null, errs = 0;
+  for (let i = 0; i < cap; i++) {
+    const fm = await findMatch(env, 1, t, { mode: 'hunt', tier: 'BOSS' }); t += 1000;
+    if (!fm.ok || fm.mode !== 'hunt') { errs++; continue; }
+    last = await startBattle(env, 1, t, { tactic: 'bal' }); t += 1000;
+    if (!last.ok) errs++;
+  }
+  ok(!errs, `${cap}번은 들어간다${errs ? ` — 실패 ${errs}` : ''}`);
+  const hw = readHuntWeek(q('SELECT hunt_wk FROM player WHERE account_id=1').hunt_wk, t);
+  ok(hw.n.BOSS === cap, `DB 에 이번 주 ${hw.n.BOSS} 번으로 적혔다`);
+  ok(last && last.huntDone === true && last.next.opponent === null, '마지막 판 — huntDone · 다음 상대를 잡지 않는다(아레나로 새지 않는다)');
+  ok(last && last.hunt && last.hunt.tiers.BOSS.used === cap && last.hunt.tiers.BOSS.cap === cap, '응답이 이번 주 입장 수를 싣는다');
+  ok(q('SELECT pending_match FROM player WHERE account_id=1').pending_match === null, '잡아 둔 판이 없다');
+  const no = await findMatch(env, 1, t, { mode: 'hunt', tier: 'BOSS' });
+  ok(!no.ok && no.error === 'hunt limit' && no.resetAt > t, `${cap + 1}번째는 찾기에서 막힌다 — ${no.error}`);
+
+  /* 찾기를 건너뛰고 시작을 부르는 손댄 클라 — 한도를 넘기기 직전에 잡아 둔 판을 되살려 본다 */
+  db.prepare('UPDATE player SET hunt_wk = ? WHERE account_id=1').run(JSON.stringify({ w: hw.w, n: { BOSS: cap - 1 } }));
+  const fm2 = await findMatch(env, 1, t, { mode: 'hunt', tier: 'BOSS' }); t += 1000;
+  db.prepare('UPDATE player SET hunt_wk = ? WHERE account_id=1').run(JSON.stringify({ w: hw.w, n: { BOSS: cap } }));
+  const crB = q('SELECT credits FROM player WHERE account_id=1').credits;
+  const st2 = await startBattle(env, 1, t, { tactic: 'bal' }); t += 1000;
+  ok(fm2.ok && !st2.ok && st2.error === 'hunt limit', '찾은 뒤 한도가 찼으면 시작에서 막힌다 — 값을 지키는 자리는 시작이다');
+  ok(q('SELECT credits FROM player WHERE account_id=1').credits === crB, '막힌 판은 입장료를 안 걷는다');
+
+  /* 한도 없는 등급은 기록하지 않는다 */
+  const before = q('SELECT hunt_wk FROM player WHERE account_id=1').hunt_wk;
+  const fc = await findMatch(env, 1, t, { mode: 'hunt', tier: 'C' }); t += 1000;
+  const sc = await startBattle(env, 1, t, { tactic: 'bal' }); t += 1000;
+  ok(fc.ok && sc.ok && q('SELECT hunt_wk FROM player WHERE account_id=1').hunt_wk === before, 'C 토벌은 한도에 안 센다');
+
+  /* 일요일 00:00 KST 를 넘기면 풀린다 */
+  const nextWeek = huntResetAt(t) + 1000;
+  const fw = await findMatch(env, 1, nextWeek, { mode: 'hunt', tier: 'BOSS' });
+  ok(fw.ok && fw.mode === 'hunt', '초기화 시각(일요일 0시)을 넘기면 다시 들어간다');
+  const sw = await startBattle(env, 1, nextWeek + 1000, { tactic: 'bal' });
+  ok(sw.ok && sw.hunt.tiers.BOSS.used === 1, `새 주는 1번부터 센다 (${sw.hunt && sw.hunt.tiers.BOSS.used})`);
+  const kst = new Date(huntResetAt(t) + 9 * 3600e3);
+  ok(kst.getUTCDay() === 0 && kst.getUTCHours() === 0 && kst.getUTCMinutes() === 0, `초기화는 일요일 00:00 한국 시각 (${kst.toISOString().slice(0, 16)} KST)`);
+
+  const s = await loadState(env, 1);
+  ok(s.hunt && s.hunt.tiers.BOSS && s.hunt.tiers.UQ && s.hunt.resetAt > 0, '/api/state 가 이번 주 입장 수를 내린다');
 }
 
 console.log(bad ? `\n✗ ${bad}건 실패` : '\n전부 통과');

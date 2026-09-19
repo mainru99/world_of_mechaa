@@ -14,7 +14,8 @@ import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
 import { computeStats, power, gainExp, addFat, fatOf, decayFat,
          sortieCost, rescueCredits } from '../js/stats.js';
 import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickTactic,
-         bandStart, bandStep, bandGoal } from '../js/rewards.js';
+         bandStart, bandStep, bandGoal,
+         readHuntWeek, huntLeft, huntCap, huntResetAt, huntWeekView } from '../js/rewards.js';
 import { codexMonsterStmt } from './codex.js';
 import { registerArena, pickOpponentFromArena, pickOpponentByNickname, ratingDelta } from './arena.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
@@ -33,7 +34,7 @@ const COMBAT = { ...ROBOT_TYPES, ...MONSTER_TYPES };
    나갈 수 있는 것은 편성(squad1/squad2)에 든 두 기뿐이다. */
 async function loadFighter(env, accountId) {
   const p = await env.DB.prepare(
-    'SELECT sel_robot, credits, rating, mband, mband_pts, squad1, squad2 FROM player WHERE account_id = ?1')
+    'SELECT sel_robot, credits, rating, mband, mband_pts, squad1, squad2, hunt_wk FROM player WHERE account_id = ?1')
     .bind(accountId).first();
   const robots = (await env.DB.prepare(
     'SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
@@ -63,6 +64,7 @@ async function loadFighter(env, accountId) {
     /* 대전 몬스터 구간과 승급 점수. 칸이 비었으면 레이팅으로 자리를 잡는다(bandStart). */
     band: bandStart(p && p.mband, p && p.rating != null ? p.rating : 1000),
     bandPts: (p && p.mband_pts) | 0,
+    huntWk: p ? p.hunt_wk : null,         // 토벌 주간 입장 수(021) — 원문 그대로. readHuntWeek 로 읽는다
     robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots },
     parts: used,
     /* 상대 등급 보정은 '보유한' 기체 전부를 본다 — 편성에 없어도 내 전력이다 */
@@ -196,6 +198,10 @@ export async function findMatch(env, accountId, now, opts) {
     const need = huntCost(me.robot, opts.tier);
     if (me.credits < need)
       return { ok: false, status: 400, error: 'not enough credits for hunt', need, have: me.credits };
+    /* 주간 한도(UQ · EP · BOSS). 상대를 보여 주기 전에 막는다 — 보여 주고 시작에서 막으면 헛걸음이다.
+       값을 지키는 자리는 startBattle 이다(여기는 안내일 뿐). */
+    if (huntLeft(readHuntWeek(me.huntWk, now), opts.tier) <= 0)
+      return { ok: false, status: 400, error: 'hunt limit', tier: opts.tier, resetAt: huntResetAt(now) };
   }
 
   /* 지목 대전은 사용자가 이름을 적어 부른 것이라, 못 찾으면 조용히 다른 상대로
@@ -227,7 +233,7 @@ const PENDING_TTL = 10 * 60 * 1000;   // 상대를 찾아 놓고 10분 넘게 �
 const validTactic = t => (typeof t === 'string' && CONST.TACTIC && CONST.TACTIC[t]) ? t : 'none';
 
 export async function startBattle(env, accountId, now, body) {
-  const prow = await env.DB.prepare('SELECT pending_match, credits, cores, scrap, wins, losses, rev FROM player WHERE account_id = ?1')
+  const prow = await env.DB.prepare('SELECT pending_match, credits, cores, scrap, wins, losses, rev, hunt_wk FROM player WHERE account_id = ?1')
     .bind(accountId).first();
   if (!prow || !prow.pending_match) return { ok: false, status: 400, error: 'no pending match' };
 
@@ -270,6 +276,18 @@ export async function startBattle(env, accountId, now, body) {
      클라는 이 오류를 받으면 상대를 새로 찾는다 — 그때 비상 출격이 잡힌다. */
   if (!rescue && prow.credits < cost)
     return { ok: false, status: 400, error: 'not enough credits' };
+
+  /* 토벌 주간 한도 — **입장료를 걷는 이 자리에서 센다.** 져도 한 번이다.
+     위의 선점(pending 을 조건부로 비움)이 한 번에 한 판만 통과시키므로, 여기서 읽고 더해 쓰는 사이에
+     같은 계정의 다른 전투가 끼어들 수 없다. 한도가 없는 등급(C · UC · R)은 기록하지 않는다. */
+  let huntW = null;
+  if (mode === 'hunt' && huntCap(tier)) {
+    huntW = readHuntWeek(prow.hunt_wk, now);
+    if (huntLeft(huntW, tier) <= 0)
+      return { ok: false, status: 400, error: 'hunt limit', tier, resetAt: huntResetAt(now) };
+    huntW.n[tier] = (huntW.n[tier] | 0) + 1;
+  }
+  const huntRaw = huntW ? JSON.stringify(huntW) : prow.hunt_wk;
 
   /* 피로도 자연 회복을 서버 시각으로 먼저 정산한다. 클라 시계는 믿지 않는다. */
   decayFat(me.robot, now);
@@ -339,8 +357,12 @@ export async function startBattle(env, accountId, now, body) {
   /* 다음 상대를 지금 잡아 둔다. 레벨이 올랐을 수 있으니 정산 뒤에 고른다.
      pending_match 는 어차피 이 UPDATE 에서 건드리므로 쓰기가 늘지 않는다. */
   /* '한 판 더' 는 같은 등급을 계속 사냥한다. 돈이 떨어지면 조용히 아레나로 되돌아간다. */
-  const next = await preparePending(env, accountId, me, now, credits,
-                                    mode === 'hunt' ? { mode, tier } : null);
+  /* 이번 판으로 그 등급의 주간 한도를 다 썼으면 다음 판을 잡지 않는다.
+     돈이 모자랄 때처럼 아레나로 조용히 바꾸면 '한 판 더' 가 엉뚱한 싸움이 된다 — 화면이 '사냥터로' 를 띄운다. */
+  const huntDone = !!huntW && huntLeft(huntW, tier) <= 0;
+  const next = huntDone
+    ? { json: null, opponent: null, cost: 0, rescue: false, mode: null, tier: null }
+    : await preparePending(env, accountId, me, now, credits, mode === 'hunt' ? { mode, tier } : null);
 
   const stmts = [];
   if (rw.part) {
@@ -350,9 +372,9 @@ export async function startBattle(env, accountId, now, body) {
     .bind(me.robot.level, me.robot.exp, me.robot.fat, me.robot.fatAt, me.row.id));
   stmts.push(env.DB.prepare(
     `UPDATE player SET credits=?1, cores=?2, scrap=?3, wins=?4, losses=?5, rev=?6,
-       pending_match=?7, updated_at=?8, mband=?10, mband_pts=?11 WHERE account_id=?9`)
+       pending_match=?7, updated_at=?8, mband=?10, mband_pts=?11, hunt_wk=?12 WHERE account_id=?9`)
     .bind(credits, cores, scrap, wins, losses, rev, next.json, now, accountId,
-          me.band, me.bandPts));
+          me.band, me.bandPts, huntRaw ?? null));
 
   /* 레이팅은 **아레나에서만** 움직인다.
        · 사람 상대      — 겨루기의 본체라 폭이 크다 (K = RATING_K.pvp)
@@ -410,6 +432,8 @@ export async function startBattle(env, accountId, now, body) {
     cost, rescue, mode, tier,              // 이번 판에 실제로 낸 출격비와 모드
     next: { opponent: next.opponent, cost: next.cost, rescue: next.rescue,
             mode: next.mode, tier: next.tier },
+    /* 토벌 주간 입장 수 — 화면이 사냥터 줄과 결과 단추('한 판 더' / '사냥터로')에 쓴다 */
+    hunt: huntWeekView(huntRaw, now), huntDone,
     player: { credits, cores, scrap, wins, losses },
     robot: { uid: me.robot.uid, level: me.robot.level, exp: me.robot.exp, fat: me.robot.fat, fatAt: me.robot.fatAt },
     rev,

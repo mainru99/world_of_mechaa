@@ -29,7 +29,7 @@ import { FRONT_CHAPTERS, FRONT_CELLS, readProgress, writeProgress, clearedCount,
 import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
          fuseCheck, fuseCost, fuseUpRate, nextRarity } from './gacha.js';
-import { makeOpponent as _makeOpponent, pickTactic, bandStart, bandGoal } from './rewards.js';
+import { makeOpponent as _makeOpponent, pickTactic, bandStart, bandGoal, huntWeekView, huntResetAt } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 
@@ -306,7 +306,7 @@ async function scrapPart(u){
   if(worn){ toast('장착 중인 파츠는 분해할 수 없습니다'); return; }
   /* 되돌릴 수 없으므로 한 번 묻는다. 강화한 파츠는 특히 실수하기 쉽다. */
   openModal(`<div class="mhead">파츠 분해 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
-    <div class="pchip"><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div>
+    <div class="pchip ic">${partIco(p)}<div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div>
       <div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>
     <div class="hint" style="margin:10px 0;color:var(--bad)">분해하면 되돌릴 수 없습니다.</div>
     <div class="row-btns">
@@ -543,6 +543,20 @@ function openModal(html){ shield(); const m=$('#modal'); m.innerHTML=`<div class
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal').innerHTML=''; }
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
+/* 파츠 그림 — assets/parts/<베이스>.png (128×128 투명, assets/parts/README.md).
+   **등급은 그림에 없다** — 테두리 색으로 친다(.pico.r-SR). 그래서 84장이 아니라 21장이다.
+   베이스 그림이 없으면(베이스가 없는 옛 저장본, 그림이 아직 없는 새 베이스) 슬롯 그림으로 떨어진다.
+   크기 — xs 22 (글줄 안) · sm 38 (목록 칩) · md 56 (장착 칸·상점) · lg 120 (뽑기·합성 결과) */
+const PART_ICON_V = '?v=20260919';
+const slotIconSrc = sl => `assets/parts/slot-${String(sl || 'weapon').toLowerCase()}.png${PART_ICON_V}`;
+function partIco(p, size){
+  const sl = p && p.slot;
+  const src = p && p.base ? `assets/parts/${p.base}.png${PART_ICON_V}` : slotIconSrc(sl);
+  return `<span class="pico ${size || 'sm'}${p && p.rarity ? ' r-' + p.rarity : ''}"><img src="${src}" alt="" decoding="async"
+    onerror="this.onerror=null;this.src='${slotIconSrc(sl)}'"></span>`;
+}
+/* 빈 칸 — 슬롯 그림을 흐리게. 무엇을 끼우는 칸인지 글자 없이 읽힌다 */
+const slotIco = (sl, size) => `<span class="pico ${size || 'sm'} vac"><img src="${slotIconSrc(sl)}" alt="" decoding="async"></span>`;
 /* 계열 딱지. 계열은 파츠 이름에서 나오므로 이미 가진 파츠에도 그대로 붙는다.
    이것이 안 보이면 세트는 '우연히 걸리는 것' 이 되어 모으는 재미가 생기지 않는다. */
 function setTag(p){ const k=setKeyOf(p); if(!k) return '';
@@ -758,6 +772,7 @@ function renderHangar(){
   const slotsHtml = SLOTS.map(slot=>{ const u=rb.slots[slot]; const p=u&&findPart(u,S.parts);
     return `<div class="slot ${p?'filled':''}${p?enhClass(p):''}" onclick="ROWAR.openSlot('${slot}')">
       <div class="sl">${SLOT_KO[slot]}</div>
+      ${p?partIco(p,'sm'):slotIco(slot,'sm')}
       ${p?`<div class="pn">${esc(p.name)}</div><div class="pp">${rarTag(p)}${setTag(p)}</div><div class="pp">${affixTags(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
   const invAll = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
   /* 다 그리지 않는다. 칩 폭을 어떻게 잡아도 300개는 1만 픽셀이 넘고(실측), 그만한 DOM 을
@@ -766,8 +781,8 @@ function renderHangar(){
   const invParts = invHit.slice(0, invF.limit);
   /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
-  const inv = invParts.length? invParts.map(p=>`<div class="pchip${enhClass(p)}${isFresh(p.uid)?' fresh':''}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화 — 스크랩 ${enhCost(p.enh||0)} · 성공 ${Math.round(enhRate(p.enh||0)*100)}%">
-      <div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
+  const inv = invParts.length? invParts.map(p=>`<div class="pchip ic${enhClass(p)}${isFresh(p.uid)?' fresh':''}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화 — 스크랩 ${enhCost(p.enh||0)} · 성공 ${Math.round(enhRate(p.enh||0)*100)}%">
+      ${partIco(p)}<div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
       <div class="pfoot"><span class="ps" style="color:var(--gold)">강화 ${fmt(enhCost(p.enh||0))}${(p.enh|0)>=enhMax()?'':` <span style="color:var(--dim)">${Math.round(enhRate(p.enh||0)*100)}%</span>`}</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p.rarity,p.enh))}</button></div></div>`).join('')
@@ -989,9 +1004,9 @@ function drawFuse(){
     (ord[x.slot]-ord[y.slot]) || (RAR_ORDER[y.rarity]-RAR_ORDER[x.rarity]) || ((y.enh|0)-(x.enh|0)));
   const f = fuseInfo();
   const chips = pool.length ? pool.map((p,i)=>
-    `<div class="pchip fusec${_fuseSel.includes(p.uid)?' on':''}${enhClass(p)}${isFresh(p.uid)?' fresh':''}"
+    `<div class="pchip ic fusec${_fuseSel.includes(p.uid)?' on':''}${enhClass(p)}${isFresh(p.uid)?' fresh':''}"
       data-uid="${p.uid}" style="--i:${i}" onclick="ROWAR.fuseToggle('${p.uid}')">
-      <div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}</div>
+      ${partIco(p)}<div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}</div>
       <div class="ps">${SLOT_KO[p.slot]}${p.enh?` · +${p.enh}`:''}</div></div>`).join('')
     : `<div class="empty">합성할 수 있는 파츠가 없습니다. 끼고 있는 파츠는 재료가 될 수 없습니다.</div>`;
 
@@ -1027,8 +1042,8 @@ function fuseResult(r, mats){
   openModal(`<div class="mhead">${head} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="fres" data-r="${p.rarity}">
       <div class="fresb"></div>
-      <div class="pchip fresp${enhClass(p)}">
-        <div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div>
+      <div class="pchip ic fresp${enhClass(p)}">
+        ${partIco(p)}<div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div>
         <div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
       </div>
     </div>
@@ -1058,8 +1073,8 @@ function openRobot(i){
   const isSel = S.robots[S.sel] && S.robots[S.sel].uid === r.uid;
   const slots = SLOTS.map(sl => { const u = r.slots[sl], p = u && findPart(u, S.parts);
     return `<div class="rpslot${p?' filled':''}"><b>${SLOT_KO[sl]}</b>${p
-      ? `<span>${esc(p.name)} ${rarTag(p)}${setTag(p)}</span>`
-      : `<span class="dimt">비어 있음</span>`}</div>`; }).join('');
+      ? `<span>${partIco(p,'xs')} ${esc(p.name)} ${rarTag(p)}${setTag(p)}</span>`
+      : `<span class="dimt">${slotIco(sl,'xs')} 비어 있음</span>`}</div>`; }).join('');
   openModal(`<div class="mhead">${esc(T.name)} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="rprev">
       <div class="sprite" data-t="${T.rarity}">${sprite(r.type,false)}</div>
@@ -1093,8 +1108,8 @@ function openSlot(slot){
   const list=S.parts.filter(p=>p.slot===slot);
   const rows = list.length? list.map(p=>{ const equipped = S.robots.some(r=>Object.values(r.slots).includes(p.uid));
     const onMe = equippedHere===p.uid;
-    return `<div class="pchip${enhClass(p)}${isFresh(p.uid)?' fresh':''}" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <div><div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${partStatLine(p)}</div>
+    return `<div class="pchip ic${enhClass(p)}${isFresh(p.uid)?' fresh':''}" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      ${partIco(p)}<div><div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${partStatLine(p)}</div>
       ${equipped&&!onMe?`<div class="ps" style="color:var(--bad)">다른 기체 장착중</div>`:''}</div>
       <button class="btn ${onMe?'danger':''}" style="padding:8px 12px;font-size:13px"
         onclick="ROWAR.${onMe?`unequip('${slot}')`:`equip('${slot}','${p.uid}')`}">${onMe?'해제':'장착'}</button>
@@ -1177,7 +1192,7 @@ async function renderShop(){
     const afford = S.credits >= x.price;
     let icon='', name='', sub='';
     if(x.kind==='part'){
-      icon = `<div class="shi slot">${SLOT_KO[x.part.slot]}</div>`;
+      icon = `<div class="shi pic">${partIco(x.part,'md')}</div>`;
       name = `${esc(x.part.name)} ${rarTag(x.part)}`;
       sub = `파츠 · Lv.${x.part.lv||sh.lv}`;
     } else if(x.kind==='shard'){
@@ -1362,8 +1377,8 @@ function revealCardHtml(res){
   if(res.kind==='core') return `<div class="pchip" style="border-color:var(--acc2)"><div class="pn" style="color:var(--acc2)">코어 +${res.n}</div><div class="ps">뽑기를 한 번 더 돌릴 수 있습니다</div></div>`;
   if(res.kind==='credit') return `<div class="pchip"><div class="pn" style="color:var(--gold)">크레딧 +${fmt(res.cr)}</div><div class="ps">레벨업·정비에 쓰세요</div></div>`;
   if(res.kind==='bust') return `<div class="pchip" style="opacity:.6"><div class="pn" style="color:var(--dim)">꽝</div><div class="ps">아무것도 나오지 않았습니다</div></div>`;
-  if(res.kind==='scrap') return `<div class="pchip"><div class="pn">${esc(res.part.name)} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
-  const p=res.part; return `<div class="pchip${enhClass(p)}"><div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
+  if(res.kind==='scrap') return `<div class="pchip ic">${partIco(res.part)}<div class="pn">${esc(res.part.name)} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
+  const p=res.part; return `<div class="pchip ic${enhClass(p)}">${partIco(p)}<div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
 }
 function showReveal(results){
   const best=results.reduce((a,b)=> rankOf(b)>rankOf(a)?b:a, results[0]);
@@ -1387,7 +1402,10 @@ function showReveal(results){
    순서라 파츠만 1~4 라는 다른 눈금을 쓴다. 그래서 **SSR 파츠(4)가 크레딧(20)
    에게도 졌다** — 10연차에 크레딧이 하나만 섞이면 빛이 그쪽 색으로 갔다.
    등급끼리 견주는 자리에는 등급 눈금을 따로 둔다. */
-const PRIZE_RANK = { C:0, GOLD:1, UC:2, R:3, SR:4, UQ:5, SSR:6, EP:6 };
+/* 크레딧(GOLD)은 등급이 없지만 **언커먼과 레어 사이**로 친다(2026-09-19 사용자 지시). 전에는 C 바로 위(1)였다.
+   파츠와 기체의 등급은 **드문 정도**로 맞췄다 — 파츠 SR 상위 18% ≈ 기체 UQ 11% 바로 아래, SSR 4% ≈ EP 3%.
+   코어는 등급이 없고 뽑기 한 번 값이라 UQ 로 둔다(예전 그대로). */
+const PRIZE_RANK = { C:0, UC:2, GOLD:2.5, R:3, SR:4, UQ:5, SSR:6, EP:6 };
 function prizeOf(res){
   if(res.kind==='robot' || res.kind==='dupe') return rarOf(res.type);
   if(res.kind==='part')   return res.part.rarity;
@@ -1402,19 +1420,22 @@ function bestPrize(results){
   }, 'C');
 }
 
-function rankOf(res){ if(res.kind==='robot')return 200+RIDX[rarOf(res.type)];
-  if(res.kind==='dupe')return 100+RIDX[rarOf(res.type)];
-  if(res.kind==='core')return 60;
-  if(res.kind==='credit')return 20;
-  if(res.kind==='scrap')return 10;
-  if(res.kind==='bust')return -1;
-  return {C:1,R:2,SR:3,SSR:4}[res.part.rarity]||0; }
+/* 결과 창의 '주인공 그림' — **그 판에서 등급이 가장 높은 것**(2026-09-19 사용자 지시).
+   전에는 종류로 먼저 갈랐다(새 기체 > 중복 > 코어 > 크레딧 > 스크랩 > 파츠) — 파츠가 맨 아래라,
+   10연차에 SSR 파츠와 크레딧 200 이 같이 나오면 큰 그림이 동전이었다. 파츠 그림이 생기며 눈에 띄었다.
+   이제 캡슐 빛깔과 **같은 눈금(PRIZE_RANK)** 으로 견준다 — 빛은 금색인데 그림은 동전인 일이 없다.
+   등급이 같으면 새 기체 > 중복 기체 > 파츠 > 코어 > 크레딧 > 자동 분해 순이다. 꽝은 늘 맨 아래. */
+const KIND_TIE = { robot:5, dupe:4, part:3, core:2, credit:1, scrap:0 };
+function rankOf(res){
+  if(!res || res.kind==='bust') return -1;
+  return (PRIZE_RANK[prizeOf(res)] || 0) * 10 + (KIND_TIE[res.kind] || 0);
+}
 function currencyArt(kind){
   return `<img class="currency-art" src="assets/ui/coin-${kind}.png" alt="" width="120" height="120">`; }
 function bigIconArt(ch,col){
   return `<div style="width:120px;height:120px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:46px;color:${col};background:radial-gradient(circle at 40% 30%,#233a63,#0c1220);border:2px solid ${col}">${ch}</div>`; }
-function bigPartArt(p){ const c={C:'#8a97b5',R:'#4aa3ff',SR:'#c07bff',SSR:'#ffb03a'}[p.rarity];
-  return `<div style="width:120px;height:120px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:34px;color:${c};background:radial-gradient(circle at 40% 30%,#233a63,#0c1220);border:2px solid ${c}">${SLOT_KO[p.slot][0]}</div>`; }
+/* 예전엔 120px 칸에 슬롯 이름 첫 글자('무')를 크게 찍었다. 파츠 그림이 생겨 그 자리에 그림을 둔다 */
+function bigPartArt(p){ return partIco(p, 'lg'); }
 
 /* ------------------------------- 대전 ------------------------------- */
 /* 고른 전술. 판이 바뀌어도 그대로 두어 '늘 쓰는 전술'을 다시 고르지 않아도 되게 한다.
@@ -1902,7 +1923,8 @@ async function renderRank(){
    '저 자리에 무언가 있다' 가 목표가 된다. 이름·능력치는 가린다. */
 let _codexRaw = null, _codexAt = 0, _codexGroup = 'monster';
 const CODEX_TTL = 60000;
-function codexNow(){ return codexView(_codexRaw || {}, S.robots || [], S.parts || []); }
+/* 계정 번호가 몬스터 단계(3·4단계 확률)의 씨앗이다 — 같은 계정은 어느 기기에서 봐도 같은 단계 */
+function codexNow(){ return codexView(_codexRaw || {}, S.robots || [], S.parts || [], net.state.accountId || 0); }
 /* 탭 머리의 숫자 — 받을 이정표 + 켤 수 있는 칸. 원본을 아직 안 받았으면 안 띄운다. */
 function codexDueBadge(){
   if(!_codexRaw) return '';
@@ -1982,17 +2004,33 @@ async function renderCodex(){
 
   let body = '';
   if(_codexGroup==='monster'){
+    /* 몬스터는 단계가 있다(js/codex.js monTier). 모으기 전에는 '처치 3 / 5' 로 문턱까지 남은 수를,
+       활성화한 뒤에는 단계와 다음 목표를 적는다. 3·4단계는 문턱을 넘은 뒤 처치마다 확률이라 '기회' 로만 적는다.
+       테두리 색은 **활성화한 카드에만** — 켜야 도감에 오른 것이다(2 동 · 3 은 · 4 금). */
+    const monT1 = r => ((CONST.CODEX.mon || {})[r] || { t: [1] }).t[0];
+    const tierFoot = m => {
+      if(!m.on) return foot(m);
+      const nx = m.next;
+      /* 카드가 좁다(모바일 70px 남짓) — 한 줄에 들어가게 짧게 */
+      const sub = !nx ? '최고 단계'
+        : nx.chance ? `처치마다 ${m.tier+1}단계 기회`
+        : `${m.tier+1}단계 ${fmt(m.kills)}/${fmt(nx.need)}`;
+      return `<div class="cxtier"><b>${m.tier}단계</b><i>${'◆'.repeat(m.tier)}${'◇'.repeat(Math.max(0,4-m.tier))}</i><span>${sub}</span></div>`;
+    };
     body = `<div class="cxgrid">${v.monsters.map(m => {
       const T = MONSTER_TYPES[m.id];
       const known = m.seen > 0;
-      const state = m.kills ? `처치 ${fmt(m.kills)}` : known ? '만났다 · 미처치' : '?';
-      return `<div class="cxc ${known && !m.got ? 'seen' : cls(m)}" data-t="${m.rarity}">
+      const need = m.next && !m.got ? m.next.need : 0;
+      const state = need ? (known ? `처치 ${fmt(m.kills)} / ${fmt(need)}` : '?')
+        : m.kills ? `처치 ${fmt(m.kills)}` : known ? '만났다 · 미처치' : '?';
+      return `<div class="cxc ${known && !m.got ? 'seen' : cls(m)}${m.on && m.tier >= 2 ? ' t' + m.tier : ''}" data-t="${m.rarity}">
         <div class="cxs">${sprite(m.id,false)}${known?'':'<i class="q">?</i>'}</div>
         <div class="cxn">${known?esc(T.name):'???'}</div>
         <div class="cxm"><span class="tag ${m.rarity==='BOSS'?'monster-tag':'rr-'+m.rarity}">${m.rarity}</span> ${state}</div>
-        ${foot(m)}
+        ${tierFoot(m)}
       </div>`; }).join('')}</div>
-      <div class="hint">몬스터는 <b>이겨야</b> 모입니다. 대전·파견·전선·점령·시련·레이드 어디서든 됩니다.</div>`;
+      <div class="hint">같은 몬스터를 <b>여러 번 이겨야</b> 모입니다(보통 ${monT1('C')}번 · 에픽 ${monT1('EP')}번 · 보스 ${monT1('BOSS')}번). 대전·파견·전선·점령·시련·레이드 어디서든 됩니다.
+        활성화한 뒤에도 더 잡을수록 <b>단계</b>가 올라 카드 테두리가 바뀝니다 — 2단계 동 · 3단계 은 · 4단계 금. 3·4단계는 운도 따릅니다.</div>`;
   } else if(_codexGroup==='robot'){
     body = `<div class="cxgrid">${v.robots.map(r => {
       const T = ROBOT_TYPES[r.id];
@@ -2015,7 +2053,8 @@ async function renderCodex(){
       ${SLOTS.map(sl => `<tr class="sl"><td colspan="${RARS.length+1}">${SLOT_KO[sl]}</td></tr>` +
         Object.entries(bySlot[sl]||{}).map(([b,row]) => {
           const any = RARS.some(r=>row[r] && row[r].got);
-          return `<tr><td class="pb">${any?esc(PART_BASES[b].ko):'???'}</td>${RARS.map(r => td(row[r])).join('')}</tr>`; }).join('')
+          /* 모은 줄은 파츠 그림, 못 모은 줄은 흐린 슬롯 그림 — 진짜 그림을 먼저 보여 주면 이름을 가린 뜻이 없다 */
+          return `<tr><td class="pb">${any?partIco({base:b, slot:sl},'xs'):slotIco(sl,'xs')} ${any?esc(PART_BASES[b].ko):'???'}</td>${RARS.map(r => td(row[r])).join('')}</tr>`; }).join('')
       ).join('')}
       </tbody></table>
       <div class="hint">● 활성 · ○ 모았음(눌러서 활성화) · ? 아직. 활성화 값 — ${RARS.map(r=>`${r} ${costTxt(actCost('part', r))}`).join(' / ')}</div>`;
@@ -2082,6 +2121,7 @@ async function findMatch(opts){
   const [r] = await Promise.all([net.battleFind(opts), sleep(1000)]);   // 연출용 최소 대기
   if(!r || r.error){
     if(r && r.need!=null){ go('hunt'); toast(`크레딧이 모자랍니다 · 필요 ${fmt(r.need)} / 보유 ${fmt(r.have)}`); return; }
+    if(r && r.error==='hunt limit'){ go('hunt'); toast(`이번 주 ${HUNT_KO[r.tier]||''} 토벌 한도를 다 썼습니다 · ${huntResetTxt(r.resetAt)}`); return; }
     renderBattleHome();
     toast(r && r.error==='target is self' ? '자기 자신과는 붙을 수 없습니다'
       : r && r.error==='target not found'
@@ -2231,21 +2271,25 @@ function renderHunt(){
         <div class="hint">토벌은 서버 연결이 필요합니다. 보상을 서버가 판정합니다.</div></div></div>`;
     return;
   }
+  const hw = huntNow();
   const rows = Object.keys(CONST.HUNT).map(t=>{
-    const H=CONST.HUNT[t], cost=Math.ceil(sortieCost(rb)*H.costX), poor=S.credits<cost;
+    const H=CONST.HUNT[t], cost=Math.ceil(sortieCost(rb)*H.costX);
+    /* 주간 한도(UQ · EP · BOSS). 다 쓰면 줄을 잠근다 — 서버도 막지만 누르고 나서 알면 헛걸음이다 */
+    const wk = hw.tiers[t], out = !!(wk && wk.used >= wk.cap), poor = S.credits<cost || out;
     const lv=Math.max(1,Math.min(MAXLV, rb.level+H.lv));
     /* 보스는 무엇이 나오는지 밝히지 않는다. 나머지 등급은 이름을 보고 상성을 준비하는
        것이 판단인데, 보스까지 미리 알면 마지막 관문이 그냥 한 줄 더 비싼 사냥터가 된다. */
     const names = t==='BOSS' ? '???'
       : (MONSTER_BY_RARITY[t]||[]).map(id=>MONSTER_TYPES[id].name).join(' · ');
-    return `<button class="hunt-row${poor?' poor':''}" ${poor?'disabled':''} onclick="ROWAR.hunt('${t}')">
+    return `<button class="hunt-row${poor?' poor':''}${wk?' cap':''}" ${poor?'disabled':''} onclick="ROWAR.hunt('${t}')">
       <!-- 등급 색은 .rr-* 다. .rar-* 는 파츠 등급(C/R/SR/SSR)이라 UC·UQ·EP 규칙이 아예 없어,
            정예·초희귀·전설 세 줄만 색 없이 회색으로 떴다. -->
       <div class="ht"><span class="tag rr-${t}">${HUNT_KO[t]}</span>
         <b>Lv.${lv}</b></div>
       <div class="hn${t==='BOSS'?' unknown':''}">${names}</div>
       <div class="hd">스크랩 ×${H.scX} · 파츠 ${Math.round(H.partP*100)}%${H.coreP?` · 코어 ${Math.round(H.coreP*100)}%`:''}</div>
-      <div class="hc ${poor?'bad':''}">${fmt(cost)}</div>
+      ${wk ? `<div class="hw${out?' out':''}">이번 주 ${wk.used} / ${wk.cap}</div>` : ''}
+      <div class="hc ${S.credits<cost?'bad':''}">${fmt(cost)}</div>
     </button>`;
   }).join('');
   /* 넓은 화면에서는 원정과 토벌을 나란히 둔다. 한 단으로 쌓으면 1,280px 짜리 줄에
@@ -2256,9 +2300,24 @@ function renderHunt(){
       <div class="hint"><b>스크랩과 파츠</b>를 얻습니다 · 크레딧은 적고 <b>경험치는 거의 없으며</b> 순위는 오르지 않습니다 · 등급이 높을수록 강합니다</div>
       <div class="hunt-list" style="margin-top:10px">${rows}</div>
       <div class="hint" style="margin-top:8px">출전 · ${ROBOT_TYPES[rb.type].name} Lv.${rb.level} · 보유 ${fmt(S.credits)} 크레딧</div>
+      <div class="hint">${Object.keys(hw.tiers).map(t=>HUNT_KO[t]).join(' · ')} 토벌은 주마다 들어갈 수 있는 횟수가 정해져 있습니다 · ${huntResetTxt(hw.resetAt)}</div>
     </div></div>`;
 }
 function hunt(tier){ findMatch({ mode:'hunt', tier }); }
+
+/* 토벌 주간 입장 수. 서버가 state · 전투 응답에 실어 보낸다(huntWeekView).
+   받은 것이 지난주 것이면(초기화 시각을 넘겼으면) 0 으로 본다 — 일요일 0시를 넘겨 켜 둔 화면도 맞게. */
+let _huntWk = null;
+function huntNow(){
+  const now = Date.now();
+  if(_huntWk && _huntWk.resetAt > now) return _huntWk;
+  return huntWeekView(null, now);
+}
+function huntResetTxt(at){
+  const ms = Math.max(0, (at || huntResetAt(Date.now())) - Date.now());
+  const h = Math.floor(ms / 3600000), d = Math.floor(h / 24);
+  return `일요일 0시에 풀립니다(${d ? `${d}일 ${h % 24}시간` : h ? `${h}시간` : `${Math.max(1, Math.ceil(ms / 60000))}분`} 뒤)`;
+}
 
 /* '한 판 더' — 서버가 직전 응답에 다음 상대를 실어 보내므로 왕복이 필요 없다.
    (예전에는 여기서 findMatch 를 불러 한 판마다 요청을 두 번 썼다)
@@ -2474,7 +2533,8 @@ function applyServerBattle(r, rb){
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
                 lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
                 ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue, duel:r.mode==='duel',
-                band:r.band||null };
+                band:r.band||null, hunt: r.mode==='hunt' ? { tier:r.tier, done:!!r.huntDone } : null };
+  if(r.hunt) _huntWk = r.hunt;
   if(r.band) takeBand(r.band);
   if(r.ratingDelta) dropRankCache();     // 내 순위가 실제로 움직였다
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
@@ -2536,7 +2596,7 @@ function oppGear(opp){
       const up = m && (RAR_ORDER[p.rarity] > RAR_ORDER[m.rarity]
                     || (p.rarity===m.rarity && (p.enh|0) > (m.enh|0)));
       return `<span class="ogp${enhClass(p)}${up?' over':''}">
-        <b>${SLOT_KO[p.slot]}</b> ${esc(p.name)} ${rarTag(p)}
+        <b>${SLOT_KO[p.slot]}</b> ${partIco(p,'xs')} ${esc(p.name)} ${rarTag(p)}
         ${m ? `<i>내 ${m.rarity}${m.enh?'+'+m.enh:''}</i>` : '<i class="none">내 칸 비었음</i>'}
       </span>`; }).join('')}</div>
   </div>`;
@@ -2696,7 +2756,11 @@ function renderResult(win,rw,P,E,opp){
     if(!rw.rescue) rewards.push(`<div class="r">스크랩 +${rw.sc}</div>`);
     if(rw.fat.add) rewards.push(`<div class="r" style="color:var(--bad)">피로도 +${rw.fat.add}  (누적 ${rw.fat.now} / ${FAT_MAX})</div>`);
     if(rw.core) rewards.push(`<div class="r" style="color:var(--acc2)">코어 +${rw.core}</div>`);
-    if(rw.part) rewards.push(`<div class="r">파츠: ${rw.part.name} <span class="tag rar-${rw.part.rarity}">${rw.part.rarity}</span></div>`);
+    if(rw.part) rewards.push(`<div class="r">파츠: ${partIco(rw.part,'xs')} ${esc(rw.part.name)} <span class="tag rar-${rw.part.rarity}">${rw.part.rarity}</span></div>`);
+    /* 토벌 주간 한도가 걸린 등급이면 이번 주 몇 번째인지 */
+    const hwk = rw.hunt && huntNow().tiers[rw.hunt.tier];
+    if(hwk) rewards.push(`<div class="r" style="color:${rw.hunt.done?'var(--gold)':'var(--dim)'}">이번 주 ${HUNT_KO[rw.hunt.tier]} 토벌 ${hwk.used} / ${hwk.cap}${
+      rw.hunt.done ? ` · 다 썼습니다 — ${huntResetTxt(huntNow().resetAt)}` : ''}</div>`);
     /* 구간 승급·강등. 몬스터 판에서만 온다. 승급은 이 게임에서 가장 뚜렷한 '목표 달성' 이라
        맨 위에 크게 둔다. 그대로면 남은 승수만 조용히 적는다. */
     const b=rw.band;
@@ -2710,7 +2774,10 @@ function renderResult(win,rw,P,E,opp){
       <div class="hint">${P.name} vs ${E.name}</div>
       <div class="reward">${rewards.join('')}</div>
       <div class="row-btns">
-        <button class="btn big gold" onclick="ROWAR.nextMatch()">한 판 더</button>
+        ${rw.hunt && rw.hunt.done
+          /* 이번 판으로 그 등급의 주간 한도를 다 썼다 — 서버가 다음 상대를 안 잡았다. '한 판 더' 를 두면 아레나로 빠진다 */
+          ? `<button class="btn big gold" onclick="ROWAR.go('hunt')">사냥터로</button>`
+          : `<button class="btn big gold" onclick="ROWAR.nextMatch()">한 판 더</button>`}
         <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
     </div>`;
@@ -2970,11 +3037,40 @@ function renderFront(){
       <div class="fsub2">${esc(ch.sub)}</div>
       <p class="flead">${leadHtml(ch.lead)}</p>
       <div class="fprog"><i style="width:${done / total * 100}%"></i></div>
-      <div class="hint">${done} / ${total} 칸${net.state.online ? '' : ' · <b style="color:var(--gold)">오프라인 — 진행은 이 브라우저에 저장됩니다</b>'}</div>
+      <div class="fprow"><div class="hint">${done} / ${total} 칸${net.state.online ? '' : ' · <b style="color:var(--gold)">오프라인 — 진행은 이 브라우저에 저장됩니다</b>'}</div>
+        ${done > 0 || cellSeen(ch.id, 'open') ? `<button class="fre" onclick="ROWAR.restartCh('${ch.id}')">↺ 처음부터 다시 보기</button>` : ''}</div>
       ${gates.length ? `<div class="fgate">아직 잠긴 것 — ${gates.map(g => `<b>${esc(g.ko)}</b>`).join(' · ')}
         <span>전선 ${gates[0].need}칸을 깨거나 기체가 Lv.${gates[0].altLv} 이 되면 열립니다</span></div>` : ''}
     </div>
     <div class="fcells">${cells}</div>`;
+}
+
+/* 장을 처음부터 다시 — **이야기만** 되감는다(2026-09-19 사용자 지시: "다시 시작할 경우 얻는 이익은 없다").
+   진행(player.campaign)은 건드리지 않는다. 진행을 지우면 첫 클리어 보상이 다시 나가고,
+   그걸 막으려면 '보상 받음' 을 따로 적는 칸이 서버에 하나 더 있어야 한다.
+   대신 '봤다' 표(rowar.seen.v1)에서 이 장의 것만 지운다 — 장 도입이 곧바로 다시 흐르고,
+   깬 칸에 다시 들어가면 싸우기 전후 대사가 다시 나온다. 깬 칸은 원래 보상이 0 이다. */
+function restartCh(id){
+  const ch = FRONT_CHAPTERS.find(x => x.id === id); if(!ch) return;
+  openModal(`<div class="mhead">${ch.no}장 ${esc(ch.ko)} · 처음부터 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+    <p class="fstory">장 도입부터 이야기를 다시 봅니다. 칸에 들어가면 싸우기 전후의 대사도 다시 나옵니다.</p>
+    <div class="hint" style="margin-bottom:14px">깬 칸은 그대로 남습니다. 다시 깨도 첫 클리어 보상은 없습니다.</div>
+    <div class="row-btns">
+      <button class="btn big gold" onclick="ROWAR.restartChGo('${ch.id}')">다시 보기</button>
+      <button class="btn big ghost" onclick="ROWAR.closeModal()">그만두기</button></div>`);
+}
+function restartChGo(id){
+  const ch = FRONT_CHAPTERS.find(x => x.id === id); if(!ch) return;
+  const keys = [ch.id + ':open', ch.id + ':close', ...ch.cells.flatMap(c => [c.id + ':before', c.id + ':after'])];
+  try{
+    const m = JSON.parse(localStorage.getItem(seenKey)) || {};
+    for(const k of keys) delete m[k];
+    localStorage.setItem(seenKey, JSON.stringify(m));
+  }catch(e){}
+  _storyArt = null;                        // 앞 장면의 그림을 이어받지 않는다 — 첫 줄부터 새로
+  closeModal();
+  _frontCh = id;
+  renderFront();                           // 도입을 안 본 상태가 됐으므로 곧바로 도입이 흐른다
 }
 
 /* 장 도입문을 문장 단위로 싼다. 넓은 화면에서는 **문장 안에서 줄을 바꾸지 않는다** —
@@ -3124,9 +3220,36 @@ function renderFrontResult(r, c){
       ${r.unlocked ? `<div class="funlock"><b>${esc(r.unlocked.ko)}</b>가 열렸습니다</div>` : ''}
       <div class="row-btns">
         <button class="btn big gold" onclick="ROWAR.go('terr')">전선으로</button>
+        ${frontFixHtml((r.fat || []).map(f => f.uid))}
         <button class="btn big" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
     </div>`;
+}
+
+/* 전선 결과에서 바로 정비 — 방금 싸운 기체만(편성 두 기가 같이 나간다).
+   격납고까지 돌아가 기체마다 정비를 누르고 다시 전역 탭으로 오는 길이 길어서,
+   곧장 다음 칸으로 가고 싶은 사람이 지친 채로 나가게 됐다(2026-09-19 사용자 지시 — "수리하기").
+   이름은 게임 안에서 쓰는 '정비' 그대로다. 서버 동작도 격납고의 정비와 같은 것 하나다. */
+function frontFixHtml(uids){
+  const rbs = uids.map(u => S.robots.find(x => x.uid === u)).filter(Boolean);
+  const cost = rbs.reduce((a, rb) => a + serviceCost(rb), 0);
+  const dis = cost <= 0 || !net.state.online || S.credits < cost;
+  const label = cost <= 0 ? '정비 완료' : `정비하기 · 크레딧 ${fmt(cost)}`;
+  return `<button class="btn big" id="frontFix" ${dis ? 'disabled' : ''}
+    ${cost > 0 && S.credits < cost ? 'title="크레딧이 부족합니다"' : ''}
+    onclick="ROWAR.frontFix('${uids.map(esc).join(',')}')">${label}</button>`;
+}
+async function frontFix(list){
+  const uids = String(list || '').split(',').filter(Boolean);
+  let spent = 0, n = 0;
+  for(const u of uids){
+    const rb = S.robots.find(x => x.uid === u);
+    if(!rb || serviceCost(rb) <= 0) continue;
+    const r = await srvHangar('service', { robotUid: u }); if(!r) break;   // 실패는 srvHangar 가 알린다
+    S.credits = r.credits; rb.fat = 0; rb.fatAt = Date.now(); spent += r.cost | 0; n++;
+  }
+  if(n){ commitLocal(); toast(`${n}기 정비 완료 · 크레딧 −${fmt(spent)}`); }
+  const b = $('#frontFix'); if(b) b.outerHTML = frontFixHtml(uids);
 }
 
 async function renderTerr(){
@@ -3502,12 +3625,12 @@ window.ROWAR = {
     if(net.state.online) await net.hangar('select',{robotUid:rb.uid});
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); }),
   toggleSquad: guard(toggleSquad),
-  levelUp: guard(levelUp), service: guard(service), enhance: guard(enhancePart), skillUp: guard(skillUp),
+  levelUp: guard(levelUp), service: guard(service), frontFix: guard(frontFix), enhance: guard(enhancePart), skillUp: guard(skillUp),
   equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
   openPresets, savePreset: guard(savePreset, 600), deletePreset: guard(deletePreset, 600), applyPreset: guard(applyPreset, 600),
   openSlot, openRobot, closeModal, setGacha, scrapPart, toggleSpeed, skipReplay, pickExped, openNode, guide,
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
-  setFrontTab, setFrontCh, openCell, runCell: guard(runCell, 1000),
+  setFrontTab, setFrontCh, restartCh, restartChGo, openCell, runCell: guard(runCell, 1000),
   openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
   trialRun: guard(trialRunGo, 1000),
   setTrialTab, raidRun: guard(raidRunGo, 1000),
@@ -3564,6 +3687,7 @@ async function syncOnConnect(){
     S = normalize(remote.state);
     takeBand(remote.band);
     if(remote.codex) _codexRaw = remote.codex;
+    if(remote.hunt) _huntWk = remote.hunt;
     S.items = remote.items || {};
     S.presets = parsePresets(remote.presets);
     save();
@@ -3842,7 +3966,9 @@ function boot(){
   fitNav();
   new ResizeObserver(fitNav).observe(topbar);
   S=load(); save();          // 첫 실행이면 시작 기체를 바로 확정해 저장한다
-  document.querySelectorAll('.nav button').forEach(b=> b.addEventListener('click',()=>go(b.dataset.s)));
+  /* 화면 이동은 data-s 가 있는 단추만. 레일 아래의 '?'(.rhelp)도 .nav 안의 단추라, 예전에는 go(undefined) 가 불려
+     모든 화면이 꺼진 채 설명 창만 떴다 — 창을 닫으면 빈 화면이었다(2026-09-19). */
+  document.querySelectorAll('.nav button[data-s]').forEach(b=> b.addEventListener('click',()=>go(b.dataset.s)));
   /* ── 첫 화면 (F장 §3) ────────────────────────────────
      **전투를 한 번도 안 한 계정은 격납고가 아니라 전선으로 보낸다.**
      운영 32계정 중 **21계정(66%)이 한 판도 안 싸우고 떠났다** — 기체 1기, Lv.1,

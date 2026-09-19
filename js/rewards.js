@@ -322,3 +322,38 @@ export function rollBattleRewards(win, enemyLv, rnd, uid) {
 
 /* stats.js 의 battleExp 와 같은 식. 순환 import 를 피하려고 여기 둔다. */
 export const battleExpFor = enemyLv => 26 + enemyLv * 9;
+
+/* ── 토벌 주간 입장 한도 (2026-09-19 사용자 지시) ──────────────────────
+   CONST.HUNT_WEEK 에 적힌 등급만 센다(지금 UQ · EP · BOSS). **일요일 00:00 한국 시각**에 풀린다.
+   주 번호는 2026-01-04(일) 00:00 KST = 2026-01-03 15:00 UTC 를 0주로 센다.
+   시련(js/trial.js)은 월요일 00:00 UTC 로 따로 센다 — 둘을 합치지 않는다(사용자가 정한 초기화 시각이 다르다).
+
+   저장은 player.hunt_wk(021) — { w: 주 번호, n: { UQ: 3, … } }. **주가 바뀌면 읽는 순간 0 으로 본다** —
+   일요일 0시에 모든 행을 지우는 일(크론)을 두지 않는다. 다음에 쓸 때 새 주 번호로 덮인다. */
+export const HUNT_EPOCH = Date.UTC(2026, 0, 3, 15);
+const HUNT_WEEK_MS = 7 * 24 * 3600 * 1000;
+export const huntWeekOf = now => Math.floor((now - HUNT_EPOCH) / HUNT_WEEK_MS);
+export const huntResetAt = now => HUNT_EPOCH + (huntWeekOf(now) + 1) * HUNT_WEEK_MS;
+export const huntCap = tier => ((CONST.HUNT_WEEK || {})[tier]) | 0;          // 0 = 한도 없음
+
+/* 저장값(문자열·객체·null) → 이번 주 기준의 { w, n }. 지난주 것이면 빈 기록이다. */
+export function readHuntWeek(raw, now) {
+  let o = raw;
+  if (typeof raw === 'string') { try { o = JSON.parse(raw); } catch { o = null; } }
+  const w = huntWeekOf(now);
+  const n = {};
+  if (o && typeof o === 'object' && o.w === w && o.n && typeof o.n === 'object')
+    for (const t of Object.keys(CONST.HUNT_WEEK || {})) n[t] = Math.max(0, o.n[t] | 0);
+  return { w, n };
+}
+/* 이번 주에 그 등급을 더 들어갈 수 있는 횟수. 한도가 없는 등급은 Infinity */
+export function huntLeft(hw, tier) {
+  const cap = huntCap(tier);
+  return cap ? Math.max(0, cap - ((hw && hw.n && hw.n[tier]) | 0)) : Infinity;
+}
+/* 화면에 내려 보내는 모양 — 등급마다 { used, cap } 와 초기화 시각 */
+export function huntWeekView(raw, now) {
+  const hw = readHuntWeek(raw, now), out = {};
+  for (const t of Object.keys(CONST.HUNT_WEEK || {})) out[t] = { used: hw.n[t] | 0, cap: huntCap(t) };
+  return { tiers: out, resetAt: huntResetAt(now) };
+}

@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS player (
   items       TEXT,
   shop        TEXT,
   presets     TEXT,                            -- 빌드 프리셋(020). 모양은 js/preset.js 머리말
+  hunt_wk     TEXT,                            -- 토벌 주간 입장 수(021). { w: 주, n: { UQ, EP, BOSS } } — js/rewards.js
 
   -- 레벨은 기체가 아니라 **파일럿**의 것이다. 보유한 기체는 전부 이 레벨로 싸운다.
   -- 예전에는 기체별이었는데, 경험치가 출전한 기체에만 들어가 두 번째 기체를 키울 수가
@@ -339,7 +340,7 @@ BEGIN
 END;
 
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '20');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '21');
 
 
 -- =========================================================

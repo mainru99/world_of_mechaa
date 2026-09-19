@@ -7,10 +7,9 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
 - **마지막 갱신** — 2026-09-19 · 파츠 아이콘 25장 · 전선 진행 버그 · 전선 개선 다섯 · 몬스터 도감 4단계 · 토벌 주간 한도 · schema **21** · `balance_ver` **151i21l**
-- **스키마 버전** — 로컬 **21** · 운영 20 → 배포 때 **021 을 먼저** 돌린다(`player.hunt_wk`)
-- **운영 확인** — 2026-09-18 배포 `1eeca206` (커밋 `c3f4261` 화면 · `34edd92` 파츠 규격서) · schema 20 · `balance_ver` 18qj3j0 · 계정 33.
-  `index` · `style` · `parts/README` 내용 일치 · `game.js` 는 배포 직후 한 번 옛 것이 왔고 다시 받으니 세 번 다 로컬과 같았다(캐시가 퍼지는 사이).
-  바뀐 규칙 셋(body keep-all · 점령전 격자 · leadHtml)이 운영 파일에 들어 있다 · 앞서 넣은 그림 27장 200 · `/api/front` · `/api/codex` 401.
+- **스키마 버전** — 로컬 **21** · 운영 **21** (2026-09-19 021 `player.hunt_wk` 적용)
+- **운영 확인** — 2026-09-19 배포 `c7a17894` (커밋 `460e756` 파츠 그림 · `b6915dc` 코드 · `79f79a3` 기록) · 이관 021 먼저 적용(`changes 2`) · schema **21** · `balance_ver` **151i21l** · 계정 33.
+  `index` · `style` · `game.js` · `codex.js` · `rewards.js` · `balance.js` 내용 일치 · 파츠 그림 25/25 200 · `/api/state` · `/api/codex` · `/api/front` 401(인증 필요 = 살아 있음).
   **배포 확인은 해시가 아니라 내용 비교로 한다** — 로컬(LF)과 운영(배포한 PC 의 줄바꿈)이 달라 해시는 늘 어긋난다
 
 ### 2026-09-19 — 몬스터 도감 4단계 · 토벌 주간 한도 · 뽑기 결과 순서 (사용자 결정)

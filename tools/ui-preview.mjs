@@ -13,7 +13,7 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const port=Number(process.argv[2]||8806);
 const rng=mulberry32(20260920);
 let nextId=0;
-const parts=Array.from({length:12},(_,i)=>rollPart(32,rng,()=>`preview-part-${++nextId}`,i<4?'SSR':'SR',SLOTS[i%4]));
+const parts=Array.from({length:12},(_,i)=>rollPart(32,rng,`preview-part-${++nextId}`,i<4?'SSR':'SR',SLOTS[i%4]));
 const robots=['ignis','ranger','azure','mule','bastion'].map((type,i)=>({uid:`preview-robot-${i}`,type,level:i<2?32:24,exp:0,fat:i===1?12:0,fatAt:Date.now(),skillLv:2,slots:Object.fromEntries(SLOTS.map((slot,j)=>[slot,i<2?parts[i*4+j].uid:null]))}));
 const state={v:2,credits:12460,cores:128,scrap:8320,robots,parts,sel:0,squad:robots.slice(0,2).map(x=>x.uid),stat:{wins:48,losses:12,pulls:80},campaign:'',items:{},presets:[]};
 const nodes=TERRITORY.map((n,i)=>{

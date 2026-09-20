@@ -1,5 +1,10 @@
 /* Shared, code-native UI symbols. Decorative SVGs always inherit the button label. */
 const paths = {
+  heart:'M12 21 3 12C-2 5 7 0 12 6c5-6 14-1 9 6l-9 9Z',
+  shield:'m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6l9-4Z',
+  speed:'m13 2-9 12h7l-1 8 10-13h-7l0-7Z',
+  evasion:'M3 6h8M2 12h5M4 18h6m5-15-4 9h7l-4 9M19 3h3',
+  expand:'M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6',
   home:'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9',
   hangar:'M4 21V8l8-5 8 5v13M8 21v-9h8v9M3 21h18M9 7h6',
   gacha:'m12 2 8 5v10l-8 5-8-5V7l8-5Zm-8 5 8 5 8-5M12 12v10M8 5l8 5',

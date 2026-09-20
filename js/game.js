@@ -228,13 +228,13 @@ function commitLocal(){
 }
 
 async function equip(slot,partUid){
-  const rb=selRobot();
+  const rb=hangarRobot();
   const r=await srvHangar('equip',{robotUid:rb.uid, slot, partUid}); if(!r) return;
   for(const x of S.robots) for(const sl of SLOTS) if(x.slots[sl]===partUid) x.slots[sl]=null;
   rb.slots[slot]=partUid; commitLocal(); closeModal();
 }
 async function unequip(slot){
-  const rb=selRobot();
+  const rb=hangarRobot();
   const r=await srvHangar('unequip',{robotUid:rb.uid, slot}); if(!r) return;
   rb.slots[slot]=null; commitLocal(); closeModal();
 }
@@ -260,7 +260,7 @@ function presetLines(x){
   }).join('');
 }
 function openPresets(){
-  const rb = selRobot(), list = presetsNow();
+  const rb = hangarRobot(), list = presetsNow();
   const T = ROBOT_TYPES[rb.type];
   const rows = list.map((x,i)=>`<div class="pset-row">
       <div class="pset-h"><input class="ainput pset-name" id="psn${i}" maxlength="${NAME_MAX}" value="${esc(x ? x.n : `프리셋 ${i+1}`)}">
@@ -277,7 +277,7 @@ function openPresets(){
     <div class="pset-list">${rows}</div>`);
 }
 async function savePreset(i){
-  const rb = selRobot();
+  const rb = hangarRobot();
   const name = ($('#psn'+i) || {}).value || '';
   const r = await srvHangar('presetSave', { i, robotUid: rb.uid, name }); if(!r) return;
   S.presets = r.presets; commitLocal(); openPresets();
@@ -289,7 +289,7 @@ async function deletePreset(i){
   toast('프리셋을 지웠습니다');
 }
 async function applyPreset(i){
-  const rb = selRobot(), x = presetsNow()[i]; if(!x) return;
+  const rb = hangarRobot(), x = presetsNow()[i]; if(!x) return;
   const r = await srvHangar('presetApply', { i, robotUid: rb.uid }); if(!r) return;
   /* 서버가 끼운 그대로 받아 적는다 — 다른 기체에서 떼어 온 것까지 */
   for(const [sl,u] of Object.entries(r.applied || {})){
@@ -371,7 +371,7 @@ async function doBulkScrap(rar, expect){
 /* 스킬 강화. 성공 판정은 서버가 한다 — 클라가 굴리면 될 때까지 다시 보내면 그만이다.
    실패해도 재화는 나가므로, 결과를 분명히 알려 준다. */
 async function skillUp(){
-  const rb=selRobot(); if(!rb) return;
+  const rb=hangarRobot(); if(!rb) return;
   const slv=rb.skillLv|0;
   if(slv>=skillMax()){ toast('최대 강화입니다'); return; }
   const r=await srvHangar('skillup',{robotUid:rb.uid}); if(!r) return;
@@ -391,13 +391,13 @@ async function enhancePart(u){
   else toast(`${p.name} +${p.enh}`);
 }
 async function service(){
-  const rb=selRobot();
+  const rb=hangarRobot();
   const r=await srvHangar('service',{robotUid:rb.uid}); if(!r) return;
   S.credits=r.credits; rb.fat=0; rb.fatAt=Date.now(); commitLocal();
   toast(ROBOT_TYPES[rb.type].name+' 정비 완료');
 }
 async function levelUp(){
-  const rb=selRobot();
+  const rb=hangarRobot();
   const r=await srvHangar('levelup',{robotUid:rb.uid}); if(!r) return;
   S.credits=r.credits; rb.level=r.level; rb.exp=0; commitLocal();
   toast(ROBOT_TYPES[rb.type].name+' Lv.'+rb.level);
@@ -805,24 +805,40 @@ function invBar(all){
 }
 
 /* ------------------------------- 격납고 화면 ------------------------------- */
+/* Inspection is local UI state. S.sel remains the server-backed battle vanguard. */
+let hangarUid=null, hangarTab='info', hangarSort='power', hangarInventory=false;
+function hangarRobot(){return S.robots.find(r=>r.uid===hangarUid)||selRobot();}
+function inspectRobot(i){
+  if(!S.robots[i]) return;
+  hangarUid=S.robots[i].uid; renderHangar();
+}
+function cycleHangar(dir){
+  const i=S.robots.indexOf(hangarRobot());
+  inspectRobot((i+dir+S.robots.length)%S.robots.length);
+}
+function setHangarTab(tab){
+  if(!['info','gear','tune'].includes(tab))return;
+  hangarTab=tab;renderHangar();
+  if(matchMedia('(max-width:700px)').matches)$('#hv-dock')?.scrollIntoView({block:'start'});
+  $('#hv-tab-'+tab)?.focus({preventScroll:true});
+}
+function setHangarSort(value){hangarSort=['power','level','rarity'].includes(value)?value:'power';renderHangar();$('#sc-hangar select')?.focus({preventScroll:true});}
+function openHangarInventory(){
+  hangarInventory=true;renderHangar();$('#hv-inventory')?.scrollIntoView({block:'start'});
+}
 function renderHangar(){
+  const rosterScroll=$('.hv-roster-list')?.scrollTop||0;
   pruneFresh(); navDot();
-  const rb=selRobot(), T=ROBOT_TYPES[rb.type], st=computeStats(rb);
-  const roster = S.robots.map((r,i)=>{ const t=ROBOT_TYPES[r.type];
-    const inSq=S.squad.indexOf(r.uid), out=inSq>=0;
-    return `<div class="rcard ${i===S.sel?'sel':''}${out?' squad':''}" data-t="${t.rarity}" onclick="ROWAR.openRobot(${i})">
-      <span class="badge">${out?(i===S.sel?'출격':'대기'):''} Lv.${r.level}</span>
-      <span class="badge rt rr-${t.rarity}">${RR[t.rarity].ko}</span>
-      <div class="sprite" data-t="${t.rarity}">${sprite(r.type,false)}</div>
-      <div class="rn">${t.name}</div><div class="rl">전투력 ${fmt(power(r))}</div>
-      ${fatOf(r)?`<div class="rd">피로 ${fatOf(r)}</div>`:''}
-      <button class="sqbtn${out?' on':''}" onclick="event.stopPropagation();ROWAR.toggleSquad('${r.uid}')"
-        >${out?'편성 해제':'편성'}</button></div>`; }).join('');
-  const slotsHtml = SLOTS.map(slot=>{ const u=rb.slots[slot]; const p=u&&findPart(u,S.parts);
-    return `<div class="slot ${p?'filled':''}${p?enhClass(p):''}" onclick="ROWAR.openSlot('${slot}')">
-      <div class="sl">${SLOT_KO[slot]}</div>
-      ${p?partIco(p,'sm'):slotIco(slot,'sm')}
-      ${p?`<div class="pn">${esc(p.name)}</div><div class="pp">${rarTag(p)}${setTag(p)}</div><div class="pp">${affixTags(p)}</div>`:`<div class="pn" style="color:var(--dim)">+ 장착</div>`}</div>`; }).join('');
+  const rb=hangarRobot(), T=ROBOT_TYPES[rb.type], st=computeStats(rb), ri=S.robots.indexOf(rb);
+  const lead=selRobot();
+  const status=r=>S.expd?.uid===r.uid?'원정 중':r.uid===lead.uid?'선봉':S.squad.includes(r.uid)?'예비':'대기';
+  const rank={C:0,UC:1,R:2,UQ:3,EP:4};
+  const sorted=S.robots.map((r,i)=>({r,i})).sort((a,b)=>hangarSort==='level'?b.r.level-a.r.level:hangarSort==='rarity'?rank[rarOf(b.r.type)]-rank[rarOf(a.r.type)]:power(b.r)-power(a.r));
+  const roster=sorted.map(({r,i})=>`<button class="hv-unit ${r.uid===rb.uid?'selected':''}" aria-pressed="${r.uid===rb.uid}" onclick="ROWAR.inspectRobot(${i})" data-robot="${esc(r.uid)}">
+    <span class="hv-unit-art">${sprite(r.type,false)}</span><span class="hv-unit-copy"><small>Lv.${r.level} <em>${status(r)}</em></small><b>${esc(ROBOT_TYPES[r.type].name)}</b><span>전투력 ${fmt(power(r))}</span></span><strong class="rr-${rarOf(r.type)}">${rarOf(r.type)}</strong></button>`).join('');
+  const thumbstrip=S.robots.map((r,i)=>`<button class="hv-thumb ${r.uid===rb.uid?'selected':''}" onclick="ROWAR.inspectRobot(${i})" aria-label="${esc(ROBOT_TYPES[r.type].name)} 살펴보기" aria-pressed="${r.uid===rb.uid}">${sprite(r.type,false)}<small>${status(r)}</small></button>`).join('');
+  const slotsHtml=SLOTS.map(slot=>{const p=findPart(rb.slots[slot],S.parts);return `<button class="hv-slot ${p?'filled':''}" onclick="ROWAR.openSlot('${slot}')" aria-label="${SLOT_KO[slot]} ${p?esc(p.name):'빈 슬롯'} 장비 변경">
+    <span class="hv-slot-icon">${p?partIco(p,'sm'):slotIco(slot,'sm')}</span><span class="hv-slot-kind">${SLOT_KO[slot]}</span><span class="hv-slot-copy"><b>${p?esc(p.name):'장착할 파츠 선택'}</b><small>${p?`${p.rarity} · 강화 +${p.enh||0}`:'비어 있음'}</small></span>${icon('chevron')}</button>`;}).join('');
   const invAll = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
   /* 다 그리지 않는다. 칩 폭을 어떻게 잡아도 300개는 1만 픽셀이 넘고(실측), 그만한 DOM 을
      매 렌더마다 새로 만든다. 거르개·정렬이 있으니 찾는 것은 앞쪽에 오게 만들 수 있다. */
@@ -838,64 +854,17 @@ function renderHangar(){
     : `<div class="empty">${invAll.length?'거른 조건에 맞는 파츠가 없습니다.':'보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.'}</div>`;
   const invMoreBtn = invHit.length>invParts.length
     ? `<button class="btn invmore" onclick="ROWAR.invMore()">${fmt(invHit.length-invParts.length)}개 더 보기</button>` : '';
+
   const cost=lvCost(rb.level), fat=fatOf(rb), scost=serviceCost(rb);
-  const slv=rb.skillLv|0, sk=skillCost(slv);
-  /* ── 격납고 화면 ──────────────────────────────────────
-     넓은 화면에서는 왼쪽에 기체를 크게 세우고(장면), 오른쪽에 정보를 붙인다(도킹).
-     좁은 화면에서는 그대로 위아래로 쌓인다 — 레이아웃은 CSS 가 가른다.
-     로스터는 그 안, 장면 아래에 들어간다 — 도킹 패널이 장면보다 435px 길어
-     왼쪽 아래가 그만큼 비어 있었다. 파츠 인벤토리는 수십 개라 폭을 다 쓴다. */
-  const squadMini = S.squad.map(u=>{ const r=S.robots.find(x=>x.uid===u); if(!r) return '';
-    const i=S.robots.indexOf(r);
-    return `<button class="sqm${r.uid===rb.uid?' on':''}" onclick="ROWAR.selectRobot(${i})"
-      title="${ROBOT_TYPES[r.type].name} Lv.${r.level}">${sprite(r.type,false)}
-      <small>${r.uid===rb.uid?'선봉':'예비'}</small></button>`; }).join('')
-    + (S.squad.length<SQUAD_MAX?`<div class="sqm add" title="아래 로스터에서 편성하세요">+</div>`:'');
-
-  $('#sc-hangar').innerHTML = `
-    <div class="hg">
-      <div class="hg-stage">
-        <div class="hg-bigname">${esc(T.name)}</div>
-        <div class="hg-sub">${esc(T.role)} · ${RR[T.rarity].ko}</div>
-        <div class="hg-hero" data-t="${T.rarity}">${sprite(rb.type,false,{idle:true})}</div>
-        <div class="hg-squad">${squadMini}</div>
-      </div>
-
-      <div class="hg-dock">
-        <div class="dcard">
-          <div class="rname">${T.name} ${robRarTag(rb.type)} <span class="lv">Lv.${rb.level}</span>${
-            S.squad.includes(rb.uid)?'':' <span class="tag" style="color:var(--bad)">편성 밖</span>'}</div>
-          <div class="rrole">${T.role} · 전투력 ${fmt(power(rb))}</div>
-          <div class="stat exp"><div class="row"><b>EXP</b><span>${
-            rb.level>=MAXLV?'MAX':`${fmt(rb.exp||0)} / ${fmt(expNeed(rb.level))}`}</span></div>
-            <div class="bar"><i style="width:${rb.level>=MAXLV?100:clamp((rb.exp||0)/expNeed(rb.level)*100,0,100)}%"></i></div></div>
-        </div>
-
-        <div class="dcard">
-          <div class="dh">능력치</div>
-          ${['hp','atk','def','spd','crit','eva'].map(k=>statBar(k,st[k],
-              k==='hp'?st.hpFull:null, k==='atk'?atkRange(st):null)).join('')}
-          <div class="hint" style="margin-top:2px">공격력은 타격할 때마다 위 구간 안에서 정해집니다 ·
-            이 기체의 폭 <b>±${Math.round(st.spread*100)}%</b>${
-              st.spread<=.16?' (정밀 — 거의 같은 수로 맞힙니다)'
-            : st.spread>=.28?' (고화력 — 크게 흔들립니다)' : ''}</div>
-          <div class="stat fat"><div class="row"><b>피로도</b>
-              <span class="${fat?'worn':''}">${fat} / ${FAT_MAX}${fat?` <s>최대 내구 −${fat}%</s>`:''}</span></div>
-            <div class="bar"><i style="width:${fat/FAT_MAX*100}%"></i></div>
-            <div class="hint" style="margin-top:4px">${fat
-              ? `자연 회복 중 · 다음 1까지 ${dur(fatNextMs(rb))}, 전부 풀리기까지 ${dur(fatNextMs(rb)+(fat-1)*fatRecoverMs(rb))}`
-              : '피로 없음 · 정상 가동'}</div></div>
-        </div>
-
-        <div class="dcard">
-          <div class="dh">장착 <button class="pset-open" onclick="ROWAR.openPresets()">빌드 프리셋 ▸</button></div>
-          <div class="slots">${slotsHtml}</div>
-          ${presetBar()}
-          ${setPanel(rb)}
-        </div>
-
-        <div class="dcard skillcard">
-          <b>스킬 · ${T.skill.name}${slv?` <span class="tag" style="color:var(--acc2);border-color:#2a6b7a">+${slv}</span>`:''}</b>
+  const slv=rb.skillLv|0, sk=skillCost(slv), range=atkRange(st);
+  const values={hp:fmt(st.hp),atk:`${fmt(range[0])}–${fmt(range[1])}`,def:fmt(st.def),spd:fmt(st.spd),crit:`${(st.crit*100).toFixed(0)}%`,eva:`${(st.eva*100).toFixed(0)}%`};
+  const statIcons={hp:'heart',atk:'battle',def:'shield',spd:'speed',crit:'target',eva:'evasion'};
+  const stats=`<div class="hv-power"><span>전투력</span><strong>${icon('battle')}${fmt(power(rb))}</strong></div><dl class="hv-stats">${Object.entries(values).map(([k,v])=>`<div><dt>${icon(statIcons[k])}${STAT_LABEL[k]}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+  const gear=`<section class="hv-equipment"><div class="hv-section-head"><h3>장착 장비</h3><button class="ui-text-button" onclick="ROWAR.openHangarInventory()">보관함 ${icon('chevron')}</button></div><div class="hv-slots">${slotsHtml}</div></section>`;
+  const tune=`<div class="hv-tune"><h3>기체 정비</h3><div class="hv-condition"><b>피로 ${fat} / ${FAT_MAX}</b><span>${fat?`최대 내구 −${fat}%`:'정상 가동'}</span></div><p class="hint">${fat?`자연 회복 · 다음 1까지 ${dur(fatNextMs(rb))}`:'최상의 상태로 출격할 수 있습니다.'}</p><div class="hv-maintenance">
+    <button class="btn" ${(rb.level>=MAXLV||!net.state.online||S.credits<cost)?'disabled':''} onclick="ROWAR.levelUp()">${rb.level>=MAXLV?'최대 레벨':`즉시 레벨업 <small>${fmt(cost)} 크레딧</small>`}</button>
+    <button class="btn" ${scost>0&&net.state.online&&S.credits>=scost?'':'disabled'} onclick="ROWAR.service()">${scost>0?`피로 정비 <small>${fmt(scost)} 크레딧</small>`:'정비 완료'}</button></div>
+    <section class="hv-skill">          <b>스킬 · ${T.skill.name}${slv?` <span class="tag" style="color:var(--acc2);border-color:#2a6b7a">+${slv}</span>`:''}</b>
           <div class="fxrow">${fxTags(rb.type)}</div>
           <p>${T.skill.desc}</p>
           ${slv?`<p style="color:var(--acc2)">강화로 위력 <b>×${skillMul(slv).toFixed(2)}</b></p>`:''}
@@ -910,35 +879,24 @@ function renderHangar(){
                    onclick="ROWAR.skillUp()">스킬 강화</button>
                  <div class="hint" style="margin-top:6px;color:var(--bad)">실패해도 재화는 돌아오지 않습니다.</div>
                </div>`}
-        </div>
-
-        <div class="row-btns">
-          <button class="btn big" ${(rb.level>=MAXLV||!net.state.online)?'disabled':''} onclick="ROWAR.levelUp()">
-            ${rb.level>=MAXLV?'최대 레벨':`즉시 레벨업 (크레딧 ${fmt(cost)})`}</button>
-          <button class="btn big ${scost>0?'gold':''}" ${(scost>0&&net.state.online)?'':'disabled'} onclick="ROWAR.service()">
-            ${scost>0?`정비 (크레딧 ${fmt(scost)})`:'정비 완료'}</button>
-        </div>
-        ${net.state.online?'':'<div class="hint" style="color:var(--bad)">서버에 연결되지 않아 장착·강화·정비·레벨업을 할 수 없습니다.</div>'}
-        <div class="hint">출전하면 <b>피로도</b>가 쌓여 최대 내구가 줄어듭니다 · 시간이 지나면 풀리고, 급하면 정비하세요</div>
-      </div>
-
-      <div class="panel hg-roster">
-        <h2 class="title" style="margin-top:0">보유 기체 ${S.robots.length}기</h2>
-        <div class="hint" style="margin-bottom:8px">한 번에 데려갈 수 있는 것은 <b>${SQUAD_MAX}기</b> · 상대를 찾아 둔 뒤 편성을 바꾸면 <b>그 상대를 놓칩니다</b></div>
-        <div class="roster">${roster}</div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <h2 class="title" style="margin-top:0">파츠 인벤토리
-        <span class="cnt">${invHit.length===invAll.length?`${invAll.length}개`:`${invHit.length} / ${invAll.length}개`}</span></h2>
-      <div class="hint">누르면 <b>강화</b>(스크랩) · 장착은 위 슬롯에서 · 쓰지 않을 것은 <b>분해</b>해 스크랩으로</div>
-      <button class="btn" style="margin:8px 0 2px" onclick="ROWAR.openFuse()">파츠 합성</button>
-      ${invBar(invAll)}
-      <div class="inv">${inv}</div>
-      ${invMoreBtn}
-    </div>`;
-
+</section>
+    <section class="hv-equipped-tune"><h3>장착 파츠 강화</h3>${SLOTS.map(slot=>{const p=findPart(rb.slots[slot],S.parts);return p?`<button class="hv-enhance" onclick="ROWAR.enhance('${p.uid}')" ${!net.state.online||S.scrap<enhCost(p.enh||0)||(p.enh|0)>=enhMax()?'disabled':''}>${partIco(p,'xs')}<span><b>${esc(p.name)} +${p.enh||0}</b><small>${(p.enh|0)>=enhMax()?'최대 강화':`스크랩 ${fmt(enhCost(p.enh||0))} · 성공 ${Math.round(enhRate(p.enh||0)*100)}%`}</small></span>${icon('chevron')}</button>`:'';}).join('')||'<p class="hint">장착한 파츠가 없습니다.</p>'}<p class="hint">강화 실패 시에도 재화는 소모됩니다.</p></section></div>`;
+  const detail=hangarTab==='info'?`${stats}${gear}<details class="hv-details"><summary>기체 특성 · 스킬</summary><p>${esc(T.role)}</p><b>${esc(T.skill.name)}${slv?' +'+slv:''}</b><div class="fxrow">${fxTags(rb.type)}</div><p>${esc(T.skill.desc)}</p><p>공격력 변동 폭 ±${Math.round(st.spread*100)}% · 피로 ${fat}/${FAT_MAX}${fat?` · 최대 내구 −${fat}%`:''}</p></details>`:hangarTab==='gear'?`${gear}<div class="hv-build"><h3>빌드 프리셋</h3>${presetBar()||'<p class="hint">현재 장착 조합을 저장해 빠르게 교체하세요.</p>'}<button class="btn" onclick="ROWAR.openPresets()">프리셋 관리</button>${setPanel(rb)}</div>`:tune;
+  const inventory=`<details class="hv-inventory ui-surface" id="hv-inventory" ${hangarInventory?'open':''}><summary>파츠 보관함 <span>${invAll.length}개 ${icon('chevron')}</span></summary><div class="hv-inventory-body"><div class="hv-section-head"><span class="hint">${invHit.length}개 표시 · 파츠를 눌러 강화 · 장착은 장비 슬롯에서</span><button class="btn" onclick="ROWAR.openFuse()">파츠 합성</button></div>${invBar(invAll)}<div class="inv">${inv}</div>${invMoreBtn}</div></details>`;
+  $('#sc-hangar').innerHTML=`<div class="ui-pagehead hv-pagehead"><div><span class="ui-eyebrow">HANGAR / MECH MANAGEMENT</span><h1>격납고</h1><p>기체를 완성하고, 다음 전장을 준비하세요.</p></div><span class="hv-squad-count">출전 편성 <b>${S.squad.length} / ${SQUAD_MAX}</b></span></div>
+    <div class="hv-layout">
+      <aside class="hv-roster ui-surface"><div class="hv-roster-head"><h2>보유 기체 <small>${S.robots.length}</small></h2><select aria-label="기체 정렬" onchange="ROWAR.setHangarSort(this.value)">${[['power','전투력 순'],['level','레벨 순'],['rarity','등급 순']].map(([k,v])=>`<option value="${k}" ${hangarSort===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="hv-roster-list">${roster}</div><button class="hv-acquire" onclick="ROWAR.go('gacha')"><span>＋</span><span><b>새 기체 획득</b><small>더 넓은 전술을 준비하세요.</small></span></button></aside>
+      <section class="hv-center"><div class="hg-stage hv-stage"><div class="hv-stage-top"><span>UNIT / ${String(ri+1).padStart(2,'0')}</span><span>${status(rb)} · Lv.${rb.level}</span></div><div class="hg-hero" data-t="${T.rarity}">${sprite(rb.type,false,{idle:true})}</div><button class="hv-cycle prev" onclick="ROWAR.cycleHangar(-1)" aria-label="이전 기체">${icon('chevron')}</button><button class="hv-cycle next" onclick="ROWAR.cycleHangar(1)" aria-label="다음 기체">${icon('chevron')}</button><div class="hv-caption"><span class="ui-eyebrow">${esc(T.role)}</span><h2>${esc(T.name)}</h2><div><span class="hv-rarity rr-${T.rarity}">${RR[T.rarity].ko} / ${T.rarity}</span><span class="hv-status">${status(rb)}</span></div><p>${esc(T.skill.name)} <span>· SKILL +${slv}</span></p></div><button class="hv-inspect" onclick="ROWAR.openRobot(${ri})" aria-label="${esc(T.name)} 상세 정보">${icon('expand')}</button></div><div class="hv-strip">${thumbstrip}</div></section>
+      <aside class="hv-dock ui-surface" id="hv-dock" data-tab="${hangarTab}"><div class="hv-tabs" role="tablist" aria-label="기체 관리">${[['info','기체 정보'],['gear','장비'],['tune','튜닝']].map(([k,v])=>`<button role="tab" id="hv-tab-${k}" aria-controls="hv-pane" aria-selected="${hangarTab===k}" onclick="ROWAR.setHangarTab('${k}')">${v}</button>`).join('')}<button onclick="ROWAR.openPresets()">프리셋</button></div><div class="hv-profile"><span class="hv-profile-icon">${emblem}</span><div><small>Lv.${rb.level} · ${status(rb)}</small><b>${esc(T.name)}</b><div class="hv-exp"><i style="width:${rb.level>=MAXLV?100:clamp((rb.exp||0)/expNeed(rb.level)*100,0,100)}%"></i></div><small class="hv-exp-label">${rb.level>=MAXLV?'MAX LEVEL':`${fmt(rb.exp||0)} / ${fmt(expNeed(rb.level))} EXP`}</small></div></div><div id="hv-pane" role="tabpanel" aria-labelledby="hv-tab-${hangarTab}">${detail}</div><div class="hv-actions"><button class="btn" onclick="ROWAR.openRobot(${ri})">편성 관리</button><button class="btn" onclick="ROWAR.setHangarTab('gear')">장비 변경</button><button class="btn gold" onclick="ROWAR.setHangarTab('tune')">튜닝 / 강화</button></div>${!net.state.online?'<p class="hv-offline">서버 연결 후 장착·강화·정비를 사용할 수 있습니다.</p>':''}</aside>
+    </div>${inventory}`;
+  $('.hv-roster-list').scrollTop=rosterScroll;
+  $('#hv-inventory').ontoggle=e=>{if(e.currentTarget.isConnected)hangarInventory=e.currentTarget.open;};
+  $('.hv-tabs').onkeydown=e=>{
+    if(e.target.getAttribute('role')!=='tab')return;
+    const keys=['info','gear','tune'],i=keys.indexOf(hangarTab);
+    const next=e.key==='ArrowRight'?(i+1)%3:e.key==='ArrowLeft'?(i+2)%3:e.key==='Home'?0:e.key==='End'?2:-1;
+    if(next>=0){e.preventDefault();setHangarTab(keys[next]);}
+  };
 }
 /* ── 파츠 합성 ────────────────────────────────────────────
    같은 칸·같은 등급 파츠 셋을 하나로 합친다. **재료가 결과 베이스를 정한다** —
@@ -1153,7 +1111,7 @@ function openRobot(i){
 }
 
 function openSlot(slot){
-  const rb=selRobot(); const equippedHere=rb.slots[slot];
+  const rb=hangarRobot(); const equippedHere=rb.slots[slot];
   const list=S.parts.filter(p=>p.slot===slot);
   const rows = list.length? list.map(p=>{ const equipped = S.robots.some(r=>Object.values(r.slots).includes(p.uid));
     const onMe = equippedHere===p.uid;
@@ -3335,7 +3293,7 @@ function protLeft(node){
 let _territorySelected = 'n01', _territoryFilter='all', _returnToTerritory=false, _terrRequest=0;
 function enterTerritory(){ _frontTab='terr'; go('terr'); }
 function enterFront(){ _frontTab='front'; go('terr'); }
-function prepareTerritory(){ _returnToTerritory=true; go('hangar'); }
+function prepareTerritory(){ _returnToTerritory=true; hangarUid=null; hangarTab='info'; go('hangar'); }
 function returnTerritory(){ _returnToTerritory=false; enterTerritory(); }
 const _territoryViewport={zoom:1,left:0,top:0};
 function drawTerr(r){
@@ -3661,6 +3619,7 @@ function guard(fn, coolMs = 0){
 
 window.ROWAR = {
   enterTerritory, enterFront, prepareTerritory, returnTerritory, uiMore, uiGo,
+  inspectRobot, cycleHangar, setHangarTab, setHangarSort, openHangarInventory,
   go,
   /* 나갈 기체 고르기 — 편성에 든 기체만. 편성 밖을 누르면 편성에 넣는 것으로 받아 준다. */
   selectRobot: guard(async(i)=>{ const rb=S.robots[i]; if(!rb) return;
@@ -3934,6 +3893,7 @@ async function doRegister(){
 /* 로그인 뒤에 할 일. 대문의 로그인 칸과 계정 창이 **같은 함수**를 쓴다 —
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 async function afterLogin(r){
+  hangarUid=null; hangarTab='info'; hangarInventory=false;
   ++_terrRequest; dropTerrCache(); dropRankCache();
   _territorySelected='n01'; _territoryFilter='all'; _returnToTerritory=false;
   Object.assign(_territoryViewport,{zoom:1,left:0,top:0});

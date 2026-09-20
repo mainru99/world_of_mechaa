@@ -1,5 +1,5 @@
 /* ==================================================================
- * ROWAR - 상태 · 화면 · 게임 루프 (Claude 담당 · CONTRACT.md 참조)
+ * ROWAR - 상태 · 화면 · 게임 루프 (UI 개편 ChatGPT 담당 · CONTRACT.md 참조)
  *   루프: 뽑기 -> 기체 육성(레벨/파츠) -> 상대 매칭 -> 자동 대전 -> 파밍
  *   저장: localStorage (rowar.save.v2)
  *
@@ -32,6 +32,8 @@ import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
 import { makeOpponent as _makeOpponent, pickTactic, bandStart, bandGoal, huntWeekView, huntResetAt } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
+import { icon, emblem } from './ui/icons.js';
+import { territoryView, bindTerritory } from './ui/territory.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
@@ -448,6 +450,8 @@ function setTerrain(t){ _sceneTerrain = t || null; setScene(document.body.datase
    sc-hunt 가 active 인 채여서 상대 카드가 '보이지 않는 화면 뒤'에 그려졌다.
    '토벌이 눌리기만 하고 아무 일도 안 일어난다'의 정체가 이것이다. */
 function toBattle(bg, navAs){
+  if(cur!=='battle') window.scrollTo({top:0,left:0,behavior:'instant'});
+  const returnBar=$('#ui-return'); if(returnBar) returnBar.hidden=true;
   cur = 'battle';
   setScene(bg || 'battle');
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id==='sc-battle'));
@@ -459,17 +463,39 @@ function toBattle(bg, navAs){
 }
 /* 격납고를 떠나면 '새 파츠' 표를 지운다 — 인벤토리를 볼 기회가 한 번 있었다는 뜻이다.
    계속 반짝이게 두면 그 반짝임이 곧 배경이 되어 아무것도 알려 주지 못한다. */
-function go(scr){ if(cur==='hangar' && scr!=='hangar') seenFresh();
+function go(scr){ if(!['home','hangar','gacha','battle','rank','trial','hunt','terr'].includes(scr)) return;
+  if(scr!==cur) window.scrollTo({top:0,left:0,behavior:'instant'});
+  if(cur==='hangar' && scr!=='hangar') seenFresh();
+  if(scr!=='terr') _terrRequest++;
+  const returnBar=$('#ui-return'); if(returnBar) returnBar.hidden=!(scr==='hangar' && _returnToTerritory);
   cur=scr; _sceneTerrain=null; setScene(scr); document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.s===scr));
   renderWallet();
-  if(scr==='hangar') renderHangar();
+  document.querySelector('.nav-more')?.classList.toggle('active',['gacha','hunt','trial','rank'].includes(scr));
+  if(scr==='home') renderHome();
+  else if(scr==='hangar') renderHangar();
   else if(scr==='gacha') renderGacha();
   else if(scr==='battle') renderBattleHome();     // 대전은 여기서만 처음부터 그린다
   else if(scr==='rank') renderRank();
   else if(scr==='trial') renderTrial();
   else if(scr==='hunt') renderHunt();
   else if(scr==='terr') renderTerrHome(); }
+function uiGo(scr){closeModal();go(scr);}
+function uiMore(){
+  openModal(`<div class="mhead">작전 메뉴 <button class="mx" onclick="ROWAR.closeModal()" aria-label="닫기">×</button></div><div class="ui-home-brief">
+  ${[['gacha','뽑기 · 상점','코어 캡슐, 크레딧 캡슐, 보관함'],['hunt','파견','토벌과 원정'],['trial','시련 · 레이드','주간 기록과 공동 보스'],['rank','랭킹 · 도감','순위, 수집 기록, 칭호']].map(([id,name,desc])=>`<button onclick="ROWAR.uiGo('${id}')">${icon(id)}<span><b>${name}</b><small>${desc}</small></span>${icon('chevron')}</button>`).join('')}
+  <button onclick="ROWAR.closeModal();ROWAR.enterFront()">${icon('battle')}<span><b>전선</b><small>ROWAR의 이야기를 이어갑니다</small></span>${icon('chevron')}</button></div>`);
+}
+function renderHome(){
+  const rb=selRobot()||S.robots[0], t=ROBOT_TYPES[rb.type];
+  const p=livePending();
+  $('#sc-home').innerHTML=`<div class="ui-pagehead"><div><span class="ui-eyebrow">COMMAND CENTER</span><h1>지휘실</h1><p>다음 전장은 당신의 선택에서 시작됩니다.</p></div><button class="ui-text-button" onclick="ROWAR.guide()">${icon('help')} 작전 안내</button></div>
+  <div class="ui-home"><section class="ui-surface ui-home-unit"><div class="ui-section-label">선봉 기체 <small>VANGUARD</small></div><div class="sprite" data-t="${t.rarity}">${sprite(rb.type,false)}</div><h2>${esc(t.name)}</h2><p>Lv.${rb.level} · ${esc(t.role||'')} · ${t.rarity}</p><p>전투력 ${fmt(power(rb))}</p><button class="btn" onclick="ROWAR.go('hangar')">기체 정비 ${icon('chevron')}</button></section>
+  <section class="ui-surface ui-home-map"><span class="ui-eyebrow">YOUR NEXT OBJECTIVE</span><h2>전장을 지배할<br>다음 한 수.</h2><p>기체를 정비하고, 방어선을 돌파하세요.<br>확보한 거점이 새로운 전력을 만듭니다.</p><button class="btn ui-primary" onclick="ROWAR.enterTerritory()">작전 지도 열기 ${icon('arrow')}</button></section>
+  <section class="ui-surface ui-home-brief"><h3>작전 브리핑</h3><button onclick="ROWAR.enterFront()">${icon('battle')}<span><b>전선 이어하기</b><small>지휘관의 다음 이야기를 확인하세요</small></span></button><button onclick="ROWAR.go('hunt')">${icon('clock')}<span><b>원정 현황</b><small>${S.expd?(S.expd.endsAt>Date.now()?'귀환까지 '+dur(S.expd.endsAt-Date.now()):'귀환 완료 · 보상 수령 가능'):'기체를 보내 성장 재료를 확보하세요'}</small></span></button><button onclick="ROWAR.enterTerritory()">${icon('terr')}<span><b>점령 현황</b><small>${p?p.mine+'개 거점 · 크레딧 '+fmt(p.cr)+' 누적':'세계 지도를 열어 거점을 확인하세요'}</small></span></button><button onclick="ROWAR.go('trial')">${icon('rank')}<span><b>이번 주의 도전</b><small>주간 시련 · 공동 보스 레이드</small></span></button></section></div>
+  <div class="ui-shortcuts">${[['hangar','격납고','나만의 전력을 완성한다','backgrounds/hangar'],['gacha','뽑기','새로운 기체와 파츠를 만난다','backgrounds/gacha'],['battle','대전','상대를 읽고 전술을 선택한다','backgrounds/battle-industrial-ruins'],['hunt','파견','더 강한 내일을 준비한다','terrain/furnace']].map(([id,name,desc,art])=>`<button style="background-image:url('assets/${art}.webp')" onclick="ROWAR.go('${id}')"><b>${name}</b><span>${desc}</span></button>`).join('')}</div>`;
+}
+
 /* 하단 티커 — 시간이 흐르는 것들만 모아 늘 보이게 한다.
    화면을 옮겨 다니지 않아도 '지금 무엇이 익어 가는지' 알 수 있어야 한다.
    **서버에 묻지 않는다** — 원정은 저장본, 점령은 지도 캐시, 피로는 계산이라
@@ -525,7 +551,7 @@ function renderTicker(){
 
   const html = out.join('') + '<div class="sp"></div>'
     + `<div class="tk off">전적 ${S.stat.wins}승 ${S.stat.losses}패</div>`
-    + `<div class="tk off">프로토타입 v0.5 · 진행 상황은 서버에 저장됩니다</div>`;
+    + `<div class="tk off">진행 상황은 서버에 저장됩니다</div>`;
   /* 1초마다 불리므로 달라진 게 없으면 DOM 을 건드리지 않는다. 움직일 것이 하나도
      없는 계정에서는 문자열 하나 만드는 것이 전부다. */
   if(html===_tickHtml) return;
@@ -538,9 +564,32 @@ function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core')
 /* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
    그래서 renderAll 은 대전 화면을 건드리지 않는다. 대전 화면은 go() 가 그린다. */
-function renderAll(){ renderWallet(); if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); }
-function openModal(html){ shield(); const m=$('#modal'); m.innerHTML=`<div class="modal-card">${html}</div>`; m.classList.add('on'); m.onclick=e=>{ if(e.target===m) closeModal(); }; }
-function closeModal(){ $('#modal').classList.remove('on'); $('#modal').innerHTML=''; }
+function renderAll(){ renderWallet(); if(cur==='home')renderHome(); else if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); else if(cur==='terr')renderTerrHome(); }
+let modalOpener=null;
+function openModal(html){
+  shield(); const m=$('#modal');
+  if(!m.classList.contains('on')) modalOpener=document.activeElement;
+  m.innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" tabindex="-1">${html}</div>`;
+  const card=m.firstElementChild, title=card.querySelector('.mhead');
+  if(title){title.id='modal-title';card.setAttribute('aria-labelledby','modal-title');}
+  else card.setAttribute('aria-label','상세 정보');
+  m.classList.add('on'); m.onclick=e=>{if(e.target===m) closeModal();};
+  m.onkeydown=e=>{
+    if(e.key==='Escape'){e.preventDefault();closeModal();return;}
+    if(e.key!=='Tab')return;
+    const fields=[...card.querySelectorAll('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,[tabindex="0"]')].filter(el=>el.getClientRects().length);
+    const first=fields[0],last=fields.at(-1);
+    if(!first){e.preventDefault();card.focus();return;}
+    if(e.shiftKey&&(document.activeElement===first||document.activeElement===card)){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  };
+  card.focus({preventScroll:true});
+}
+function closeModal(){
+  const m=$('#modal');m.classList.remove('on');m.innerHTML='';m.onkeydown=null;
+  if(modalOpener?.isConnected)modalOpener.focus({preventScroll:true});
+  modalOpener=null;
+}
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
 /* 파츠 그림 — assets/parts/<베이스>.png (128×128 투명, assets/parts/README.md).
@@ -2604,10 +2653,10 @@ function oppGear(opp){
 
 /* 전투가 시작되면 **양쪽 전술을 드러낸다.** 고르기 전에는 숨기고 시작하면 보여 주는 것이
    핵심이다 — 안 보여 주면 무엇이 통했는지 영영 알 수 없어 다음 판이 나아지지 않는다. */
-function renderArena(pType,eType,pName,eName,label,tacP,tacE){
+function renderArena(pType,eType,pName,eName,label,tacP,tacE,navAs){
   const tac=(t,side)=> (t&&t!=='none') ? `<em class="tacmark ${side}">${tacKo(t)}</em>` : '';
   shield();
-  toBattle('arena');                    // 전투 재생 동안만 콕핏 HUD
+  toBattle('arena',navAs);              // 전투 재생 동안만 콕핏 HUD
   $('#sc-battle').innerHTML = `
     <!-- 속도 버튼을 제목 줄로 올린다. 예전에는 전투 기록 아래, 즉 **직전 화면의
          '전투 시작'이 있던 자리**에 있었다. 연타하면 남은 클릭이 그대로 여기 꽂혀
@@ -3253,8 +3302,9 @@ async function frontFix(list){
 }
 
 async function renderTerr(){
+  const request=++_terrRequest, accountId=net.state.accountId;
   const el=$('#sc-terr');
-  const wrap = inner => `${frontTabs()}<h2 class="title">점령전 · 세계 지도</h2>${inner}`;
+  const wrap = inner => `<div class="ui-pagehead"><div><span class="ui-eyebrow">TERRITORY CONTROL</span><h1>점령</h1></div></div>${inner}`;
   if(!net.state.online){
     el.innerHTML = wrap(`<div class="panel"><div class="hint">점령전은 서버 연결이 필요합니다. 지도는 서버에 하나뿐입니다.</div></div>`);
     return;
@@ -3264,12 +3314,13 @@ async function renderTerr(){
     <div style="font-weight:800">지도를 불러오는 중...</div></div></div>`);
 
   const r = fresh ? _terr : await net.territory('view');
-  if(r && !r.error){ _terr=r; _terrAt=Date.now(); }
+  if(request!==_terrRequest || accountId!==net.state.accountId) return;
+  if(r && !r.error){ _terr=r; if(!fresh) _terrAt=Date.now(); }
   /* 기다리는 사이 '전선' 탭으로 갔거나 화면을 떠났으면 그리지 않는다 — 안 막으면 늦게 온
      지도가 전선 화면을 덮는다(도감·순위에서 났던 것과 같은 모양). 받은 지도는 위에서 캐시했다. */
   if(_frontTab !== 'terr' || cur !== 'terr') return;
   if(!r || r.error){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">지도를 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
+    el.innerHTML = wrap(`<div class="panel"><div class="hint">지도를 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div><button class="btn" onclick="ROWAR.enterTerritory()">다시 불러오기</button></div>`);
     return;
   }
   drawTerr(r);
@@ -3281,59 +3332,54 @@ function protLeft(node){
   return Math.max(0, node.protectUntil - Date.now());
 }
 
+let _territorySelected = 'n01', _territoryFilter='all', _returnToTerritory=false, _terrRequest=0;
+function enterTerritory(){ _frontTab='terr'; go('terr'); }
+function enterFront(){ _frontTab='front'; go('terr'); }
+function prepareTerritory(){ _returnToTerritory=true; go('hangar'); }
+function returnTerritory(){ _returnToTerritory=false; enterTerritory(); }
+const _territoryViewport={zoom:1,left:0,top:0};
 function drawTerr(r){
-  const st = Object.fromEntries(r.nodes.map(n=>[n.id,n]));
-  /* 내 편성 중 가장 센 기체를 기준으로 삼는다 — 돌파는 선봉이 얼마나 버티느냐로 갈린다. */
-  const myPw = Math.max(1, ...S.squad.map(u=>S.robots.find(x=>x.uid===u)).filter(Boolean).map(x=>power(x)));
-  /* row 1 이 안쪽, row 4 가 입구다. 위에서 아래로 그린다. */
-  const cells = [...TERRITORY].sort((a,b)=> a.row-b.row || a.col-b.col).map(n=>{
-    const s = st[n.id] || { owner:null, lines:n.mon.length, hp:[] };
-    const terrain = Object.hasOwn(TERRAIN, n.terrain) ? n.terrain : 'plain';
-    const TE = TERRAIN[terrain];
-    const own = s.owner==='me' ? 'mine' : (s.owner==='other' ? 'foe' : '');
-    /* 칸 레벨은 서버가 준다 — 세계 평균 전투력만큼 얹혀 있어 데이터의 값과 다르다. */
-    const lv = s.lv || n.lv;
-    const prot = protLeft(s);
-    const lock = !!s.locked;
-    return `<button class="tnode ${own}${prot?' prot':''}${lock?' locked':''}" data-terrain="${esc(terrain)}" onclick="ROWAR.openNode('${n.id}')">
-      <div class="tn-top"><span class="tag rr-${n.rar}">${n.rar==='BOSS'?'보스':(RR[n.rar]||{}).ko||n.rar}</span>
-        <b>Lv.${lv}${lv>n.lv?`<em class="up"> +${lv-n.lv}</em>`:''}</b></div>
-      <div class="tn-name">${n.ko}</div>
-      <div class="tn-terr"><span>${TE.ko||''}</span>${n.maxRar?`<em>${n.maxRar}↓</em>`:''}</div>
-      <div class="tn-pw ${s.pw>myPw*1.05?'hi':(s.pw<myPw*0.8?'lo':'')}">방어 ${fmt(s.pw||0)}</div>
-      ${linePips(s.hp)}
-      <div class="tn-own">${lock?`🔒 Lv.${s.minLv} 필요`
-        : prot?`🛡 보호 ${dur(prot)}`
-        : s.owner==='me' ? '내 점령지'
-        : (s.owner==='other' ? esc(s.ownerName||'적') : `방어선 ${s.lines}`)}</div>
-    </button>`;
-  }).join('');
-
-  const p=r.pending||{cr:0,sc:0,core:0};
-  const has = p.cr>0 || p.sc>0 || (p.core||0)>0;
-  const avg = (r.world&&r.world.avgPower)||0;
-  /* 지도는 3열 4행이 곧 '안쪽에서 입구까지'라 열 수를 바꿀 수 없다. 그래서 한 판에
-     쌓으면 칸 하나가 419px 까지 늘어나 카드가 납작해진다. 넓은 화면에서는 지도를
-     왼쪽 단에 넣어 폭을 잡아 주고, 요약과 설명을 오른쪽에 세운다. */
-  /* 탭을 꼭 같이 그린다. 로딩·오류 화면은 wrap() 이 붙여 주는데 여기만 빠져서, 지도가 뜨는
-     순간 '전선' 으로 돌아갈 단추가 사라졌다. */
-  $('#sc-terr').innerHTML = `${frontTabs()}<h2 class="title">점령전 · 세계 지도</h2>
-    <div class="tx">
-    <div class="panel tsum">
-      <div class="trow">
-        <div><div class="hint">점령</div><div class="big">${r.mine} / ${TERRITORY.length}</div></div>
-        <div><div class="hint">쌓인 수입</div><div class="big" style="color:var(--gold)">${fmt(p.cr)}</div></div>
-        <div><div class="hint">스크랩</div><div class="big">${fmt(p.sc)}</div></div>
-        <div><div class="hint">코어</div><div class="big" style="color:var(--acc2)">${fmt(p.core||0)}</div></div>
-      </div>
-      <button class="btn big ${has?'gold':''}" ${has?'':'disabled'} onclick="ROWAR.claimTerr()"
-        >${has?'수입 받기':'아직 쌓인 수입이 없습니다'}</button>
-      <div class="hint" style="margin-top:6px">수입은 <b>${CONST.TERR.INCOME_CAP_H}시간치</b>까지 쌓입니다 · 칸마다 나오는 재화가 다릅니다${
-        avg?` · 지도 난이도는 평균 전투력 <b>${fmt(avg)}</b>에 맞춰 올라 있습니다`:''}</div>
-    </div>
-    <div class="tmap">${cells}</div>
-    <div class="panel tinfo"><div class="hint"><b>실패해도 깎아 둔 방어선은 남습니다</b></div></div>
-    </div>`;
+  const squad=S.squad.map(u=>S.robots.find(rb=>rb.uid===u)).filter(Boolean);
+  const lead=selRobot(); squad.sort((a,b)=>(b.uid===lead?.uid?1:0)-(a.uid===lead?.uid?1:0));
+  const squadHtml=squad.map((rb,i)=>`<div class="tc-squad-card">${sprite(rb.type,false)}<span><small>${i===0?'선봉':'예비'}</small><b>${esc(ROBOT_TYPES[rb.type].name)}</b><em>Lv.${rb.level} · 피로 ${fatOf(rb)}</em></span></div>`).join('');
+  const el=$('#sc-terr');
+  el.innerHTML=territoryView({data:r, selectedId:_territorySelected, filter:_territoryFilter, squadHtml});
+  bindTerritory(el,{
+    view:_territoryViewport,
+    select:id=>{
+      openNode(id);
+      const detail=$('#tc-detail'); detail?.focus({preventScroll:true});
+      if(matchMedia('(max-width:700px)').matches) detail?.scrollIntoView({block:'start'});
+    },
+    filter:value=>{_territoryFilter=value;drawTerr(r);},
+    refresh:()=>{dropTerrCache();renderTerr();}
+  });
+  openNode(_territorySelected);
+}
+function showTerritoryDetail(id,html){
+  const detail=$('#tc-detail');
+  if(cur!=='terr'||_frontTab!=='terr'||!detail){openModal(html);return;}
+  _territorySelected=id;
+  const n=NODE_BY[id], st=_terr?.nodes.find(x=>x.id===id)||{};
+  document.querySelectorAll('#sc-terr [data-node]').forEach(el=>{
+    const on=el.dataset.node===id; el.classList.toggle('selected',on);el.setAttribute('aria-pressed',String(on));
+  });
+  document.querySelectorAll('#sc-terr [data-region]').forEach(el=>el.classList.toggle('selected',el.dataset.region===id));
+  const content=document.createElement('div'); content.innerHTML=html;
+  content.querySelector('.mhead')?.remove();
+  const table=content.querySelector('.tdet');
+  if(table){ const extra=document.createElement('details');extra.innerHTML='<summary>거점 정보 자세히</summary>';extra.append(table);content.append(extra);}
+  const lines=content.querySelector('.tlines');
+  if(lines){
+    if(lines.previousElementSibling?.classList.contains('hint')) lines.previousElementSibling.remove();
+    const extra=document.createElement('details');extra.innerHTML=`<summary>방어선 ${st.lines||n.mon.length}겹 확인</summary>`;lines.before(extra);extra.append(lines);
+  }
+  const own=st.owner==='me'?'내 점령지':st.owner==='other'?'다른 지휘관 · '+esc(st.ownerName||'지휘관'):'몬스터 주둔';
+  detail.innerHTML=`<div class="ui-section-label">선택 거점 <small>REGION INFO</small></div>
+    <div class="tc-detail-image"><img src="assets/terrain/${n.terrain}.webp" alt="${esc(TERRAIN[n.terrain]?.ko||'지형')}"><span>SECTOR ${id.slice(1)} · ${n.rar}</span></div>
+    <h2>${esc(n.ko)}</h2><p class="tc-detail-owner ${st.owner==='me'?'mine':st.owner==='other'?'enemy':''}">${own}${protLeft(st)>0?' · 보호 중':''}</p>
+    <dl class="tc-specs"><div><dt>방어 전력</dt><dd>${fmt(st.pw||0)}</dd></div><div><dt>수입 / 시간</dt><dd>${fmt(n.crH)} 크레딧 · ${fmt(n.scH)} 스크랩</dd></div><div><dt>편성 제한</dt><dd>${n.maxRar?esc(n.maxRar)+' 이하':'등급 제한 없음'}</dd></div></dl>
+    ${content.innerHTML}<button class="btn tc-prep" onclick="ROWAR.prepareTerritory()">${icon('hangar')} 기체 정비 · 편성 변경</button>`;
 }
 
 /* 칸 상세. 여기서 '이 칸에 무엇을 데려갈까'가 정해진다 — 그래서 지형과 편성 제한을
@@ -3385,7 +3431,7 @@ function openNode(id){
 
   const mine = s.owner==='me';
   const poor = S.credits < cost;
-  openModal(`<div class="mhead">${n.ko} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
+  showTerritoryDetail(id, `<div class="mhead">${n.ko} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="tdet">
       <div class="tdrow"><span>등급</span><b>${n.rar==='BOSS'?'보스':(RR[n.rar]||{}).ko||n.rar} · Lv.${lv}</b>
         ${lv>n.lv?`<i>기본 Lv.${n.lv} + 세계 난이도 ${lv-n.lv}</i>`:''}</div>
@@ -3435,7 +3481,7 @@ async function attackTerr(id, raid){
   if(!net.state.online){ toast('점령전은 서버 연결이 필요합니다'); return; }
   const n=NODE_BY[id];
   setTerrain(n && n.terrain);      // 이 칸의 지형이 전투 배경이 된다
-  toBattle();
+  toBattle(null, 'terr');
   $('#sc-battle').innerHTML = `<h2 class="title">점령전</h2><div class="panel"><div class="mm">
     <div class="spinner"></div><div style="font-weight:800">${n?n.ko:'점령지'} ${raid?'강행 진입':'진입'} 중...</div>
     <div class="hint">${raid?'점령자의 편성까지 확인하고 있습니다.':'방어선을 확인하고 있습니다.'}</div></div></div>`;
@@ -3493,7 +3539,7 @@ async function replayBreach(r, label){
     const P=makeUnit(M.name,M.type,M.stats); P.hp=rd.pHp; P.sp=rd.pSp;
     const E=makeUnit(L.name,L.type,L.stats); E.hp=rd.eHp; E.sp=rd.eSp;
 
-    renderArena(M.type,L.type,M.name,L.name, `${label} · 방어선 ${rd.li+1}/${total}`);
+    renderArena(M.type,L.type,M.name,L.name, `${label} · 방어선 ${rd.li+1}/${total}`,null,null,'terr');
     if(arenaGone()) return false;
     /* 두 번째 기체가 들어오는 순간이 이 규칙의 핵심이라 말로도 한 줄 남긴다. */
     if(i>0 && rd.mi!==out.rounds[i-1].mi)
@@ -3511,7 +3557,7 @@ async function replayBreach(r, label){
 
 function renderBreachResult(r){
   shield();
-  toBattle();
+  toBattle(null, 'terr');
   const node=NODE_BY[r.node];
   const rw=r.reward||{};
   const lines=[];
@@ -3614,6 +3660,7 @@ function guard(fn, coolMs = 0){
    전투가 재생되는 동안에도 눌러야 하는 것들이다. */
 
 window.ROWAR = {
+  enterTerritory, enterFront, prepareTerritory, returnTerritory, uiMore, uiGo,
   go,
   /* 나갈 기체 고르기 — 편성에 든 기체만. 편성 밖을 누르면 편성에 넣는 것으로 받아 준다. */
   selectRobot: guard(async(i)=>{ const rb=S.robots[i]; if(!rb) return;
@@ -3887,6 +3934,9 @@ async function doRegister(){
 /* 로그인 뒤에 할 일. 대문의 로그인 칸과 계정 창이 **같은 함수**를 쓴다 —
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 async function afterLogin(r){
+  ++_terrRequest; dropTerrCache(); dropRankCache();
+  _territorySelected='n01'; _territoryFilter='all'; _returnToTerritory=false;
+  Object.assign(_territoryViewport,{zoom:1,left:0,top:0});
   const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
   if(remote){ S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex; S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync(); }
   renderAcct(); renderGate(); renderAll();
@@ -3958,6 +4008,8 @@ function initGate(){
 }
 
 function boot(){
+  document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));
+  document.querySelectorAll('[data-emblem]').forEach(el=>el.innerHTML=emblem);
   preloadSprites();
   initGate();
   /* 재화 숫자/계정명과 화면 폭에 따라 지갑이 줄바꿈돼도 고정 탭이 가려지지 않는다. */
@@ -3968,7 +4020,7 @@ function boot(){
   S=load(); save();          // 첫 실행이면 시작 기체를 바로 확정해 저장한다
   /* 화면 이동은 data-s 가 있는 단추만. 레일 아래의 '?'(.rhelp)도 .nav 안의 단추라, 예전에는 go(undefined) 가 불려
      모든 화면이 꺼진 채 설명 창만 떴다 — 창을 닫으면 빈 화면이었다(2026-09-19). */
-  document.querySelectorAll('.nav button[data-s]').forEach(b=> b.addEventListener('click',()=>go(b.dataset.s)));
+  document.querySelectorAll('.nav button[data-s]').forEach(b=> b.addEventListener('click',()=>b.hasAttribute('data-territory-entry')?enterTerritory():go(b.dataset.s)));
   /* ── 첫 화면 (F장 §3) ────────────────────────────────
      **전투를 한 번도 안 한 계정은 격납고가 아니라 전선으로 보낸다.**
      운영 32계정 중 **21계정(66%)이 한 판도 안 싸우고 떠났다** — 기체 1기, Lv.1,
@@ -3976,9 +4028,9 @@ function boot(){
      격납고는 '무엇을 할지 아는 사람' 의 화면이다. 처음 온 사람에게는 고를 것만 스물이다.
 
      판단 기준이 `wins + losses === 0` 하나라 **새 컬럼이 필요 없고**, 한 판이라도
-     해 본 계정(가장 활발한 곳은 86판)은 전부 지금처럼 격납고로 간다. */
+     해 본 계정은 UI 개편의 지휘실로 간다. */
   const untouched = !S.stat || (S.stat.wins | 0) + (S.stat.losses | 0) === 0;
-  go(untouched ? 'terr' : 'hangar');
+  go(untouched ? 'terr' : 'home');
 
   /* 게스트 계정 연결과 동기화는 화면을 막지 않는다. 실패해도 localStorage 로 계속 논다.
      **계정을 새로 만들지는 않는다**(create:false) — 이미 토큰이 있는 사람만 이어서 붙는다.

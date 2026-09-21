@@ -325,6 +325,16 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 > 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
 > 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
 
+#### 실시간 재생 · 흘려내기 — 2026-09-21 밤 · Claude (master)
+
+- **전투 규칙이 바뀌었다** — `js/sim.js` `tryParry` · `CONST.PARRY`(흘려내기). 'turn' 이벤트에 `at`(흐른 시간) · 새 이벤트 `parry`.
+  기체 스펙은 한 글자도 안 바꿨지만 **모든 전투 결과가 달라진다** — 밸런스를 잴 때 흘려내기가 켜진 상태인지 확인할 것
+- `js/game.js` — `playBattle` 을 **통째로** 새로 썼다(`battleTimeline` · `TL` 이 바로 아래). `playJoint` 도 같은 시간표로.
+  후위 사격 `shoot` · 레이드 결과 버튼 줄. UI 브랜치는 이 함수들을 안 건드렸다 — `git merge-tree` 로 충돌 없음 확인
+- `tools/check_ignis_rain_integration.mjs`(ChatGPT 작성)를 두 줄 고쳤다 — 흘려내기의 돌진 · 흔들림을 세고, 배속 변경 시점을 옮겼다.
+  이그니스 연출의 약속은 그대로다
+- `style.css` — `.tracer` · `.fighter.firing` · `.dmg.parry`
+
 #### 기체 세트 03 · 특화기술 · 스토리 기체 — 2026-09-21 · Claude (master · `data/balance.js` · `assets/` 를 고쳤다 · 사용자 지시)
 
 사용자가 그림 17장을 줬다(Downloads/add). **기체 스펙은 원래 ChatGPT 담당이지만 사용자가 Claude 에게 맡겼다** —

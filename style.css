@@ -236,6 +236,7 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .dmg{position:absolute;font-weight:900;font-size:22px;pointer-events:none;text-shadow:0 2px 6px #000;animation:rise 1s forwards}
 .dmg.crit{font-size:30px;color:var(--gold)} .dmg.miss{color:#bcd0ff} .dmg.norm{color:#fff}
 .dmg.heal{font-size:22px;color:var(--good)}
+.dmg.parry{font-size:24px;color:#ffd36b;letter-spacing:1px;text-shadow:0 0 10px rgba(255,200,90,.7),0 2px 6px #000}
 @keyframes rise{0%{transform:translateY(0) scale(.6);opacity:0}20%{transform:translateY(-6px) scale(1.15);opacity:1}100%{transform:translateY(-46px) scale(1);opacity:0}}
 .skillbanner{position:absolute;top:46%;left:50%;transform:translate(-50%,-50%);font-weight:900;font-size:22px;letter-spacing:2px;
   color:#fff;text-shadow:0 0 18px var(--acc2),0 2px 6px #000;opacity:0}
@@ -1594,6 +1595,13 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .arena.joint .fighter.jf0{left:118px;width:150px;height:165px;z-index:2}
 .arena.joint .fighter.jf1{left:0;bottom:46px;width:124px;height:136px;z-index:1}
 .fighter.down{opacity:.25;filter:grayscale(1);transition:opacity .4s}
+/* 후위 사격 — 제자리 반동 + 탄도 선(js/game.js shoot) */
+.fighter.firing{transform:translateX(-8px);filter:brightness(1.45) drop-shadow(0 0 6px #7bf0ff)}
+.tracer{position:absolute;height:3px;transform-origin:0 50%;pointer-events:none;z-index:5;border-radius:2px;
+  background:linear-gradient(90deg,rgba(123,240,255,0),#7bf0ff 55%,#fff);box-shadow:0 0 8px #7bf0ff;
+  animation:tracer .26s ease-out forwards}
+@keyframes tracer{0%{opacity:0;clip-path:inset(0 100% 0 0)}25%{opacity:1}100%{opacity:0;clip-path:inset(0 0 0 0)}}
+@media (prefers-reduced-motion: reduce){ .tracer{animation:none;opacity:.5} .fighter.firing{transform:none} }
 /* 이름표는 한 줄로 — 두 줄이 되면 위 칸(전위)이 아래 칸(후위) 막대를 덮는다 */
 .arena.joint .hpwrap .nm{gap:6px;align-items:center}
 .arena.joint .hpwrap .nm span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

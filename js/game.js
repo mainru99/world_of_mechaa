@@ -1779,7 +1779,11 @@ function renderRaidResult(r){
         <div><span>보상</span><b style="color:var(--gold)">크레딧 +${fmt(r.reward.cr)} · 스크랩 +${fmt(r.reward.sc)}</b></div>
         <div><span>오늘 남은 도전</span><b>${r.triesLeft} / ${r.daily}</b></div>
       </div>
-      <button class="btn big" style="margin-top:10px" onclick="ROWAR.go('trial')">레이드로 돌아가기</button>
+      <!-- 버튼 하나를 패널에 바로 두면 넓은 화면에서 왼쪽 420px 에 붙었다(2026-09-21 사용자 제보). 다른 결과 창과 같은 줄로 -->
+      <div class="row-btns" style="margin-top:12px">
+        ${r.triesLeft>0 && !r.killed ? `<button class="btn big gold" onclick="ROWAR.raidPrep()">다시 공격</button>` : ''}
+        <button class="btn big ghost" onclick="ROWAR.go('trial')">레이드로 돌아가기</button>
+      </div>
     </div>`;
 }
 
@@ -2696,8 +2700,8 @@ async function playBattle(events,P,E,o){
     const sl=ms=>sleep(ms/battleSpeed);
     /* 건너뛰기 — 남은 이벤트를 애니메이션 없이 한 번에 반영하고 끝낸다.
        마지막 체력·게이지를 그대로 그려 두므로 화면이 결과와 어긋나지 않는다. */
-    const finishNow=()=>{
-      for(const x of events){
+    const finishNow=(from)=>{
+      for(let k=from;k<events.length;k++){ const x=events[k];
         if(x.t==='turn') setSP(x.side==='P'?'p':'e', x.sp);
         else if(x.t==='jam') setSP(x.dside==='P'?'p':'e', x.sp);
         else if(x.t==='heal') setHP(x.side==='P'?'p':'e', x.hp, x.side==='P'?P.maxhp:E.maxhp);
@@ -2707,10 +2711,17 @@ async function playBattle(events,P,E,o){
       const last=events[events.length-1];
       return stopped()?null:((last&&last.t==='end')?last.winner:'P');
     };
+    /* 실시간 재생(2026-09-21) — 사건마다 정해 둔 시각까지만 기다린다. 동작(돌진)은 기다리지 않아서
+       두 기체의 행동이 가까우면 겹쳐 움직인다. 기다림은 지금 배속으로 나눈다(도중에 배속을 바꿔도 바로 먹는다) */
+    const tl=battleTimeline(events);
+    let clock=0;
+    const until=async t=>{ const w=t-clock; clock=Math.max(clock,t); if(w>0) await sl(w); };
     await sl(400);
-    for(const e of events){
+    for(let i=0;i<events.length;i++){
+      const e=events[i];
+      if(e.t!=='end') await until(tl[i]);
       if(stopped()) return null;                 // 보상 판정은 서버에 있으며 화면 재생만 중단한다.
-      if(_skipReplay) return finishNow();
+      if(_skipReplay) return finishNow(0);   // 처음부터 다시 그린다 — 몇 번 그려도 결과는 같다
       if(e.t==='turn'){ rainSkill=null; setSP(e.side==='P'?'p':'e', e.sp); continue; }
       if(e.t==='skill'){
         rainSkill=null;
@@ -2718,17 +2729,24 @@ async function playBattle(events,P,E,o){
           rainSkill={side:e.side,index:0,left:COMBAT_TYPES.ignis.skill.fx.hits};
           rain.cast(e.side==='P'?'p':'e');
         }
-        banner(e.name); blog(`${nameOf(e.side)} 스킬 <b>${e.name}</b>!`); await sl(520); continue;
+        banner(e.name); blog(`${nameOf(e.side)} 스킬 <b>${e.name}</b>!`); continue;
       }
       if(e.t==='heal'){ const hS=e.side==='P'?'p':'e';
         setHP(hS, e.hp, hS==='p'?P.maxhp:E.maxhp); floatDmg(hS,'+'+e.amt,'heal');
-        blog(`${nameOf(e.side)} 체력 <span class="h">+${e.amt}</span> ${e.src==='repair'?'수리':'흡수'}`); await sl(260); continue; }
+        blog(`${nameOf(e.side)} 체력 <span class="h">+${e.amt}</span> ${e.src==='repair'?'수리':'흡수'}`); continue; }
       /* 특화기술 — 방벽 · 표적 · 재밍 (js/sim.js afterSkill) */
       if(e.t==='shield'){ const k=e.side==='P'?'p':'e'; floatDmg(k,'방벽 '+e.amt,'heal');
-        blog(`${nameOf(e.side)} <span class="h">방벽 ${e.amt}</span>`); await sl(260); continue; }
-      if(e.t==='mark'){ blog(`${nameOf(e.side)} → ${nameOf(e.dside)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); await sl(200); continue; }
+        blog(`${nameOf(e.side)} <span class="h">방벽 ${e.amt}</span>`); continue; }
+      if(e.t==='mark'){ blog(`${nameOf(e.side)} → ${nameOf(e.dside)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); continue; }
       if(e.t==='jam'){ const k=e.dside==='P'?'p':'e'; setSP(k, e.sp); floatDmg(k,'JAM','miss');
-        blog(`${nameOf(e.side)} 재밍 — ${nameOf(e.dside)} SP −${e.amt} · 행동 지연`); await sl(260); continue; }
+        blog(`${nameOf(e.side)} 재밍 — ${nameOf(e.dside)} SP −${e.amt} · 행동 지연`); continue; }
+      /* 흘려내기 — 친 쪽이 돌진했다가 튕겨 나간다. 흘린 쪽에 PARRY */
+      if(e.t==='parry'){ const pS=e.side==='P'?'p':'e', aS=e.dside==='P'?'p':'e';
+        lunge(aS);
+        if(stopped()) return null;
+        floatDmg(pS,'PARRY','parry'); shakeF(aS);
+        blog(`${nameOf(e.side)} <span class="c">흘려내기!</span> ${nameOf(e.dside)} 의 공격을 흘리고 · ${nameOf(e.dside)} 행동 지연`);
+        continue; }
       if(e.t==='hit'){
         const aS=e.side==='P'?'p':'e', dS=e.dside==='P'?'p':'e';
         // sim 의 스킬 타격은 같은 턴에 연속으로 나온다. 평타로 효과가 이어지지 않게 경계를 지킨다.
@@ -2737,20 +2755,45 @@ async function playBattle(events,P,E,o){
           const index=rainSkill.index++;
           if(--rainSkill.left<=0) rainSkill=null;
           await rain.strike(aS,{miss:!!e.miss,index,speed:battleSpeed});
-        }else{ rainSkill=null; await lunge(aS); }
+        }else{ rainSkill=null; lunge(aS); }   // 돌진은 기다리지 않는다 — 다른 기체의 행동과 겹쳐 보이게
         if(stopped()) return null;
         if(e.miss){ floatDmg(dS,'MISS','miss'); blog(`${nameOf(e.side)} 의 공격을 ${nameOf(e.dside)} 이(가) <span class="m">회피!</span>`); }
         else{ if(!isRain) flash(); shakeF(dS); floatDmg(dS,(e.crit?'CRIT ':'')+e.dmg,e.crit?'crit':'norm');
           setHP(dS,e.thp, dS==='p'?P.maxhp:E.maxhp);
           blog(`${nameOf(e.side)} → ${nameOf(e.dside)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해${e.absorb?` <span class="m">(방벽 −${e.absorb})</span>`:''}`); }
-        await sl(300); continue;
+        continue;
       }
-      if(e.t==='end'){ await sl(300); return stopped()?null:e.winner; }
+      if(e.t==='end'){ await until(tl[i]); await sl(300); return stopped()?null:e.winner; }
     }
     return stopped()?null:'P';
   }finally{
     if(rain) rain.dispose();
   }
+}
+
+/* ── 실시간 재생 시간표 (2026-09-21 · 사용자 결정) ──────────────────
+   예전 재생은 사건을 하나씩 순서대로 틀어, 속도대로 따로 움직이는 전투가 '주고받기' 로 보였다.
+   이제 사건마다 **보여 줄 시각(ms, 배속 1)** 을 정한다.
+     · 행동의 시작 — 계산이 'turn' 에 적어 둔 at(흐른 시간)에 비례. 행동 사이 평균이 TL.gap 이 되게 늘린다
+     · 한 행동 안의 사건 — 그 뒤로 TL.step 만큼씩 짧게 이어진다
+   그래서 두 기체의 행동이 가까우면 겹쳐 보인다(돌진이 동시에 나간다). 빠른 기체는 더 자주 움직인다.
+   **순서는 뒤집지 않는다** — 체력 막대가 계산 순서대로 움직여야 결과와 맞는다(TL.min 간격).
+   at 이 없는 사건열(옛 기록 · 검사용)은 행동마다 TL.gap 씩 띄운다. 합동전(playJoint)도 이것을 쓴다. */
+const TL = { gap: 520, min: 40,
+  step: { start: 0, turn: 60, skill: 420, hit: 170, heal: 120, shield: 120, mark: 100, jam: 150, parry: 260, down: 220, trait: 320 } };
+function battleTimeline(events){
+  const ats=events.filter(e=>e.t==='turn'&&e.at!=null).map(e=>e.at);
+  const avg=ats.length>1 ? (ats[ats.length-1]-ats[0])/(ats.length-1) : 0;
+  const scale=avg>0 ? TL.gap/avg : 0, t0=ats.length ? ats[0] : 0;
+  const out=[]; let base=0, off=0, prev=-Infinity, n=0;
+  for(const e of events){
+    if(e.t==='turn'){ base = (e.at!=null && scale) ? (e.at-t0)*scale : (n++ ? Math.max(prev+TL.min, base+TL.gap) : 0); off=0; }
+    const t=Math.max(base+off, prev+TL.min);
+    off += TL.step[e.t] != null ? TL.step[e.t] : 80;
+    out.push(t); prev=t;
+  }
+  if(out.length && out[0]<0) out[0]=0;
+  return out;
 }
 function renderResult(win,rw,P,E,opp){
   shield();
@@ -2945,6 +2988,25 @@ function renderJointArena(team, bType, bName, label, bossTac){
     <div class="blog" id="blog"></div>`;
 }
 
+/* 후위 사격(2026-09-21 사용자 제보) — 후위도 돌진 연출(lunge)을 썼더니, 후위는 전위 **뒤 층**에 서 있어서
+   앞으로 튀어나간 모습이 전위 그림에 가려 '가만히 있다' 로 보였다. 판정은 원래부터 둘 다 쳤다.
+   후위는 제자리에서 반동하고 탄도 선을 쏜다 — 뒤에서 쏘는 기체라는 자리가 그림으로도 읽힌다. */
+async function shoot(aK, dK){
+  const ar=document.getElementById('arena'), a=AR('#fighter-'+aK), d=AR('#fighter-'+dK);
+  if(!ar||!a||!d) return;
+  const R=ar.getBoundingClientRect(), ra=a.getBoundingClientRect(), rd=d.getBoundingClientRect();
+  const x1=ra.left+ra.width*0.72-R.left, y1=ra.top+ra.height*0.42-R.top;
+  const x2=rd.left+rd.width*0.4-R.left,  y2=rd.top+rd.height*0.5-R.top;
+  const t=document.createElement('div');
+  t.className='tracer';
+  t.style.cssText=`left:${x1}px;top:${y1}px;width:${Math.hypot(x2-x1,y2-y1)}px;transform:rotate(${Math.atan2(y2-y1,x2-x1)*180/Math.PI}deg)`;
+  ar.appendChild(t);
+  a.classList.add('firing');
+  await sleep(150/battleSpeed);
+  a.classList.remove('firing');
+  setTimeout(()=>t.remove(), 260);
+}
+
 /* 재생 — playBattle 과 같은 흐름에 '누가(i)' 가 붙었다. team · boss 는 runJoint 가 만든 유닛이다 */
 async function playJoint(events, team, boss){
   const arena=document.getElementById('arena');
@@ -2959,8 +3021,8 @@ async function playJoint(events, team, boss){
   blog(`합동전 개시! <b>${team.map(u=>esc(u.name)).join(' · ')}</b> vs <b>${esc(boss.name)}</b>`);
   const sl=ms=>sleep(ms/battleSpeed);
   const down=new Set();
-  const finishNow=()=>{
-    for(const x of events){
+  const finishNow=(from)=>{
+    for(let k=from;k<events.length;k++){ const x=events[k];
       if(x.t==='turn') setSP(key(x.side,x.i), x.sp);
       else if(x.t==='jam') setSP(key(x.dside,x.di), x.sp);
       else if(x.t==='heal') setHP(key(x.side,x.i), x.hp, unit(x.side,x.i).maxhp);
@@ -2971,38 +3033,53 @@ async function playJoint(events, team, boss){
     const last=events[events.length-1];
     return stopped()?null:((last&&last.t==='end')?last.winner:'E');
   };
+  /* 실시간 재생 — playBattle 과 같은 시간표(battleTimeline). 전위 · 후위 · 보스가 각자의 박자로 움직인다 */
+  const tl=battleTimeline(events);
+  let clock=0;
+  const until=async t=>{ const w=t-clock; clock=Math.max(clock,t); if(w>0) await sl(w); };
+  const strike=(aK,dK,side,i)=>{ if(side==='P' && i===1) shoot(aK,dK); else lunge(aK); };   // 기다리지 않는다
   await sl(400);
-  for(const e of events){
+  for(let ix=0;ix<events.length;ix++){
+    const e=events[ix];
+    if(e.t!=='end') await until(tl[ix]);
     if(stopped()) return null;
-    if(_skipReplay) return finishNow();
+    if(_skipReplay) return finishNow(0);
     if(e.t==='turn'){ setSP(key(e.side,e.i), e.sp); continue; }
     if(e.t==='skill'){
       banner(e.name);
       blog(`${nm(e.side,e.i)} 스킬 <b>${esc(e.name)}</b>!${e.aim==='all'?' <span class="m">광역</span>':e.aim==='back'?' <span class="m">후위 저격</span>':''}`);
-      await sl(520); continue;
+      continue;
     }
-    if(e.t==='trait'){ banner('광폭화'); blog(`<b style="color:var(--bad)">${esc(boss.name)} 광폭화!</b> 공격력이 크게 오릅니다`); await sl(420); continue; }
+    if(e.t==='trait'){ banner('광폭화'); blog(`<b style="color:var(--bad)">${esc(boss.name)} 광폭화!</b> 공격력이 크게 오릅니다`); continue; }
+    if(e.t==='parry'){
+      const pK=key(e.side,e.i), aK=key(e.dside,e.di);
+      strike(aK,pK,e.dside,e.di);
+      if(stopped()) return null;
+      floatDmg(pK,'PARRY','parry'); shakeF(aK);
+      blog(`${nm(e.side,e.i)} <span class="c">흘려내기!</span> ${nm(e.dside,e.di)} 의 공격을 흘리고 · ${nm(e.dside,e.di)} 행동 지연`);
+      continue;
+    }
     if(e.t==='heal'){
       const k=key(e.side,e.i);
       setHP(k, e.hp, unit(e.side,e.i).maxhp); floatDmg(k,'+'+e.amt,'heal');
       blog(`${nm(e.side,e.i)} 체력 <span class="h">+${e.amt}</span> ${e.src==='regen'?'재생':e.src==='repair'?'수리':'흡수'}`);
-      await sl(260); continue;
+      continue;
     }
     if(e.t==='shield'){ const k=key(e.side,e.i); floatDmg(k,'방벽 '+e.amt,'heal');
-      blog(`${nm(e.side,e.i)} <span class="h">방벽 ${e.amt}</span>`); await sl(260); continue; }
-    if(e.t==='mark'){ blog(`${nm(e.side,e.i)} → ${nm(e.dside,e.di)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); await sl(200); continue; }
+      blog(`${nm(e.side,e.i)} <span class="h">방벽 ${e.amt}</span>`); continue; }
+    if(e.t==='mark'){ blog(`${nm(e.side,e.i)} → ${nm(e.dside,e.di)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); continue; }
     if(e.t==='jam'){ const k=key(e.dside,e.di); setSP(k,e.sp); floatDmg(k,'JAM','miss');
-      blog(`${nm(e.side,e.i)} 재밍 — ${nm(e.dside,e.di)} SP −${e.amt} · 행동 지연`); await sl(260); continue; }
+      blog(`${nm(e.side,e.i)} 재밍 — ${nm(e.dside,e.di)} SP −${e.amt} · 행동 지연`); continue; }
     if(e.t==='down'){
       down.add(e.i);
       const el=AR('#fighter-p'+e.i); if(el) el.classList.add('down');
       const exposed = e.i===0 && team.length>1 && !down.has(1);
       blog(`<b style="color:var(--bad)">${e.i===0?'전위':'후위'} 격추</b> — ${nm('P',e.i)}${exposed?' · 이제 후위가 모든 공격을 받습니다':''}`);
-      await sl(360); continue;
+      continue;
     }
     if(e.t==='hit'){
       const aK=key(e.side,e.i), dK=key(e.dside,e.di);
-      await lunge(aK);
+      strike(aK,dK,e.side,e.i);
       if(stopped()) return null;
       if(e.miss){ floatDmg(dK,'MISS','miss'); blog(`${nm(e.side,e.i)} 의 공격을 ${nm(e.dside,e.di)} 이(가) <span class="m">회피!</span>`); }
       else{
@@ -3010,9 +3087,9 @@ async function playJoint(events, team, boss){
         setHP(dK, e.thp, unit(e.dside,e.di).maxhp);
         blog(`${nm(e.side,e.i)} → ${nm(e.dside,e.di)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해${e.cut?` <span class="m">(역장 −${e.cut})</span>`:''}${e.absorb?` <span class="m">(방벽 −${e.absorb})</span>`:''}`);
       }
-      await sl(300); continue;
+      continue;
     }
-    if(e.t==='end'){ await sl(300); return stopped()?null:e.winner; }
+    if(e.t==='end'){ await until(tl[ix]); await sl(300); return stopped()?null:e.winner; }
   }
   return stopped()?null:'E';
 }

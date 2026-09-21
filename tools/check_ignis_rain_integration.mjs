@@ -87,8 +87,10 @@ for(const types of [['ignis','mule'],['mule','ignis'],['ignis','ignis'],['mule',
     const events=simulate(P,E,seed);
     const snapshot=JSON.stringify(events);
     const r=await run(events,P,E);
+    // 흘려내기(2026-09-21) — 친 쪽이 돌진했다 튕겨 나가므로 돌진 1 · 흔들림 1 이 더 붙는다
     let active=null, expected=0, ordinary=0, flashes=0, hits=0;
     for(const e of events){
+      if(e.t==='parry'){ ordinary++; hits++; }
       if(e.t==='turn') active=null;
       if(e.t==='skill') active=(e.side==='P'?P:E).type==='ignis'?e.side:null;
       if(e.t==='hit'){
@@ -109,7 +111,8 @@ for(const types of [['ignis','mule'],['mule','ignis'],['ignis','ignis'],['mule',
 
 // A speed change during the banner is used for subsequent strikes and waits.
 const sped=await run([skill(),hit(),finish],basic(),basic('mule'),{
-  sleep:({ms,ctx})=>{if(ms===520)ctx.battleSpeed=4;}
+  // 실시간 재생(2026-09-21)부터 스킬 배너에 고정 520ms 대기가 없다 — 두 번째 기다림(타격 직전)에 배속을 바꾼다
+  sleep:({n,ctx})=>{if(n===2)ctx.battleSpeed=4;}
 });
 assert.equal(of(sped,'strike')[0][2].speed,4);
 assert(of(sped,'sleep').some(c=>c[1]===75));

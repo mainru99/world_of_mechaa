@@ -6,9 +6,13 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-21 · 합동전 · 요구 조건 특성 · 기체 세트 03(13종) · 스토리 기체 4종 · 특화기술 · schema **21**(이관 없음) · **미배포**
+- **마지막 갱신** — 2026-09-21 · 합동전 · 요구 조건 특성 · 기체 세트 03(13종) · 스토리 기체 4종 · 특화기술 · schema **21**(이관 없음) · `balance_ver` **16pzda2**
 - **스키마 버전** — 로컬 **21** · 운영 **21** (2026-09-19 021 `player.hunt_wk` 적용)
-- **운영 확인** — 2026-09-19 배포 `c7a17894` (커밋 `460e756` 파츠 그림 · `b6915dc` 코드 · `79f79a3` 기록) · 이관 021 먼저 적용(`changes 2`) · schema **21** · `balance_ver` **151i21l** · 계정 33.
+- **운영 확인** — 2026-09-21 배포 `4bba0a58` (커밋 `d903c7d` 그림 · `e9f10e7` 코드 · `cd6353d` 기록 · `4e50e09` 브랜치 비키기) · 이관 없음 · schema **21** · `balance_ver` **16pzda2** · 계정 34.
+  `joint.js` · `sim.js` · `game.js` · `raid.js` · `balance.js` · `style.css` · `/` 내용 일치 · 새 기체 그림 17/17 200 · `/api/state` · `/api/raid` 401(살아 있음).
+  **UI 브랜치와 충돌 없음** — 푸시 전에 `git merge-tree --write-tree origin/codex/ui-rebuild main` 이 깨끗했고, 합친 결과에서도 `game.js` 문법 · `specialcheck` · `battlecheck` 통과.
+  그러려고 `index.html` 의 `?v=` 수정을 되돌렸다(`/js/*` 는 no-cache, `style.css` 는 `max-age=0, must-revalidate` 라 버전 없이도 새 파일을 받는다 — 운영에서 확인)
+- **이전 배포** — 2026-09-19 배포 `c7a17894` (커밋 `460e756` 파츠 그림 · `b6915dc` 코드 · `79f79a3` 기록) · 이관 021 먼저 적용(`changes 2`) · schema **21** · `balance_ver` **151i21l** · 계정 33.
   `index` · `style` · `game.js` · `codex.js` · `rewards.js` · `balance.js` 내용 일치 · 파츠 그림 25/25 200 · `/api/state` · `/api/codex` · `/api/front` 401(인증 필요 = 살아 있음).
   **배포 확인은 해시가 아니라 내용 비교로 한다** — 로컬(LF)과 운영(배포한 PC 의 줄바꿈)이 달라 해시는 늘 어긋난다
 

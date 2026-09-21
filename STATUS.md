@@ -6,10 +6,13 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-21 밤 · 전투 분석 · 딜표 · 회복 사건 실제값 · schema **21** · **미배포**(운영은 아래 ae7208f9)
+- **마지막 갱신** — 2026-09-21 밤 · 전투 분석 · 딜표 · 회복 사건 실제값 · schema **21** · `balance_ver` **6rpm16**
 - **스키마 버전** — 로컬 **21** · 운영 **21** (2026-09-19 021 `player.hunt_wk` 적용)
-- **운영 확인** — 2026-09-21 밤 배포 `ae7208f9` (커밋 `f444882` 까지) · 이관 없음 · schema **21** · 계정 34 · `sim.js` · `joint.js` · `game.js` · `balance.js` · `style.css` · `/` 내용 일치 · `/api/raid` 401. UI 브랜치와 `merge-tree` 충돌 없음.
-  `balance_ver` 가 16pzda2 그대로인 것은 정상이다 — 기체 스펙(base · grow · fx · spread)만으로 계산하고, 흘려내기는 스펙이 아니라 규칙이다
+- **운영 확인** — 2026-09-21 밤 배포 `90c0781b` (커밋 `b970b59` 까지) · 이관 없음 · schema **21** · `balance_ver` **6rpm16** · 계정 34 · `insight.js` · `sim.js` · `joint.js` · `game.js` · `style.css` 내용 일치(`sim.js` 는 가장자리 캐시로 첫 확인에서 옛 사본 — 쿼리를 붙여 다시 받아 일치) · UI 브랜치와 `merge-tree` 충돌 없음.
+  **배포 직후 확인은 몇 초 기다리거나 쿼리를 붙여서** — 옛 인스턴스 · 옛 가장자리 사본이 답할 수 있다
+- **그 전 배포** — 2026-09-21 밤 배포 `ae7208f9` (커밋 `f444882` 까지) · 이관 없음 · schema **21** · 계정 34 · `sim.js` · `joint.js` · `game.js` · `balance.js` · `style.css` · `/` 내용 일치 · `/api/raid` 401. UI 브랜치와 `merge-tree` 충돌 없음.
+  ~~`balance_ver` 가 16pzda2 그대로인 것은 정상~~ — **틀린 설명이었다.** `balanceVersion()`(server/arena.js)은 `CONST` 도 넣으므로 흘려내기로 바뀐다.
+  배포 직후 확인이 **아직 교체되기 전의 옛 인스턴스**에 닿아 옛 값을 읽었다. 실제 값은 6rpm16(다음 배포에서 확인)
 - **그 전 배포** — 2026-09-21 배포 `4bba0a58` (커밋 `d903c7d` 그림 · `e9f10e7` 코드 · `cd6353d` 기록 · `4e50e09` 브랜치 비키기) · 이관 없음 · schema **21** · `balance_ver` **16pzda2** · 계정 34.
   `joint.js` · `sim.js` · `game.js` · `raid.js` · `balance.js` · `style.css` · `/` 내용 일치 · 새 기체 그림 17/17 200 · `/api/state` · `/api/raid` 401(살아 있음).
   **UI 브랜치와 충돌 없음** — 푸시 전에 `git merge-tree --write-tree origin/codex/ui-rebuild main` 이 깨끗했고, 합친 결과에서도 `game.js` 문법 · `specialcheck` · `battlecheck` 통과.

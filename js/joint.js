@@ -126,8 +126,9 @@ function hit(A, D, ev, rnd, o) {
   /* 흡수 차단 — 이 상대를 때려서는 회복하지 못한다 */
   if (o.drain && !dt.antiheal) {
     const hl = Math.max(1, Math.round(dmg * o.drain));
-    A.hp = Math.min(A.maxhp, A.hp + hl);
-    ev.push({ t: 'heal', side: A.side, i: A.i, hp: A.hp, amt: hl });
+    const got = Math.min(A.maxhp, A.hp + hl) - A.hp;    // 실제로 찬 양(sim.js 와 같다)
+    A.hp += got;
+    if (got > 0) ev.push({ t: 'heal', side: A.side, i: A.i, hp: A.hp, amt: got });
   }
 }
 
@@ -202,8 +203,9 @@ export function simulateJoint(team, boss, seed, opts) {
         /* 재생 — 보스 턴 시작마다 최대 내구의 일부를 되찾는다. 흡혈과 달리 막을 수 없다 */
         if (tr.regen && A.hp < A.maxhp) {
           const hl = A.regenHp || Math.max(1, Math.round(A.maxhp * (tr.regen.pct || 0)));
-          A.hp = Math.min(A.maxhp, A.hp + hl);
-          ev.push({ t: 'heal', side: 'E', i: 0, hp: A.hp, amt: hl, src: 'regen' });
+          const got = Math.min(A.maxhp, A.hp + hl) - A.hp;
+          A.hp += got;
+          if (got > 0) ev.push({ t: 'heal', side: 'E', i: 0, hp: A.hp, amt: got, src: 'regen' });
         }
         /* 광폭화 — 정해진 턴이 지나면 공격력이 한 번 크게 오른다. 오래 끌수록 불리하다 */
         if (tr.enrage && A.turns === (tr.enrage.turn | 0)) {
@@ -212,9 +214,10 @@ export function simulateJoint(team, boss, seed, opts) {
         }
       } else if (A.regen > 0 && A.dodged) {        // 파츠 재생(회피 직후) — sim.js 와 같다
         const hl = Math.max(1, Math.round(A.maxhp * A.regen));
-        A.hp = Math.min(A.maxhp, A.hp + hl);
+        const got = Math.min(A.maxhp, A.hp + hl) - A.hp;
+        A.hp += got;
         A.dodged = false;
-        ev.push({ t: 'heal', side: 'P', i: A.i, hp: A.hp, amt: hl });
+        if (got > 0) ev.push({ t: 'heal', side: 'P', i: A.i, hp: A.hp, amt: got });
       }
 
       const foes = A === boss ? (a => () => targets(team, a)) : (() => () => [boss].filter(alive));

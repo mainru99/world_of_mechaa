@@ -131,8 +131,10 @@ export function doHit(A, D, side, dside, ev, rnd, o) {
   }
   if (o.drain) {
     const hl = Math.max(1, Math.round(dmg * o.drain));
-    A.hp = Math.min(A.maxhp, A.hp + hl);
-    ev.push({ t:'heal', side, hp:A.hp, amt:hl });
+    /* 사건의 amt 는 **실제로 찬 양**이다(2026-09-21). 가득 찬 채로 회복하면 0 이라 사건을 남기지 않는다 — 딜표 · 화면이 거짓 '+536' 을 보이지 않게 */
+    const got = Math.min(A.maxhp, A.hp + hl) - A.hp;
+    A.hp += got;
+    if (got > 0) ev.push({ t:'heal', side, hp:A.hp, amt:got });
   }
 }
 
@@ -166,8 +168,9 @@ export function afterSkill(A, D, side, dside, ev, fx, to) {
   }
   if (fx.repair && A.hp > 0 && to && to.hp > 0) {
     const hl = Math.max(1, Math.round(to.maxhp * fx.repair * fade));
-    to.hp = Math.min(to.maxhp, to.hp + hl);
-    ev.push({ t:'heal', side: to.side || side, i: to.i, hp: to.hp, amt: hl, src: 'repair' });
+    const got = Math.min(to.maxhp, to.hp + hl) - to.hp;
+    to.hp += got;
+    if (got > 0) ev.push({ t:'heal', side: to.side || side, i: to.i, hp: to.hp, amt: got, src: 'repair' });
   }
   if (fx.jam && D.hp > 0) {
     D.sp = Math.max(0, (D.sp || 0) - fx.jam);
@@ -240,9 +243,10 @@ export function simulate(P, E, seed) {
          회피 빌드에서만 살아나는 옵션이라는 정체성이 생긴다. */
       if (A.regen > 0 && A.dodged && A.hp > 0) {
         const hl = Math.max(1, Math.round(A.maxhp * A.regen));
-        A.hp = Math.min(A.maxhp, A.hp + hl);
+        const got = Math.min(A.maxhp, A.hp + hl) - A.hp;
+        A.hp += got;
         A.dodged = false;
-        ev.push({ t:'heal', side, hp:A.hp, amt:hl });
+        if (got > 0) ev.push({ t:'heal', side, hp:A.hp, amt:got });
       }
       if (A.sp >= 100) { A.sp = 0; doSkill(A, D, side, dside, ev, rnd); }
       else if (tryParry(A, D, g[dside], T, rnd)) {

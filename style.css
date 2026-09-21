@@ -1615,3 +1615,32 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
   .arena.joint .fighter.jf1{width:88px;height:98px;bottom:56px}
   .arena.joint .fighter.big{width:148px;height:160px;right:0}
 }
+
+/* ── 전투 분석 (2026-09-21) — 결과 창의 승패 요인 · 딜표 ── */
+.anal{margin-top:14px;text-align:left;border-top:1px solid var(--line);padding-top:10px}
+.anal h4{font-size:12px;letter-spacing:1px;color:var(--sub);margin:10px 0 6px;font-weight:800}
+.anal h4 small{font-weight:600;color:var(--dim);letter-spacing:0;margin-left:6px}
+.insl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.45}
+.insl li{padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.03);border-left:3px solid var(--line);word-break:keep-all}
+.insl li.k-luck{border-left-color:var(--gold)} .insl li.k-base{border-left-color:var(--sub)}
+.insl li.k-tactic,.insl li.k-share{border-left-color:var(--good)} .insl li.k-tip,.insl li.k-swap{border-left-color:var(--acc2)}
+.insl li.k-traits{border-left-color:var(--bad)} .insl li.k-parry{border-left-color:#ffd36b}
+.insl li.k-wait{color:var(--dim);border-left-style:dashed}
+.dmgwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.dmgtab{width:100%;border-collapse:collapse;font-size:12.5px;min-width:430px}
+.dmgtab th{font-size:11px;color:var(--dim);font-weight:700;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.dmgtab th:first-child,.dmgtab td:first-child{text-align:left}
+.dmgtab td{padding:6px;text-align:right;border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap;vertical-align:top}
+.dmgtab td small{color:var(--dim);margin-left:3px;font-size:11px}
+.dmgtab tr.mine td:first-child{color:var(--acc2);font-weight:800}
+.dmgtab tr.foe td:first-child{color:#ffb4ae;font-weight:800}
+.dmgtab .sub{display:block;font-size:10.5px;color:var(--dim);font-weight:600;margin-top:2px}
+.dmgtab .bar{display:block;height:3px;border-radius:2px;background:var(--acc2);margin:3px 0 0 auto}
+.dmgtab tr.foe .bar{background:var(--bad)}
+@media (max-width:520px){
+  /* 좁은 화면 — 치명 칸을 빼고 글자를 줄여 한 화면에 들어오게(표 안 가로 스크롤 뒤에 흘려내기가 숨었다) */
+  table.dmgtab{min-width:0;font-size:11.5px}
+  .dmgtab .c-crit{display:none}
+  .dmgtab td,.dmgtab th{padding:5px 3px}
+  .dmgtab td small{display:block;margin-left:0}
+}

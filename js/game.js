@@ -24,6 +24,7 @@ import { runBreach, rarAllowed, applyTerrain, maxRounds } from './breach.js';
 import { weekOf, trialOf, runTrial, trialWon, foeStats } from './trial.js';
 import { raidOf, runRaid, raidSeeds, raidLeft } from './raid.js';
 import { runJoint, jointOf, traitLines, traitFit, AIM_KO, JOINT } from './joint.js';
+import { damageTable, insight1, insightJoint, eventLines } from './insight.js';
 import { SPEAKERS, openingOf, closingOf, scriptOf, artPath } from '../data/story.js';
 import { FRONT_CHAPTERS, FRONT_CELLS, readProgress, writeProgress, clearedCount, cellIndex, cellOpen,
          lockedGates, buildLines, rewardOf, unlockedBy, frontView } from './front.js';
@@ -1764,6 +1765,8 @@ async function raidRunGo(){
   await bossEntrance();
   const w = await playJoint(out.events, out.team, out.boss);
   if(!w) return;
+  _fight=fightJoint(out.events, team, { name:r.name, type:foe.type, stats:foe.stats, tactic:'none', traits:foe.traits||[] },
+                    (r.seeds||[])[0], foe.aim, false, true);
   renderRaidResult(r);
 }
 
@@ -1784,7 +1787,9 @@ function renderRaidResult(r){
         ${r.triesLeft>0 && !r.killed ? `<button class="btn big gold" onclick="ROWAR.raidPrep()">다시 공격</button>` : ''}
         <button class="btn big ghost" onclick="ROWAR.go('trial')">레이드로 돌아가기</button>
       </div>
+      ${analysisSlot()}
     </div>`;
+  fillAnalysis();
 }
 
 async function trialRunGo(){
@@ -2464,11 +2469,13 @@ async function practiceStart(){
   const P=makeUnit(ROBOT_TYPES[my.type].name, my.type, computeStats(my), _tactic);
   const E=makeUnit(opp.callsign, opp.robot.type, computeStats(opp.robot, opp.parts), tacE);
   const events=simulate(P,E,opp.seed);
+  const statP=computeStats(my), statE=computeStats(opp.robot, opp.parts);
   renderArena(my.type, opp.robot.type, P.name, E.name, null, _tactic, tacE);
 
   if(rarOf(opp.robot.type)==='BOSS') await bossEntrance();
   const winner = await playBattle(events,P,E);
   if(!winner) return;
+  _fight=fight1(events, P, E, statP, statE, _tactic, tacE, opp.seed, events[events.length-1].winner==='P');
   renderPracticeResult(events[events.length-1].winner==='P', P, E);
 }
 
@@ -2485,7 +2492,9 @@ function renderPracticeResult(win,P,E){
         <button class="btn big gold" onclick="ROWAR.practiceFind()">한 판 더</button>
         <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
+      ${analysisSlot()}
     </div>`;
+  fillAnalysis();
 }
 
 
@@ -2528,6 +2537,7 @@ async function startBattle(){
   const winner = await playBattle(events,P,E);
   if(!winner) return;                            // 중간에 나갔으면 화면만 접는다(보상은 이미 서버에 반영됨)
   applyServerBattle(r, my);
+  _fight=fight1(events, P, E, r.statP, r.statE, r.tacticP, r.tacticE, r.seed, r.win);
   renderResult(r.win, _lastReward, P, E, opp);
 }
 
@@ -2844,7 +2854,9 @@ function renderResult(win,rw,P,E,opp){
           : `<button class="btn big gold" onclick="ROWAR.nextMatch()">한 판 더</button>`}
         <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
+      ${analysisSlot()}
     </div>`;
+  fillAnalysis();
   renderWallet();
 }
 function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$('#spdbtn'); if(b)b.textContent='속도 x'+battleSpeed; }
@@ -2859,6 +2871,79 @@ function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$(
 let _skipReplay = false;
 const skipReplay = () => { _skipReplay = true; const b=$('#skipbtn'); if(b) b.textContent='건너뛰는 중'; };
 const beginReplay = () => { _skipReplay = false; };
+
+/* ------------------------------- 전투 분석 ------------------------------- */
+/* 2026-09-21 · 사용자 결정 — 결과 창에 **딜표**(평타 · 스킬 · 치명 · 흘려내기)와 **승패 요인**을 붙인다(js/insight.js).
+   딜표는 사건에서 정확히 세므로 바로 그린다. 승패 요인은 같은 판을 조건만 바꿔 다시 돌려 추정하므로
+   창을 먼저 띄우고 조금 뒤에 채운다(결과 창을 늦추지 않는다). 전선 · 점령은 여러 판이 이어져 딜표만 합산한다. */
+let _fight=null;                           // 방금 끝난 판 — 결과 창이 한 번 쓰고 비운다
+
+const fightRow=(T,k,name,mine)=>({ name, mine, r:T[k]||{normal:0,nHits:0,skill:0,sHits:0,crit:0,miss:0,parry:0,parried:0,heal:0,absorbed:0,total:0} });
+/* 1:1 — 서버가 준 스탯 · 전술 · 시드 그대로 */
+function fight1(events, P, E, statP, statE, tacP, tacE, seed, win){
+  const T=damageTable(events);
+  return { kind:'1v1', T, rows:[fightRow(T,'P0',P.name,true), fightRow(T,'E0',E.name,false)],
+    spec:{ P:{name:P.name,type:P.type,stats:statP,tactic:tacP||'none'}, E:{name:E.name,type:E.type,stats:statE,tactic:tacE||'none'}, seed, win } };
+}
+function fightJoint(events, team, boss, seed, aim, win, raid){
+  const T=damageTable(events);
+  return { kind: raid ? 'raid' : 'joint', T,
+    rows:[...team.map((m,i)=>fightRow(T,'P'+i,`${i===0?'전위':'후위'} · ${m.name}`,true)), fightRow(T,'E0',boss.name,false)],
+    spec:{ team:team.map(m=>({name:m.name,type:m.type,stats:m.stats,tactic:m.tactic||'none'})),
+      boss:{name:boss.name,type:boss.type,stats:boss.stats,tactic:boss.tactic||'none',traits:boss.traits||[]},
+      aim, seed, win, raid:!!raid, maxTurns: raid ? ((CONST.RAID||{}).turns||600) : undefined } };
+}
+/* 전선 · 점령 — 방어선마다 한 판. 서버가 준 입력으로 같은 판을 다시 돌려 기체 · 방어선별로 더한다 */
+function fightBreach(r){
+  if(!r || !r.mechs || !r.lines || !r.seeds) return null;
+  const out=runBreach({ mechs:r.mechs, lines:r.lines, seeds:r.seeds, hpLeft:r.hpLeft0 });
+  const acc={}, add=(k,name,mine,x)=>{ const a=(acc[k] ||= { name, mine, r:{normal:0,nHits:0,skill:0,sHits:0,crit:0,miss:0,parry:0,parried:0,heal:0,absorbed:0,total:0} });
+    if(x) for(const f in a.r) a.r[f]+=x[f]||0; };
+  for(const rd of out.rounds){
+    const T=damageTable(rd.events), M=r.mechs[rd.mi], L=r.lines[rd.li];
+    add('M'+rd.mi, M.name, true, T.P0); add('L'+rd.li, `방어선 ${rd.li+1} · ${L.name}`, false, T.E0);
+  }
+  const T={}; Object.values(acc).forEach((a,i)=>{ T[(a.mine?'P':'E')+i]={...a.r, side:a.mine?'P':'E'}; });
+  return { kind:'breach', T, rows:Object.values(acc), spec:null };
+}
+
+function dmgTableHtml(rows){
+  const max=Math.max(1,...rows.map(x=>x.r.total));
+  const n=v=>fmt(Math.round(v));
+  return `<div class="dmgwrap"><table class="dmgtab">
+    <thead><tr><th>기체</th><th>평타</th><th>스킬</th><th>합계</th><th class="c-crit">치명</th><th>흘려내기</th></tr></thead>
+    <tbody>${rows.map(({name,mine,r})=>{
+      const sub=[r.heal?`회복 ${n(r.heal)}`:'', r.absorbed?`방벽 ${n(r.absorbed)}`:'', r.miss?`빗나감 ${r.miss}`:''].filter(Boolean).join(' · ');
+      return `<tr class="${mine?'mine':'foe'}">
+        <td>${esc(name)}${sub?`<span class="sub">${sub}</span>`:''}</td>
+        <td>${n(r.normal)}<small>×${r.nHits}</small></td>
+        <td>${n(r.skill)}<small>×${r.sHits}</small></td>
+        <td class="tot"><b>${n(r.total)}</b><i class="bar" style="width:${Math.round(r.total/max*100)}%"></i></td>
+        <td class="c-crit">${r.crit}</td>
+        <td>${r.parry}<small>/ −${r.parried}</small></td></tr>`; }).join('')}</tbody></table></div>`;
+}
+/* 결과 창에 넣는 칸. 딜표와 바로 셀 수 있는 줄은 지금, 추정은 fillAnalysis 가 채운다 */
+function analysisSlot(){
+  const f=_fight; if(!f) return '';
+  const now=eventLines(f.T, r=>r.side==='P');
+  return `<div class="anal">
+    <h4>전투 분석</h4>
+    <ul class="insl" id="anal-lines">${now.map(l=>`<li class="k-${l.k}">${esc(l.text)}</li>`).join('')}${
+      f.spec ? `<li class="k-wait" id="anal-wait">같은 조건으로 다시 돌려 보는 중…</li>` : ''}</ul>
+    <h4>딜표 <small>평타 · 스킬 피해(×타격 수) · 흘려내기 성공 / 당함</small></h4>
+    ${dmgTableHtml(f.rows)}
+  </div>`;
+}
+function fillAnalysis(){
+  const f=_fight; _fight=null;
+  if(!f || !f.spec) return;
+  /* 한 틱 쉬고 돈다 — 결과 창이 먼저 그려지게 */
+  setTimeout(()=>{
+    const wait=$('#anal-wait'); if(!wait || !wait.isConnected) return;
+    let res; try{ res = f.kind==='1v1' ? insight1(f.spec) : insightJoint(f.spec); }catch(e){ wait.remove(); return; }
+    wait.outerHTML = res.lines.map(l=>`<li class="k-${l.k}">${esc(l.text)}</li>`).join('');
+  }, 60);
+}
 
 /* ------------------------------- 합동전 ------------------------------- */
 /* 2026-09-21 · 사용자 결정. 토벌 보스와 레이드는 편성 두 기가 **한꺼번에** 싸운다(js/joint.js).
@@ -3118,6 +3203,8 @@ async function startJointBattle(opp){
   _lastReward.robots=(r.reward.robots||[]).map(x=>({ ...x,
     name:(ROBOT_TYPES[(S.robots.find(y=>y.uid===x.uid)||{}).type]||{}).name||'' }));
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+  _fight=fightJoint(res.events, r.team, { name:r.boss.callsign, type:r.boss.type, stats:r.boss.stats, tactic:r.boss.tactic, traits:r.boss.traits },
+                    r.seed, r.boss.aim, r.win, false);
   renderResult(r.win, _lastReward, { name:r.team.map(t=>t.name).join(' · ') }, { name:r.boss.callsign }, opp);
 }
 
@@ -3568,7 +3655,9 @@ function renderFrontResult(r, c){
         ${frontFixHtml((r.fat || []).map(f => f.uid))}
         <button class="btn big" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
+      ${(_fight=fightBreach(r), analysisSlot())}
     </div>`;
+  fillAnalysis();
 }
 
 /* 전선 결과에서 바로 정비 — 방금 싸운 기체만(편성 두 기가 같이 나간다).
@@ -3890,7 +3979,9 @@ function renderBreachResult(r){
         <button class="btn big gold" onclick="ROWAR.go('terr')">지도로</button>
         <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
+      ${(_fight=fightBreach(r), analysisSlot())}
     </div>`;
+  fillAnalysis();
 }
 
 async function claimTerr(){

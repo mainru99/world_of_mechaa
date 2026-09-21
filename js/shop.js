@@ -58,7 +58,7 @@ const pickW = (obj, rnd, keys) => {
 };
 const ri = (a, b, rnd) => a + Math.floor(rnd() * (b - a + 1));
 const ROBOTS_BY_RAR = {};
-for (const [id, t] of Object.entries(ROBOT_TYPES)) (ROBOTS_BY_RAR[t.rarity] ||= []).push(id);
+for (const [id, t] of Object.entries(ROBOT_TYPES)) if (!t.story) (ROBOTS_BY_RAR[t.rarity] ||= []).push(id);   // 스토리 기체 조각은 안 판다
 for (const k in ROBOTS_BY_RAR) ROBOTS_BY_RAR[k].sort();
 
 /* 진열 여섯 칸. 칸마다 { i, kind, rarity?, type?, qty, price, part? } */

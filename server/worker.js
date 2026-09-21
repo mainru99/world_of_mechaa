@@ -34,7 +34,7 @@ import { hashPassword, verifyPassword, checkCredentials,
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
    두 군데 적어 두면 반드시 어긋나므로 여기서는 넘기지 않는다. */
-const COMMON_IDS = Object.values(ROBOT_TYPES).filter(r => r.rarity === 'C').map(r => r.id);
+const COMMON_IDS = Object.values(ROBOT_TYPES).filter(r => r.rarity === 'C' && !r.story).map(r => r.id);   // 스토리 기체로 시작하지 않는다
 
 const SESSION_DAYS = 90;
 const DAY_MS = 86400000;
@@ -399,8 +399,8 @@ async function handleApi(request, env, url) {
   }
 
   /* 보스 레이드. 조회는 GET, 도전은 POST.
-     도전 요청에는 아무것도 안 실린다 — 무엇으로 싸울지, 몇 번째인지, 시드가 무엇인지
-     전부 서버가 정한다. 클라가 보내는 것은 '도전한다' 는 사실뿐이다. */
+     도전 요청에 실리는 것은 편성 두 기의 **자리와 전술**뿐이다(2026-09-21 합동전) —
+     몇 번째인지, 시드가 무엇인지, 무엇과 싸우는지는 전부 서버가 정한다. */
   if (path === '/raid' && method === 'GET') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -409,7 +409,9 @@ async function handleApi(request, env, url) {
   if (path === '/raid' && method === 'POST') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
-    const r = await raidRun(env, sess.account_id, Date.now());
+    /* 본문은 합동전 편성뿐이다 — { order:[uid,uid], tactics:{uid:전술} }. 서버가 걸러서 받는다 */
+    let rbody; try { rbody = await request.json(); } catch { rbody = null; }
+    const r = await raidRun(env, sess.account_id, Date.now(), rbody);
     return json(r, r.ok ? 200 : (r.status || 400));
   }
 

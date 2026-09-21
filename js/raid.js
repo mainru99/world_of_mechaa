@@ -15,7 +15,7 @@
 import { CONST, MONSTER_TYPES } from '../data/balance.js';
 import { computeStats } from './stats.js';
 import { mulberry32 } from './sim.js';
-import { runBreach, maxRounds } from './breach.js';
+import { runJoint, jointOf, jointBossStats } from './joint.js';
 import { weekOf, weekStart, weekEnd } from './trial.js';
 
 export { weekOf, weekStart, weekEnd };
@@ -42,45 +42,49 @@ export function raidOf(week) {
      단계에서 만나는 보스(플레이어 +30레벨)보다 오히려 약하다. 그래서 체력에만
      배수를 건다 — 공격력까지 키우면 약한 편성이 아무것도 못 깎는다.
      같은 몬스터라도 시련·파견·점령·레이드가 각각 제 몫으로 키워 쓴다. */
+  /* 2026-09-21 — **합동전**이다(js/joint.js). 편성 두 기가 한꺼번에 친다.
+     공격력 배수와 요구 조건 특성은 토벌 보스와 같고, 체력만 레이드 몫(bossX)으로 따로 키운다.
+     합동전 체력 배수(JOINT.boss.hp)는 여기서 쓰지 않는다 — 레이드 체력은 bossX 하나가 정한다. */
   const raw = bossStats(boss, level);
-  const stats = { ...raw, hp: Math.max(1, Math.round(raw.hp * (RAID().bossX || 1))) };
-  return { week, boss, level, stats, baseHp: raw.hp, battleHp: stats.hp,
+  const j = jointOf(boss);
+  const js = jointBossStats(raw, j.traits, boss);
+  const stats = { ...js, hp: Math.max(1, Math.round(raw.hp * (RAID().bossX || 1))) };
+  return { week, boss, level, stats, aim: j.aim, traits: j.traits, baseHp: raw.hp, battleHp: stats.hp,
            maxHp: Math.max(1, Math.round(stats.hp * (RAID().hpX || 60))) };
 }
 export const bossStats = (type, level) =>
   computeStats({ type, level, skillLv: 0, fat: 0, slots: EMPTY }, []);
 
-/* 한 사람의 한 번. 편성 기체들이 차례로 들어가 보스를 얼마나 깎았는지만 돌려준다.
-   막대를 줄이거나 재화를 주는 것은 부르는 쪽(서버)의 일이다. */
-export function runRaid(mechs, r, seeds) {
-  const lines = [{ name: MONSTER_TYPES[r.boss].name, type: r.boss, stats: r.stats }];
-  const out = runBreach({ mechs, lines, seeds, hpLeft: [1] });
+/* 한 사람의 한 번. 편성 두 기가 **한꺼번에** 보스를 얼마나 깎았는지만 돌려준다.
+   막대를 줄이거나 재화를 주는 것은 부르는 쪽(서버)의 일이다.
 
-  /* 깎은 양은 **보스에게 실제로 남은 체력**으로 잰다. `out.win` 으로 재면 안 된다 —
-     600턴 안전장치(js/sim.js)에 걸리면 양쪽이 살아 있는 채로 P 승이 되고,
-     runBreach 는 그걸 '방어선 돌파' 로 적는다(점령이 막히지 않게 한 선택이다).
-     레이드는 보스 체력이 커서 그 길이 열려 있다 — 그대로 두면 못 이긴 판이
-     '전부 깎음 + 격파' 로 기록된다. 그래서 여기서만 체력으로 다시 읽는다. */
-  const last = out.rounds.length ? out.rounds[out.rounds.length - 1] : null;
-  const leftFrac = last && last.eMax
-    ? Math.max(0, Math.min(1, last.eEnd / last.eMax))
-    : (out.win ? 0 : Math.max(0, Math.min(1, out.hpLeft[0])));
-  const damage = Math.max(0, Math.round(r.battleHp * (1 - leftFrac)));
-  return { ...out, win: leftFrac <= 0, damage, leftFrac };
+   team  [{ name, type, stats, tactic }] — **배열 순서가 자리다**(0 전위 · 1 후위). 서버가 정한다.
+   seed  raidSeeds 의 첫 값(배열을 넘겨도 된다)
+
+   깎은 양은 **보스에게 남은 체력**으로 잰다. 600턴 제한에 걸려도 남은 만큼만 센다 —
+   합동전은 제한에 걸리면 패배로 적으므로 공짜 격파도 없다. */
+export function runRaid(team, r, seed) {
+  const s0 = Array.isArray(seed) ? seed[0] : seed;
+  const res = runJoint({ seed: s0 >>> 0, aim: r.aim, maxTurns: RAID().turns || 600,
+    team, boss: { name: MONSTER_TYPES[r.boss].name, type: r.boss, stats: r.stats, tactic: 'none', traits: r.traits } });
+  const leftFrac = Math.max(0, Math.min(1, res.bossHp / Math.max(1, r.battleHp)));
+  const damage = Math.max(0, Math.round(r.battleHp - res.bossHp));
+  /* team · boss 는 재생이 쓴다(최대 체력 · 이름) */
+  return { events: res.events, win: res.win, damage, leftFrac, turns: res.turns, team: res.team, boss: res.boss };
 }
 
 /* 시드는 (주 · 계정 · 몇 번째 도전) 에서 나온다.
    같은 도전은 언제나 같게 재생되고(서버와 클라가 어긋나지 않는다),
    클라가 고를 수는 없다(마음에 드는 결과가 나올 때까지 돌리는 길을 막는다). */
-export function raidSeeds(week, accountId, tries, nMechs) {
+export function raidSeeds(week, accountId, tries) {
   let h = 2166136261;
   for (const v of [week | 0, accountId | 0, tries | 0]) {
     h = Math.imul(h ^ v, 16777619);
     h = Math.imul(h ^ (h >>> 13), 2246822519);
   }
   const rnd = mulberry32(h >>> 0);
-  const n = maxRounds(1, Math.max(1, nMechs));
-  return Array.from({ length: n }, () => Math.floor(rnd() * 4294967296) >>> 0);
+  /* 합동전은 한 판이라 시드 하나면 된다. 모양(배열)은 그대로 둔다 — 응답을 받는 쪽이 안 바뀐다 */
+  return [Math.floor(rnd() * 4294967296) >>> 0];
 }
 
 /* 보상 — 깎은 비율에 비례한다.

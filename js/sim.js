@@ -7,6 +7,8 @@ import { CONST } from '../data/balance.js';
 import { COMBAT_TYPES } from './units.js';
 
 const { CRIT_MULT, DEF_PEN } = CONST;
+/* 특화기술 기준값(2026-09-21). 표가 없으면 기본값 — 특화기술을 가진 기체가 없으면 아예 쓰이지 않는다 */
+export const SPECIAL = () => CONST.SPECIAL || { execHp: 0.35, shredFloor: 0.7, decay: 0.2 };
 
 /* 공격력 구간 — 같은 스탯이라도 매 타격의 실제 위력이 이 폭 안에서 흔들린다.
    기체마다 다르다: 저격형은 거의 같은 수로 맞히고(±12%), 포격형은 크게 흔들린다(±34%).
@@ -83,13 +85,30 @@ export function doHit(A, D, side, dside, ev, rnd, o) {
      더하면 전탄 관통이 되어 방어 스탯이 통째로 의미를 잃는다.
      A.pen 이 0 이면 난수를 아예 뽑지 않는다(위 주석 참고). */
   if (A.pen > 0 && rnd() < A.pen) pen = Math.max(pen, A.penAmt);
-  const m = (o.mult || 1) * (crit ? CRIT_MULT : 1), def = Math.max(0, D.def) * (1 - pen);
+  let m = (o.mult || 1) * (crit ? CRIT_MULT : 1);
+  const def = Math.max(0, D.def) * (1 - pen);
+  /* ── 특화기술(2026-09-21) — **전부 난수를 뽑지 않는다.** 값이 없으면 한 줄도 안 돈다.
+     그래서 특화기술이 없는 기체끼리의 전투는 예전과 이벤트까지 같다(tools/regress.mjs).
+       execute  마무리 — 상대 체력이 SPECIAL.execHp 밑이면 이 타격이 (1+x) 배
+       mark     표적   — 표적이 된 쪽은 모든 피해를 (1+x) 배로 받는다(D.mark)
+       shield   방벽   — 받는 피해를 방벽이 먼저 먹는다(D.shield)
+       shred    장갑 파쇄 — 맞힐 때마다 상대 방어를 x 비율 깎는다. 원래의 SPECIAL.shredFloor 밑으로는 안 간다 */
+  if (o.execute && D.hp < D.maxhp * SPECIAL().execHp) m *= 1 + o.execute;
   /* taken 은 **최종 피해**에 건다. 방어력에 걸면 관통 스킬 앞에서 방어 전술이 무력해진다.
      스킬로 맞은 것이면 takenSkill 이 한 번 더 걸린다(o.skill 은 doSkill 이 넣어 준다). */
-  const tk = (D.taken != null ? D.taken : 1) * (o.skill ? (D.takenSkill != null ? D.takenSkill : 1) : 1);
+  let tk = (D.taken != null ? D.taken : 1) * (o.skill ? (D.takenSkill != null ? D.takenSkill : 1) : 1);
+  if (D.mark) tk *= 1 + D.mark;
   const dmg = Math.max(1, Math.round(dmgCalc(A.atk, def, rnd, m, A.spread) * tk));
-  D.hp = Math.max(0, D.hp - dmg);
-  ev.push({ t:'hit', side, dside, miss:false, dmg, crit, thp:D.hp });
+  let absorb = 0;
+  if (D.shield > 0) { absorb = Math.min(D.shield, dmg); D.shield -= absorb; }
+  D.hp = Math.max(0, D.hp - (dmg - absorb));
+  const he = { t:'hit', side, dside, miss:false, dmg, crit, thp:D.hp };
+  if (absorb) he.absorb = absorb;
+  ev.push(he);
+  if (o.shred && D.hp > 0) {
+    if (D.def0 == null) D.def0 = D.def;
+    D.def = Math.max(Math.round(D.def0 * SPECIAL().shredFloor), Math.round(D.def * (1 - o.shred)));
+  }
   if (o.drain) {
     const hl = Math.max(1, Math.round(dmg * o.drain));
     A.hp = Math.min(A.maxhp, A.hp + hl);
@@ -104,7 +123,37 @@ export function doSkill(A, D, side, dside, ev, rnd) {   // 기체와 몬스터�
   /* 강화한 스킬은 **배수만** 커진다. 타격 수나 판정(관통·확정치명·흡혈)은 그대로다 —
      거기까지 건드리면 강화가 스킬을 다른 스킬로 바꿔 버린다. */
   const up = { ...fx, mult: (fx.mult || 1) * (A.skillMul || 1), skill: true };
+  /* 표적은 **맞히기 전에** 건다 — 이번 스킬의 타격부터 더 들어간다 */
+  if (fx.mark && D.hp > 0) { D.mark = Math.max(D.mark || 0, fx.mark); ev.push({ t:'mark', side, dside, amt: fx.mark }); }
   for (let i = 0; i < hits; i++) { if (D.hp <= 0) break; doHit(A, D, side, dside, ev, rnd, up); }
+  afterSkill(A, D, side, dside, ev, fx, A);
+}
+
+/* 스킬을 다 쏜 뒤에 붙는 특화기술 — 방벽 · 수리 · 재밍. to 는 방벽과 수리를 받을 쪽이다
+   (1:1 은 자기 자신, 합동전은 체력 비율이 가장 낮은 아군 — js/joint.js).
+     shield  최대 내구의 x 만큼 방벽. 쌓이지 않고 **큰 쪽**으로 갈아 끼운다
+     repair  최대 내구의 x 만큼 수리
+     jam     재밍 — 상대의 SP 를 x 깎고 게이지를 x 만큼 뒤로 민다(D.push · 전투 루프가 반영) */
+export function afterSkill(A, D, side, dside, ev, fx, to) {
+  /* 방벽 · 수리는 **쓸 때마다 SPECIAL.decay 씩 약해진다**(1 · 0.8 · 0.64 …). 안 그러면 버티는 기체끼리
+     만났을 때 끝없이 버텨 한쪽이 0% 가 됐다(수리 대 요새 0% · 방벽 대 흡혈 2%). 합이 첫 값의 약 5배에서 멈춘다 */
+  const fade = (fx.shield || fx.repair) ? Math.pow(1 - (SPECIAL().decay || 0), A.susN || 0) : 1;
+  if (fx.shield || fx.repair) A.susN = (A.susN || 0) + 1;
+  if (fx.shield && A.hp > 0 && to && to.hp > 0) {
+    const amt = Math.max(1, Math.round(to.maxhp * fx.shield * fade));
+    to.shield = Math.max(to.shield || 0, amt);
+    ev.push({ t:'shield', side: to.side || side, i: to.i, amt, now: to.shield });
+  }
+  if (fx.repair && A.hp > 0 && to && to.hp > 0) {
+    const hl = Math.max(1, Math.round(to.maxhp * fx.repair * fade));
+    to.hp = Math.min(to.maxhp, to.hp + hl);
+    ev.push({ t:'heal', side: to.side || side, i: to.i, hp: to.hp, amt: hl, src: 'repair' });
+  }
+  if (fx.jam && D.hp > 0) {
+    D.sp = Math.max(0, (D.sp || 0) - fx.jam);
+    D.push = (D.push || 0) + fx.jam;
+    ev.push({ t:'jam', side, dside, di: D.i, amt: fx.jam, sp: D.sp });
+  }
 }
 
 /* 게이지 시작값은 **흩뿌린다.** 둘 다 0 에서 출발시키면 안 된다.
@@ -172,6 +221,8 @@ export function simulate(P, E, seed) {
       }
       if (A.sp >= 100) { A.sp = 0; doSkill(A, D, side, dside, ev, rnd); }
       else doHit(A, D, side, dside, ev, rnd, {});
+      /* 재밍으로 밀린 게이지 — 특화기술이 없으면 D.push 가 없어 아무 일도 없다 */
+      if (D.push) { g[dside] -= D.push; D.push = 0; }
       /* 스택 — 쏠수록 느려진다(채프 런처). **초기화가 없다.**
          원안은 '2초간 공격하지 않으면 초기화' 였는데 1:1 에서는 자기 턴마다 반드시
          공격하므로 그 조건이 영원히 성립하지 않는다. 초기화를 빼면 오히려 원안의

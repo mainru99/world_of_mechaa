@@ -368,6 +368,10 @@ h2.title:before{content:"";width:4px;height:16px;background:var(--acc);border-ra
 .tag.fx-pen{color:var(--gold);border-color:#5a4a24}
 .tag.fx-crt{color:#ffb4ae;border-color:#6b3a3a}
 .tag.fx-drn{color:var(--good);border-color:#2b5c43}
+/* 특화기술(2026-09-21) — 금빛 테두리로 '공격 틀' 딱지와 구분한다 */
+.tag.fx-sp{border-color:#8a6a24;background:rgba(255,190,80,.07)}
+.tag.fx-shd{color:#9fd6ff} .tag.fx-rep{color:#8ef0a8} .tag.fx-mrk{color:#ffb4ae}
+.tag.fx-shr{color:#ffcf7a} .tag.fx-jam{color:#c9a6ff} .tag.fx-exe{color:#ff8a8a}
 
 /* ── 전술 지시 ────────────────────────────────────────────
    상대를 보고 나서 고르는 자리다. '전투 시작' 바로 위에 두어, 누르기 전에 반드시
@@ -1558,3 +1562,48 @@ body.busy .btn,body.busy .rcard,body.busy .tnode,body.busy .pchip{cursor:progres
 .pset-ln i{font-style:normal;color:var(--dim)}
 .pset-ln i.gone{color:var(--bad)}
 @media (max-width:560px){ .pset-lns{grid-template-columns:1fr} }
+
+/* ── 합동전 (2026-09-21) — 토벌 보스 · 레이드. 편성 화면과 두 기 무대 ── */
+.jaim{margin-top:6px;font-size:12px;color:var(--sub);line-height:1.5}
+.tag.jaimtag{color:#ffb4ae;border-color:#6b2a3a}
+.jreq{margin-top:10px;border:1px solid #6b2a3a;border-radius:12px;padding:8px 10px;background:rgba(255,80,80,.05)}
+.jreqh{font-size:11px;font-weight:900;letter-spacing:1px;color:#ffb4ae;margin-bottom:4px}
+.jtr{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;font-size:12.5px;padding:3px 0;word-break:keep-all}
+.jtr b{color:var(--gold);font-weight:800}
+.tag.jtrtag{color:#ffd0c9;border-color:#8a3a46;background:rgba(255,80,80,.08)}
+.jform{margin-top:14px}
+.jslot{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.02)}
+.jslot.front{border-color:#2a6b7a}
+.jslot.back{border-color:#6b5a2a}
+.jpos{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;font-size:12px;color:var(--sub);margin-bottom:6px}
+.jpos b{font-size:13px;color:var(--acc2);letter-spacing:1px}
+.jslot.back .jpos b{color:var(--gold)}
+.jrb{display:flex;gap:10px;align-items:center}
+.jrb .sprite{width:84px;height:84px;flex:none}
+.jinfo{min-width:0}
+.jinfo .fxrow{margin-top:4px}
+.jfits{margin-top:4px;display:flex;flex-wrap:wrap;gap:4px}
+.tag.jfit.ok{color:var(--good);border-color:#2a7a4a}
+.tag.jfit.no{color:var(--bad);border-color:#7a2a3a}
+.jtac{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.jtac .tacbtn.sm{padding:8px 4px;min-height:44px}
+.jswap{display:block;margin:8px auto;min-height:44px}
+.jone{margin-top:8px}
+.arena.joint{height:300px}
+.arena.joint .hpwrap.p1{top:50px}
+.arena.joint .fighter.jf0{left:118px;width:150px;height:165px;z-index:2}
+.arena.joint .fighter.jf1{left:0;bottom:46px;width:124px;height:136px;z-index:1}
+.fighter.down{opacity:.25;filter:grayscale(1);transition:opacity .4s}
+/* 이름표는 한 줄로 — 두 줄이 되면 위 칸(전위)이 아래 칸(후위) 막대를 덮는다 */
+.arena.joint .hpwrap .nm{gap:6px;align-items:center}
+.arena.joint .hpwrap .nm span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arena.joint .hpwrap .nm small,.arena.joint .tacmark{flex:none;white-space:nowrap}
+@media (max-width:520px){
+  .arena.joint .hpwrap{width:47%}
+  .arena.joint .hpwrap .nm{font-size:11px}
+  .arena.joint .hpwrap .nm small{display:none}          /* 숫자는 막대로 충분하다 — 좁은 칸에서는 이름과 전술이 먼저다 */
+  /* 전위가 보스 그림에 가려지지 않게 — 보스를 줄이고 전위를 위로 */
+  .arena.joint .fighter.jf0{left:58px;width:108px;height:120px;z-index:3}
+  .arena.joint .fighter.jf1{width:88px;height:98px;bottom:56px}
+  .arena.joint .fighter.big{width:148px;height:160px;right:0}
+}

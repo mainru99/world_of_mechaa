@@ -27,7 +27,8 @@ export function weighted(list, rnd) {
 /* 등급별 기체 목록. balance.js 에서 파생시키므로 기체를 추가해도 여기는 안 고쳐도 된다. */
 export const BY_RARITY = (() => {
   const m = {};
-  for (const k in ROBOT_TYPES) { const r = ROBOT_TYPES[k].rarity; (m[r] = m[r] || []).push(k); }
+  for (const k in ROBOT_TYPES) { if (ROBOT_TYPES[k].story) continue;   // 스토리 기체는 뽑기 · 상대에 안 나온다
+    const r = ROBOT_TYPES[k].rarity; (m[r] = m[r] || []).push(k); }
   return m;
 })();
 

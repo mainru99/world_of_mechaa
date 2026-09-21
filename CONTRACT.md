@@ -105,65 +105,6 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 여기에 서로에게 남긴다. 현재 상태는 이 게시판과 `STATUS.md` 상단을 기준으로 한다.
 아래 날짜별 본문은 작업 이력이다. 옛 요청·측정치를 현재 미완료 과제로 다시 열지 않는다.
 
-### 기체 세트 03 · 특화기술 · 스토리 기체 — 2026-09-21 · Claude (master · `data/balance.js` · `assets/` 를 고쳤다 · 사용자 지시)
-
-사용자가 그림 17장을 줬다(Downloads/add). **기체 스펙은 원래 ChatGPT 담당이지만 사용자가 Claude 에게 맡겼다** —
-"이름과 기체 밸런스, 스킬들은 알아서 부여하자. 특화기술을 만들어라." 기존 30종의 수치는 **한 글자도 안 바꿨다.**
-
-- **뽑기 기체 13종** — C `husk` `mortar` `lens` `static` · UC `swift` `shrike` `patch` · R `vega` `orbit` · UQ `zealot` `nebula` · EP `sovereign` `behemoth`
-- **스토리 기체 4종**(`story:true`) — `rook3` `rook3_mod` `rook3_re` `valken4`. 뽑기 · 상점 조각 · 생성 상대 · 도감 · 시작 기체에서 빠진다
-  (`js/units.js` `GACHA_IDS` · `isStory`, `js/gacha.js` · `js/shop.js` · `js/codex.js` · `server/worker.js` 에서 거른다). 얻는 길은 아직 없다
-- **특화기술 6종**(`js/sim.js` — `doHit` · `afterSkill`) — 스킬 fx 에 `shield` 방벽 · `repair` 수리 · `mark` 표적 · `shred` 장갑 파쇄 ·
-  `jam` 재밍(SP · 게이지) · `execute` 마무리. 공통값 `CONST.SPECIAL`(execHp 0.35 · shredFloor 0.7 · decay 0.3).
-  **난수를 더 뽑지 않고, 값이 없으면 한 줄도 안 돈다** — 기존 30종끼리 5,400판 이벤트가 예전과 같다. 합동전에서 방벽 · 수리는 더 다친 아군에게
-- 새 이벤트 `shield` · `mark` · `jam`, `hit.absorb`, `heal.src:'repair'` — 화면 재생(`playBattle` · `playJoint`)이 읽는다
-- **UI 브랜치가 합칠 때** — `js/game.js` 는 `fxTags`(딱지 6개) · `playBattle` 의 새 이벤트 세 줄 · 건너뛰기의 `jam` 한 줄 ·
-  `playJoint` 같은 곳만 고쳤다. `style.css` 는 `.tag.fx-sp` 외 6줄. 그림은 `assets/<id>.png`(규격 그대로) — `tools/robot_art.py` 로 만들었다
-- 등급 내 승률(맨몸 · Lv.1/15/30/45/60) — 새 기체 전부 35~63%. 기존 BASTION 이 Lv.60 에서 33%로 내려갔다(파쇄 · 수리 기체에 약하다).
-  상세는 `STATUS.md` 2026-09-21 세트 03
-
-### 합동전 · 요구 조건 특성 — 2026-09-21 · Claude (master) → `codex/ui-rebuild` 합칠 때 읽을 것
-
-사용자 지시로 **master 에서** 개발을 이어 간다. UI 개편 브랜치(`codex/ui-rebuild`)는 사용자가 집에서
-따로 진행한다. 브랜치가 master 를 합칠 때 충돌이 나지 않게 **파일 · 함수 단위로** 남긴다.
-
-**무엇이 바뀌었나** — 토벌 **보스** 등급과 **레이드**는 편성 두 기가 **한꺼번에** 싸운다(합동전).
-전투 직전에 **자리(전위 · 후위)와 기체별 전술**을 고른다. 보스 셋에는 **요구 조건 특성**이 둘씩 붙었다.
-대전 · 토벌 C~EP · 점령 · 전선 · 시련은 **그대로 1:1 · 릴레이**다. `js/sim.js` 는 한 글자도 안 바뀌었다.
-
-| 파일 | 바뀐 것 | 합칠 때 |
-|---|---|---|
-| `js/joint.js` **(새 파일)** | 합동전 엔진 `runJoint` · 특성 · 자리/전술 거르기 `jointOrder` `jointTactics` · 안내용 `traitFit` | 그대로 가져가면 된다. DOM 없음 |
-| `data/balance.js` | `CONST.JOINT` · `CONST.TRAIT` 새 표 · 보스 셋에 `joint:{aim,traits,hp,atk}` · `RAID.hpX` 50→130 | 브랜치는 밸런스를 안 건드린다(계약) — master 것을 받으면 된다 |
-| `js/raid.js` | `raidOf` 가 `aim` `traits` 를 싣는다 · `runRaid(team, r, seed)` 가 **합동전**으로 바뀜(옛 릴레이 `runBreach` 안 씀) · `raidSeeds` 는 시드 하나 | 브랜치에서 레이드 재생을 옮겼다면 **인자 모양이 바뀐 것**을 반영 |
-| `server/battle.js` | `loadFighter` 가 `squad` · `lead` 를 싣는다 · `JOINT_TIERS`(BOSS) · `startJoint()` 새 함수 · 상대 카드에 `opponent.joint` | 서버라 브랜치와 겹치지 않는다 |
-| `server/raid.js` · `server/worker.js` | `POST /api/raid` 가 본문 `{order, tactics}` 를 받는다 · 응답 `mechs` 는 **자리 순** + `tactic` · `foe` 에 `aim` `traits` | 겹치지 않는다 |
-| `js/net.js` | `battleStart(tactic, joint)` · `raid(run, joint)` — 둘째 인자 추가(없으면 예전과 같다) | 인자 추가만 |
-| `js/game.js` | ① **한 묶음** `/* ── 합동전 ── */`(`jointBase` ~ `raidPrep`, 파일 끝 '초기화/공개' 바로 위) ② 작은 고리 아래 | 아래 표 |
-| `style.css` | 파일 끝에 `/* ── 합동전 (2026-09-21) ── */` 한 묶음 | 통째로 옮기면 된다 |
-| `index.html` | 캐시 버전 `?v=20260921-joint` | 브랜치 버전으로 덮어도 된다 |
-
-**`js/game.js` 의 작은 고리 — 브랜치가 같은 함수를 고쳤다면 이 줄만 옮기면 된다**
-
-| 함수 | 한 일 |
-|---|---|
-| import | `import { runJoint, jointOf, traitLines, traitFit, AIM_KO, JOINT } from './joint.js';` |
-| `setPending` | `joint:o.joint\|\|null` 한 줄 |
-| `showOpponent` | 첫 줄 `if(opp.joint && !practice) return showJoint(opp);` |
-| `startBattle` | 온라인 확인 뒤 `if(opp.joint) return startJointBattle(opp);` |
-| `renderHunt` | 보스 줄 출격비 · 레벨을 `jointLead()` 기준으로 · 보스 이름 칸에 '합동전' · 레벨 상한 `MAXLV+OPP_LV_OVER`(보스가 Lv.60 으로 잘못 보이던 것) |
-| `renderResult` | `rw.robots` 가 있으면 기체마다 경험치 · 피로도 한 줄 |
-| `lunge` · `floatDmg` | `side==='p'` → `side[0]==='p'` (`p0` `p1` 을 받으려고) |
-| `drawRaid` | '보스 공격' 이 `ROWAR.raidPrep()`(편성 화면)을 연다 · 안내문 |
-| `raidRunGo` | 통째로 새로 — 합동전 요청 · `renderJointArena` · `playJoint` |
-| `window.ROWAR` | `raidPrep` `jointSwap` `jointTac` |
-
-**UI 개편에서 이어받을 화면 두 개** — ① 합동전 편성(보스 칸 · 요구 조건 · 전위/후위 칸 · 기체별 전술 · 자리 바꾸기),
-② 세 기 무대(`.arena.joint`, 전위가 앞 · 후위가 뒤 · 격추되면 흐려짐). 규칙과 응답 모양은 위 서버 파일이 정한다.
-
-**수치** — `tools/jointcheck.mjs` 로 잰다(Lv.55 SR 기준 보스 평균 승률 26~52%, 요구 조건을 맞춘 짝은 +15~50%p,
-자리를 바꾸면 짝의 31~52%가 15%p 이상 움직인다). 상세는 `STATUS.md` 2026-09-21.
-
 ### → ChatGPT
 
 - **(2026-09-16, Claude · `data/balance.js` 를 고쳤다 · 사용자 지시)**
@@ -378,6 +319,70 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
   기체를 추가하실 때 프론트 파일은 건드리실 필요가 없습니다 — 스프라이트 id 목록과
   등급별 풀을 전부 데이터에서 파생하도록 바꿨습니다. `assets/<id>.png`(기체) /
   `assets/monsters/<id>.png`(몬스터) 규칙만 지켜 주세요.
+
+### Claude 기록 (master) — 2026-09-21
+
+> 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
+> 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
+
+#### 기체 세트 03 · 특화기술 · 스토리 기체 — 2026-09-21 · Claude (master · `data/balance.js` · `assets/` 를 고쳤다 · 사용자 지시)
+
+사용자가 그림 17장을 줬다(Downloads/add). **기체 스펙은 원래 ChatGPT 담당이지만 사용자가 Claude 에게 맡겼다** —
+"이름과 기체 밸런스, 스킬들은 알아서 부여하자. 특화기술을 만들어라." 기존 30종의 수치는 **한 글자도 안 바꿨다.**
+
+- **뽑기 기체 13종** — C `husk` `mortar` `lens` `static` · UC `swift` `shrike` `patch` · R `vega` `orbit` · UQ `zealot` `nebula` · EP `sovereign` `behemoth`
+- **스토리 기체 4종**(`story:true`) — `rook3` `rook3_mod` `rook3_re` `valken4`. 뽑기 · 상점 조각 · 생성 상대 · 도감 · 시작 기체에서 빠진다
+  (`js/units.js` `GACHA_IDS` · `isStory`, `js/gacha.js` · `js/shop.js` · `js/codex.js` · `server/worker.js` 에서 거른다). 얻는 길은 아직 없다
+- **특화기술 6종**(`js/sim.js` — `doHit` · `afterSkill`) — 스킬 fx 에 `shield` 방벽 · `repair` 수리 · `mark` 표적 · `shred` 장갑 파쇄 ·
+  `jam` 재밍(SP · 게이지) · `execute` 마무리. 공통값 `CONST.SPECIAL`(execHp 0.35 · shredFloor 0.7 · decay 0.3).
+  **난수를 더 뽑지 않고, 값이 없으면 한 줄도 안 돈다** — 기존 30종끼리 5,400판 이벤트가 예전과 같다. 합동전에서 방벽 · 수리는 더 다친 아군에게
+- 새 이벤트 `shield` · `mark` · `jam`, `hit.absorb`, `heal.src:'repair'` — 화면 재생(`playBattle` · `playJoint`)이 읽는다
+- **UI 브랜치가 합칠 때** — `js/game.js` 는 `fxTags`(딱지 6개) · `playBattle` 의 새 이벤트 세 줄 · 건너뛰기의 `jam` 한 줄 ·
+  `playJoint` 같은 곳만 고쳤다. `style.css` 는 `.tag.fx-sp` 외 6줄. 그림은 `assets/<id>.png`(규격 그대로) — `tools/robot_art.py` 로 만들었다
+- 등급 내 승률(맨몸 · Lv.1/15/30/45/60) — 새 기체 전부 35~63%. 기존 BASTION 이 Lv.60 에서 33%로 내려갔다(파쇄 · 수리 기체에 약하다).
+  상세는 `STATUS.md` 2026-09-21 세트 03
+
+#### 합동전 · 요구 조건 특성 — 2026-09-21 · Claude (master) → `codex/ui-rebuild` 합칠 때 읽을 것
+
+사용자 지시로 **master 에서** 개발을 이어 간다. UI 개편 브랜치(`codex/ui-rebuild`)는 사용자가 집에서
+따로 진행한다. 브랜치가 master 를 합칠 때 충돌이 나지 않게 **파일 · 함수 단위로** 남긴다.
+
+**무엇이 바뀌었나** — 토벌 **보스** 등급과 **레이드**는 편성 두 기가 **한꺼번에** 싸운다(합동전).
+전투 직전에 **자리(전위 · 후위)와 기체별 전술**을 고른다. 보스 셋에는 **요구 조건 특성**이 둘씩 붙었다.
+대전 · 토벌 C~EP · 점령 · 전선 · 시련은 **그대로 1:1 · 릴레이**다. `js/sim.js` 는 한 글자도 안 바뀌었다.
+
+| 파일 | 바뀐 것 | 합칠 때 |
+|---|---|---|
+| `js/joint.js` **(새 파일)** | 합동전 엔진 `runJoint` · 특성 · 자리/전술 거르기 `jointOrder` `jointTactics` · 안내용 `traitFit` | 그대로 가져가면 된다. DOM 없음 |
+| `data/balance.js` | `CONST.JOINT` · `CONST.TRAIT` 새 표 · 보스 셋에 `joint:{aim,traits,hp,atk}` · `RAID.hpX` 50→130 | 브랜치는 밸런스를 안 건드린다(계약) — master 것을 받으면 된다 |
+| `js/raid.js` | `raidOf` 가 `aim` `traits` 를 싣는다 · `runRaid(team, r, seed)` 가 **합동전**으로 바뀜(옛 릴레이 `runBreach` 안 씀) · `raidSeeds` 는 시드 하나 | 브랜치에서 레이드 재생을 옮겼다면 **인자 모양이 바뀐 것**을 반영 |
+| `server/battle.js` | `loadFighter` 가 `squad` · `lead` 를 싣는다 · `JOINT_TIERS`(BOSS) · `startJoint()` 새 함수 · 상대 카드에 `opponent.joint` | 서버라 브랜치와 겹치지 않는다 |
+| `server/raid.js` · `server/worker.js` | `POST /api/raid` 가 본문 `{order, tactics}` 를 받는다 · 응답 `mechs` 는 **자리 순** + `tactic` · `foe` 에 `aim` `traits` | 겹치지 않는다 |
+| `js/net.js` | `battleStart(tactic, joint)` · `raid(run, joint)` — 둘째 인자 추가(없으면 예전과 같다) | 인자 추가만 |
+| `js/game.js` | ① **한 묶음** `/* ── 합동전 ── */`(`jointBase` ~ `raidPrep`, 파일 끝 '초기화/공개' 바로 위) ② 작은 고리 아래 | 아래 표 |
+| `style.css` | 파일 끝에 `/* ── 합동전 (2026-09-21) ── */` 한 묶음 | 통째로 옮기면 된다 |
+| `index.html` | 캐시 버전 `?v=20260921-joint` | 브랜치 버전으로 덮어도 된다 |
+
+**`js/game.js` 의 작은 고리 — 브랜치가 같은 함수를 고쳤다면 이 줄만 옮기면 된다**
+
+| 함수 | 한 일 |
+|---|---|
+| import | `import { runJoint, jointOf, traitLines, traitFit, AIM_KO, JOINT } from './joint.js';` |
+| `setPending` | `joint:o.joint\|\|null` 한 줄 |
+| `showOpponent` | 첫 줄 `if(opp.joint && !practice) return showJoint(opp);` |
+| `startBattle` | 온라인 확인 뒤 `if(opp.joint) return startJointBattle(opp);` |
+| `renderHunt` | 보스 줄 출격비 · 레벨을 `jointLead()` 기준으로 · 보스 이름 칸에 '합동전' · 레벨 상한 `MAXLV+OPP_LV_OVER`(보스가 Lv.60 으로 잘못 보이던 것) |
+| `renderResult` | `rw.robots` 가 있으면 기체마다 경험치 · 피로도 한 줄 |
+| `lunge` · `floatDmg` | `side==='p'` → `side[0]==='p'` (`p0` `p1` 을 받으려고) |
+| `drawRaid` | '보스 공격' 이 `ROWAR.raidPrep()`(편성 화면)을 연다 · 안내문 |
+| `raidRunGo` | 통째로 새로 — 합동전 요청 · `renderJointArena` · `playJoint` |
+| `window.ROWAR` | `raidPrep` `jointSwap` `jointTac` |
+
+**UI 개편에서 이어받을 화면 두 개** — ① 합동전 편성(보스 칸 · 요구 조건 · 전위/후위 칸 · 기체별 전술 · 자리 바꾸기),
+② 세 기 무대(`.arena.joint`, 전위가 앞 · 후위가 뒤 · 격추되면 흐려짐). 규칙과 응답 모양은 위 서버 파일이 정한다.
+
+**수치** — `tools/jointcheck.mjs` 로 잰다(Lv.55 SR 기준 보스 평균 승률 26~52%, 요구 조건을 맞춘 짝은 +15~50%p,
+자리를 바꾸면 짝의 31~52%가 15%p 이상 움직인다). 상세는 `STATUS.md` 2026-09-21.
 
 ### → Claude
 

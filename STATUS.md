@@ -6,7 +6,7 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-21 밤 · 전투 분석 · 딜표 · 회복 사건 실제값 · schema **21** · `balance_ver` **6rpm16**
+- **마지막 갱신** — 2026-09-21 밤 · **main 화면 파일 동결**(사용자 결정 · 문서만 · 배포 없음) · schema **21** · `balance_ver` **6rpm16**
 - **스키마 버전** — 로컬 **21** · 운영 **21** (2026-09-19 021 `player.hunt_wk` 적용)
 - **운영 확인** — 2026-09-21 밤 배포 `90c0781b` (커밋 `b970b59` 까지) · 이관 없음 · schema **21** · `balance_ver` **6rpm16** · 계정 34 · `insight.js` · `sim.js` · `joint.js` · `game.js` · `style.css` 내용 일치(`sim.js` 는 가장자리 캐시로 첫 확인에서 옛 사본 — 쿼리를 붙여 다시 받아 일치) · UI 브랜치와 `merge-tree` 충돌 없음.
   **배포 직후 확인은 몇 초 기다리거나 쿼리를 붙여서** — 옛 인스턴스 · 옛 가장자리 사본이 답할 수 있다
@@ -20,6 +20,16 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 - **이전 배포** — 2026-09-19 배포 `c7a17894` (커밋 `460e756` 파츠 그림 · `b6915dc` 코드 · `79f79a3` 기록) · 이관 021 먼저 적용(`changes 2`) · schema **21** · `balance_ver` **151i21l** · 계정 33.
   `index` · `style` · `game.js` · `codex.js` · `rewards.js` · `balance.js` 내용 일치 · 파츠 그림 25/25 200 · `/api/state` · `/api/codex` · `/api/front` 401(인증 필요 = 살아 있음).
   **배포 확인은 해시가 아니라 내용 비교로 한다** — 로컬(LF)과 운영(배포한 PC 의 줄바꿈)이 달라 해시는 늘 어긋난다
+
+### 2026-09-21 (밤 3) — 브랜치 운영: main 화면 파일 동결 (사용자 결정)
+
+UI 개편 브랜치(`codex/ui-rebuild`, ChatGPT 메인)가 끝날 때까지 **main 은 화면 파일을 고치지 않는다** — `index.html` · `style.css` · `themes/` · `js/game.js`.
+main 은 서버 · DB · 밸런스 · 공용 로직 · 도구 · 문서만 하고, 화면이 필요한 새 기능은 서버 · 로직까지만 넣는다. 두 브랜치는 그동안 합치지 않는다.
+규칙은 `AGENTS.md` 'main 작업 원칙' · `CLAUDE.md`, 통합 때 UI 브랜치로 넘길 화면 목록은 `CONTRACT.md` '화면 파일 동결'.
+- 고른 이유 — 다음 UI 작업(대전 화면)이 main 의 합동전 · 전투 분석 · 실시간 재생과 같은 함수를 고친다. main 이 화면을 더 보태면 통합이 재작업이 된다
+- 동결 시점 두 브랜치를 시험으로 합치면 충돌 0 · 회귀 6종 통과(위 CONTRACT 절)
+- 집 PC 의 main 작업 폴더에 커밋 안 된 채 남아 있던 UI 브랜치 자료 사본(09-20 GPT 계획 — `CONTRACT.md` 10줄 · `docs/ui/rebuild-plan-2026-09-20.md`)은
+  `git stash` 로 치웠다. 같은 내용이 UI 브랜치에 있다
 
 ### 2026-09-21 (밤 2) — 전투 분석 · 딜표 · 전투력 보정 검토 (사용자 지시)
 

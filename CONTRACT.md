@@ -325,6 +325,23 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 > 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
 > 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
 
+#### 화면 파일 동결 — 2026-09-21 · 사용자 결정 → 두 브랜치 모두 읽을 것
+
+사용자가 합칠 때의 충돌을 막는 방법 셋(마지막에 한 번 합치기 · **main 화면 동결** · main→브랜치 한 방향으로 자주 합치기) 중 **main 화면 동결**을 골랐다.
+규칙 전문은 `AGENTS.md` 'main 작업 원칙'.
+
+- UI 개편이 끝날 때까지 main 은 `index.html` · `style.css` · `themes/` · `js/game.js` 를 고치지 않는다(`js/ui/` 도 만들지 않는다).
+  급한 버그는 사용자 지시가 있을 때만 — 고치면 이 절 맨 아래에 파일 · 함수 · 줄을 적는다
+- main 에서 계속 하는 것 — `server/*` · DB · `data/balance.js` · `assets/` · DOM 없는 공용 모듈 · `tools/` · 문서. 인자 · 응답 모양이 바뀌면 여기에 입출력을 적는다
+- 두 브랜치는 그동안 합치지 않는다(어느 방향이든)
+- **동결 전에 main 에 들어간 화면은 통합 때 UI 브랜치 화면에 다시 넣어야 한다** — 합동전 편성 · 세 기 무대 · 결과 창 전투 분석 ·
+  실시간 재생(흘려내기 · 후위 사격) · 특화기술 딱지 · 토벌 보스 줄 · 레이드 편성. 파일 · 함수 표는 아래 '전투 분석' · '실시간 재생' · '세트 03' · '합동전' 절.
+  UI 브랜치가 대전 화면(`fight.png`)을 설계할 때 이 자리를 비워 두면 통합이 가벼워진다(다른 브랜치를 읽고 참고하는 것은 규칙이 허용한다)
+- 동결 시점 확인 — `main` `5c3ceff` · `codex/ui-rebuild` `57deeaa` 를 시험으로 합치면(`git merge-tree`) **충돌 0**,
+  합친 결과로 `hangar-ui-check` · `recruitment-ui-check` · `specialcheck` · `jointcheck` · `insightcheck` · `frontcheck` 통과
+
+동결 중 main 이 화면 파일을 고친 기록 — (없음)
+
 #### 전투 분석 · 딜표 — 2026-09-21 밤 2 · Claude (master)
 
 - `js/insight.js` **(새 파일)** — `damageTable` · `insight1` · `insightJoint` · `eventLines`. DOM 없음

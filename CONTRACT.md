@@ -325,6 +325,15 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 > 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
 > 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
 
+#### 전투 분석 · 딜표 — 2026-09-21 밤 2 · Claude (master)
+
+- `js/insight.js` **(새 파일)** — `damageTable` · `insight1` · `insightJoint` · `eventLines`. DOM 없음
+- `js/game.js` — 한 묶음 `/* ── 전투 분석 ── */`(`_fight` ~ `fillAnalysis`, '합동전' 묶음 바로 위) · 결과 창 여섯 곳 끝에 `${analysisSlot()}` + `fillAnalysis()`
+  (`renderResult` · `renderPracticeResult` · `renderRaidResult` · `renderFrontResult` · `renderBreachResult`) · 그 직전에 `_fight=…` 한 줄씩.
+  `renderBreachResult` 는 UI 브랜치가 첫 줄(`toBattle`)을 고친 함수지만 이쪽은 **끝부분**만 건드렸다 — `merge-tree` 충돌 없음
+- `js/sim.js` · `js/joint.js` — 회복 사건의 amt 를 실제로 찬 양으로(0 이면 사건 없음). 승패 불변
+- `style.css` — `.anal` · `.insl` · `.dmgtab` 한 묶음
+
 #### 실시간 재생 · 흘려내기 — 2026-09-21 밤 · Claude (master)
 
 - **전투 규칙이 바뀌었다** — `js/sim.js` `tryParry` · `CONST.PARRY`(흘려내기). 'turn' 이벤트에 `at`(흐른 시간) · 새 이벤트 `parry`.

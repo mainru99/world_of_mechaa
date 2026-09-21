@@ -23,7 +23,7 @@
  */
 import { CONST } from '../data/balance.js';
 import { COMBAT_TYPES } from './units.js';
-import { makeUnit, dmgCalc, mulberry32, afterSkill, SPECIAL } from './sim.js';
+import { makeUnit, dmgCalc, mulberry32, afterSkill, SPECIAL, PARRY, tryParry } from './sim.js';
 
 const { CRIT_MULT, DEF_PEN } = CONST;
 export const JOINT = () => CONST.JOINT || { backAtk: 1.15, aoe: 0.6, boss: { hp: 1, atk: 1 } };
@@ -174,13 +174,14 @@ export function simulateJoint(team, boss, seed, opts) {
   const g = all.map(() => rnd() * 100);          // 게이지 시작값을 흩뿌린다(sim.js 머리말과 같은 이유)
   const teamUp = () => team.some(alive);
   const dead = new Set();
-  let guard = 0;
+  let guard = 0, T = 0;                         // T — 흐른 시간(실시간 재생 · 흘려내기). sim.js 와 같다
 
   while (alive(boss) && teamUp() && guard < maxTurns) {
     guard++;
     let dt = Infinity;
     for (let k = 0; k < all.length; k++) if (alive(all[k])) dt = Math.min(dt, (100 - g[k]) / all[k].spd);
     for (let k = 0; k < all.length; k++) if (alive(all[k])) g[k] += all[k].spd * dt;
+    T += dt;
     const act = [];
     for (let k = 0; k < all.length; k++) if (alive(all[k]) && g[k] >= 99.999) act.push(k);
     /* 같은 틱이면 빠른 쪽이 먼저. 속도까지 같으면 시드 난수로 가른다 */
@@ -193,7 +194,7 @@ export function simulateJoint(team, boss, seed, opts) {
       if (!alive(A) || !alive(boss) || !teamUp()) continue;
       g[k] -= 100;
       A.sp = Math.min(100, A.sp + (A.spGain != null ? A.spGain : 30));
-      ev.push({ t: 'turn', side: A.side, i: A.i, sp: A.sp });
+      ev.push({ t: 'turn', side: A.side, i: A.i, sp: A.sp, at: Math.round(T * 1e4) / 1e4 });
 
       if (A === boss) {
         A.turns++;
@@ -220,8 +221,13 @@ export function simulateJoint(team, boss, seed, opts) {
       if (A.sp >= 100) { A.sp = 0; skill(A, A === boss ? foes(aim) : foes(), ev, rnd, aim, A === boss ? [boss] : team); }
       else {
         const D = (A === boss ? targets(team, 'front') : [boss])[0];
-        if (D) hit(A, D, ev, rnd, {});
+        /* 흘려내기 — 평타만. 맞는 쪽의 게이지는 all 에서의 자리로 찾는다 */
+        if (D && tryParry(A, D, g[all.indexOf(D)], T, rnd)) {
+          g[k] -= PARRY().delay || 0;
+          ev.push({ t: 'parry', side: D.side, i: D.i, dside: A.side, di: A.i });
+        } else if (D) hit(A, D, ev, rnd, {});
       }
+      A.lastAt = T;
       if (A.stackMax > 0 && A.stack < A.stackMax) {
         A.stack++;
         A.spd = Math.max(1, A.spd0 * (1 + A.stack * A.stackSpd));

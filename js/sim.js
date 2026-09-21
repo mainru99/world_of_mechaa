@@ -10,6 +10,26 @@ const { CRIT_MULT, DEF_PEN } = CONST;
 /* 특화기술 기준값(2026-09-21). 표가 없으면 기본값 — 특화기술을 가진 기체가 없으면 아예 쓰이지 않는다 */
 export const SPECIAL = () => CONST.SPECIAL || { execHp: 0.35, shredFloor: 0.7, decay: 0.2 };
 
+/* ── 흘려내기 (2026-09-21 · 사용자 결정) ─────────────────────────
+   평타가 **동시에** 오갈 때 — 맞는 쪽도 막 치려던 참이거나 막 친 참일 때 — 확률로 흘려낸다.
+   '동시' 는 맞는 쪽 **자기 한 턴의 win 비율** 안이다(아래 tryParry 주석).
+   흘려낸 쪽은 피해가 0, 친 쪽은 게이지가 delay 만큼 밀린다. 확률은 속도가 빠를수록 높다.
+   **스킬은 흘려낼 수 없다** — 모아서 쓰는 한 방의 무게를 지킨다.
+   난수는 '동시' 일 때만 굴린다. CONST.PARRY 가 없으면 한 번도 안 굴린다. */
+export const PARRY = () => CONST.PARRY || null;
+export function tryParry(A, D, gD, T, rnd) {
+  const R = PARRY();
+  if (!R || D.hp <= 0) return false;
+  /* 구간은 **맞는 쪽 자신의 한 턴** 비율이다. 짧은 쪽 턴으로 잡았더니 느린 기체는 그 구간에 거의 못 들어가
+     중장갑이 크게 손해를 봤다(GLACIER −13%p · MULE −10%p). 이렇게 두면 누구나 같은 비율로 '동시' 에 선다 */
+  const W = R.win * 100 / Math.max(1, D.spd);
+  const soon = (100 - gD) / Math.max(1, D.spd) <= W;          // 맞는 쪽이 곧 친다
+  const just = D.lastAt != null && T - D.lastAt <= W;           // 맞는 쪽이 방금 쳤다
+  if (!soon && !just) return false;
+  const pr = Math.min(R.pMax, Math.max(R.pMin, R.p * Math.pow(Math.max(1, D.spd) / Math.max(1, A.spd), R.spdK ?? 0.5)));
+  return rnd() < pr;
+}
+
 /* 공격력 구간 — 같은 스탯이라도 매 타격의 실제 위력이 이 폭 안에서 흔들린다.
    기체마다 다르다: 저격형은 거의 같은 수로 맞히고(±12%), 포격형은 크게 흔들린다(±34%).
    폭이 넓을수록 약자가 뒤집을 여지가 커지고, 좁을수록 우세한 쪽이 확실히 이긴다.
@@ -183,10 +203,14 @@ export function simulate(P, E, seed) {
   const rnd = mulberry32(seed >>> 0), ev = [{ t:'start' }];
   const g = { P: rnd() * 100, E: rnd() * 100 };
   let guard = 0;
+  /* T — 전투 안에서 흐른 시간. 행동마다 'turn' 이벤트에 at 으로 싣는다.
+     재생이 이 시각에 맞춰 여러 기체를 **동시에** 움직인다(실시간 재생). 판정에는 흘려내기만 쓴다 */
+  let T = 0;
   while (P.hp > 0 && E.hp > 0 && guard < 600) {
     guard++;
     const tP = (100 - g.P) / P.spd, tE = (100 - g.E) / E.spd, dt = Math.min(tP, tE);
     g.P += P.spd * dt; g.E += E.spd * dt;
+    T += dt;
     const actors = [];
     if (g.P >= 99.999) actors.push('P');
     if (g.E >= 99.999) actors.push('E');
@@ -208,7 +232,8 @@ export function simulate(P, E, seed) {
       if (P.hp <= 0 || E.hp <= 0) break;
       g[side] -= 100;
       const A = side === 'P' ? P : E, D = side === 'P' ? E : P, dside = side === 'P' ? 'E' : 'P';
-      A.sp = Math.min(100, A.sp + (A.spGain != null ? A.spGain : 30)); ev.push({ t:'turn', side, sp:A.sp });
+      A.sp = Math.min(100, A.sp + (A.spGain != null ? A.spGain : 30));
+      ev.push({ t:'turn', side, sp:A.sp, at: Math.round(T * 1e4) / 1e4 });
       /* 재생 — **직전 상대 공격을 피했으면** 내 턴 시작에 회복한다.
          원안은 '5초간 피해를 받지 않으면' 이었는데, 1:1 에서 그건 15연속 회피를
          뜻해서 사실상 안 터진다(20% 회피 기준 10의 -11승). 조건을 회피에 묶으면
@@ -220,7 +245,12 @@ export function simulate(P, E, seed) {
         ev.push({ t:'heal', side, hp:A.hp, amt:hl });
       }
       if (A.sp >= 100) { A.sp = 0; doSkill(A, D, side, dside, ev, rnd); }
+      else if (tryParry(A, D, g[dside], T, rnd)) {
+        g[side] -= PARRY().delay || 0;
+        ev.push({ t:'parry', side: dside, dside: side });
+      }
       else doHit(A, D, side, dside, ev, rnd, {});
+      A.lastAt = T;
       /* 재밍으로 밀린 게이지 — 특화기술이 없으면 D.push 가 없어 아무 일도 없다 */
       if (D.push) { g[dside] -= D.push; D.push = 0; }
       /* 스택 — 쏠수록 느려진다(채프 런처). **초기화가 없다.**

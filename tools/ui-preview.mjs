@@ -7,10 +7,13 @@ import {readFile,stat} from 'node:fs/promises';
 import {resolve,dirname,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {TERRITORY,SLOTS} from '../data/balance.js';
-import {rollPart} from '../js/gacha.js';
+import {rollPart,rollPull,PULL_CUR} from '../js/gacha.js';
 import {mulberry32} from '../js/sim.js';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const port=Number(process.argv[2]||8806);
+// Explicit opt-in for disposable in-memory animation tests. No real API or DB.
+const samplePulls=process.argv.includes('--sample-pulls');
+let previewRev=1001;
 const rng=mulberry32(20260920);
 let nextId=0;
 const parts=Array.from({length:12},(_,i)=>rollPart(32,rng,`preview-part-${++nextId}`,i<4?'SSR':'SR',SLOTS[i%4]));
@@ -31,7 +34,27 @@ const server=http.createServer(async(req,res)=>{
    let body={};try{body=raw?JSON.parse(raw):{};}catch{json(res,400,{error:'invalid json'});return;}
    if(url.pathname==='/api/health'){json(res,200,{ok:true,preview:true,schema_version:21});return;}
    if(url.pathname==='/api/me'){json(res,200,{ok:true,account_id:'preview',guest:false,login_id:'지휘관_01'});return;}
-   if(url.pathname==='/api/state'&&req.method==='GET'){json(res,200,{ok:true,rev:1001,nickname:'지휘관_01',rating:1480,state,server_now:Date.now(),band:{i:2,pts:1},items:{},presets:[]});return;}
+   if(url.pathname==='/api/state'&&req.method==='GET'){json(res,200,{ok:true,rev:previewRev,nickname:'지휘관_01',rating:1480,state,server_now:Date.now(),band:{i:2,pts:1},items:{},presets:[]});return;}
+   if(samplePulls&&url.pathname==='/api/pull'&&req.method==='POST'){
+    const count=body.count,currency=body.cur,config=PULL_CUR[currency];
+    if(![1,10].includes(count)||!config){json(res,400,{error:'invalid sample request'});return;}
+    const wallet=currency==='credit'?'credits':'cores';
+    if(state[wallet]<count*config.cost){json(res,400,{error:'not enough '+wallet});return;}
+    state[wallet]-=count*config.cost;
+    const owned=new Set(state.robots.map(r=>r.type)),results=[];
+    for(let i=0;i<count;i++){
+     const r=rollPull(owned,32,rng,()=>`preview-reward-${++nextId}`,currency);
+     if(r.kind==='robot'){r.uid=`preview-robot-${++nextId}`;owned.add(r.type);state.robots.push({uid:r.uid,type:r.type,level:1,exp:0,fat:0,skillLv:0,slots:Object.fromEntries(SLOTS.map(s=>[s,null]))});}
+     else if(r.kind==='part')state.parts.push(r.part);
+     else if(r.kind==='dupe'){state.credits+=r.gain.cr;state.cores+=r.gain.co;state.scrap+=r.gain.sc;}
+     else if(r.kind==='core')state.cores+=r.n;
+     else if(r.kind==='credit')state.credits+=r.cr;
+     else if(r.kind==='scrap')state.scrap+=r.n;
+     results.push(r);
+    }
+    state.stat.pulls+=count;
+    json(res,200,{ok:true,rev:++previewRev,results,credits:state.credits,cores:state.cores,scrap:state.scrap});return;
+   }
    if(url.pathname==='/api/territory'&&body.action==='view'){json(res,200,{ok:true,nodes,mine:3,pending,world:{avgPower:8500},myLv:32,at:Date.now()});return;}
    json(res,403,{error:'로컬 디자인 미리보기에서는 재화를 사용하거나 보상을 수령하지 않습니다'});return;
   }
@@ -43,9 +66,9 @@ const server=http.createServer(async(req,res)=>{
   if(name==='/index.html'){
    const seed=JSON.stringify(state).replaceAll('<','\\u003c');
    const bootstrap=`<script>localStorage.setItem('rowar.session','ui-preview-only');localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
-   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">','<div id="app"><div class="ui-preview-ribbon">로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다</div>');
+   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
   }
   res.writeHead(200,{'content-type':mime[extname(file)],'cache-control':'no-store','x-content-type-options':'nosniff'});res.end(content);
  }catch(e){res.writeHead(404);res.end('Not found');}
 });
-server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · spending/claiming disabled`));
+server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${samplePulls?'in-memory sample pulls enabled':'spending/claiming disabled'}`));

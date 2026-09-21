@@ -34,6 +34,7 @@ import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recover
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 import { icon, emblem } from './ui/icons.js';
 import { territoryView, bindTerritory } from './ui/territory.js';
+import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
@@ -1126,8 +1127,23 @@ function openSlot(slot){
 
 /* ------------------------------- 뽑기 화면 ------------------------------- */
 /* 지금 보고 있는 뽑기 창구. 코어와 크레딧이 확률표를 따로 쓴다. */
-let gCur = 'core';
-const setGacha = c => { gCur = PULL_CUR[c] ? c : 'core'; renderGacha(); };
+let gCur = 'core', _pullPending=null;
+const gFeatured={core:'ignis',credit:'azure'};
+const setGacha = c => { if(_pullPending)return; gCur = PULL_CUR[c] ? c : 'core'; renderGacha(); };
+function setRecruitmentHero(id){
+  if(_pullPending||!recruitmentPool(gCur).robots.some(r=>r.id===id))return;
+  gFeatured[gCur]=id;renderGacha();
+}
+function openRecruitmentRates(){
+  openModal(`<div class="mhead">획득 확률 <button class="mx" onclick="ROWAR.closeModal()" aria-label="닫기">✕</button></div>${recruitmentRates(gCur)}`);
+}
+function openRecruitmentPool(){
+  openModal(`<div class="mhead">등장 기체 <button class="mx" onclick="ROWAR.closeModal()" aria-label="닫기">✕</button></div>${recruitmentCatalog(gCur,S.robots.map(r=>r.type))}`);
+}
+function openRecruitmentDetails(id){
+  const robot=recruitmentPool(gCur).robots.find(r=>r.id===id);if(!robot)return;
+  openModal(`<div class="mhead">기체 상세 <button class="mx" onclick="ROWAR.closeModal()" aria-label="닫기">✕</button></div><div class="gv-unit-detail">${sprite(id,false)}<span class="rr-${robot.rarity}">${RR[robot.rarity].ko} / ${robot.rarity}</span><h2>${esc(robot.name)}</h2><p>${esc(robot.role)}</p><b>${esc(robot.skill.name)}</b><p>${esc(robot.skill.desc)}</p><p>1회 뽑기 등장 확률 <strong>${percentText(robot.percent)}</strong></p><small>${S.robots.some(r=>r.type===id)?'보유 중 · 중복 획득 시 자원으로 전환':'미보유 기체'}</small></div><button class="btn big" onclick="ROWAR.openRecruitmentPool()">전체 등장 기체</button>`);
+}
 
 function gachaStageHtml(){
   const core = gCur === 'core';
@@ -1160,15 +1176,15 @@ function gachaStageHtml(){
    서명(sig)을 함께 보낸다 — 주기가 넘어가 진열이 바뀐 뒤 옛 화면으로 누르면 서버가 거절한다. */
 let _gTab = 'pull', _shop = null, _shopAt = 0;
 const SHOP_TTL = 60000;
-function setShopTab(k){ _gTab = ['pull','shop','bag'].includes(k) ? k : 'pull'; renderGacha(); }
+function setShopTab(k){ if(_pullPending)return; _gTab = ['pull','shop','bag'].includes(k) ? k : 'pull'; renderGacha(); }
 function shopTabs(){
   const bagN = Object.entries(S.items||{}).filter(([k,v])=>k.startsWith('shard:') && v>0 &&
     v >= shardNeed(k.slice(6))).length;
-  return `<div class="ttabs sh3">
-    <button class="gtab ${_gTab==='pull'?'on':''}" onclick="ROWAR.setShopTab('pull')"><em>🎁</em> 뽑기<span>코어 · 크레딧 캡슐</span></button>
-    <button class="gtab ${_gTab==='shop'?'on':''}" onclick="ROWAR.setShopTab('shop')"><em>🛒</em> 상점<span>${CONST.SHOP.periodH}시간마다 진열 교체</span></button>
-    <button class="gtab ${_gTab==='bag'?'on':''}"  onclick="ROWAR.setShopTab('bag')"><em>🎒</em> 보관함<span>기체 조각${bagN?` <i class="cxdot">${bagN}</i>`:''}</span></button>
-  </div>`;
+  return `<nav class="gv-section-tabs" aria-label="뽑기와 보급">
+    <button class="${_gTab==='pull'?'on':''}" onclick="ROWAR.setShopTab('pull')">${icon('gacha')} 뽑기</button>
+    <button class="${_gTab==='shop'?'on':''}" onclick="ROWAR.setShopTab('shop')">${icon('refresh')} 보급 상점</button>
+    <button class="${_gTab==='bag'?'on':''}" onclick="ROWAR.setShopTab('bag')">${icon('hangar')} 기체 조각${bagN?` <i class="cxdot">${bagN}</i>`:''}</button>
+  </nav>`;
 }
 const leftTxt = ms => { const m = Math.max(0, Math.ceil(ms/60000)); return m>=60 ? `${Math.floor(m/60)}시간 ${m%60}분` : `${m}분`; };
 
@@ -1282,98 +1298,58 @@ async function shopAssemble(type){
 }
 
 function renderGacha(){
+  if(_pullPending)return;
   if(_gTab==='shop') return renderShop();
   if(_gTab==='bag') return renderBag();
-  const C = PULL_CUR[gCur];
-  const table = gCur==='credit' ? PULL_TABLE_CR : PULL_TABLE;
-  const rars  = gCur==='credit' ? ROBOT_RARITY_CR : ROBOT_RARITY;
-  const wsum  = rars.reduce((s,r)=>s+r.w,0);
-  const appear = table.find(t=>t.k==='robot');
-  const appearP = (appear?appear.w:0)/100;
-  const partP = table.find(t=>t.k==='part');
-  const tipCol={bust:'var(--dim)',core:'var(--acc2)',credit:'var(--gold)',robot:'var(--acc2)',part:'var(--sub)'};
-
-  const have = gCur==='credit' ? S.credits : S.cores;
-  const cost1 = C.cost, cost10 = C.cost*10;
-  const unit = gCur==='credit' ? '크레딧' : '코어';
-
-  const rate=`<div class="rates">
-    ${table.map(t=>`<span class="tag" style="color:${tipCol[t.k]}">${PULL_KO[t.k]} ${t.w}%</span>`).join('')}</div>
-    <div class="rates" style="margin-top:6px">
-    <span class="tag" style="color:var(--sub)">로봇 등급</span>
-    ${rars.map(r=>`<span class="tag rr-${r.k}">${r.ko} ${(appearP*r.w/wsum*100).toFixed(3)}%</span>`).join('')}</div>
-    <div class="rates" style="margin-top:6px">
-    <span class="tag" style="color:var(--sub)">파츠 등급</span>
-    <span class="tag rar-C">일반 52%</span><span class="tag rar-R">정밀 30%</span>
-    <span class="tag rar-SR">시제 14%</span><span class="tag rar-SSR">초월 4%</span></div>`;
-
-  /* 넓은 화면에서는 왼쪽에 캡슐 무대, 오른쪽에 확률과 버튼을 둔다.
-     한 판에 쌓으면 무대가 1,250px 로 늘어나 가운데에 캡슐 하나만 떠 있고,
-     정작 누를 버튼 둘은 640px 로 잘려 왼쪽 끝에 붙는다. */
-  $('#sc-gacha').innerHTML = `${shopTabs()}
-    <h2 class="title">뽑기</h2>
-    <div class="gx">
-      <div class="panel">
-        <div class="gtabs">
-          <button class="gtab ${gCur==='core'?'on':''}"   onclick="ROWAR.setGacha('core')">코어 캡슐<span>코어 ${fmt(S.cores)}</span></button>
-          <button class="gtab ${gCur==='credit'?'on':''}" onclick="ROWAR.setGacha('credit')">크레딧 캡슐<span>크레딧 ${fmt(S.credits)}</span></button>
-        </div>
-        ${gachaStageHtml()}
-      </div>
-      <div class="panel gx-side">
-        <div class="dh">확률</div>
-        ${rate}
-        <div class="row-btns" style="margin-top:14px">
-          <button class="btn gold big" onclick="ROWAR.pull1()" ${(have<cost1||!net.state.online)?'disabled':''}>1회 뽑기 (${unit} ${fmt(cost1)})</button>
-          <button class="btn big" onclick="ROWAR.pull10()" ${(have<cost10||!net.state.online)?'disabled':''}>10회 뽑기 (${unit} ${fmt(cost10)})</button>
-        </div>
-      ${net.state.online?'':'<div class="hint" style="margin-top:8px;color:var(--bad)">서버에 연결되지 않아 뽑기를 할 수 없습니다. 뽑기 결과는 서버가 판정합니다.</div>'}
-      <div class="hint" style="margin-top:8px">${gCur==='credit'
-        ? `크레딧은 꾸준히 들어오는 대신 <b>기체 확률이 낮고 등급도 낮은 쪽으로 쏠립니다</b>`
-        : `코어는 대전 승리와 안쪽 점령지에서 얻습니다.`}
-        가진 기체가 또 나오면 자원으로 분해됩니다 · <b>파츠는 격납고에서 직접 정하세요</b></div>
-      </div>
-    </div>`;
+  $('#sc-gacha').innerHTML=recruitmentView({currency:gCur,featured:gFeatured[gCur],cores:S.cores,credits:S.credits,online:net.state.online,stageHtml:gachaStageHtml()});
 }
+
 /* 뽑기는 서버가 판정한다.
    클라가 "이런 게 나왔다"고 보내는 것을 받지 않기 때문에, 클라 코드를 고쳐도
    결과를 조작할 수 없다. 대신 연결이 없으면 뽑을 수 없다 — 오프라인에서 로컬로
    굴리게 두면 끊고 굴린 뒤 올리면 그만이라 서버 판정의 의미가 사라진다. */
 async function doPull(count){
-  const C = PULL_CUR[gCur] || PULL_CUR.core;
-  const need = C.cost * count;
-  const have = gCur==='credit' ? S.credits : S.cores;
-  if(have < need){ toast((gCur==='credit'?'크레딧':'코어')+'가 부족합니다'); return; }
-  if(!net.state.online){ toast('뽑기는 서버 연결이 필요합니다'); return; }
-
-  const stage=$('#stage');
-  const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const started = performance.now();
-  stage?.classList.add('charging');
-  const r = await net.pullServer(count, gCur);
-  await sleep(Math.max(0, (reduced?120:760) - (performance.now()-started)));
-
-  if(!r){ stage?.classList.remove('charging'); toast('뽑기는 서버 연결이 필요합니다'); return; }
-  if(r.error){ stage?.classList.remove('charging'); toast(r.error==='not enough cores' ? '코어가 부족합니다'
-                   : r.error==='not enough credits' ? '크레딧이 부족합니다'
-                   : '뽑기 실패: '+r.error); return; }
-
-  const prize = bestPrize(r.results);
-  stage?.classList.remove('charging');
-  stage?.classList.add('rolling','prize-'+prize);
-  await sleep(reduced?100:520);
-  stage?.classList.remove('rolling');
-  stage?.classList.add('opening');
-  await sleep(reduced?120:700);
-
-  /* 서버가 재화까지 확정해서 돌려준다. 클라는 그 값을 그대로 받아 적는다. */
-  for(const res of r.results) applyPull(res);
-  S.credits = r.credits; S.cores = r.cores; S.scrap = r.scrap;
-  S.stat.pulls += r.results.length;
-  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}   // save() 를 쓰면 곧바로 되올린다
-  net.cancelSync();                                                     // 서버가 이미 최신이다
-  renderWallet(); renderGacha();
-  showReveal(r.results);
+  if(_pullPending||![1,10].includes(count))return;
+  const currency=gCur, C=PULL_CUR[currency]||PULL_CUR.core;
+  const have=currency==='credit'?S.credits:S.cores;
+  if(have<C.cost*count){toast(C.ko+'가 부족합니다');return;}
+  if(!net.state.online){toast('뽑기는 서버 연결이 필요합니다');return;}
+  const owner=S,account=net.state.accountId,token={};_pullPending=token;
+  const stage=$('#stage'),animation=$('.gv-animation');
+  const actions=$('.gv-actions');
+  if(actions){actions.setAttribute('aria-busy','true');actions.querySelectorAll('button').forEach(b=>b.disabled=true);}
+  const reduced=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const stillOwner=()=>S===owner&&net.state.accountId===account;
+  try{
+    if(animation)animation.hidden=false;
+    stage?.scrollIntoView({block:'nearest'});
+    stage?.classList.add('charging');
+    const started=performance.now();
+    const r=await net.pullServer(count,currency);
+    await sleep(Math.max(0,(reduced?120:760)-(performance.now()-started)));
+    if(!stillOwner())return;
+    if(!r||r.error){toast(!r?'뽑기는 서버 연결이 필요합니다':r.error==='not enough cores'?'코어가 부족합니다':r.error==='not enough credits'?'크레딧이 부족합니다':'뽑기 실패: '+r.error);return;}
+    stage?.classList.remove('charging');
+    stage?.classList.add('rolling','prize-'+bestPrize(r.results));
+    await sleep(reduced?100:520);
+    stage?.classList.remove('rolling');stage?.classList.add('opening');
+    await sleep(reduced?120:700);
+    if(!stillOwner())return;
+    // Completed server rewards survive navigation; only the result modal is scene-scoped.
+    for(const res of r.results)applyPull(res);
+    S.credits=r.credits;S.cores=r.cores;S.scrap=r.scrap;
+    S.stat.pulls+=r.results.length;
+    try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}
+    net.cancelSync();renderWallet();
+    _pullPending=null;
+    if(cur==='gacha'&&_gTab==='pull'){renderGacha();showReveal(r.results);}
+    else{renderAll();toast('뽑기 완료 · 획득한 보상을 보관했습니다');}
+  }finally{
+    stage?.classList.remove('charging','rolling','opening');
+    if(animation)animation.hidden=true;
+    if(_pullPending===token)_pullPending=null;
+    if(cur==='gacha'&&_gTab==='pull'&&(!stillOwner()||actions?.isConnected))renderGacha();
+  }
 }
 const pull1  = () => doPull(1);
 const pull10 = () => doPull(10);
@@ -3645,6 +3621,7 @@ window.ROWAR = {
   duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,
   setRankTab, setCodexGroup, codexClaim: guard(codexClaim, 1000), codexTitle: guard(codexTitle, 800),
   codexActivate: guard(codexActivate, 600),
+  setRecruitmentHero, openRecruitmentRates, openRecruitmentPool, openRecruitmentDetails,
   setShopTab, shopBuy: guard(shopBuy, 600), shopRefresh: guard(shopRefresh, 800), shopAssemble: guard(shopAssemble, 800),
   practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
   setTactic,

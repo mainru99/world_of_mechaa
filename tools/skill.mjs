@@ -101,23 +101,31 @@ console.log('\n== ⑤ 스킬 강화 표시 전투력 ==');
 }
 
 /* ── ⑥ 생성 상대 스킬 계단과 콘텐츠 격리 ───────────────────
-   일반 아레나는 레이팅을 따라 +0→+10으로 오른다. 비상 출격·토벌은 +0이어야
-   구제전과 선택형 PvE 난도가 플레이어 성적에 끌려 올라가지 않는다. */
+   아레나의 **로봇** 상대는 레이팅을 따라 +0→+10으로 오른다. 비상 출격·토벌은 +0이어야
+   구제전과 선택형 PvE 난도가 플레이어 성적에 끌려 올라가지 않는다.
+   아레나의 **몬스터**는 구간제(2594530, CONST.MON_BAND) 뒤로 +0 고정이다 — 난도는 구간표의
+   레벨 · 파츠가 정하고, 구간 난도 실측(bandplan)도 +0 으로 쟀다. 이 검사가 그보다 먼저 쓰여 +10 을 기대하고 있었다. */
 console.log('\n== ⑥ 생성 상대 스킬 강화 경로 ==');
 {
-  const actual = CONST.RATING_GEAR.map(row => gearFromRating(row.at).skillLv);
-  const expected = [0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  /* 표를 여기 다시 적지 않는다 — 표가 지킬 조건만 본다(6706b08 에서 19줄로 바뀌어 옛 15줄 기대가 낡았었다).
+     +0 에서 시작해 +MAX 로 끝나고, 강화 · 스킬이 되돌아가지 않으며, 조회가 각 줄의 값을 그대로 돌려준다. */
+  const T = CONST.RATING_GEAR;
+  const actual = T.map(row => gearFromRating(row.at).skillLv);
+  const noBack = T.every((r, i) => i === 0 || (r.skillLv >= T[i - 1].skillLv && r.enh >= T[i - 1].enh && r.at > T[i - 1].at));
+  const expected = T.map(r => r.skillLv);
+  const endsOk = expected[0] === 0 && expected[expected.length - 1] === MAX && noBack;
   let seq = 0; const uid = () => 's' + (seq++);
   const arenaRobot = makeOpponent(['C', 'UC', 'R', 'UQ', 'EP'], 60, () => 0.99, uid, false, 2850);
   const arenaMonster = makeOpponent(['C', 'UC', 'R', 'UQ', 'EP'], 60, () => 0, uid, false, 2850);
   const rescue = makeOpponent(['C', 'UC', 'R', 'UQ', 'EP'], 60, () => 0, uid, true, 2850);
   const hunt = makeHuntTarget('C', 60, () => 0, uid);
-  const tableOk = actual.length === expected.length && actual.every((x, i) => x === expected[i]);
-  const pathsOk = arenaRobot.skillLv === 10 && arenaMonster.skillLv === 10
+  const tableOk = endsOk && actual.every((x, i) => x === expected[i]);
+  const pathsOk = arenaRobot.kind === 'robot' && arenaRobot.skillLv === MAX
+               && arenaMonster.kind === 'monster' && arenaMonster.band >= 1 && arenaMonster.skillLv === 0
                && rescue.skillLv === 0 && hunt.skillLv === 0;
   console.log(`  레이팅 계단\t${actual.join(' / ')}`);
-  console.log(`  일반 로봇 +${arenaRobot.skillLv} · 일반 몬스터 +${arenaMonster.skillLv} · 비상 +${rescue.skillLv} · 토벌 +${hunt.skillLv}`);
-  console.log(tableOk && pathsOk ? '  ✓ 아레나만 성장하고 구제·토벌은 +0'
+  console.log(`  일반 로봇 +${arenaRobot.skillLv} · 일반 몬스터(구간 ${arenaMonster.band}) +${arenaMonster.skillLv} · 비상 +${rescue.skillLv} · 토벌 +${hunt.skillLv}`);
+  console.log(tableOk && pathsOk ? '  ✓ 아레나 로봇만 성장하고 몬스터(구간제)·구제·토벌은 +0'
                                   : '  ✗ 생성 상대 스킬 경로 계약 위반');
   if (!tableOk || !pathsOk) process.exitCode = 1;
 }

@@ -6,9 +6,14 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-23 밤 · **숙련 조각(이관 022)** · **세트 06 EP 5기(76종)** · 숙련 = 특성 포인트 · 개발 계보 판정(꺼 둠) · 합동전 공명 · 전투력 보정 · schema **21** · `balance_ver` **16m4ttx**
-- **스키마 버전** — 로컬 **21** · 운영 **21** (2026-09-19 021 `player.hunt_wk` 적용)
-- **운영 확인** — 2026-09-23 밤 배포 `17d1515d` (커밋 `f216abf` 세트 06) · 이관 없음 · schema **21** · `balance_ver` bwwrku → **16m4ttx** · 계정 34 ·
+- **마지막 갱신** — 2026-09-23 밤 · **숙련 조각(이관 022 · 배포 완료)** · **세트 06 EP 5기(76종)** · 숙련 = 특성 포인트 · 개발 계보 판정(꺼 둠) · 합동전 공명 · 전투력 보정 · schema **22** · `balance_ver` **tomx5v**
+- **스키마 버전** — 로컬 **22** · 운영 **22** (2026-09-23 022 `player.m_goal` · `robot.m_lv` 적용)
+- **운영 확인** — 2026-09-23 밤 배포 `87157f8a` (커밋 `20d2369` 숙련 조각까지) · **이관 022 적용** · schema 21 → **22** · `balance_ver` 16m4ttx → **tomx5v** · 계정 34 ·
+  이관 결과: `robot` 58행 모두 `m_lv = level`(소급 지급 0) · `player.m_goal` 전부 NULL(서버가 `autoGoal` 로 고른다) · 빈칸 0 · 어긋난 행 0.
+  `mastery.js` · `balance.js` · `lineage.js` · `stats.js` 내용 일치 · 첫 화면 200 · 콘솔 오류 0 · `/api/state` · `/api/shop` 401 · UI 브랜치와 `merge-tree` 충돌 없음.
+  운영에서 모듈을 직접 불러 확인: `shardsAt(60)=14` · `shardsAt(30)=6` · `shardsAt(1)=0` · 기체 76 · EP 13 · 연결 96.
+  **화면은 아직 없다** — `js/mastery.js` 를 부르는 것은 서버뿐이다(`state.js` · `shop.js`). 조각은 쌓이지만 보이지도 쓰이지도 않는다. 화면은 UI 브랜치 몫이다
+- **그 전 배포** — 2026-09-23 밤 배포 `17d1515d` (커밋 `f216abf` 세트 06) · 이관 없음 · schema **21** · `balance_ver` bwwrku → **16m4ttx** · 계정 34 ·
   `balance.js` · `lineage.js`(data · js) · `powercal.js` · `units.js` 내용 일치 · 새 기체 그림 5/5 200(크기도 로컬과 같다) · `/api/state` 401.
   UI 브랜치와 `merge-tree` 충돌 없음. 새 EP 다섯은 **뽑기 · 상점 조각 · 도감 · 생성 상대**에 바로 나온다(이관 없음 — 전부 데이터에서 파생한다)
 - **그 전 배포** — 2026-09-23 밤 배포 `6054ba9d` (커밋 `e0db977` 까지) · 이관 없음 · schema **21** · `balance_ver` 1wd5eqr → **bwwrku** · 계정 34 ·

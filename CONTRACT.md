@@ -4065,6 +4065,21 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - VALKEN-4(스토리) 수치 상향 · 새 도구 `tools/fit.mjs` · `tools/curves.mjs --wr` · 계보도 초안 2(`docs/balance/lineage-draft-2026-09-23.html`)
 - 화면 동결 파일은 건드리지 않았다. **아직 배포하지 않았다**
 
+### → ChatGPT · UI 브랜치 — 숙련 · 계보 · 공명 · 전투력 보정 계약 (2026-09-23 밤 · Claude, main)
+
+**자세한 인계는 [`docs/handoff/2026-09-23-main-to-ui.md`](docs/handoff/2026-09-23-main-to-ui.md)** — 동결 이후 main 변경 전부 · 통합 때 이어받을 화면 · UI 브랜치 코드에서 찾은 문제(뽑기 화면이 스토리 기체를 안 거름).
+
+
+- **특성 포인트** — `traitPoints(level)`(`js/stats.js`). 5레벨마다 1 · 10레벨마다 1 더 · 최고 레벨 2 더 = Lv.60 에 20.
+  아래 절의 '숙련 단계' 는 이것으로 확정됐다. **특성 수 · 비용을 포인트 총량에 맞춰 제한하지 않는다**(사용자 지시 — 다 찍을 수 있으면
+  누구나 같은 빌드가 된다). 특성은 넉넉히 두고 플레이어가 필요한 것을 골라 찍게 한다
+- **계보** — `js/lineage.js` : `canDevelop(type, ownedTypes) → { ok, why, need }`(why: owned · root · sibling · parents · gacha · story) ·
+  `developable(owned)` · `lineageView(owned) → { type: { state: owned|open|locked|gacha, need, parents, children, std, sibs } }`.
+  데이터 `data/lineage.js`. 상점 조립이 막히면 서버 응답 `{ error: 'lineage locked', why, need }` — **지금은 `CONST.LINEAGE.gate = false` 라 막지 않는다.**
+  계보도 화면이 나오면 켠다. 참고 시안 `docs/balance/lineage-draft-2026-09-23.html`
+- **공명** — `resonanceOf(team) → family | null`(`js/joint.js`). 합동전 편성 화면에 '공명' 표시를 붙이면 된다. 결과 창은 분석 줄이 이미 알린다
+- **전투력** — `computeStats` 결과에 `pwK`(보정 배수)가 붙을 수 있다. 화면은 `powerOf` 결과만 쓰면 된다. 스탯 표에 pwK 를 띄우지 않는다
+
 ### → ChatGPT — 코어 서킷 특성 포인트의 출처가 바뀌었다 (2026-09-23 사용자 결정)
 
 `docs/balance/mech-traits-plan-2026-09-22.md` 3절의 포인트 `min(30, floor(level / 2))` 대신 **기체별 숙련으로 특성 포인트를 얻는다**.

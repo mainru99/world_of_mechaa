@@ -82,7 +82,7 @@ export const ROBOT_TYPES = {
      순으로 빨라지며, base와 grow에 같은 방향을 주어 레벨이 올라가도 개성이 사라지지 않는다.
      등급 전체 성장량은 이전 합계와 같고 Lv.60 등급 내 승률은 35~65% 범위다. */
   seraph:{ id:'seraph', name:"SERAPH", rarity:'EP', role:"고화력 흡혈형 · 아크엔젤",
-    base:{hp:857,atk:159,def:92,spd:58,crit:.16,eva:.11}, grow:{hp:53.1,atk:11.5,def:6.3,spd:3.61}, spread:.18,
+    base:{hp:872.6,atk:161.9,def:93.7,spd:58,crit:.16,eva:.11}, grow:{hp:54.06,atk:11.71,def:6.41,spd:3.61}, spread:.18,
     skill:{name:"세이크리드 랜스", desc:"방어력 50% 관통 2.0배. 회피 불가, 피해 35% 흡수.", fx:{mult:2,ignoreDef:.5,noMiss:true,drain:.35}} },
   nemesis:{ id:'nemesis', name:"NEMESIS", rarity:'EP', role:"불안정 관통포형 · 오버로드",
     base:{hp:704,atk:162,def:76,spd:72,crit:.17,eva:.12}, grow:{hp:42.4,atk:11.7,def:5,spd:4.47}, spread:.42,
@@ -116,7 +116,7 @@ export const ROBOT_TYPES = {
     base:{hp:685,atk:131,def:75,spd:82,crit:.19,eva:.24}, grow:{hp:51.1,atk:9.5,def:6.2,spd:5.07}, spread:.3,
     skill:{name:"헬파이어 살보", desc:"0.65배 포격을 5회. 모두 회피 불가.", fx:{mult:.65,hits:5,noMiss:true}} },
   atlas:{ id:'atlas', name:"ATLAS", rarity:'EP', role:"스킬 결전형 · 타이탄",
-    base:{hp:1277,atk:105,def:136,spd:50,crit:.13,eva:.08}, grow:{hp:59.7,atk:7.6,def:7,spd:3.1}, spread:.12,
+    base:{hp:1291.2,atk:106.2,def:137.5,spd:50,crit:.13,eva:.08}, grow:{hp:60.36,atk:7.68,def:7.08,spd:3.1}, spread:.12,
     skill:{name:"타이탄 크러시", desc:"방어력 70% 관통 2.8배 강타. 회피 불가, 피해 15% 흡수.", fx:{mult:2.8,ignoreDef:.7,noMiss:true,drain:.15}} },
   /* ---- 세트 03: 3rd.png의 등급별 기체, 기존 등급 기준 무작위 고정 스펙 ---- */
   grit:{ id:'grit', name:"GRIT", rarity:'C', role:"장갑 관통형 · 가드",
@@ -144,7 +144,7 @@ export const ROBOT_TYPES = {
     base:{hp:600,atk:109,def:67,spd:61,crit:.18,eva:.13}, grow:{hp:41.3,atk:10,def:5,spd:4.52}, spread:.08,
     skill:{name:"오비탈 포커스", desc:"방어력 75% 관통 1.8배 사격. 빗나가지 않음.", fx:{mult:1.8,ignoreDef:.75,noMiss:true}} },
   auric:{ id:'auric', name:"AURIC", rarity:'EP', role:"치명 장갑형 · 골드 가디언",
-    base:{hp:880,atk:142,def:101,spd:65,crit:.2,eva:.1}, grow:{hp:60.7,atk:10.3,def:7.7,spd:4.04}, spread:.08,
+    base:{hp:889.8,atk:143.6,def:102.1,spd:65,crit:.2,eva:.1}, grow:{hp:61.38,atk:10.41,def:7.79,spd:4.04}, spread:.08,
     skill:{name:"골든 임팩트", desc:"1.8배 확정 치명타 강타. 빗나가지 않음.", fx:{mult:1.8,alwaysCrit:true,noMiss:true}} },
   ignis:{ id:'ignis', name:"IGNIS", rarity:'EP', role:"초고속 치명포형 · 피닉스",
     base:{hp:729,atk:111,def:83,spd:89,crit:.25,eva:.13}, grow:{hp:46.9,atk:8,def:5.9,spd:5.5}, spread:.24,
@@ -193,8 +193,120 @@ export const ROBOT_TYPES = {
     base:{hp:780,atk:150,def:85,spd:70,crit:.18,eva:.12}, grow:{hp:48,atk:10.8,def:6,spd:4.5}, spread:.3,
     skill:{name:"폴른 크라운", desc:"0.8배 마검 4연격. 맞을 때마다 방어 5% 파쇄(최대 30%), 체력 35% 미만인 상대에게는 1.5배.", fx:{mult:.8,hits:4,shred:.05,execute:.5}} },
   behemoth:{ id:'behemoth', name:"BEHEMOTH", rarity:'EP', role:"요새 수호형 · 시타델",
-    base:{hp:1150,atk:118,def:120,spd:52,crit:.14,eva:.07}, grow:{hp:58,atk:8.4,def:7.2,spd:3.3}, spread:.2,
+    base:{hp:1179.7,atk:121.1,def:123.1,spd:52,crit:.14,eva:.07}, grow:{hp:59.5,atk:8.62,def:7.39,spd:3.3}, spread:.2,
     skill:{name:"옵시디언 배리어", desc:"표적을 새기고(+12%) 방어 40% 관통 1.9배 포격, 이어서 최대 내구 22%만큼 방벽(쓸 때마다 30%씩 얇아진다).", fx:{mult:1.9,ignoreDef:.4,mark:.12,shield:.22}} },
+
+  /* ---- 세트 04 (2026-09-23) · R 열 기체 · 성장 곡선 ──────────────────
+     사용자가 그려 온 10기. 전부 R 이고 이름 · 역할 · 수치 · 스킬은 Claude 가 붙였다.
+     R 은 8종 → 18종이 된다. 고른 자리는 **계보(개발 트리)가 비어 있던 칸**이다 —
+     교란 · 수리 · 파쇄 · 방벽이 R 에 없어서 C·UC 에서 UQ 로 건너뛰는 연결이 억지였다
+     (docs/balance/lineage-plan-2026-09-22.md 의 특화기술 표).
+
+     **성장이 직선이 아닌 기체를 처음 넣는다(`curve`).** Lv.MAXLV 값은 grow + curve 만큼 오른 값이고,
+     중간 레벨이 위(조숙형, curve 음수) 또는 아래(대기만성, curve 양수)로 휜다. 같은 등급 안에서도
+     '지금 강한 기체' 와 '키우면 강한 기체' 가 갈린다. curve 가 없는 기존 기체는 한 자리도 바뀌지 않는다.
+       조숙형   ZEPHYR · POLARIS      — Lv.20~35 에서 등급 위쪽, Lv.60 에서는 아래쪽
+       대기만성 LONGBOW · VESPER      — 중반에는 등급 바닥, Lv.60 에서 등급 꼭대기 */
+  pike:{ id:'pike', name:"PIKE", rarity:'R', role:"돌격 관통창형 · 랜스가드",
+    base:{hp:576,atk:104.6,def:61.3,spd:58,crit:.12,eva:.08}, grow:{hp:50.8,atk:10.58,def:6.22,spd:4.3}, spread:.2,
+    skill:{name:"게이볼그 차지", desc:"방어력 50%를 관통하는 0.95배 찌르기 2회.", fx:{mult:.95,hits:2,ignoreDef:.5}} },
+  quake:{ id:'quake', name:"QUAKE", rarity:'R', role:"장갑 파쇄 포격형 · 시스모",
+    base:{hp:696,atk:122.8,def:77.9,spd:45,crit:.1,eva:.06}, grow:{hp:55.36,atk:12.09,def:7.25,spd:3.7}, spread:.3,
+    skill:{name:"그라운드 셰이크", desc:"1.75배 진동 포격. 상대 방어력을 10% 깎는다(원래 방어의 70%까지).", fx:{mult:1.75,shred:.1}} },
+  cipher:{ id:'cipher', name:"CIPHER", rarity:'R', role:"전파 교란형 · 고스트",
+    base:{hp:536,atk:90.5,def:59,spd:60,crit:.12,eva:.1}, grow:{hp:52.85,atk:10.54,def:6.81,spd:4.5}, spread:.18,
+    skill:{name:"고스트 시그널", desc:"1.5배 전자 사격. 상대의 스킬 게이지를 40 깎는다.", fx:{mult:1.5,jam:40}} },
+  aegis:{ id:'aegis', name:"AEGIS", rarity:'R', role:"방패 방벽형 · 벌워크",
+    base:{hp:788,atk:96.3,def:96.3,spd:42,crit:.07,eva:.05}, grow:{hp:57.81,atk:10.04,def:7.85,spd:3.6}, spread:.16,
+    skill:{name:"타워 슬램", desc:"1.3배 방패 가격 뒤 최대 내구 14%만큼 방벽(쓸 때마다 30%씩 얇아진다).", fx:{mult:1.3,shield:.14}} },
+  zephyr:{ id:'zephyr', name:"ZEPHYR", rarity:'R', role:"조숙 고기동형 · 윈드러너",
+    base:{hp:511,atk:89.9,def:55.1,spd:65,crit:.14,eva:.18},
+    grow:{hp:48.93,atk:9.69,def:5.94,spd:5.66}, curve:{hp:-1.66,atk:-0.33,def:-0.2,spd:0}, spread:.26,
+    skill:{name:"윈드 셰어", desc:"0.62배 베기를 4회. 각각 치명타·회피 판정.", fx:{mult:.62,hits:4}} },
+  longbow:{ id:'longbow', name:"LONGBOW", rarity:'R', role:"대기만성 장사정포형 · 아처",
+    base:{hp:555,atk:98.3,def:57.7,spd:46,crit:.1,eva:.06},
+    grow:{hp:55.94,atk:12.79,def:6.89,spd:3.06}, curve:{hp:1.73,atk:0.4,def:0.21,spd:0}, spread:.35,
+    skill:{name:"롱보우 스트라이크", desc:"방어력 30%를 관통하는 2.5배 장사정 포격.", fx:{mult:2.5,ignoreDef:.3}} },
+  anvil:{ id:'anvil', name:"ANVIL", rarity:'R', role:"야전 정비형 · 리페어러",
+    base:{hp:720,atk:101.3,def:74.3,spd:48,crit:.08,eva:.06}, grow:{hp:52.97,atk:10.22,def:6.88,spd:3.9}, spread:.18,
+    skill:{name:"필드 웰딩", desc:"1.35배 타격 뒤 최대 내구 17%를 수리한다(쓸 때마다 30%씩 줄어든다).", fx:{mult:1.35,repair:.17}} },
+  verdict:{ id:'verdict', name:"VERDICT", rarity:'R', role:"중장 마무리형 · 집행자",
+    base:{hp:720,atk:106.9,def:78.5,spd:47,crit:.1,eva:.06}, grow:{hp:52.86,atk:11.01,def:7.2,spd:3.9}, spread:.22,
+    skill:{name:"선고 집행", desc:"1.15배 포격 2회. 내구 35% 아래인 상대에게는 65% 더 아프다.", fx:{mult:1.15,hits:2,execute:.65}} },
+  polaris:{ id:'polaris', name:"POLARIS", rarity:'R', role:"조숙 정밀저격형 · 노스스타",
+    base:{hp:513,atk:101.6,def:55.9,spd:62,crit:.17,eva:.09},
+    grow:{hp:50.25,atk:10.49,def:6.03,spd:5.03}, curve:{hp:-1.46,atk:-0.31,def:-0.18,spd:0}, spread:.1,
+    skill:{name:"노스 스타", desc:"방어력 25% 관통 1.5배 확정 치명타 저격.", fx:{mult:1.5,ignoreDef:.25,alwaysCrit:true}} },
+  vesper:{ id:'vesper', name:"VESPER", rarity:'R', role:"대기만성 흡혈참격형 · 이븐스타",
+    base:{hp:619,atk:106.1,def:66.3,spd:54,crit:.14,eva:.1},
+    grow:{hp:52.74,atk:12.09,def:6.79,spd:3.53}, curve:{hp:2.2,atk:0.5,def:0.28,spd:0}, spread:.24,
+    skill:{name:"이브닝 사이드", desc:"1.7배 참격. 준 피해의 30%를 흡수한다.", fx:{mult:1.7,drain:.3}} },
+
+  /* ---- 세트 05 (2026-09-23) · UQ 열 기체 · 아종 ─────────────────────
+     사용자가 그려 온 18기. 전부 UQ 이고 이름 · 역할 · 수치 · 스킬은 Claude 가 붙였다. UQ 8 → 26종.
+     UQ 에 없던 특화기술(수리 · 처형 · 표적 · 파쇄)을 채운다.
+
+     **아종(`family`)** — 사용자가 x · y · z-twin 으로 묶어 온 기체는 같은 차체를 쓰는 형제다.
+     한 집안은 **속도 · 치명 · 회피 · 구간이 같고**(차체) 무장 · 스킬 · 성장 모양이 다르다.
+       NIMBUS  — 광륜 차체 2형: 캐논(관통 빔) · 피스트(흡혈 연타)
+       GOLIATH — 중해머 차체 4형: 샌드(표준 파쇄) · 러스트(대기만성 중타) · 시엘(조숙 방벽) · 바이올렛(흡혈)
+       HYDRA   — 미사일 백팩 차체 2형: 스나이퍼(관통 필중) · 개틀링(6연 표적)
+     계보에서는 같은 등급 안에서 옆으로 갈라지는 '분화' 로 잇는다(docs/balance/lineage-plan-2026-09-22.md).
+     family 는 지금 전투에 쓰이지 않는 표시값이다. */
+  salvo:{ id:'salvo', name:"SALVO", rarity:'UQ', role:"중장 연사 파쇄형 · 브레이커",
+    base:{hp:876.1,atk:119.9,def:96.8,spd:46,crit:.1,eva:.05}, grow:{hp:50.72,atk:11.28,def:7.14,spd:3.7}, spread:.3,
+    skill:{name:"브레이크 스톰", desc:"0.5배 개틀링 5연사. 맞을 때마다 상대 방어력을 2% 깎는다(원래 방어의 70%까지).", fx:{mult:.5,hits:5,shred:.02}} },
+  sentry:{ id:'sentry', name:"SENTRY", rarity:'UQ', role:"정찰 표적형 · 워처",
+    base:{hp:669.7,atk:104.6,def:75.3,spd:60,crit:.14,eva:.11}, grow:{hp:49.13,atk:11.52,def:6.62,spd:4.4}, spread:.15,
+    skill:{name:"락온 비컨", desc:"표적을 새기고(+18%) 빗나가지 않는 1.45배 사격.", fx:{mult:1.45,noMiss:true,mark:.18}} },
+  osprey:{ id:'osprey', name:"OSPREY", rarity:'UQ', role:"초장거리 처형 저격형 · 헌터",
+    base:{hp:640,atk:121.6,def:68.3,spd:62,crit:.17,eva:.1}, grow:{hp:43.73,atk:11.78,def:5.58,spd:4.5}, spread:.1,
+    skill:{name:"탈론 샷", desc:"방어력 30% 관통 1.9배 저격. 빗나가지 않고, 내구 35% 아래인 상대에게 90% 더 아프다.", fx:{mult:1.9,noMiss:true,ignoreDef:.3,execute:.9}} },
+  aquila:{ id:'aquila', name:"AQUILA", rarity:'UQ', role:"조숙 비익 기동형 · 스카이",
+    base:{hp:612.9,atk:104.5,def:66.3,spd:72,crit:.16,eva:.17}, grow:{hp:47.22,atk:10.81,def:5.92,spd:4.6}, curve:{hp:-.7,atk:-.16,def:-.09,spd:0}, spread:.22,
+    skill:{name:"윙 바라지", desc:"0.58배 사격 5회. 각각 치명타·회피 판정.", fx:{mult:.58,hits:5}} },
+  paladin:{ id:'paladin', name:"PALADIN", rarity:'UQ', role:"성기사 수리형 · 가디언",
+    base:{hp:917.3,atk:111.9,def:107.4,spd:46,crit:.1,eva:.06}, grow:{hp:50.85,atk:10.39,def:7.28,spd:3.6}, spread:.2,
+    skill:{name:"생크추어리", desc:"1.5배 철퇴 뒤 최대 내구 18%를 수리한다(쓸 때마다 30%씩 줄어든다).", fx:{mult:1.5,repair:.18}} },
+  auger:{ id:'auger', name:"AUGER", rarity:'UQ', role:"굴착 파쇄형 · 마이너",
+    base:{hp:821.9,atk:138.5,def:86.9,spd:47,crit:.11,eva:.06}, grow:{hp:49.11,atk:12.15,def:6.66,spd:3.7}, spread:.32,
+    skill:{name:"딥 드릴", desc:"방어력 30% 관통 1.9배 굴착. 상대 방어력을 12% 깎는다(원래 방어의 70%까지).", fx:{mult:1.9,ignoreDef:.3,shred:.12}} },
+  halberd:{ id:'halberd', name:"HALBERD", rarity:'UQ', role:"미늘창 처형형 · 할버디어",
+    base:{hp:739.1,atk:121.7,def:82.6,spd:52,crit:.13,eva:.08}, grow:{hp:44.31,atk:10.64,def:6.32,spd:4}, spread:.22,
+    skill:{name:"헤즈맨 스윙", desc:"방어력 40% 관통 1.3배 베기 2회. 내구 35% 아래인 상대에게 70% 더 아프다.", fx:{mult:1.3,hits:2,ignoreDef:.4,execute:.7}} },
+  quasar:{ id:'quasar', name:"QUASAR", rarity:'UQ', role:"대기만성 중력 교란형 · 그래비톤",
+    base:{hp:670.9,atk:118.7,def:72.3,spd:52,crit:.14,eva:.1}, grow:{hp:49.56,atk:12.02,def:6.61,spd:4}, curve:{hp:1.53,atk:.37,def:.2,spd:0}, spread:.28,
+    skill:{name:"이벤트 호라이즌", desc:"1.9배 중력 타격. 상대의 스킬 게이지를 35 깎는다.", fx:{mult:1.9,jam:35}} },
+  gyre:{ id:'gyre', name:"GYRE", rarity:'UQ', role:"사슬 연격 흡혈형 · 플레일",
+    base:{hp:697.9,atk:112.9,def:73.9,spd:54,crit:.13,eva:.09}, grow:{hp:49.41,atk:11.53,def:6.69,spd:4.1}, spread:.3,
+    skill:{name:"체인 사이클론", desc:"0.62배 사슬 타격 4회. 준 피해의 20%를 흡수한다.", fx:{mult:.62,hits:4,drain:.2}} },
+  ronin:{ id:'ronin', name:"RONIN", rarity:'UQ', role:"광검 결전형 · 사무라이",
+    base:{hp:584.8,atk:117,def:62.4,spd:64,crit:.2,eva:.12}, grow:{hp:42.77,atk:11.86,def:5.44,spd:4.6}, spread:.18,
+    skill:{name:"홍월 일섬", desc:"방어력 25% 관통 1.85배 확정 치명타 베기.", fx:{mult:1.85,alwaysCrit:true,ignoreDef:.25}} },
+  nimbus_c:{ id:'nimbus_c', name:"NIMBUS CANNON", rarity:'UQ', family:'nimbus', role:"광륜 차체 · 빔 캐논형",
+    base:{hp:714.5,atk:116,def:80.8,spd:56,crit:.14,eva:.1}, grow:{hp:44.55,atk:10.87,def:6.28,spd:4.2}, spread:.14,
+    skill:{name:"헤일로 빔", desc:"방어력 55% 관통 1.7배 광선. 빗나가지 않음.", fx:{mult:1.7,ignoreDef:.55,noMiss:true}} },
+  nimbus_f:{ id:'nimbus_f', name:"NIMBUS FIST", rarity:'UQ', family:'nimbus', role:"광륜 차체 · 권격형",
+    base:{hp:662.6,atk:99.4,def:73.6,spd:56,crit:.14,eva:.1}, grow:{hp:50.44,atk:11.24,def:6.97,spd:4.2}, spread:.14,
+    skill:{name:"헤일로 러시", desc:"0.78배 주먹 3연타. 준 피해의 15%를 흡수한다.", fx:{mult:.78,hits:3,drain:.15}} },
+  goliath_s:{ id:'goliath_s', name:"GOLIATH SAND", rarity:'UQ', family:'goliath', role:"중해머 차체 · 표준형",
+    base:{hp:932.4,atk:119.3,def:104.1,spd:42,crit:.09,eva:.05}, grow:{hp:54.74,atk:11.83,def:7.52,spd:3.5}, spread:.34,
+    skill:{name:"어스 크러셔", desc:"2.2배 해머 강타. 상대 방어력을 8% 깎는다(원래 방어의 70%까지).", fx:{mult:2.2,shred:.08}} },
+  goliath_r:{ id:'goliath_r', name:"GOLIATH RUST", rarity:'UQ', family:'goliath', role:"중해머 차체 · 대기만성 중타형",
+    base:{hp:851.4,atk:108.9,def:95,spd:42,crit:.09,eva:.05}, grow:{hp:51.67,atk:11.33,def:7.15,spd:3.5}, curve:{hp:1.6,atk:.35,def:.22,spd:0}, spread:.34,
+    skill:{name:"러스트 폴", desc:"방어력 30% 관통 2.6배 내려찍기.", fx:{mult:2.6,ignoreDef:.3}} },
+  goliath_c:{ id:'goliath_c', name:"GOLIATH CIEL", rarity:'UQ', family:'goliath', role:"중해머 차체 · 조숙 방벽형",
+    base:{hp:866.6,atk:110.8,def:96.7,spd:42,crit:.09,eva:.05}, grow:{hp:59.42,atk:12.3,def:8.07,spd:3.5}, curve:{hp:-4.91,atk:-1.02,def:-.67,spd:0}, spread:.34,
+    skill:{name:"스카이 바스티온", desc:"1.4배 해머 뒤 최대 내구 16%만큼 방벽(쓸 때마다 30%씩 얇아진다).", fx:{mult:1.4,shield:.16}} },
+  goliath_v:{ id:'goliath_v', name:"GOLIATH VIOLET", rarity:'UQ', family:'goliath', role:"중해머 차체 · 수정 흡혈형",
+    base:{hp:897.7,atk:114.8,def:100.2,spd:42,crit:.09,eva:.05}, grow:{hp:56.54,atk:12.14,def:7.75,spd:3.5}, spread:.34,
+    skill:{name:"아메시스트 블룸", desc:"1.9배 수정 해머. 준 피해의 30%를 흡수한다.", fx:{mult:1.9,drain:.3}} },
+  hydra_s:{ id:'hydra_s', name:"HYDRA SNIPER", rarity:'UQ', family:'hydra', role:"미사일 백팩 차체 · 저격형",
+    base:{hp:689.3,atk:117,def:73.1,spd:54,crit:.15,eva:.09}, grow:{hp:44.73,atk:11.33,def:6.05,spd:4.1}, spread:.12,
+    skill:{name:"헤드 헌트", desc:"방어력 50% 관통 2.1배 저격. 빗나가지 않음.", fx:{mult:2.1,ignoreDef:.5,noMiss:true}} },
+  hydra_g:{ id:'hydra_g', name:"HYDRA GATLING", rarity:'UQ', family:'hydra', role:"미사일 백팩 차체 · 제압 개틀링형",
+    base:{hp:711.9,atk:107.8,def:75.3,spd:54,crit:.15,eva:.09}, grow:{hp:47.83,atk:11.18,def:6.48,spd:4.1}, spread:.12,
+    skill:{name:"하이드라 헤즈", desc:"표적을 새기고(+10%) 0.45배 개틀링 6연사.", fx:{mult:.45,hits:6,mark:.1}} },
 
   /* ---- 스토리 기체 (2026-09-21) — **뽑기 · 상점 · 상대 · 도감 · 시작 기체에 나오지 않는다(story:true)** ----
      2장 주인공 아렌의 ROOK-3 세 단계와 셀릭의 VALKEN-4. 얻는 길은 아직 없다 — 전선 보상 등으로 나중에 연다.
@@ -206,10 +318,10 @@ export const ROBOT_TYPES = {
     base:{hp:500,atk:88,def:54,spd:55,crit:.11,eva:.07}, grow:{hp:50,atk:10.2,def:6,spd:4.6}, spread:.3,
     skill:{name:"블랙 암 라이플", desc:"빼앗은 검은 팔의 0.7배 사격 3회. 맞을 때마다 상대 방어 2% 파쇄(최대 30%).", fx:{mult:.7,hits:3,shred:.02}} },
   rook3_re:{ id:'rook3_re', name:"ROOK-3 RE", rarity:'R', story:true, role:"재정비 균형형 · 리빌트",
-    base:{hp:560,atk:95,def:66,spd:56,crit:.12,eva:.1}, grow:{hp:48,atk:9.9,def:6.3,spd:4.4}, spread:.22,
+    base:{hp:582,atk:98.8,def:68.6,spd:56,crit:.12,eva:.1}, grow:{hp:48.3,atk:9.96,def:6.34,spd:4.4}, spread:.22,
     skill:{name:"리빌트 버스트", desc:"빗나가지 않는 1.05배 연사 2회 뒤 최대 내구 9%만큼 방벽. 쓸 때마다 30%씩 얇아진다.", fx:{mult:1.05,hits:2,noMiss:true,shield:.09}} },
   valken4:{ id:'valken4', name:"VALKEN-4", rarity:'R', story:true, role:"신형 정밀형 · 엘리트",
-    base:{hp:560,atk:92,def:64,spd:62,crit:.16,eva:.11}, grow:{hp:49,atk:9.9,def:6.1,spd:4.8}, spread:.12,
+    base:{hp:505.6,atk:83.1,def:57.8,spd:62,crit:.16,eva:.11}, grow:{hp:50.78,atk:10.22,def:6.31,spd:4.8}, spread:.12,
     skill:{name:"트윈 아이", desc:"표적을 새기고(+6%) 빗나가지 않는 1.5배 확정 치명타.", fx:{mult:1.5,noMiss:true,alwaysCrit:true,mark:.06}} },
 };
 
@@ -825,7 +937,7 @@ export const CONST = {
   SHARD_NEED: { C: 10, UC: 15, R: 20, UQ: 30, EP: 40 },
 
   /* ── 도감 (2026-09-18 사용자 지시 · 같은 날 활성화 방식으로 고쳤다) ──────
-     몬스터 16 · 기체 30 · 파츠 84칸(21종 × 4등급).
+     몬스터 16 · 기체 71(뽑을 수 있는 것) · 파츠 84칸(21종 × 4등급).
 
      **모은 칸은 재화를 내고 '활성화' 해야 센다.** 이정표(steps)는 활성화한 칸 수로 넘는다.
      이정표에 닿으면 **그때까지 활성화에 쓴 재화를 돌려준다** — 크레딧은 +2% 얹어서,
@@ -865,7 +977,8 @@ export const CONST = {
       monster: [ { n: 4 }, { n: 8, title: 'hunter' }, { n: 16, title: 'tracker' },   // 보스 셋을 빼면 16종이다(2장 셋 포함)
                  { n: 19, title: 'giantslayer' } ],
       /* 2026-09-21 세트 03 으로 뽑을 수 있는 기체가 43종 — 36 · 43 이정표를 더했다(스토리 기체는 세지 않는다) */
-      robot:   [ { n: 6 }, { n: 12, title: 'mechanic' }, { n: 18 }, { n: 24 }, { n: 30, title: 'hangarlord' }, { n: 36 }, { n: 43 } ],
+      /* 2026-09-23 세트 04(R 10기) · 세트 05(UQ 18기)로 뽑을 수 있는 기체가 71종 — 53 · 62 · 71 이정표를 더했다 */
+      robot:   [ { n: 6 }, { n: 12, title: 'mechanic' }, { n: 18 }, { n: 24 }, { n: 30, title: 'hangarlord' }, { n: 36 }, { n: 43 }, { n: 53 }, { n: 62 }, { n: 71 } ],
       part:    [ { n: 10 }, { n: 21, title: 'scavenger' }, { n: 42 }, { n: 63, title: 'artificer' },
                  { n: 84, title: 'forgemaster' } ],
     },

@@ -308,6 +308,27 @@ export const ROBOT_TYPES = {
     base:{hp:711.9,atk:107.8,def:75.3,spd:54,crit:.15,eva:.09}, grow:{hp:47.83,atk:11.18,def:6.48,spd:4.1}, spread:.12,
     skill:{name:"하이드라 헤즈", desc:"표적을 새기고(+10%) 0.45배 개틀링 6연사.", fx:{mult:.45,hits:6,mark:.1}} },
 
+  /* ---- 세트 06 (2026-09-23) · EP 다섯 기체 ─────────────────────────
+     사용자가 그려 온 5기. 전부 EP 이고 이름 · 역할 · 수치 · 스킬은 Claude 가 붙였다. EP 8 → 13종.
+     **세기는 계보에서 열 때 필요한 앞 기체 수에 맞춘다**(2026-09-23 사용자 결정 ⑦) —
+     MONARCH 4종 → 등급 안 53~55% · SOLARIS · LIONHEART 3종 → 46~53% · SHOGUN · REVENANT 2종 → 42~46%.
+     EP 에 없던 자리를 채운다 — 수리(LIONHEART) · 6연격(SOLARIS) · 처형 결전(MONARCH · REVENANT). */
+  solaris:{ id:'solaris', name:"SOLARIS", rarity:'EP', role:"광익 다중검형 · 선브링어",
+    base:{hp:717.6,atk:122.7,def:79.3,spd:76,crit:.18,eva:.13}, grow:{hp:47.14,atk:10.21,def:6.01,spd:4.8}, spread:.16,
+    skill:{name:"브릴리언트 윙즈", desc:"방어력 35%를 관통하는 0.62배 광익 참격을 6회.", fx:{mult:.62,hits:6,ignoreDef:.35}} },
+  monarch:{ id:'monarch', name:"MONARCH", rarity:'EP', role:"대검 결전형 · 로드 나이트",
+    base:{hp:960.6,atk:147,def:105.9,spd:54,crit:.15,eva:.08}, grow:{hp:54.78,atk:11,def:7,spd:3.6}, curve:{hp:.89,atk:.18,def:.11,spd:0}, spread:.26,
+    skill:{name:"로열 디크리", desc:"방어력 55% 관통 2.6배 대검 강타. 내구 35% 아래인 상대에게 60% 더 아프다.", fx:{mult:2.6,ignoreDef:.55,execute:.6}} },
+  lionheart:{ id:'lionheart', name:"LIONHEART", rarity:'EP', role:"사자 방패형 · 그랜드 팔라딘",
+    base:{hp:1296.5,atk:133,def:144.3,spd:48,crit:.1,eva:.06}, grow:{hp:63.19,atk:9.39,def:8.07,spd:3.2}, spread:.18,
+    skill:{name:"라이언 가드", desc:"1.45배 성검 강타 뒤 최대 내구 12%를 수리하고 20%만큼 방벽을 친다(둘 다 쓸 때마다 30%씩 줄어든다).", fx:{mult:1.45,repair:.12,shield:.2}} },
+  shogun:{ id:'shogun', name:"SHOGUN", rarity:'EP', role:"발도 결전형 · 쇼군",
+    base:{hp:686.2,atk:137.2,def:76.5,spd:80,crit:.24,eva:.14}, grow:{hp:43.47,atk:10.15,def:5.6,spd:5.2}, spread:.2,
+    skill:{name:"만개 일섬", desc:"방어력 45% 관통 2.05배 확정 치명타 발도.", fx:{mult:2.05,ignoreDef:.45,alwaysCrit:true}} },
+  revenant:{ id:'revenant', name:"REVENANT", rarity:'EP', role:"그림자 처형형 · 어쌔신",
+    base:{hp:722.3,atk:138.2,def:77.5,spd:86,crit:.22,eva:.2}, grow:{hp:45.66,atk:10.38,def:5.8,spd:5.4}, curve:{hp:-.54,atk:-.12,def:-.07,spd:0}, spread:.24,
+    skill:{name:"섀도우 리퍼", desc:"0.8배 쌍검 3연격. 준 피해의 25%를 흡수하고, 내구 35% 아래인 상대에게 70% 더 아프다.", fx:{mult:.8,hits:3,drain:.25,execute:.7}} },
+
   /* ---- 스토리 기체 (2026-09-21) — **뽑기 · 상점 · 상대 · 도감 · 시작 기체에 나오지 않는다(story:true)** ----
      2장 주인공 아렌의 ROOK-3 세 단계와 셀릭의 VALKEN-4. 얻는 길은 아직 없다 — 전선 보상 등으로 나중에 연다.
      걸러 내는 곳: js/units.js · js/gacha.js 의 BY_RARITY, js/shop.js, js/codex.js, server/worker.js 의 시작 기체 */
@@ -978,7 +999,8 @@ export const CONST = {
                  { n: 19, title: 'giantslayer' } ],
       /* 2026-09-21 세트 03 으로 뽑을 수 있는 기체가 43종 — 36 · 43 이정표를 더했다(스토리 기체는 세지 않는다) */
       /* 2026-09-23 세트 04(R 10기) · 세트 05(UQ 18기)로 뽑을 수 있는 기체가 71종 — 53 · 62 · 71 이정표를 더했다 */
-      robot:   [ { n: 6 }, { n: 12, title: 'mechanic' }, { n: 18 }, { n: 24 }, { n: 30, title: 'hangarlord' }, { n: 36 }, { n: 43 }, { n: 53 }, { n: 62 }, { n: 71 } ],
+      /* 2026-09-23 세트 06(EP 5기)으로 76종 — 76 이정표를 더했다 */
+      robot:   [ { n: 6 }, { n: 12, title: 'mechanic' }, { n: 18 }, { n: 24 }, { n: 30, title: 'hangarlord' }, { n: 36 }, { n: 43 }, { n: 53 }, { n: 62 }, { n: 71 }, { n: 76 } ],
       part:    [ { n: 10 }, { n: 21, title: 'scavenger' }, { n: 42 }, { n: 63, title: 'artificer' },
                  { n: 84, title: 'forgemaster' } ],
     },

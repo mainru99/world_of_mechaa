@@ -6,7 +6,7 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-23 밤 · 숙련 = 특성 포인트 · 개발 계보 판정(꺼 둠) · 합동전 공명 · 전투력 보정 · play.mjs 최신화 · GPT 인계 · schema **21** · `balance_ver` **bwwrku**
+- **마지막 갱신** — 2026-09-23 밤 · **세트 06 EP 5기(76종)** · 숙련 = 특성 포인트 · 개발 계보 판정(꺼 둠) · 합동전 공명 · 전투력 보정 · schema **21** · `balance_ver` **(배포 전)**
 - **스키마 버전** — 로컬 **21** · 운영 **21** (2026-09-19 021 `player.hunt_wk` 적용)
 - **운영 확인** — 2026-09-23 밤 배포 `6054ba9d` (커밋 `e0db977` 까지) · 이관 없음 · schema **21** · `balance_ver` 1wd5eqr → **bwwrku** · 계정 34 ·
   `balance.js` · `lineage.js`(data · js) · `powercal.js` · `stats.js` · `joint.js` · `insight.js` 내용 일치 · `/api/state` · `/api/shop` 401 ·
@@ -27,6 +27,35 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 - **이전 배포** — 2026-09-19 배포 `c7a17894` (커밋 `460e756` 파츠 그림 · `b6915dc` 코드 · `79f79a3` 기록) · 이관 021 먼저 적용(`changes 2`) · schema **21** · `balance_ver` **151i21l** · 계정 33.
   `index` · `style` · `game.js` · `codex.js` · `rewards.js` · `balance.js` 내용 일치 · 파츠 그림 25/25 200 · `/api/state` · `/api/codex` · `/api/front` 401(인증 필요 = 살아 있음).
   **배포 확인은 해시가 아니라 내용 비교로 한다** — 로컬(LF)과 운영(배포한 PC 의 줄바꿈)이 달라 해시는 늘 어긋난다
+
+### 2026-09-23 (밤 3) — 세트 06: EP 기체 5기 · BASTION 유지 · 옛 이그니스 브랜치 (사용자 지시)
+
+사용자가 그려 온 EP 5기. 이름 · 역할 · 수치 · 스킬 · 계보는 Claude 가 붙였다. **EP 8 → 13종 · 뽑을 수 있는 기체 71 → 76종.**
+
+| 기체 | 역할 | 스킬 | 앞 기체 |
+|---|---|---|---|
+| SOLARIS | 광익 다중검형 · 선브링어 | 관통 35% 0.62배 **6연격** | HALO · NIMBUS CANNON · AQUILA |
+| MONARCH | 대검 결전형 · 로드 나이트 | 관통 55% 2.6배 + 처형 60% · **대기만성** | GOLIATH RUST · UMBRA · OSPREY · HYDRA SNIPER |
+| LIONHEART | 사자 방패형 · 그랜드 팔라딘 | 1.45배 + **수리 12% + 방벽 20%** | PALADIN · GOLIATH CIEL · NEBULA |
+| SHOGUN | 발도 결전형 · 쇼군 | 관통 45% 2.05배 확정 치명 | RONIN · HALBERD |
+| REVENANT | 그림자 처형형 · 어쌔신 | 0.8배 3연 + 흡혈 25% + 처형 70% · **조숙** | WRAITH · SPECTER |
+
+- **세기는 앞 기체 수에 맞췄다**(2026-09-23 결정 ⑦). Lv.60 등급 안 승률 — MONARCH 56.2%(4종) · SOLARIS 51.0% · LIONHEART 49.7%(3종) ·
+  REVENANT 47.6% · SHOGUN 43.5%(2종). `intra.mjs 500` 로 Lv.20 · 30 · 60 전부 **기준 밖 0기체**(전 등급 40.5~61.7%)
+- **곡선** — REVENANT 조숙(Lv.20 61.7% → Lv.60 47.6%) · MONARCH 대기만성(42.8% → 56.2%). 맞춘 도구는 `tools/fit.mjs`, 기준 풀은 EP 13종
+- **EP 에 없던 자리를 채웠다** — 수리(LIONHEART) · 6연격(SOLARIS) · 처형 결전(MONARCH · REVENANT)
+- **기존 EP 의 앞 기체는 한 줄도 안 바꿨다.** 대신 UQ 에서 **갈림길을 늘렸다**(같은 앞 기체에서 기존 EP 와 새 EP 중 하나를 고른다).
+  ATLAS 는 여전히 UQ 5종이 필요하다 — 줄이려면 ATLAS 를 약화해야 해서(결정 ⑦) 그대로 뒀다. **다시 나눌지는 사용자 결정**
+- 그림 5장 `tools/robot_art.py`(EP 키 382 · 발끝 y=408). 원본이 이미 투명 배경이라 **배경을 깎지 않았다** — 잘려 나간 곳 없음.
+  이 PC 에는 numpy 가 없어 `pip install numpy` 로 넣었다(도구가 쓴다)
+- 도감 기체 이정표 76 추가 · **전투력 보정 다시 계산**(`powercal.mjs --write` — 80기, ×0.862~×1.17) · 회귀 16종 통과
+- [성장 곡선 페이지](docs/balance/robot-curves-2026-09-23.html)는 새 기체까지 넣어 다시 뽑았다(`curves.mjs --wr`).
+  **[계보도](docs/balance/lineage-draft-2026-09-23.html)는 아직 71기 그림이다** — 그 페이지는 기체마다 줄기(A~H) 하나를 쥐어 주는 구조인데
+  새 EP 다섯은 줄기 둘씩을 합치는 자리라 그리는 방법부터 정해야 한다. 다시 그릴 때 EP 13칸 · 갈림길 14개를 함께 넣는다
+- **BASTION 은 그대로 둔다**(사용자 결정) — Lv.60 승률 33% 는 상성 때문이고 수치는 UC 중간이다. 할 일 목록에서 내린다
+- **옛 이그니스 브랜치** — `codex/ignis-hangar36` · `codex/ignis-rain` 은 원격 · 로컬 모두 이미 지워져 있었다.
+  남은 것은 작업 폴더 둘(`Documents/New project/ignis-deploy` · `ignis-hangar36-release`)이고, 여기 있던 커밋 5개는
+  main 의 `js/ignis-rain.js` 와 같은 내용이라 잃을 것이 없다. 폴더 지우기는 권한에 막혀 사용자에게 넘겼다
 
 ### 2026-09-23 (밤 2) — 숙련 = 특성 포인트 · 계보 판정 · 공명 · 전투력 보정 (사용자 지시 · 할 일 2 · 3번)
 
@@ -192,12 +221,14 @@ UQ 에 없던 특화기술(수리 · 처형 · 표적 · 파쇄)을 채웠다.
 | 1 | 합동전 · 흘려내기 · 실시간 재생 체감 확인 | 사용자 | 너무 잦거나 드물면 흘려내기 확률 하나로 조정 |
 | 2 | **개발 계보 초안 결정** — 약한 연결 5곳 · 새 R/UQ 기체(6기/4기/없음) · 갈림길 조각 · 숙련 능력치 · 적립 대상 · 화면 전 배포 · EP 최대 보상 · 뽑기 관계 | 사용자 | [`docs/balance/lineage-plan-2026-09-22.md`](docs/balance/lineage-plan-2026-09-22.md) '정할 것' 8개 |
 | 3 | GPT 코어 서킷 계획(기체별 6노드 특성) — 시안 A/B · 단위 · **숙련과 합칠지** | 사용자 | [`mech-traits-plan-2026-09-22.md`](docs/balance/mech-traits-plan-2026-09-22.md). 2번과 같이 정한다 |
-| 4 | `tools/play.mjs` 최신화 — 전선 · 구간 · 도감 · 상점 · 합동전 (+ 숙련) | Claude | 계보 수치의 바탕. 2번 결정 전에도 할 수 있다 |
-| 5 | 계보 · 숙련 서버 — 이관 · 정산 5곳 · `masterycheck` | Claude | 2 · 4 뒤. 화면은 UI 개편 뒤(동결) |
-| 6 | BASTION 약화(Lv.60 승률 33%) | 결정 | 스펙은 UC 9종 중 4위로 중간 — 원인은 상성 · 스킬 쪽. 다음은 레벨별 승률 그래프 |
+| 4 | ~~`tools/play.mjs` 최신화~~ **2026-09-23 밤 끝** | Claude | |
+| 5 | 계보 · 숙련 서버 — 조각 출처 · 정산 5곳 · `masterycheck` | Claude | **조각 출처(어디서 얼마나 나오나)를 사용자가 정해야 시작한다.** 화면은 UI 개편 뒤(동결) |
+| 6 | ~~BASTION 약화~~ **2026-09-23 사용자 결정 — 그대로 둔다** | — | 상성 때문이고 스펙은 UC 중간. 다시 열지 않는다 |
 | 7 | 합동전 넓히기 — 토벌 UQ/EP 요구 조건 · 전선 보스 · 안 쓴 특성 2종 | 결정 | |
-| 8 | 옛 원격 브랜치 `codex/ignis-hangar36` · `codex/ignis-rain` 정리 | 결정 | |
+| 8 | ~~옛 원격 브랜치 정리~~ **브랜치는 이미 없다** | 사용자 | 작업 폴더 둘만 남았다 — `Documents/New project/ignis-deploy` · `ignis-hangar36-release`(지우기는 권한에 막혔다) |
 | 9 | 보류 — 기체별 파츠 · 비밀번호 찾기 · 파츠 다양성 검사 · 보관함 아이템 | 결정 | |
+| 10 | EP 를 더 그릴지 · **ATLAS 의 UQ 5종 합류를 다시 나눌지** | 결정 | 세트 06 에서는 기존 EP 의 앞 기체를 건드리지 않고 갈림길만 늘렸다 |
+| 11 | 배경이 잘린 기체 그림 교체 — dune · glacier · grit · hex · lens · nemesis · oracle · seraph 등 | 사용자 | 투명 배경 원본을 주면 `robot_art.py` 로 규격만 맞춘다 |
 | — | UI 브랜치(GPT) — 대전 → 파견 → 랭킹 → 로그인 → 나머지 정리 → 실제 API 검수 | GPT | main 화면(합동전 · 분석 · 실시간 재생) 이관 목록은 CONTRACT '화면 파일 동결' |
 
 끝난 것 — 전투 뒤 승패 요인(09-21) · 전투력 보정 검토(넣지 않음, 09-21) · `skill.mjs` 검사(아래).

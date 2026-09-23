@@ -92,6 +92,23 @@ export const LINEAGE = [
   ['umbra', 'sovereign', '관통 흡수 → 파쇄 결전'],
   ['halberd', 'sovereign', '처형 미늘창 → 파쇄 + 처형 결전'],
   ['auger', 'sovereign', '굴착 파쇄 → 파쇄 결전'],
+  /* 세트 06 (2026-09-23) — EP 다섯. 기존 EP 의 앞 기체는 한 줄도 건드리지 않았다.
+     대신 UQ 에서 **갈림길**을 늘렸다(같은 앞 기체에서 기존 EP 와 새 EP 중 하나를 고른다).
+     필요한 앞 기체 수가 곧 세기다 — MONARCH 4 · SOLARIS 3 · LIONHEART 3 · SHOGUN 2 · REVENANT 2. */
+  ['halo', 'solaris', '초정밀 관통 광선 → 광익 6연 참격'],
+  ['nimbus_c', 'solaris', '관통 광선 → 빛의 날개 다중검'],
+  ['aquila', 'solaris', '비익 5연 → 광익 6연'],
+  ['goliath_r', 'monarch', '대기만성 관통 중타 → 대기만성 대검 결전'],
+  ['umbra', 'monarch', '관통 흡수 블레이드 → 대검 처형'],
+  ['osprey', 'monarch', '처형 저격 → 처형 대검'],
+  ['hydra_s', 'monarch', '관통 50% 필중 → 관통 55% 강타'],
+  ['paladin', 'lionheart', '성기사 수리 18% → 수리 + 방벽'],
+  ['goliath_c', 'lionheart', '조숙 방벽 → 방패 방벽 20%'],
+  ['nebula', 'lionheart', '오브 방벽 → 사자 방패'],
+  ['ronin', 'shogun', '광검 일섬 → 발도 일섬'],
+  ['halberd', 'shogun', '처형 베기 2연 → 관통 확정 치명 발도'],
+  ['wraith', 'revenant', '흡혈 생존 → 그림자 흡혈 3연'],
+  ['specter', 'revenant', '극회피 비트 → 그림자 처형'],
 ];
 
 /* 분화 — [표준형, 아종, 무엇이 달라지나]. 같은 등급 · 같은 family */

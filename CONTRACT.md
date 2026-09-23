@@ -325,6 +325,18 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 > 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
 > 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
 
+#### 세트 06 — EP 기체 5기 · 2026-09-23 · Claude (master · `data/balance.js` · `data/lineage.js` · `assets/` 를 고쳤다 · 사용자 지시)
+
+사용자가 그림 5장을 줬다(Downloads/add). **기체 스펙은 원래 ChatGPT 담당이지만 세트 03 부터 사용자가 Claude 에게 맡겼다.**
+기존 71종의 수치는 **한 글자도 안 바꿨다.** EP 8 → 13종 · 뽑을 수 있는 기체 **76종**.
+
+- `data/balance.js` — `solaris` `monarch` `lionheart` `shogun` `revenant` 다섯 + `CODEX.steps.robot` 에 76 이정표.
+  MONARCH 는 `curve` 양수(대기만성) · REVENANT 는 음수(조숙)
+- `data/lineage.js` — 선 14개 추가. **기존 EP 의 앞 기체는 그대로 두고 UQ 에서 갈림길만 늘렸다**(합칠 때 충돌할 줄이 없다)
+- `data/powercal.js` — `tools/powercal.mjs --write` 로 다시 만들었다(80기). **전투는 한 판도 안 바뀐다** — 표시 · 매칭 · 방어 기록만
+- `assets/solaris.png` 외 4장 — 440×420 · 발끝 y=408 · EP 키 382. 원본이 투명 배경이라 배경을 깎지 않았다
+- **화면 동결 파일은 건드리지 않았다.** 새 기체는 데이터라서 화면이 할 일이 없다 — 다만 EP 목록이 13칸이 된다
+
 #### 화면 파일 동결 — 2026-09-21 · 사용자 결정 → 두 브랜치 모두 읽을 것
 
 사용자가 합칠 때의 충돌을 막는 방법 셋(마지막에 한 번 합치기 · **main 화면 동결** · main→브랜치 한 방향으로 자주 합치기) 중 **main 화면 동결**을 골랐다.

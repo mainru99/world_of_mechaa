@@ -47,6 +47,9 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
   REVENANT 47.6% · SHOGUN 43.5%(2종). `intra.mjs 500` 로 Lv.20 · 30 · 60 전부 **기준 밖 0기체**(전 등급 40.5~61.7%)
 - **곡선** — REVENANT 조숙(Lv.20 61.7% → Lv.60 47.6%) · MONARCH 대기만성(42.8% → 56.2%). 맞춘 도구는 `tools/fit.mjs`, 기준 풀은 EP 13종
 - **EP 에 없던 자리를 채웠다** — 수리(LIONHEART) · 6연격(SOLARIS) · 처형 결전(MONARCH · REVENANT)
+- **밀리 계열을 새 EP 로 잇는다**(2026-09-23 사용자 지시 · 같은 날 고침) — MONARCH 의 앞을 저격 둘(OSPREY · HYDRA SNIPER)에서
+  **해머 · 미늘창**(GOLIATH SAND · HALBERD)으로 바꿨다(넷 그대로). RONIN 은 이제 **SHOGUN · REVENANT · AURIC 세 갈래**다.
+  REVENANT 는 앞이 둘 → 셋이 됐지만 승률 47.6% 가 3종 칸(46~53%) 안이라 수치는 그대로 뒀다
 - **기존 EP 의 앞 기체는 한 줄도 안 바꿨다.** 대신 UQ 에서 **갈림길을 늘렸다**(같은 앞 기체에서 기존 EP 와 새 EP 중 하나를 고른다).
   ATLAS 는 여전히 UQ 5종이 필요하다 — 줄이려면 ATLAS 를 약화해야 해서(결정 ⑦) 그대로 뒀다. **다시 나눌지는 사용자 결정**
 - 그림 5장 `tools/robot_art.py`(EP 키 382 · 발끝 y=408). 원본이 이미 투명 배경이라 **배경을 깎지 않았다** — 잘려 나간 곳 없음.

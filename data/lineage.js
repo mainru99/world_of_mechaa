@@ -100,8 +100,8 @@ export const LINEAGE = [
   ['aquila', 'solaris', '비익 5연 → 광익 6연'],
   ['goliath_r', 'monarch', '대기만성 관통 중타 → 대기만성 대검 결전'],
   ['umbra', 'monarch', '관통 흡수 블레이드 → 대검 처형'],
-  ['osprey', 'monarch', '처형 저격 → 처형 대검'],
-  ['hydra_s', 'monarch', '관통 50% 필중 → 관통 55% 강타'],
+  ['goliath_s', 'monarch', '표준 해머 강타 2.2배 → 대검 강타 2.6배'],   // 2026-09-23 사용자 지시 — 밀리 계열을 새 EP 로
+  ['halberd', 'monarch', '미늘창 처형 2연 → 대검 처형 한 방'],
   ['paladin', 'lionheart', '성기사 수리 18% → 수리 + 방벽'],
   ['goliath_c', 'lionheart', '조숙 방벽 → 방패 방벽 20%'],
   ['nebula', 'lionheart', '오브 방벽 → 사자 방패'],
@@ -109,6 +109,7 @@ export const LINEAGE = [
   ['halberd', 'shogun', '처형 베기 2연 → 관통 확정 치명 발도'],
   ['wraith', 'revenant', '흡혈 생존 → 그림자 흡혈 3연'],
   ['specter', 'revenant', '극회피 비트 → 그림자 처형'],
+  ['ronin', 'revenant', '광검 일섬 → 쌍검 그림자 3연'],                  // 2026-09-23 사용자 지시 — RONIN 은 SHOGUN · REVENANT 둘로 갈린다
 ];
 
 /* 분화 — [표준형, 아종, 무엇이 달라지나]. 같은 등급 · 같은 family */

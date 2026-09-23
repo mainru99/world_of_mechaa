@@ -6,9 +6,12 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-23 밤 · **세트 06 EP 5기(76종)** · 숙련 = 특성 포인트 · 개발 계보 판정(꺼 둠) · 합동전 공명 · 전투력 보정 · schema **21** · `balance_ver` **(배포 전)**
+- **마지막 갱신** — 2026-09-23 밤 · **세트 06 EP 5기(76종)** · 숙련 = 특성 포인트 · 개발 계보 판정(꺼 둠) · 합동전 공명 · 전투력 보정 · schema **21** · `balance_ver` **16m4ttx**
 - **스키마 버전** — 로컬 **21** · 운영 **21** (2026-09-19 021 `player.hunt_wk` 적용)
-- **운영 확인** — 2026-09-23 밤 배포 `6054ba9d` (커밋 `e0db977` 까지) · 이관 없음 · schema **21** · `balance_ver` 1wd5eqr → **bwwrku** · 계정 34 ·
+- **운영 확인** — 2026-09-23 밤 배포 `17d1515d` (커밋 `f216abf` 세트 06) · 이관 없음 · schema **21** · `balance_ver` bwwrku → **16m4ttx** · 계정 34 ·
+  `balance.js` · `lineage.js`(data · js) · `powercal.js` · `units.js` 내용 일치 · 새 기체 그림 5/5 200(크기도 로컬과 같다) · `/api/state` 401.
+  UI 브랜치와 `merge-tree` 충돌 없음. 새 EP 다섯은 **뽑기 · 상점 조각 · 도감 · 생성 상대**에 바로 나온다(이관 없음 — 전부 데이터에서 파생한다)
+- **그 전 배포** — 2026-09-23 밤 배포 `6054ba9d` (커밋 `e0db977` 까지) · 이관 없음 · schema **21** · `balance_ver` 1wd5eqr → **bwwrku** · 계정 34 ·
   `balance.js` · `lineage.js`(data · js) · `powercal.js` · `stats.js` · `joint.js` · `insight.js` 내용 일치 · `/api/state` · `/api/shop` 401 ·
   운영 첫 화면 콘솔 오류 0 · 브라우저에서 새 모듈 불러오기 확인(traitPoints(60)=20 · 계보 판정). UI 브랜치와 `merge-tree` 충돌 없음.
   계보 문(`CONST.LINEAGE.gate`)은 꺼져 있어 상점 조립은 그대로다. 전투력 표시는 기체마다 ×0.86~×1.17 바뀌었다(전투 결과는 그대로)

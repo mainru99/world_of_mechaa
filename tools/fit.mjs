@@ -2,6 +2,7 @@
    (2026-09-23 세트 04 · 05 에서 쓴 방법을 도구로 옮겼다.) 파일은 고치지 않고 붙여 넣을 값을 찍는다.
 
    node tools/fit.mjs <spec.json>
+   맞춘 값을 balance.js 에 넣은 뒤에는 **node tools/powercal.mjs --write** 로 전투력 보정 배수를 다시 만든다.
 
    spec.json = {
      "ref":  ["oracle", "wraith", ...],                      기준 풀 — 같은 등급 기존 기체(새 기체를 넣지 않는다). 맞추는 기체 자신은 빼고 붙인다

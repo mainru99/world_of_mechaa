@@ -12,7 +12,7 @@
  * 서버는 이것을 쓰지 않는다. 화면이 결과 창을 그린 뒤에 돌린다(재생과 같은 입력 · 같은 규칙이라 서버 판정과 어긋나지 않는다). */
 import { CONST } from '../data/balance.js';
 import { makeUnit, simulate } from './sim.js';
-import { runJoint } from './joint.js';
+import { runJoint, resonanceOf } from './joint.js';
 
 export const TACTICS = () => Object.keys(CONST.TACTIC || { none: 1 });
 const key = (side, i) => side + (i | 0);
@@ -104,6 +104,9 @@ export function insightJoint(spec, n = 24) {
     ? { k: 'base', text: `이 편성의 한 판 평균 피해 ${Math.round(base.dmg).toLocaleString('ko-KR')}` }
     : luckLine(!!spec.win, base.win)];
   const out = { base, lines, swap: null, tac: null, traits: null };
+  /* 공명 — 화면이 따로 알리지 않으므로(화면 파일 동결) 분석 줄로 알린다 */
+  const fam = resonanceOf(spec.team);
+  if (fam) lines.push({ k: 'tactic', text: `공명 — 같은 ${fam.toUpperCase()} 차체 두 기라 둘 다 공격력 +${Math.round((CONST.JOINT.resonance || 0) * 100)}%` });
   if (spec.team.length > 1) {
     const s = estimateJoint(spec, n, { team: [spec.team[1], spec.team[0]] });
     const d = rel(val(s), val(base)); out.swap = d;

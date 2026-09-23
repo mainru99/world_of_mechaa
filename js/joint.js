@@ -63,12 +63,20 @@ export function jointBossStats(raw, traits, type) {
 }
 
 /* 편성 — 배열 순서가 곧 자리다(0 전위 · 1 후위). 한 기뿐이면 전위 하나로 싸운다. */
+/* 공명 — 두 기가 같은 집안(family) 아종이면 그 집안 이름, 아니면 null. 서버 · 재생 · 분석이 같은 함수를 쓴다 */
+export function resonanceOf(list) {
+  const f = (list || []).slice(0, 2).map(m => COMBAT_TYPES[m && m.type] && COMBAT_TYPES[m.type].family);
+  return f.length === 2 && f[0] && f[0] === f[1] && (JOINT().resonance || 0) > 0 ? f[0] : null;
+}
+
 export function makeTeam(list) {
-  const J = JOINT();
+  const J = JOINT(), res = resonanceOf(list) ? 1 + J.resonance : 1;
   return list.slice(0, 2).map((m, i) => {
     const u = makeUnit(m.name, m.type, m.stats, m.tactic);
     u.side = 'P'; u.i = i; u.pos = i === 0 ? 'F' : 'B';
     if (i === 1) u.atk = Math.max(1, Math.round(u.atk * (J.backAtk || 1)));
+    /* 공명 — 난수를 더 뽑지 않는다. 같은 집안이 아니면 이 줄은 아무것도 안 한다(예전 전투 그대로) */
+    if (res !== 1) u.atk = Math.max(1, Math.round(u.atk * res));
     return u;
   });
 }

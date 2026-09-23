@@ -8,6 +8,7 @@
 import { CONST, ROBOT_TYPES } from '../data/balance.js';
 import { periodEnd, refreshCost, shardNeed, shardKey, parseItems, shopState, rollShop, slotSig, bagView } from '../js/shop.js';
 import { insertPart } from './parts.js';
+import { canDevelop } from '../js/lineage.js';
 
 const err = (status, error, extra) => ({ ok: false, status, error, ...(extra || {}) });
 
@@ -101,6 +102,12 @@ export async function shopRun(env, acc, now, body) {
     if (!ROBOT_TYPES[type]) return err(400, 'unknown robot');
     const need = shardNeed(type), items = parseItems(L.p.items), have = items[shardKey(type)] | 0;
     if (!need || have < need) return err(400, 'not enough shards', { need, have });
+    /* 개발 계보(2026-09-23) — 앞 기체를 다 가져야 조립한다. **스위치가 꺼져 있으면 보지 않는다**
+       (CONST.LINEAGE.gate). 계보도 화면이 UI 개편에서 나올 때 켠다 — 이유를 보여 줄 화면 없이 막으면 고장처럼 보인다 */
+    if (CONST.LINEAGE && CONST.LINEAGE.gate) {
+      const dv = canDevelop(type, L.owned);
+      if (!dv.ok) return err(400, 'lineage locked', { why: dv.why, need: dv.need });
+    }
     items[shardKey(type)] = have - need;
     if (!items[shardKey(type)]) delete items[shardKey(type)];
 

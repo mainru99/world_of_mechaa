@@ -997,6 +997,14 @@ export const CONST = {
     },
   },
 
+  /* 숙련 = 그 기체의 특성 포인트(js/stats.js traitPoints). [n레벨마다, 몇 점] 을 전부 더하고 최고 레벨에 maxBonus.
+     2026-09-23 사용자 결정 — 5레벨마다 1 · 10레벨마다 1 더 · 최고 레벨에 2 더(Lv.60 = 20점) */
+  MASTERY: { every: [[5, 1], [10, 1]], maxBonus: 2 },
+  /* 개발 계보(data/lineage.js · js/lineage.js). gate — 조각 조립에 계보 조건을 거는가.
+     **지금은 끈다.** 켜면 앞 기체가 없는 기체의 조각은 조립하지 못하고 쌓인다. 이유를 보여 줄 계보도 화면이
+     UI 개편에서 나온 뒤 켠다(CONTRACT '개발 계보'). */
+  LINEAGE: { gate: false },
+
   RATING_GEAR: [
     { at:    0, n: 0, rar: 'C',   enh:  0, skillLv:  0 },
     { at: 1060, n: 1, rar: 'C',   enh:  0, skillLv:  0 },
@@ -1155,6 +1163,9 @@ export const CONST = {
     backAtk: 1.15,
     aoe: 0.6,
     boss: { hp: 0.5, atk: 0.5 },
+    /* 공명(2026-09-23 사용자 결정) — 같은 집안(ROBOT_TYPES[].family) 아종 두 기를 전위 · 후위로 함께 내면
+       둘 다 공격력이 이만큼 오른다. 아종을 모을 이유를 전투에도 둔다. 합동전 토벌 · 레이드에 똑같이 걸린다 */
+    resonance: 0.05,
   },
 
   /* ── 흘려내기 (2026-09-21 · 사용자 결정) ──────────────────

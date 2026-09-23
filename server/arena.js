@@ -7,6 +7,7 @@
  * 피로도는 반영하지 않는다 — 쉬고 있는 방어 기체가 지쳐 있을 이유가 없다.
  */
 import { ROBOT_TYPES, MONSTER_TYPES, PART_BASES, AFFIXES, AFFIX_TIER, AFFIX_ROLL, RARITY, CONST } from '../data/balance.js';
+import { POWER_K } from '../data/powercal.js';
 import { computeStats, power } from '../js/stats.js';
 import { PART_COLS, partOf } from './parts.js';
 
@@ -22,6 +23,7 @@ export function balanceVersion() {
   const feed = s => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } };
   for (const t of Object.values(ROBOT_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + JSON.stringify(t.curve || 0) + JSON.stringify(t.skill.fx) + t.spread);
   for (const t of Object.values(MONSTER_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + t.spread);
+  feed(JSON.stringify(POWER_K));      // 전투력 보정 배수 — 바뀌면 방어 기록의 전투력이 옛것이 된다
   /* 파츠 표도 넣는다. 7단계부터 파츠는 스탯을 저장하지 않고 이 표에서 매번 다시
      만들어지므로, 여기 수치가 바뀌면 **이미 저장된 스냅샷의 전투력이 통째로 옛것**이
      된다. 예전에는 굴린 값이 행에 박혀 있어서 표를 고쳐도 스냅샷은 그대로였다.

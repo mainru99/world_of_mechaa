@@ -6,9 +6,13 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
-- **마지막 갱신** — 2026-09-23 · 세트 04(R 10기) · 세트 05(UQ 18기 · 아종) · 성장 2차 항 · EP 상향 · 계보 결정 · schema **21** · `balance_ver` **1wd5eqr**
+- **마지막 갱신** — 2026-09-23 밤 · 숙련 = 특성 포인트 · 개발 계보 판정(꺼 둠) · 합동전 공명 · 전투력 보정 · play.mjs 최신화 · GPT 인계 · schema **21** · `balance_ver` **bwwrku**
 - **스키마 버전** — 로컬 **21** · 운영 **21** (2026-09-19 021 `player.hunt_wk` 적용)
-- **운영 확인** — 2026-09-23 저녁 배포 `1ffac93c` (커밋 `4761810` 까지) · 이관 없음 · schema **21** · `balance_ver` 6rpm16 → **1wd5eqr** · 계정 34 ·
+- **운영 확인** — 2026-09-23 밤 배포 `6054ba9d` (커밋 `e0db977` 까지) · 이관 없음 · schema **21** · `balance_ver` 1wd5eqr → **bwwrku** · 계정 34 ·
+  `balance.js` · `lineage.js`(data · js) · `powercal.js` · `stats.js` · `joint.js` · `insight.js` 내용 일치 · `/api/state` · `/api/shop` 401 ·
+  운영 첫 화면 콘솔 오류 0 · 브라우저에서 새 모듈 불러오기 확인(traitPoints(60)=20 · 계보 판정). UI 브랜치와 `merge-tree` 충돌 없음.
+  계보 문(`CONST.LINEAGE.gate`)은 꺼져 있어 상점 조립은 그대로다. 전투력 표시는 기체마다 ×0.86~×1.17 바뀌었다(전투 결과는 그대로)
+- **그 전 배포** — 2026-09-23 저녁 배포 `1ffac93c` (커밋 `4761810` 까지) · 이관 없음 · schema **21** · `balance_ver` 6rpm16 → **1wd5eqr** · 계정 34 ·
   `balance.js` · `stats.js` · `units.js` 내용 일치(쿼리를 붙여 확인) · 새 그림 200 · `/api/state` 401. UI 브랜치와 `merge-tree` 충돌 없음.
   `balance_ver` 가 바뀌었으므로 아레나 방어 기록은 다음 등록 때 새 버전으로 바뀐다(설계대로)
 - **그 전 배포** — 2026-09-21 밤 배포 `90c0781b` (커밋 `b970b59` 까지) · 이관 없음 · schema **21** · `balance_ver` **6rpm16** · 계정 34 · `insight.js` · `sim.js` · `joint.js` · `game.js` · `style.css` 내용 일치(`sim.js` 는 가장자리 캐시로 첫 확인에서 옛 사본 — 쿼리를 붙여 다시 받아 일치) · UI 브랜치와 `merge-tree` 충돌 없음.

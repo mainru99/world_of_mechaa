@@ -94,7 +94,9 @@ console.log('\n== ③ 스토리 기체는 어디에도 안 나온다 ==');
   const pools = Object.values(BY_RARITY).flat(), upools = Object.values(UNIT_BY_RAR).flat();
   ok(STORY.every(id => ROBOT_TYPES[id] && ROBOT_TYPES[id].story && isStory(id)), `스토리 기체 ${STORY.length}종 — ${STORY.map(i => ROBOT_TYPES[i].name).join(' · ')}`);
   ok(!STORY.some(id => pools.includes(id) || upools.includes(id) || GACHA_IDS.includes(id)), '뽑기 · 상대 등급 풀에 없다');
-  ok(!STORY.some(id => CODEX_IDS.includes(id)) && CODEX_IDS.length === 43, `도감 기체 칸 ${CODEX_IDS.length}(스토리 제외)`);
+  /* 칸 수를 여기 적어 두면 기체를 더할 때마다 낡는다(세트 04 에서 43 → 53). 뽑기 목록과 같기만 하면 된다. */
+  ok(!STORY.some(id => CODEX_IDS.includes(id)) && CODEX_IDS.length === GACHA_IDS.length,
+     `도감 기체 칸 ${CODEX_IDS.length} = 뽑기 기체 ${GACHA_IDS.length}(스토리 제외)`);
   const shopSrc = readFileSync(new URL('../js/shop.js', import.meta.url), 'utf8');
   ok(/if \(!t\.story\)/.test(shopSrc), '상점 조각 풀이 스토리 기체를 거른다');
   const wk = readFileSync(new URL('../server/worker.js', import.meta.url), 'utf8');

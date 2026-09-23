@@ -249,7 +249,12 @@ export function setActive(counts) {
 export function computeStats(robot, parts) {
   parts = parts || [];
   const T = COMBAT_TYPES[robot.type], lv = robot.level, s = {};
-  for (const k of ['hp', 'atk', 'def', 'spd']) s[k] = T.base[k] + (T.grow[k] || 0) * (lv - 1);
+  /* 성장은 기본이 직선이다. `curve` 가 있는 기체만 2차 항이 붙는다(2026-09-23 세트 04) —
+     같은 등급 안에서도 '조숙형(-)' 과 '대기만성(+)' 이 생긴다. 단위는 grow 와 같고
+     Lv.MAXLV 에서 정확히 grow + curve 만큼 오른 값이 된다. curve 가 없으면 예전과 한 자리도 다르지 않다. */
+  const q = (lv - 1) * (lv - 1) / ((CONST.MAXLV || 60) - 1);
+  for (const k of ['hp', 'atk', 'def', 'spd'])
+    s[k] = T.base[k] + (T.grow[k] || 0) * (lv - 1) + (T.curve ? (T.curve[k] || 0) * q : 0);
   s.atk *= ATK_SCALE;                     // 기체 공격력 배율
   s.crit = T.base.crit; s.eva = T.base.eva;
   /* 기체 고유 구간을 먼저 깔아 두면 아래 파츠 합산이 그대로 얹힌다 */

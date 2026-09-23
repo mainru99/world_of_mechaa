@@ -20,7 +20,7 @@ export function balanceVersion() {
   if (_ver) return _ver;
   let h = 2166136261;
   const feed = s => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } };
-  for (const t of Object.values(ROBOT_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + JSON.stringify(t.skill.fx) + t.spread);
+  for (const t of Object.values(ROBOT_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + JSON.stringify(t.curve || 0) + JSON.stringify(t.skill.fx) + t.spread);
   for (const t of Object.values(MONSTER_TYPES)) feed(t.id + JSON.stringify(t.base) + JSON.stringify(t.grow) + t.spread);
   /* 파츠 표도 넣는다. 7단계부터 파츠는 스탯을 저장하지 않고 이 표에서 매번 다시
      만들어지므로, 여기 수치가 바뀌면 **이미 저장된 스냅샷의 전투력이 통째로 옛것**이

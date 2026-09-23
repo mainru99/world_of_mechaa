@@ -325,6 +325,22 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 > 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
 > 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
 
+#### 숙련 조각 — 2026-09-23 · Claude (master) → `codex/ui-rebuild` 가 화면을 만들 것
+
+사용자 결정 — **기체를 키우면 개발 목표의 조각이 쌓인다.** 하위 등급 기체를 굴릴 이유를 만드는 장치다(기체를 녹이지 않는다).
+
+| 파일 | 바뀐 것 | 합칠 때 |
+|---|---|---|
+| `js/mastery.js` **(새 파일)** | `shardsAt` · `shardGain` · `goalOk` · `autoGoal` · `settleMastery` · `masteryView`. DOM 없음 | 그대로 가져가면 된다 |
+| `data/balance.js` | `CONST.MASTERY.shard`(5레벨마다 1 · 만렙 2 더 = Lv.60 에 14) | 밸런스는 브랜치가 안 건드린다 |
+| `server/state.js` | 상태를 읽을 때 정산 · 응답에 `mastery` | 서버라 겹치지 않는다 |
+| `server/shop.js` | `{ action:'goal', type }` — 개발 목표를 고른다 | 〃 |
+| `server/migrations/022_mastery.sql` · `schema.sql` | `player.m_goal` · `robot.m_lv` · schema **22** | 〃 |
+
+**화면이 이어받을 것** — ① 개발 목표 고르기(계보도에서 기체 하나를 누르면 `/api/shop {action:'goal'}`),
+② 보관함 · 결과 창의 '조각 +n'(`state.mastery.got` · `grants`), ③ 기체 칸에 '다음 조각까지 남은 레벨'(`mastery.robots[].nextAt`).
+조각 자체는 예전처럼 `items['shard:<id>']` 다.
+
 #### 세트 06 — EP 기체 5기 · 2026-09-23 · Claude (master · `data/balance.js` · `data/lineage.js` · `assets/` 를 고쳤다 · 사용자 지시)
 
 사용자가 그림 5장을 줬다(Downloads/add). **기체 스펙은 원래 ChatGPT 담당이지만 세트 03 부터 사용자가 Claude 에게 맡겼다.**

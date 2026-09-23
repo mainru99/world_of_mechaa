@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS robot (
   s_frame     INTEGER UNIQUE REFERENCES part(id) ON DELETE SET NULL,
   s_booster   INTEGER UNIQUE REFERENCES part(id) ON DELETE SET NULL,
   s_core      INTEGER UNIQUE REFERENCES part(id) ON DELETE SET NULL,
+  m_lv        INTEGER,                         -- 숙련 조각을 정산한 레벨(022). NULL 은 Lv.1 부터 — js/mastery.js
   created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_robot_account ON robot(account_id);
@@ -149,6 +150,7 @@ CREATE TABLE IF NOT EXISTS player (
   shop        TEXT,
   presets     TEXT,                            -- 빌드 프리셋(020). 모양은 js/preset.js 머리말
   hunt_wk     TEXT,                            -- 토벌 주간 입장 수(021). { w: 주, n: { UQ, EP, BOSS } } — js/rewards.js
+  m_goal      TEXT,                            -- 개발 목표 기체 type(022). 숙련 조각이 여기로 모인다 — js/mastery.js
 
   -- 레벨은 기체가 아니라 **파일럿**의 것이다. 보유한 기체는 전부 이 레벨로 싸운다.
   -- 예전에는 기체별이었는데, 경험치가 출전한 기체에만 들어가 두 번째 기체를 키울 수가
@@ -340,7 +342,7 @@ BEGIN
 END;
 
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '21');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '22');
 
 
 -- =========================================================

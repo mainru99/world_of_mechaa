@@ -53,6 +53,7 @@ import { enhRate, skillCost, skillRate, skillMax, battleExp } from '../js/stats.
 import { runJoint, jointOf, jointBossStats } from '../js/joint.js';
 import { FRONT_CELLS, buildLines, rewardOf, gateOpen } from '../js/front.js';
 import { codexLines } from '../js/breach.js';
+import { shardsAt, autoGoal } from '../js/mastery.js';
 import { shopState, rollShop, shardNeed, shardKey } from '../js/shop.js';
 import { parseCodex, codexView, codexActivatable, codexRewards } from '../js/codex.js';
 import { raidOf, runRaid, raidReward, raidDaily } from '../js/raid.js';
@@ -739,6 +740,18 @@ function playDay(P, day, dayStart, rnd, avgPower) {
   }
 }
 
+/* 숙련 조각(2026-09-23 사용자 결정) — 기체를 키우면 **개발 목표의 조각**이 쌓인다.
+   규칙은 js/mastery.js(서버와 같은 함수). 목표는 계정에 하나이고, 어느 기체를 키우든 그리로 모인다.
+   여기서는 고르는 화면이 없으니 autoGoal 과 같은 규칙(열 수 있는 것 중 가장 높은 등급)으로 흉내 낸다.
+   이 계정은 조각을 **쓰지 않는다** — 얼마나 모이는지만 재는 칸이다. */
+function masteryShards(P) {
+  const owned = new Set(P.robots.map(r => r.type));
+  const goal = autoGoal(owned);
+  const all = goal ? P.robots.reduce((s, r) => s + shardsAt(r.level), 0) : 0;
+  return { all, ep: goal && rarOf(goal) === 'EP' ? all : 0,
+           open: goal && all >= (CONST.SHARD_NEED || {})[rarOf(goal)] ? 1 : 0 };
+}
+
 function snapshot(P, day) {
   const rb = selRb(P);
   const todays = P.ev.filter(e => e.day === day);
@@ -756,6 +769,8 @@ function snapshot(P, day) {
   o.mainRar = RARS.indexOf(rarOf((rbOf(P, P.main) || rb).type));
   o.mainLv = (rbOf(P, P.main) || rb).level;
   for (const r of PRARS) o['prt' + r] = P.parts.filter(x => x.rarity === r).length;
+  const ms = masteryShards(P);                      // 숙련 조각(아직 게임에 없다 — 수치를 재는 칸)
+  o.mShd = ms.all; o.mEP = ms.ep; o.mOpen = ms.open;
   return o;
 }
 

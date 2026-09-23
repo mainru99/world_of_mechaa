@@ -4043,3 +4043,30 @@ ROWAR 는 지금 출처가 섞여 있다(공들인 기체 + 스크립트 도형 
 - 기체별 숙련 → 다음 기체 조각. 43종 8갈래 초안 · 새 R/UQ 기체 제안 · 뽑기와의 관계. **사용자 결정 전 — 구현 · DB · 배포 없음**
 - 위 코어 서킷 계획과 같은 '기체별 성장' 이라 겹친다. 숙련이 특성 포인트도 줄지는 사용자가 두 계획을 같이 보고 정한다(STATUS 할 일 3번)
 - 새 도구 `tools/curves.mjs` · `tools/skill.mjs` ⑥ 기대값을 지금 규칙에 맞춤(게임 코드 변경 없음). 화면 동결 파일은 건드리지 않았다
+
+## Claude — 세트 04: R 기체 10기 · 성장 2차 항 · 2026-09-23 (main)
+
+사용자가 그려 온 R 10기를 넣었다(이름 · 역할 · 수치 · 스킬은 Claude). **R 8 → 18종 · 뽑기 기체 43 → 53종.**
+PIKE · QUAKE · CIPHER · AEGIS · ZEPHYR · LONGBOW · ANVIL · VERDICT · POLARIS · VESPER — 자세한 기록은 `STATUS.md` 2026-09-23.
+
+- **공용 모듈 계약이 바뀌었다** — `ROBOT_TYPES[].curve`(선택) 가 생겼고 `computeStats`(js/stats.js) 가 2차 항을 더한다:
+  `값 = base + grow×(lv-1) + curve×(lv-1)²/(MAXLV-1)`. `curve` 가 없으면 예전과 완전히 같다. 속도에는 쓰지 않았다(전부 0).
+  **UI 브랜치가 볼 곳** — `js/game.js` 의 `STAT_MAX` 는 `base + grow×(MAXLV-1)` 로 바를 재는데, 곡선 기체는 이 값보다 최대 3% 높다.
+  여유 35% 안이라 지금은 문제가 없지만, 새 화면에서 다시 짤 때는 `curve` 도 더하는 편이 정확하다(main 은 화면 동결이라 고치지 않았다)
+- `server/arena.js` `balanceVersion()` 에 `curve` 를 넣었다 — 배포하면 아레나 스냅샷이 새 버전으로 바뀐다
+- 도감 기체 이정표 53 추가 · `tools/specialcheck.mjs` ③ 의 '43칸' 기대를 뽑기 목록 비교로 바꿨다
+- 그림 `assets/<id>.png` 10장(`tools/robot_art.py`, R 키 320). 회귀 16종 통과. **아직 배포하지 않았다**
+
+## Claude — 세트 05: UQ 기체 18기 · 아종 · 2026-09-23 오후 (main)
+
+UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 2026-09-23 (오후).
+- **새 선택 필드 `ROBOT_TYPES[].family`**(`'nimbus'` · `'goliath'` · `'hydra'`) — 같은 차체 아종 표시. 전투 · 서버는 아직 읽지 않는다.
+  UI 브랜치가 도감 · 격납고에서 형제를 묶어 보여 줄 때 쓰면 된다. 계보 분화 규칙이 정해지면 서버가 쓴다
+- VALKEN-4(스토리) 수치 상향 · 새 도구 `tools/fit.mjs` · `tools/curves.mjs --wr` · 계보도 초안 2(`docs/balance/lineage-draft-2026-09-23.html`)
+- 화면 동결 파일은 건드리지 않았다. **아직 배포하지 않았다**
+
+### → ChatGPT — 코어 서킷 특성 포인트의 출처가 바뀌었다 (2026-09-23 사용자 결정)
+
+`docs/balance/mech-traits-plan-2026-09-22.md` 3절의 포인트 `min(30, floor(level / 2))` 대신 **기체별 숙련으로 특성 포인트를 얻는다**.
+숙련은 개발 계보(`docs/balance/lineage-plan-2026-09-22.md` 첫 절)의 축이다 — 그 기체로 싸우면 오르고, 단계마다 다음 기체 조각과 특성 포인트를 준다.
+숙련 단계 수 · 단계당 포인트는 Claude 가 `play.mjs` 경제 측정으로 정해 여기 적는다. 특성 정의(노드 · 단위 · 상한)는 그대로 ChatGPT 담당

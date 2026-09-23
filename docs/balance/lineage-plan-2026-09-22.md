@@ -1,8 +1,24 @@
 # 개발 계보 · 숙련 — 계획 초안
 
 작성: 2026-09-22 · Claude (main). 상태: **초안. 사용자 결정 전 — 구현 · 수치 · DB · 배포 없음.**
-계보도: [`lineage-draft-2026-09-22.html`](lineage-draft-2026-09-22.html) (브라우저로 열면 기체를 눌러 앞뒤 계보와 잇는 이유를 본다).
-성장 곡선: [`robot-curves-2026-09-22.html`](robot-curves-2026-09-22.html) · 다시 뽑기 `node tools/curves.mjs` (`--gaps` 는 등급 간격 요약).
+계보도: **[초안 2 — `lineage-draft-2026-09-23.html`](lineage-draft-2026-09-23.html)(71기 · 아종 분화 · 정할 것 6개)** · 초안 1 [`lineage-draft-2026-09-22.html`](lineage-draft-2026-09-22.html) (브라우저로 열면 기체를 눌러 앞뒤 계보와 잇는 이유를 본다).
+성장 곡선: [`robot-curves-2026-09-23.html`](robot-curves-2026-09-23.html)(세트 04 포함) · 이전판 [`robot-curves-2026-09-22.html`](robot-curves-2026-09-22.html) · 다시 뽑기 `node tools/curves.mjs` (`--gaps` 는 등급 간격 요약).
+
+## 2026-09-23 사용자 결정 (이 절이 아래 제안보다 앞선다)
+
+| # | 정한 것 |
+|---|---|
+| 1 | **분화** — ① 분화 숙련(표준형 숙련 → 형제 아종 조각) + ③ **합동전 공명**(같은 집안 두 기를 함께 내면 작은 보너스). ② 개장은 하지 않는다 |
+| 2 | **약한 연결은 끊는다.** 끊긴 기체는 개발로 오지 않는 **뽑기 입구** — 뽑기(코어)로 얻어 거기서 계보를 탄다. 뽑기와 코어의 쓰임이 생긴다. PATCH→ORBIT · LENS→SWIFT · LANCER→UMBRA 셋 다 끊었다 — 뽑기 입구 ORBIT(R) · SWIFT(UC), LENS 는 막다른 C 기체(숙련은 특성 포인트로만) |
+| 3 | **갈림길은 하나를 고른다**(플레이어 선택) · **합류는 앞 기체를 모두 개발해야 열린다** |
+| 4 | **숙련으로 특성 포인트를 찍는다** — GPT 코어 서킷(`mech-traits-plan-2026-09-22.md`)의 포인트 출처를 파일럿 레벨이 아니라 숙련으로. 수치는 뒤에 |
+| 5 | EP 최대 숙련 보상 — **코어(잠정)**. 수량은 경제 측정 뒤 |
+| 6 | EP 를 더 그린다(사용자). 들어오면 꼭대기 합류를 다시 나눈다 |
+| 7 | **EP 성능은 열 때 필요한 기체 수에 맞춘다** — 많이 필요할수록 세다. Lv.60 EP 안 승률 4~5종 53~55% · 3종 46~53% · 2종 42~46%(적용 — STATUS 2026-09-23 저녁) |
+
+결정이 만드는 모양(계보도 초안 3 기준) — 갈림(택1) 19곳(KESTREL 은 3갈래) · 합류(모두 필요) 16곳 · 뽑기 입구 2(ORBIT · SWIFT) · 분화 5.
+합류가 EP 에서 무겁다 — **ATLAS 는 UQ 5종 모두**(HALO · OSPREY · HYDRA SNIPER · NIMBUS CANNON · GOLIATH RUST), BEHEMOTH · SERAPH 4종, TYRANT · NEMESIS · SOVEREIGN 3종.
+그중 GOLIATH RUST · CIEL · VIOLET · NIMBUS FIST · HYDRA GATLING 은 분화로만 열리므로, EP 까지 가려면 옆으로 넓히는 길을 반드시 지난다. EP 추가(6번) 때 이 수를 줄인다.
 
 ## 왜
 
@@ -29,6 +45,13 @@
 | 파쇄 연격 | SCARAB → SHRIKE → LANCER → UMBRA → SOVEREIGN / MORTAR → MANTIS → LANCER |
 
 갈림 2곳(TRACER · GLACIER) · 합류 4곳(TRACER · GLACIER · HALO · LANCER).
+
+> **2026-09-23 갱신** — 아래 '약점' 의 R 빈칸은 사용자가 그려 온 **세트 04(R 10기)** 로 채웠다(`data/balance.js`).
+> 교란 CIPHER · 수리 ANVIL · 파쇄 QUAKE · 방벽 AEGIS · 관통창 PIKE · 처형 VERDICT · 장사정 LONGBOW · 고기동 ZEPHYR · 저격 POLARIS · 흡혈참격 VESPER.
+> 남은 빈칸은 **UQ** 뿐이다(수리 · 처형 · 표적 · 파쇄). 아래 계보도와 표는 세트 04 이전 기준이라 **다시 그려야 한다** — 새 연결 초안:
+> STATIC→CIPHER→ZEALOT · PATCH→ANVIL→NEBULA · MORTAR→QUAKE→UMBRA · HUSK→AEGIS→NEBULA · KESTREL→PIKE→UMBRA ·
+> SWIFT→VERDICT→SOVEREIGN · VANGUARD→LONGBOW→HEX · TRACER→ZEPHYR→SPECTER · RANGER→POLARIS→ORACLE · GLACIER→VESPER→WRAITH.
+> 이러면 약한 연결 5곳 중 4곳(STATIC→SWIFT · LANCER→UMBRA · UMBRA→SOVEREIGN · GLACIER→WRAITH)이 풀린다.
 
 ## 약점 — 트리가 단조롭다
 

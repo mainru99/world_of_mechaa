@@ -3422,6 +3422,22 @@ const myMaxLv = () => Math.max(1, ...S.robots.map(r => r.level | 0), 1);
    다 깼으면 마지막 장. 앞 장을 다 깨야 다음 장의 첫 칸이 열리므로(cellOpen) 장에 따로 잠금을 달지 않는다. */
 let _frontCh = null;
 function setFrontCh(id){ _frontCh = id; renderFront(); }
+
+/* 서버 상태를 받은 뒤 전선을 다시 정한다(2026-09-24 급한 화면 버그 · 사용자 지시 — CONTRACT '화면 파일 동결').
+   boot() 는 **서버에 붙기 전에** 이 브라우저 저장본만 보고 첫 화면을 고른다. 새 브라우저 · 다른 PC 에서는
+   저장본이 비어 '신규 계정' 으로 보여 전선으로 가고, 1장 도입이 대문 뒤에서 먼저 흘렀다.
+   또 전적(wins · losses)은 대전 · 토벌만 세서 **전선만 한 계정은 같은 브라우저에서도 매번** 전선으로 갔다.
+   그래서 상태를 받은 시점에 — 아직 대문 앞이고(아무것도 누르기 전) 이미 해 본 계정이면 격납고로 보낸다.
+   boot() 의 첫 화면 줄은 UI 브랜치가 'home' 으로 바꿨다 — 통합 때 아래 'hangar' 도 같은 값으로 맞춘다. */
+let _frontReady = false;
+const playedAccount = () => (S.stat && ((S.stat.wins | 0) + (S.stat.losses | 0)) > 0) || frontProg().some(v => v > 0);
+function frontAfterState(){
+  _frontReady = true;
+  _frontCh = null;                         // 빈 저장본으로 골랐던 장을 버리고 서버 진행으로 다시 고른다
+  if(cur !== 'terr') return;
+  if(document.body.classList.contains('gated') && playedAccount()){ go('hangar'); return; }
+  renderTerrHome();
+}
 function currentChapter(view){
   const live = view.find(ch => ch.cells.some(c => c.open && !c.cleared));
   return (live || view[view.length - 1]).id;
@@ -3432,16 +3448,21 @@ function renderFront(){
   const el = $('#sc-terr');
   const prog = frontProg(), maxLv = myMaxLv();
   const view = frontView(prog, maxLv);
-  if(!_frontCh || !view.some(v => v.id === _frontCh)) _frontCh = currentChapter(view);
-  const ch = view.find(v => v.id === _frontCh);
+  /* 고른 장이 없으면 지금 밀고 있는 장. **여기서 _frontCh 에 박지 않는다** — 서버 상태를 받기 전에
+     빈 저장본으로 한 번 그려지므로, 박아 두면 이미 1장을 깬 계정도 1장에 묶였다(2026-09-24). */
+  const chId = _frontCh && view.some(v => v.id === _frontCh) ? _frontCh : currentChapter(view);
+  const ch = view.find(v => v.id === chId);
   /* 장이 둘 이상이면 위에 장 탭. 첫 칸이 안 열린 장은 잠근다(앞 장을 깨면 열린다). */
   const chTabs = view.length > 1 ? `<div class="fchs">${view.map(v => {
       const open = v.cells[0].open, done = v.cells.filter(c => c.cleared).length;
       return `<button class="fch ${v.id === ch.id ? 'on' : ''}" ${open ? '' : 'disabled'} onclick="ROWAR.setFrontCh('${v.id}')">
         <b>${v.no}장</b> ${esc(v.ko)}<span>${open ? `${done} / ${v.cells.length}` : '🔒 앞 장을 깨면 열립니다'}</span></button>`;
     }).join('')}</div>` : '';
-  /* 장 도입은 처음 한 번만. 볼 때마다 틀면 탭을 오갈 수가 없다. */
-  if(!cellSeen(ch.id, 'open')){
+  /* 장 도입은 처음 한 번만. 볼 때마다 틀면 탭을 오갈 수가 없다.
+     '봤다' 표는 브라우저에만 있으니 **깬 칸이 있는 장은 본 것으로 친다** — 진행은 서버에 있어 어느 브라우저에서도 같다.
+     그리고 **서버 상태를 받기 전에는 틀지 않는다**(_frontReady) — 대문 뒤에서 빈 저장본으로 먼저 그려지는데,
+     거기서 틀면 이미 깬 1장 도입이 로그인할 때마다 흘렀다(2026-09-24 사용자 제보). */
+  if(_frontReady && !cellSeen(ch.id, 'open') && !ch.cells.some(c => c.cleared)){
     const op = openingOf(ch.id);
     if(op){ markSeen(ch.id, 'open'); playScript(op, `${ch.no}장 ${ch.ko}`, '전선으로').then(ok => { if(ok) go('terr'); }); return; }
   }
@@ -4109,8 +4130,13 @@ function renderAcct(){
 /* 접속 직후 한 번: 서버와 이 브라우저 중 어느 쪽을 따를지 정한다.
      · 서버 rev 0  = 한 번도 올린 적 없음 → 이 브라우저 저장본을 올린다(이관)
      · 서버 rev 가 내가 아는 것보다 큼 → 다른 곳에서 저장한 것이니 내려받는다
-     · 그 밖 → 올린다 */
+     · 그 밖 → 올린다
+   끝나면 — 받았든 올렸든 실패했든 — 전선을 서버 상태로 다시 정한다(frontAfterState · 2026-09-24) */
 async function syncOnConnect(){
+  try{ await syncOnConnectInner(); }
+  finally{ frontAfterState(); }
+}
+async function syncOnConnectInner(){
   /* 주의: net.pull() 이 내부에서 syncedRev 를 서버 값으로 갱신한다.
      그래서 '내가 알고 있던 rev' 는 반드시 pull 전에 읽어야 한다.
      뒤에서 읽으면 항상 서버와 같아져 '올리기'로 빠지고, 새 저장본이 서버를 덮어쓴다. */
@@ -4327,6 +4353,7 @@ async function afterLogin(r){
   const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
   if(remote){ S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex; S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync(); }
   renderAcct(); renderGate(); renderAll();
+  frontAfterState();                             // 그 계정의 진행으로 전선을 다시 정한다(2026-09-24)
   toast(r.loginId+' 으로 로그인했습니다');
 }
 async function doLogin(){
@@ -4368,7 +4395,9 @@ async function openGate(){
       renderAll();
     }catch(e){ console.error(e); }
     if(btn){ btn.disabled=false; btn.textContent=was||'시작하기'; }
-    /* 접속에 실패해도 문은 연다 — 오프라인으로도 놀 수 있는 게 이 게임의 규칙이다. */
+    /* 접속에 실패해도 문은 연다 — 오프라인으로도 놀 수 있는 게 이 게임의 규칙이다.
+       그때는 동기화가 없었으니 이 브라우저 저장본이 곧 정본이다 — 전선 도입을 틀어도 된다(2026-09-24) */
+    if(!_frontReady) frontAfterState();
   }
   g.classList.add('hide'); document.body.classList.remove('gated');
 }

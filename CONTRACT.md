@@ -401,7 +401,22 @@ GPT 계획서(`docs/balance/mech-traits-plan-2026-09-22.md`)를 사용자가 보
 - 동결 시점 확인 — `main` `5c3ceff` · `codex/ui-rebuild` `57deeaa` 를 시험으로 합치면(`git merge-tree`) **충돌 0**,
   합친 결과로 `hangar-ui-check` · `recruitment-ui-check` · `specialcheck` · `jointcheck` · `insightcheck` · `frontcheck` 통과
 
-동결 중 main 이 화면 파일을 고친 기록 — (없음)
+동결 중 main 이 화면 파일을 고친 기록
+
+- **2026-09-24 · 이미 깬 1장 도입이 로그인할 때마다 뜬다 · 사용자 지시(급한 버그)** — `js/game.js` 만.
+  원인 셋 — ① `boot()` 가 **서버에 붙기 전에** 이 브라우저 저장본으로 첫 화면을 고른다(새 브라우저 · 다른 PC 는 '신규 계정' 으로 보여 전선으로 간다),
+  ② 전적 `wins · losses` 는 대전 · 토벌만 세서 **전선만 한 계정은 같은 브라우저에서도 매번** 전선으로 간다,
+  ③ '봤다' 표(`rowar.seen.v1`)는 브라우저에만 있다. 그래서 대문 뒤에서 1장 도입이 먼저 흘렀다(`renderAll` 은 전선을 다시 그리지 않아 로그인 뒤에도 남았다).
+  | 자리 | 바뀐 것 |
+  |---|---|
+  | `setFrontCh` 바로 아래 **(새)** | `_frontReady` · `playedAccount()`(전적 **또는 전선 진행**) · `frontAfterState()` — 상태를 받은 뒤: 대문 앞이고 해 본 계정이면 `go('hangar')`, 아니면 전선을 다시 그린다 |
+  | `renderFront` 장 고르기 | 자동으로 고른 장을 `_frontCh` 에 **박지 않는다**(빈 저장본으로 1장에 묶이던 것) |
+  | `renderFront` 장 도입 | `_frontReady` 전에는 안 튼다 · **깬 칸이 있는 장은 본 것으로 친다** |
+  | `syncOnConnect` | 본문을 `syncOnConnectInner` 로 옮기고 끝에 `frontAfterState()`(성공 · 실패 모두) |
+  | `afterLogin` 끝 · `openGate`(오프라인으로 문을 열 때) | `frontAfterState()` |
+  **`boot()` · `go()` 는 건드리지 않았다** — UI 브랜치가 고친 자리다. `git merge-tree` 충돌 0.
+  **통합 때 할 일** — UI 브랜치는 `boot()` 의 해 본 계정 첫 화면을 `'home'` 으로 바꿨다. `frontAfterState` 의 `go('hangar')` 도 같은 값으로 맞춘다.
+  확인(오프라인 모드) — 처음 온 사람: 대문 뒤에서는 안 틀고 '시작하기' 뒤에 1장 도입 · 1장을 깬 저장본(전적 0 · '봤다' 표 없음): 격납고로 가고, 전선에 가면 2장이 골라진다(1장 도입 없음)
 
 #### 전투 분석 · 딜표 — 2026-09-21 밤 2 · Claude (master)
 

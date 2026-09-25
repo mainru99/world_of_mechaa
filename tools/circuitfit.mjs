@@ -10,17 +10,21 @@
  * 같은 기체끼리 붙이는 측정은 탱커일수록 판이 길어 작은 차이가 크게 번지므로(실측: HUSK · MULE 은 모든 갈래가 ×0.4 밑)
  * 기체 사이 비교에 쓰면 탱커가 특성을 못 받는다.
  *
+ * --only <갈래> 면 그 갈래 한 칸만 다시 잰다(2026-09-25 재생 장갑을 바꿀 때) — 그 기체에서 배수가 1 에 가장 가까운 갈래를 함께 재서
+ *   그 비율로 옮긴다. 나머지 칸은 그대로라 기체들의 갈래 구성이 흔들리지 않는다.
  * --write 면 data/circuit.js 의 CIRCUIT_FIT 을 다시 쓴다. 배수가 FIT_BAND 밖인 갈래는 js/circuit.js 가 고르지 않는다.
  */
 import fs from 'node:fs';
 import { ROBOT_TYPES } from '../data/balance.js';
-import { CIRCUIT_THEMES } from '../data/circuit.js';
+import { CIRCUIT_THEMES, CIRCUIT_FIT } from '../data/circuit.js';
 import { computeStats } from '../js/stats.js';
 import { makeUnit, simulate } from '../js/sim.js';
 import { branchFx, applyCircuit, FIT_BAND } from '../js/circuit.js';
 
 const N = Math.max(100, Number(process.argv[2]) || 400);
 const WRITE = process.argv.includes('--write');
+const ONLY = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
+if (ONLY && !(ONLY in CIRCUIT_THEMES)) throw new Error('모르는 갈래 ' + ONLY);
 const GOAL = .60, LO = .15, HI = 6;
 const ids = Object.keys(ROBOT_TYPES).filter(i => !ROBOT_TYPES[i].story && !ROBOT_TYPES[i].monster);
 const THEMES = Object.keys(CIRCUIT_THEMES);
@@ -40,13 +44,19 @@ let outside = 0;
 for (const t of ids) {
   const base = computeStats({ uid: 'x', type: t, level: 60, exp: 0, fat: 0, skillLv: 0, slots: EMPTY }, []);
   const g = {};
-  for (const th of THEMES) {
+  const ref = ONLY ? THEMES.filter(th => th !== ONLY).sort((a, b) => Math.abs((CIRCUIT_FIT[t][a] || 1) - 1) - Math.abs((CIRCUIT_FIT[t][b] || 1) - 1))[0] : null;
+  for (const th of (ONLY ? [ONLY, ref] : THEMES)) {
     const at = m => { const fx = {}; for (const k in BR[th]) fx[k] = BR[th][k] * 2.5 * m; return wr(t, applyCircuit(base, fx), base, N); };
     let lo = LO, hi = HI;
     if (at(HI) < GOAL) { g[th] = HI; continue; }
     if (at(LO) > GOAL) { g[th] = LO; continue; }
     for (let i = 0; i < 8; i++) { const m = Math.sqrt(lo * hi); if (at(m) < GOAL) lo = m; else hi = m; }   // 배수라 기하 중앙으로 자른다
     g[th] = Math.sqrt(lo * hi);
+  }
+  if (ONLY) {
+    out[t] = { ...CIRCUIT_FIT[t], [ONLY]: Math.round(g[ONLY] / g[ref] * (CIRCUIT_FIT[t][ref] || 1) * 100) / 100 };
+    console.log(`${t.padEnd(10)} ${CIRCUIT_THEMES[ONLY].ko} ×${(CIRCUIT_FIT[t][ONLY] ?? 1)} → ×${out[t][ONLY]}  (기준 ${CIRCUIT_THEMES[ref].ko} ×${CIRCUIT_FIT[t][ref]})`);
+    continue;
   }
   const md = median(Object.values(g));
   out[t] = Object.fromEntries(THEMES.map(th => [th, Math.round(g[th] / md * 100) / 100]));

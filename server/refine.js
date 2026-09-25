@@ -5,12 +5,13 @@
  *                      { action: 'reset', uid }                     서킷을 비운다 — 정제 코어 circuitResetCost()(1) 개
  *
  * 정제 코어는 **지금은 합치기 말고 얻을 길이 없다.** 쓰는 곳은 정제 코어 뽑기(server/pull.js 'rcore')와 서킷 비우기.
- * 규칙(찍는 순서 · 포인트)은 js/circuit.js 를 서버와 화면이 같이 쓴다. 서킷은 **전투에 아직 안 붙었다**(STATUS 할 일 3번).
+ * 규칙(찍는 순서 · 포인트)은 js/circuit.js 를 서버와 화면이 같이 쓴다. 2026-09-25 부터 **전투에 붙었다**(js/stats.js computeStats).
+ * 전문 별(A* …)도 찍는다 — 그 갈래 8칸을 다 찍은 뒤 포인트 1 을 쓴다(사용자 결정). 응답의 open 은 효과가 켜진 전문 별.
  * 쓰는 문장은 모두 '읽을 때의 값 그대로' 를 조건으로 건다 — 두 번 눌러도 두 번 치르지 않는다.
  */
 import { CONST, ROBOT_TYPES } from '../data/balance.js';
 import { traitPoints } from '../js/stats.js';
-import { parseCircuit, circuitKey, checkTaken, circuitResetCost } from '../js/circuit.js';
+import { parseCircuit, circuitKey, checkTaken, circuitResetCost, openNotables } from '../js/circuit.js';
 
 const err = (status, error, extra) => ({ ok: false, status, error, ...(extra || {}) });
 const NEED = () => (CONST.REFINE || {}).need || 10;
@@ -33,6 +34,7 @@ export async function refineRun(env, acc, now, body) {
 function view(row, rcores) {
   const taken = parseCircuit(row.circuit), points = traitPoints(row.level);
   return { uid: row.uid, type: row.type, level: row.level, points, taken, left: Math.max(0, points - taken.length),
+           open: openNotables(row.type, taken),             // 효과가 켜진 전문 별 — ['A*', …](갈래 8칸 뒤 포인트 1 로 찍는다)
            resetCost: circuitResetCost(), rcores };
 }
 

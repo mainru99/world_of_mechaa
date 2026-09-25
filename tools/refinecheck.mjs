@@ -15,6 +15,9 @@ import { refineRun, circuitRun } from '../server/refine.js';
 import { salvageView, salvageRun } from '../server/salvage.js';
 import { serverPull } from '../server/pull.js';
 import { loadState } from '../server/state.js';
+import { trialRun } from '../server/trial.js';
+import { registerArena, recomputeSnapshot } from '../server/arena.js';
+import { computeStats as cs } from '../js/stats.js';
 import { traitPoints } from '../js/stats.js';
 import { constellation } from '../js/circuit.js';
 import { rollPull, PULL_CUR } from '../js/gacha.js';
@@ -100,7 +103,7 @@ console.log('== ③ 서킷 ==');
   r = await circuitRun(env, 1, T0, { action: 'take', uid: 'r1', stars: ['B3'] });
   ok(!r.ok && r.error === 'bad stars', 'B1 없이 B3 은 거절');
   r = await circuitRun(env, 1, T0, { action: 'take', uid: 'r1', stars: ['A*'] });
-  ok(!r.ok && r.error === 'bad stars', '전문 별은 잠김');
+  ok(!r.ok && r.error === 'bad stars' && /먼저 다 찍어야/.test(r.why), '전문 별은 갈래 8칸을 먼저 다 찍어야 한다');
   r = await circuitRun(env, 1, T0, { action: 'take', uid: 'r1', stars: ['Z9'] });
   ok(!r.ok, '없는 별 거절');
   const many = [];
@@ -109,7 +112,7 @@ console.log('== ③ 서킷 ==');
   ok(!r.ok && r.error === 'bad stars' && /포인트/.test(r.why), `포인트(${pts})보다 많이는 거절`);
   r = await circuitRun(env, 1, T0, { action: 'take', uid: 'nope', stars: ['A3'] });
   ok(!r.ok && r.status === 404, '남의 · 없는 기체 거절');
-  ok(star.filter(s => s.locked).length === 4, '전문 별 넷');
+  ok(star.filter(s => s.notable).length === 4, '전문 별 넷');
 
   ok(P().rcores === 0, '정제 코어 0');
   r = await circuitRun(env, 1, T0, { action: 'reset', uid: 'r1' });
@@ -178,7 +181,31 @@ console.log('== ⑤ state ==');
   ok(st.rcores === P().rcores, `rcores ${st.rcores}`);
   ok(st.salvage && st.salvage.daily === 2, 'salvage 남은 횟수');
   ok(st.circuit && st.circuit.r1 && st.circuit.r1.join() === 'C1', 'circuit { r1: [C1] }');
-  ok(!('rcores' in st.state) && !('circuit' in st.state.robots[0]), 'state(저장본) 모양은 그대로');
+  ok(!('rcores' in st.state), 'state(저장본) 에 정제 코어는 없다(밖에 둔다)');
+  ok(st.state.robots[0].circuit && st.state.robots[0].circuit.join() === 'C1', '찍은 별은 저장본 기체에도 실린다(화면이 같은 능력치를 낸다)');
+}
+
+console.log('== ⑥ 전투에 붙었나 (2026-09-25) ==');
+{
+  /* grit 의 A 갈래 8칸 + 전문 별(포인트 1) — 레벨을 60 으로 올려 포인트를 채운다. 서버 API 로 찍는다 */
+  db.prepare('UPDATE robot SET level = 60, circuit = NULL WHERE id = 1').run();
+  const tk = await circuitRun(env, 1, T0, { action: 'take', uid: 'r1', stars: ['A1','A2','A3','A4','A5','A6','A7','A8','A*','B1'] });
+  ok(tk.ok && tk.open.join() === 'A*' && tk.left === traitPoints(60) - 10, `API 로 전문 별을 찍는다 — 포인트 1 을 쓴다(남은 ${tk.left})`);
+  const E = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
+  const bare = cs({ type: 'grit', level: 60, fat: 0, skillLv: 0, slots: E }, []);
+  const t = await trialRun(env, 1, T0);
+  ok(t.ok && t.stats.nb && Object.keys(t.stats.nb).length === 1 && (t.stats.atk !== bare.atk || t.stats.hp !== bare.hp),
+     `시련 — 찍은 별이 능력치에 들어간다 · 전문 별 ${t.stats && JSON.stringify(t.stats.nb)}`);
+  const v = await salvageRun(env, 1, T0 + 40 * 86400000, { tier: 0 });
+  ok(v.ok && v.stats.nb, '조각 작전 — 전문 별까지 들어간다');
+  await registerArena(env, 1, T0);
+  const snap = JSON.parse(db.prepare('SELECT snapshot FROM arena_entry WHERE account_id = 1').get().snapshot);
+  ok(snap.circuit && snap.circuit.length === 10 && snap.circuit.includes('A*') && snap.stats.nb, '아레나 방어 기록에 찍은 별 · 전문 별이 실린다');
+  const re = recomputeSnapshot(snap);
+  ok(re && JSON.stringify(re.stats) === JSON.stringify(snap.stats), '밸런스가 바뀌어 다시 계산해도 같은 능력치(서킷 포함)');
+  db.prepare('UPDATE robot SET circuit = NULL WHERE id = 1').run();
+  const t2 = await trialRun(env, 1, T0);
+  ok(!t2.stats.nb && t2.stats.hp === bare.hp && t2.stats.atk === bare.atk, '비우면 맨 능력치로 돌아간다');
 }
 
 console.log(bad ? `\n실패 ${bad}` : '\n전부 통과');

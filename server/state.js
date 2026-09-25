@@ -266,8 +266,9 @@ export async function loadState(env, accountId) {
       robots: robots.map(r => {
         const slots = {};
         for (const sl of SLOTS) slots[sl] = byId.get(r[col[sl]]) ?? null;
+        /* 찍은 별(023)이 있으면 기체에 싣는다 — 화면도 js/stats.js computeStats 로 능력치를 내므로 서버와 같은 값이 된다 */
         return { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at,
-                 skillLv: r.skill_lv | 0, slots };
+                 skillLv: r.skill_lv | 0, slots, ...(r.circuit ? { circuit: parseCircuit(r.circuit) } : {}) };
       }),
       parts: parts.map(partOf),
     },

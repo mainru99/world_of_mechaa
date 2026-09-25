@@ -9,6 +9,7 @@
  * 받을 기체가 없으면(C ~ R 을 다 가졌다) 싸우지 않는다. 목표(m_goal)는 건드리지 않는다.
  * 쓰는 문장은 횟수 칸(salv)과 보관함(items)이 읽을 때 그대로일 것을 조건으로 건다 — 두 번 눌러도 한 판만 된다.
  */
+import { parseCircuit } from '../js/circuit.js';
 import { computeStats } from '../js/stats.js';
 import { shardKey, parseItems, shardNeed } from '../js/shop.js';
 import { salvView, salvLeft, salvNext, salvFoe, runSalvage, dayOf, salvTarget } from '../js/salvage.js';
@@ -22,7 +23,7 @@ async function load(env, acc) {
   const p = await env.DB.prepare('SELECT sel_robot, items, m_goal, salv FROM player WHERE account_id = ?1').bind(acc).first();
   if (!p) return null;
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, fat, skill_lv, ${Object.values(SLOT_COL).join(', ')} FROM robot WHERE account_id = ?1 ORDER BY id`)
+    `SELECT id, uid, type, level, fat, skill_lv, circuit, ${Object.values(SLOT_COL).join(', ')} FROM robot WHERE account_id = ?1 ORDER BY id`)
     .bind(acc).all()).results || [];
   const owned = robots.map(r => r.type);
   return { p, robots, owned, goal: salvTarget(p.m_goal, owned) };
@@ -60,7 +61,7 @@ export async function salvageRun(env, acc, now, body) {
   const byId = new Map(parts.map(x => [x.id, x]));
   const slots = {};
   for (const sl in SLOT_COL) { const q = byId.get(row[SLOT_COL[sl]]); slots[sl] = q ? q.uid : null; }
-  const robot = { uid: row.uid, type: row.type, level: row.level, fat: row.fat, skillLv: row.skill_lv, slots };
+  const robot = { uid: row.uid, type: row.type, level: row.level, fat: row.fat, skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit) };
   const used = parts.map(partOf);
   const stats = computeStats(robot, used);
   const seed = crypto.getRandomValues(new Uint32Array(1))[0] >>> 0;

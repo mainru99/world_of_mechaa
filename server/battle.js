@@ -10,6 +10,7 @@
  * 만렙 상대만 잡아 경험치를 부풀릴 수 있다.
  * 시드를 서버가 정하는 이유: 결정적 시뮬이라 시드가 곧 결과다.
  */
+import { parseCircuit } from '../js/circuit.js';
 import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
 import { computeStats, power, gainExp, addFat, fatOf, decayFat,
          sortieCost, rescueCredits } from '../js/stats.js';
@@ -38,7 +39,7 @@ async function loadFighter(env, accountId) {
     'SELECT sel_robot, credits, rating, mband, mband_pts, squad1, squad2, hunt_wk FROM player WHERE account_id = ?1')
     .bind(accountId).first();
   const robots = (await env.DB.prepare(
-    'SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
+    'SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, circuit, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(accountId).all()).results || [];
   if (!robots.length) return null;
   const squad = [p && p.squad1, p && p.squad2].filter(Boolean);
@@ -61,7 +62,7 @@ async function loadFighter(env, accountId) {
       if (p2) used.push(partOf(p2));
     }
     return { row: r, parts: used,
-             robot: { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at, skillLv: r.skill_lv, slots } };
+             robot: { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at, skillLv: r.skill_lv, slots, circuit: parseCircuit(r.circuit) } };
   };
   const { robot: { slots }, parts: used } = fighterOf(row);
   /* 합동전 편성 — 선봉(sel_robot)이 먼저, 그다음 편성 순서. 편성이 비었으면 선봉 하나다 */
@@ -79,7 +80,7 @@ async function loadFighter(env, accountId) {
     band: bandStart(p && p.mband, p && p.rating != null ? p.rating : 1000),
     bandPts: (p && p.mband_pts) | 0,
     huntWk: p ? p.hunt_wk : null,         // 토벌 주간 입장 수(021) — 원문 그대로. readHuntWeek 로 읽는다
-    robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots },
+    robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit) },
     parts: used,
     /* 상대 등급 보정은 '보유한' 기체 전부를 본다 — 편성에 없어도 내 전력이다 */
     allRarities: robots.map(r => (COMBAT[r.type] || ROBOT_TYPES.mule).rarity),

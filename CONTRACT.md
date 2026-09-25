@@ -347,6 +347,26 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 > 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
 > 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
 
+#### 코어 서킷 전투 반영 · 전문 별 — 2026-09-25 · Claude (master · 사용자 결정) → `codex/ui-rebuild` · ChatGPT 읽을 것
+
+- **공용 모듈이 바뀌었다(화면 파일은 안 건드렸다)** — `js/stats.js computeStats(robot, parts)` 가 `robot.circuit`(찍은 별 id 배열)이 있으면 서킷을 얹는다.
+  `/api/state` 의 `state.robots[i].circuit` 에 실려 오므로 **기체 객체를 그대로 넘기면 된다.** 결과에 `regenT`(턴마다 회복) · `nb`(열린 전문 별)가 붙을 수 있다 — `makeUnit` 이 받는다
+- 전투 사건 두 가지가 새로 나올 수 있다 — `heal` 에 `src: 'circuit'`(서킷 재생) · `hit` 에 `counter: true`('회피 기동' 반격 — 맞던 쪽이 친다). 모르면 평범한 회복 · 타격으로 그려도 된다
+- `POST /api/circuit` 응답에 `open: ['A*', …]` — 효과가 켜진 전문 별. 전문 별도 **찍는다** — 그 갈래 8칸을 다 찍은 뒤 `stars` 에 `'A*'` 를 넣으면 포인트 1 을 쓴다(사용자 결정 · `blockOf` 가 이유를 준다)
+- 비우기 단추 — `circuitResetWarn()` 문구로 **주의만 띄우고** 확인하면 `{ action: 'reset' }`(사용자 결정). 값은 처음부터 정제 코어 1
+- `data/circuit.js` — `CIRCUIT_NOTABLE` **(새)** · `CIRCUIT.unit.regen` 이 '턴마다 회복' 값으로 바뀌었다(.00282 → .000137) · `CIRCUIT_FIT` 재생 장갑 칸을 다시 쟀다.
+  이제 전투에 쓰이므로 `balance_ver` 에 들어간다. 재생 장갑 뜻이 바뀌어 **12기의 갈래 구성이 달라졌다**(STATUS '2026-09-25 (5)')
+- 전문 별 규칙 · 값 설명 — `js/sim.js` 머리 '코어 서킷 전문 별'. 값 맞추기 `node tools/circuitnotable.mjs [--only …] --write`
+- `CIRCUIT_FIT_HAND` **(새)** — 값어치 배수를 손으로 덮는 칸(ORACLE · ANVIL 재생 장갑 절반). `circuitfit --write` 가 안 덮는다. 배수를 읽을 때는 `fitOf(type)` 를 쓴다
+
+#### 조각 합성 — 2026-09-25 · Claude (master · `data/balance.js` 에 넣기만 했다 · 사용자 결정) → `codex/ui-rebuild` 가 화면을 만들 것
+
+- `CONST.SHARD_SYNTH` **(새)** `{ min: 6, max: 10, base: 0.25, step: 0.07, master: 0.01, qty: { same: ½, up: ⅓, master: ⅕ }, scrap: { C: 120, UC: 200, R: 320, UQ: 500 } }`
+- `POST /api/shop { action: 'synth', mats: { 기체 id: 개수 } }` → 상점 보기와 같은 모양 + `synth: { grade: 'same'|'up'|'master', rarity, type, qty, from, used, spent, rates }`.
+  거절 `bad synth { why }`(문장 그대로 보여 주면 된다) · `not enough scrap { need, have }` · 경합 409
+- 화면이 미리 보여 줄 확률 · 값은 `js/shardsynth.js synthCheck(mats, items)` → `{ rar, n, cost, rates:{ up, master, same } }` — 서버와 같은 함수
+- 규칙 전문 `STATUS.md` '2026-09-25 (4)'
+
 #### 정제 코어 · 정제 코어 뽑기 · 서킷 비우기 · 조각 회수 작전 — 2026-09-25 · Claude (master · `data/balance.js` 를 고쳤다 · 사용자 지시) → `codex/ui-rebuild` 가 화면을 만들 것 · ChatGPT 읽을 것
 
 **서버 · 규칙 · DB(이관 023)까지만 넣었다.** 화면 파일은 건드리지 않았다. 기록 전문 `STATUS.md` '2026-09-25 (2)'.

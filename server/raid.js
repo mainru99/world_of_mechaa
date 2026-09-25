@@ -8,6 +8,7 @@
  *   ② 하루 횟수를 서버가 센다. 클라가 보내는 값은 아무것도 믿지 않는다 —
  *      도전 요청에 실리는 것은 '도전한다' 는 사실뿐이다.
  */
+import { parseCircuit } from '../js/circuit.js';
 import { codexMonsterStmt } from './codex.js';
 import { computeStats, power } from '../js/stats.js';
 import { weekOf, weekEnd, raidOf, runRaid, raidSeeds, raidReward,
@@ -28,7 +29,7 @@ async function loadSquad(env, acc) {
     .bind(acc).first();
   if (!p) return null;
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, fat, skill_lv, ${Object.values(SLOT_COL).join(', ')}
+    `SELECT id, uid, type, level, fat, skill_lv, circuit, ${Object.values(SLOT_COL).join(', ')}
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(acc).all()).results || [];
   if (!robots.length) return null;
 
@@ -53,7 +54,7 @@ async function loadSquad(env, acc) {
       if (q) used.push(partOf(q));
     }
     const rb = { uid: row.uid, type: row.type, level: row.level, fat: row.fat,
-                 skillLv: row.skill_lv, slots };
+                 skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit) };
     return { name: row.type, type: row.type, robot: rb, parts: used,
              stats: computeStats(rb, used), power: power(rb, used) };
   });

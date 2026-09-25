@@ -55,7 +55,7 @@ const TAC = k => (CONST.TACTIC && (CONST.TACTIC[k] || CONST.TACTIC.none)) ||
 
 export function makeUnit(name, type, st, tactic) {
   const T = TAC(tactic);
-  return { name, type, maxhp: st.hp, hp: st.hp,
+  const u = { name, type, maxhp: st.hp, hp: st.hp,
            atk: Math.max(1, Math.round(st.atk * (T.atk != null ? T.atk : 1))),
            def: st.def, spd: st.spd,
            crit: st.crit,
@@ -82,7 +82,71 @@ export function makeUnit(name, type, st, tactic) {
            regen: st.regen || 0,                  // 직전 공격을 피했으면 최대 내구의 이만큼 회복
            stackSpd: st.stackSpd || 0,            // 공격할 때마다 속도가 이 비율씩 (음수)
            stackMax: st.stackMax || 0,
-           stack: 0, spd0: st.spd, dodged: false };
+           stack: 0, spd0: st.spd, dodged: false,
+           /* ── 코어 서킷(2026-09-25) — 전부 **없으면 0/null 이라 예전과 완전히 같게 돈다**(난수도 안 뽑는다).
+              regenT  내 턴마다 최대 내구의 이만큼 회복(서킷 '재생 장갑'. 파츠의 regen 은 회피 직후라 다르다)
+              nb      찍은 전문 별 { 갈래 종류: 값 } — 갈래 8칸을 다 찍은 뒤 포인트 1 로 찍는다(js/circuit.js circuitNotables) */
+           regenT: st.regenT || 0,
+           nb: st.nb || null };
+  if (u.nb) u.nbCounter = true;                          // 회피 기동 반격은 첫 턴 전에도 한 번 된다
+  return u;
+}
+
+/* ── 코어 서킷 전문 별(2026-09-25) ─────────────────────────────
+   1:1(simulate)과 합동전(js/joint.js)이 **같은 함수**를 부른다. 난수를 뽑는 것은 '회피 기동'의 반격 한 타뿐이고,
+   그것도 그 전문 별이 있을 때만이다. 전문 별이 없으면 아래 함수들은 1 을 돌려주거나 아무것도 안 한다.
+     armor     내구 50% 이하일 때 받는 피해 ×(1−v)           fortress  받는 스킬 피해 ×(1−v)
+     absorb    치명타로 받는 추가 피해 ×(1−v)                 overdrive 평타 피해 ×(1+v)
+     heavy     전투 첫 명중 ×(1+v)                             light     행동 게이지를 v 만큼 앞서 시작(gaugeStart)
+     accel     가속이 다 차면 치명 +v(stackStep)               aim       치명 배수 +v
+     target    같은 상대를 연속으로 맞히면 한 번마다 +v(5번까지)  evade     피한 직후 반격 한 타(피해 ×v · 내 턴 사이 한 번)
+     regen     턴마다 회복이 내구가 낮을수록 커진다 ×(1+v×잃은 비율)
+     amp       스킬 첫 타 방어 관통 v                          cool      스킬을 쓴 뒤 내 다음 턴까지 받는 피해 ×(1−v)
+     pierce    파츠 관통이 터지면 상대 방어 ×(1−v) — 상대의 턴이 세 번 올 때까지(NB_PIERCE_TURNS) */
+export const NB_PIERCE_TURNS = 3;
+export const NB_TARGET_MAX = 5;
+/* 행동 게이지 시작값 — 경량 프레임 전문 별이 있으면 v 만큼 앞선다. 난수는 이미 뽑은 뒤라 난수열은 그대로다.
+   (스킬 게이지로 했더니 턴마다 30 씩 차서 10 · 40 · 70 에서만 효과가 계단처럼 바뀌어 세기를 맞출 수 없었다) */
+export const gaugeStart = (u, g) => (u.nb && u.nb.light ? Math.min(99.99, g + u.nb.light) : g);
+export function nbOut(A, D, o, crit) {
+  const n = A.nb; if (!n) return 1;
+  let m = 1;
+  if (n.overdrive && !o.skill && !o.counter) m *= 1 + n.overdrive;
+  if (n.heavy && !A.nbHit) m *= 1 + n.heavy;
+  A.nbHit = true;
+  if (n.aim && crit) m *= (CRIT_MULT + n.aim) / CRIT_MULT;
+  if (n.target) {
+    if (A.nbTgt === D) A.nbRun = Math.min(NB_TARGET_MAX, (A.nbRun || 0) + 1); else { A.nbTgt = D; A.nbRun = 0; }
+    m *= 1 + n.target * A.nbRun;
+  }
+  return m;
+}
+export function nbIn(D, o, crit) {
+  const n = D.nb; if (!n) return 1;
+  let k = 1;
+  if (n.armor && D.hp < D.maxhp * 0.5) k *= 1 - n.armor;
+  if (n.fortress && o.skill) k *= 1 - n.fortress;
+  if (n.absorb && crit) k *= (1 + (CRIT_MULT - 1) * (1 - n.absorb)) / CRIT_MULT;
+  if (n.cool && D.nbCool) k *= 1 - n.cool;
+  return k;
+}
+/* 내 턴 시작 — 한 턴짜리 표시를 지우고, 서킷 재생을 한다. 찬 양(0 이면 사건 없음)을 돌려준다 */
+export function turnStart(A) {
+  if (A.defDown && --A.defDownN <= 0) A.defDown = 0;
+  if (!A.nb && !(A.regenT > 0)) return 0;
+  if (A.nb) { A.nbCool = false; A.nbCounter = true; }
+  if (!(A.regenT > 0) || A.hp <= 0 || A.hp >= A.maxhp) return 0;
+  const low = 1 - A.hp / A.maxhp, boost = A.nb && A.nb.regen ? 1 + A.nb.regen * low : 1;
+  const got = Math.min(A.maxhp, A.hp + Math.max(1, Math.round(A.maxhp * A.regenT * boost))) - A.hp;
+  A.hp += got;
+  return got;
+}
+/* 스택 — 공격할 때마다 속도가 바뀐다(파츠 채프 런처는 느려지고 서킷 가속 회로는 빨라진다). 다 차면 가속 회로 전문 별 */
+export function stackStep(A) {
+  if (!(A.stackMax > 0) || A.stack >= A.stackMax) return;
+  A.stack++;
+  A.spd = Math.max(1, A.spd0 * (1 + A.stack * A.stackSpd));
+  if (A.stack === A.stackMax && A.nb && A.nb.accel) A.crit = Math.min(0.75, A.crit + A.nb.accel);
 }
 
 export function dmgCalc(atk, def, rnd, mult, spread) {
@@ -96,7 +160,13 @@ export function doHit(A, D, side, dside, ev, rnd, o) {
   o = o || {};
   if (!o.noMiss && rnd() < D.eva) {
     D.dodged = true;                       // 재생 인챈트가 이걸 본다
-    ev.push({ t:'hit', side, dside, miss:true, dmg:0, crit:false, thp:D.hp }); return;
+    ev.push({ t:'hit', side, dside, miss:true, dmg:0, crit:false, thp:D.hp });
+    /* 회피 기동 전문 별 — 피한 직후 반격 한 타. 반격은 반격을 부르지 않는다 */
+    if (D.nb && D.nb.evade && D.nbCounter && !o.counter && D.hp > 0 && A.hp > 0) {
+      D.nbCounter = false;
+      doHit(D, A, dside, side, ev, rnd, { mult: D.nb.evade, counter: true });
+    }
+    return;
   }
   D.dodged = false;
   const crit = o.alwaysCrit || (!o.noCrit && rnd() < A.crit);
@@ -104,9 +174,11 @@ export function doHit(A, D, side, dside, ev, rnd, o) {
   /* 파츠 관통(브레이커·관통 인챈트)은 **확률**이다. 스킬 관통과 겹치면 큰 쪽을 쓴다 —
      더하면 전탄 관통이 되어 방어 스탯이 통째로 의미를 잃는다.
      A.pen 이 0 이면 난수를 아예 뽑지 않는다(위 주석 참고). */
-  if (A.pen > 0 && rnd() < A.pen) pen = Math.max(pen, A.penAmt);
-  let m = (o.mult || 1) * (crit ? CRIT_MULT : 1);
-  const def = Math.max(0, D.def) * (1 - pen);
+  let pr = false;
+  if (A.pen > 0 && rnd() < A.pen) { pen = Math.max(pen, A.penAmt); pr = true; }
+  if (o.first && A.nb && A.nb.amp) pen = Math.max(pen, A.nb.amp);          // 스킬 증폭 전문 별 — 스킬 첫 타
+  let m = (o.mult || 1) * (crit ? CRIT_MULT : 1) * nbOut(A, D, o, crit);
+  const def = Math.max(0, D.def) * (1 - pen) * (1 - (D.defDown || 0));
   /* ── 특화기술(2026-09-21) — **전부 난수를 뽑지 않는다.** 값이 없으면 한 줄도 안 돈다.
      그래서 특화기술이 없는 기체끼리의 전투는 예전과 이벤트까지 같다(tools/regress.mjs).
        execute  마무리 — 상대 체력이 SPECIAL.execHp 밑이면 이 타격이 (1+x) 배
@@ -118,12 +190,15 @@ export function doHit(A, D, side, dside, ev, rnd, o) {
      스킬로 맞은 것이면 takenSkill 이 한 번 더 걸린다(o.skill 은 doSkill 이 넣어 준다). */
   let tk = (D.taken != null ? D.taken : 1) * (o.skill ? (D.takenSkill != null ? D.takenSkill : 1) : 1);
   if (D.mark) tk *= 1 + D.mark;
+  tk *= nbIn(D, o, crit);
   const dmg = Math.max(1, Math.round(dmgCalc(A.atk, def, rnd, m, A.spread) * tk));
   let absorb = 0;
   if (D.shield > 0) { absorb = Math.min(D.shield, dmg); D.shield -= absorb; }
   D.hp = Math.max(0, D.hp - (dmg - absorb));
   const he = { t:'hit', side, dside, miss:false, dmg, crit, thp:D.hp };
   if (absorb) he.absorb = absorb;
+  if (o.counter) he.counter = true;
+  if (pr && A.nb && A.nb.pierce && D.hp > 0) { D.defDown = A.nb.pierce; D.defDownN = NB_PIERCE_TURNS; }   // 관통탄 전문 별
   ev.push(he);
   if (o.shred && D.hp > 0) {
     if (D.def0 == null) D.def0 = D.def;
@@ -147,8 +222,9 @@ export function doSkill(A, D, side, dside, ev, rnd) {   // 기체와 몬스터�
   const up = { ...fx, mult: (fx.mult || 1) * (A.skillMul || 1), skill: true };
   /* 표적은 **맞히기 전에** 건다 — 이번 스킬의 타격부터 더 들어간다 */
   if (fx.mark && D.hp > 0) { D.mark = Math.max(D.mark || 0, fx.mark); ev.push({ t:'mark', side, dside, amt: fx.mark }); }
-  for (let i = 0; i < hits; i++) { if (D.hp <= 0) break; doHit(A, D, side, dside, ev, rnd, up); }
+  for (let i = 0; i < hits; i++) { if (D.hp <= 0) break; doHit(A, D, side, dside, ev, rnd, i === 0 && A.nb ? { ...up, first: true } : up); }
   afterSkill(A, D, side, dside, ev, fx, A);
+  if (A.nb && A.nb.cool) A.nbCool = true;                                 // 냉각 코어 전문 별
 }
 
 /* 스킬을 다 쏜 뒤에 붙는 특화기술 — 방벽 · 수리 · 재밍. to 는 방벽과 수리를 받을 쪽이다
@@ -205,6 +281,7 @@ export function afterSkill(A, D, side, dside, ev, fx, to) {
 export function simulate(P, E, seed) {
   const rnd = mulberry32(seed >>> 0), ev = [{ t:'start' }];
   const g = { P: rnd() * 100, E: rnd() * 100 };
+  g.P = gaugeStart(P, g.P); g.E = gaugeStart(E, g.E);
   let guard = 0;
   /* T — 전투 안에서 흐른 시간. 행동마다 'turn' 이벤트에 at 으로 싣는다.
      재생이 이 시각에 맞춰 여러 기체를 **동시에** 움직인다(실시간 재생). 판정에는 흘려내기만 쓴다 */
@@ -248,6 +325,7 @@ export function simulate(P, E, seed) {
         A.dodged = false;
         if (got > 0) ev.push({ t:'heal', side, hp:A.hp, amt:got });
       }
+      { const got = turnStart(A); if (got > 0) ev.push({ t:'heal', side, hp:A.hp, amt:got, src:'circuit' }); }
       if (A.sp >= 100) { A.sp = 0; doSkill(A, D, side, dside, ev, rnd); }
       else if (tryParry(A, D, g[dside], T, rnd)) {
         g[side] -= PARRY().delay || 0;
@@ -261,10 +339,7 @@ export function simulate(P, E, seed) {
          원안은 '2초간 공격하지 않으면 초기화' 였는데 1:1 에서는 자기 턴마다 반드시
          공격하므로 그 조건이 영원히 성립하지 않는다. 초기화를 빼면 오히려 원안의
          컨셉대로다 — 처음엔 가장 빠른 중화기, 끝엔 가장 느린. */
-      if (A.stackMax > 0 && A.stack < A.stackMax) {
-        A.stack++;
-        A.spd = Math.max(1, A.spd0 * (1 + A.stack * A.stackSpd));
-      }
+      stackStep(A);
     }
   }
   ev.push({ t:'end', winner: P.hp > 0 ? 'P' : (E.hp > 0 ? 'E' : 'P') });

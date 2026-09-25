@@ -8,6 +8,7 @@ import { POWER_K } from '../data/powercal.js';
 /* 인챈트의 티어 안 굴림을 seed 에서 재현하는 데만 쓴다. sim.js 는 stats.js 를
    부르지 않으므로 순환이 아니다. */
 import { mulberry32 } from './sim.js';
+import { withCircuit } from './circuit.js';
 
 const { ATK_SCALE, FAT_MAX, MAXLV, SERVICE_RATE } = CONST;
 
@@ -306,7 +307,9 @@ export function computeStats(robot, parts) {
      1 이면 키를 만들지 않는다 — 몬스터 · 예전 스냅샷은 예전 전투력 그대로다 */
   const pk = POWER_K[robot.type];
   if (pk && pk !== 1) s.pwK = pk;
-  return s;
+  /* 코어 서킷(2026-09-25) — robot.circuit(찍은 별 id 목록)이 있으면 맨 마지막에 얹는다. 없으면 s 그대로다.
+     서버는 기체 행의 robot.circuit 을, 화면은 /api/state 의 기체에 실린 circuit 을 넘긴다 — 같은 함수라 판정과 재생이 갈리지 않는다 */
+  return withCircuit(s, robot);
 }
 
 /* 표시용 공격력 구간. 피해는 최종적으로 (1±spread) 배가 되므로

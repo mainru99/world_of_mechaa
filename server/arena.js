@@ -6,6 +6,8 @@
  * 갱신 시점은 편성·레벨이 바뀔 때뿐이다. 전투마다 쓰면 쓰기 예산이 금방 마른다.
  * 피로도는 반영하지 않는다 — 쉬고 있는 방어 기체가 지쳐 있을 이유가 없다.
  */
+import { parseCircuit } from '../js/circuit.js';
+import { CIRCUIT, CIRCUIT_THEMES, CIRCUIT_PICK, CIRCUIT_FIT, CIRCUIT_FIT_HAND, CIRCUIT_NOTABLE } from '../data/circuit.js';
 import { ROBOT_TYPES, MONSTER_TYPES, PART_BASES, AFFIXES, AFFIX_TIER, AFFIX_ROLL, RARITY, CONST } from '../data/balance.js';
 import { POWER_K } from '../data/powercal.js';
 import { computeStats, power } from '../js/stats.js';
@@ -33,6 +35,8 @@ export function balanceVersion() {
   feed(JSON.stringify(AFFIX_TIER) + AFFIX_ROLL);
   feed(JSON.stringify(RARITY));
   feed(JSON.stringify(CONST));
+  /* 코어 서킷(2026-09-25 전투에 붙었다) — 값 · 갈래 · 배수 · 전문 별이 바뀌면 방어 기록의 능력치가 옛것이 된다 */
+  feed(JSON.stringify([CIRCUIT, CIRCUIT_THEMES, CIRCUIT_PICK, CIRCUIT_FIT, CIRCUIT_FIT_HAND, CIRCUIT_NOTABLE]));
   _ver = (h >>> 0).toString(36);
   return _ver;
 }
@@ -51,7 +55,7 @@ export async function registerArena(env, accountId, now) {
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
-    'SELECT id, uid, type, level, skill_lv, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
+    'SELECT id, uid, type, level, skill_lv, circuit, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(accountId).all()).results || [];
   if (!robots.length) return null;
   const primary = robots.find(r => r.id === p.sel_robot) || robots[0];
@@ -77,8 +81,8 @@ export async function registerArena(env, accountId, now) {
       slots[sl] = q ? q.uid : null;
       if (q) used.push(partOf(q));
     }
-    const rb = { type: row.type, level: row.level, fat: 0, skillLv: row.skill_lv, slots };
-    return { entry: { type: row.type, level: row.level, skillLv: row.skill_lv, slots, parts: used,
+    const rb = { type: row.type, level: row.level, fat: 0, skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit) };
+    return { entry: { type: row.type, level: row.level, skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit), parts: used,
                       stats: computeStats(rb, used) },
              power: power(rb, used) };
   };
@@ -121,7 +125,7 @@ export function recomputeSnapshot(snap) {
     if (!e || !ROBOT_TYPES[e.type]) return null;
     const { squad, ...rest } = e;
     const rb = { type: e.type, level: e.level | 0, fat: 0, skillLv: e.skillLv | 0,
-                 slots: e.slots || EMPTY_SLOTS };
+                 slots: e.slots || EMPTY_SLOTS, circuit: e.circuit };
     return { ...rest, stats: computeStats(rb, Array.isArray(e.parts) ? e.parts : []) };
   };
   const main = one(snap);
@@ -130,7 +134,7 @@ export function recomputeSnapshot(snap) {
      그 계정이 다음에 편성을 건드리면 registerArena 가 두 기로 채운다. */
   const squad = Array.isArray(snap.squad) ? snap.squad.map(one).filter(Boolean) : null;
   const rb = { type: snap.type, level: snap.level | 0, fat: 0, skillLv: snap.skillLv | 0,
-               slots: snap.slots || EMPTY_SLOTS };
+               slots: snap.slots || EMPTY_SLOTS, circuit: snap.circuit };
   return {
     snapshot: (squad && squad.length) ? { ...main, squad } : main,
     stats: main.stats,
@@ -157,12 +161,12 @@ function rowToOpponent(row, ver, pick) {
   const stale = row.balance_ver !== ver;
   const statOf = x => {
     const rb = { type: x.type, level: x.level | 0, fat: 0, skillLv: x.skillLv | 0,
-                 slots: x.slots || EMPTY_SLOTS };
+                 slots: x.slots || EMPTY_SLOTS, circuit: x.circuit };
     return computeStats(rb, Array.isArray(x.parts) ? x.parts : []);
   };
   const powerOfEntry = x => {
     const rb = { type: x.type, level: x.level | 0, fat: 0, skillLv: x.skillLv | 0,
-                 slots: x.slots || EMPTY_SLOTS };
+                 slots: x.slots || EMPTY_SLOTS, circuit: x.circuit };
     return power(rb, Array.isArray(x.parts) ? x.parts : []);
   };
   const stats = stale ? statOf(e) : e.stats;

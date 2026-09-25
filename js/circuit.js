@@ -2,10 +2,14 @@
  * 값과 갈래 종류는 data/circuit.js. 2026-09-23 Claude 시안 — 전투에는 아직 안 붙어 있다.
  *
  * 별 id — 갈래 글자 + 순번: 'A1' ~ 'A8', 전문 별은 'A*'.
- * 찍기 규칙 — 갈래 안에서 **안쪽부터** 이어서 찍는다(A3 은 A2 가 있어야). 전문 별은 잠겨 있다.
+ * 찍기 규칙 — 갈래 안에서 **안쪽부터** 이어서 찍는다(A3 은 A2 가 있어야). 전문 별(A*)은 A1 ~ A8 을 다 찍어야 찍을 수 있고
+ *             **포인트 1 을 쓴다**(2026-09-25 사용자 결정 — 공짜로 열리지 않는다).
  */
 import { ROBOT_TYPES, CONST } from '../data/balance.js';
-import { CIRCUIT, CIRCUIT_THEMES, CIRCUIT_PICK, CIRCUIT_FIT } from '../data/circuit.js';
+import { CIRCUIT, CIRCUIT_THEMES, CIRCUIT_PICK, CIRCUIT_FIT, CIRCUIT_FIT_HAND, CIRCUIT_NOTABLE } from '../data/circuit.js';
+
+/* 기체 한 기의 값어치 배수 — 손으로 덮은 칸(CIRCUIT_FIT_HAND)이 먼저 */
+export const fitOf = type => (CIRCUIT_FIT[type] || CIRCUIT_FIT_HAND[type] ? { ...(CIRCUIT_FIT[type] || {}), ...(CIRCUIT_FIT_HAND[type] || {}) } : undefined);
 
 const BR = 'ABCD'.slice(0, CIRCUIT.branches);
 const LV = 60;
@@ -80,7 +84,7 @@ export const FIT_BAND = [0.5, 2.0];
 export function themesOf(type) {
   if (CIRCUIT_PICK[type]) return CIRCUIT_PICK[type].slice(0, BR.length);
   const T = ROBOT_TYPES[type]; if (!T) return [];
-  const pc = percentiles()[type] || scores(T), fit = CIRCUIT_FIT[type];
+  const pc = percentiles()[type] || scores(T), fit = fitOf(type);
   const fits = id => !fit || fit[id] == null || (fit[id] >= FIT_BAND[0] && fit[id] <= FIT_BAND[1]);
   const picked = [], fams = new Set();
   const order = Object.keys(pc).sort((x, y) => pc[y] - pc[x] || (x < y ? -1 : 1));
@@ -116,10 +120,10 @@ function starFx(theme, kind, g) {
 const CACHE = {};
 export function constellation(type) {
   if (CACHE[type]) return CACHE[type];
-  const T = ROBOT_TYPES[type], th = themesOf(type), fit = CIRCUIT_FIT[type] || {}, out = [];
+  const T = ROBOT_TYPES[type], th = themesOf(type), fit = fitOf(type) || {}, out = [];
   th.forEach((theme, b) => {
     CIRCUIT.pattern.forEach((kind, i) => out.push({ id: BR[b] + (i + 1), br: BR[b], i: i + 1, theme, kind, fx: starFx(theme, kind, fit[theme]) }));
-    out.push({ id: BR[b] + '*', br: BR[b], i: CIRCUIT.stars + 1, theme, notable: true, locked: true,
+    out.push({ id: BR[b] + '*', br: BR[b], i: CIRCUIT.stars + 1, theme, notable: true,
                text: CIRCUIT_THEMES[theme].notable.replace('{skill}', (T && T.skill && T.skill.name) || '스킬') });
   });
   return (CACHE[type] = out);
@@ -130,8 +134,12 @@ export function blockOf(type, taken, id, points) {
   const set = taken instanceof Set ? taken : new Set(taken || []);
   const star = constellation(type).find(s => s.id === id);
   if (!star) return '없는 별이다';
-  if (star.locked) return '전문 별은 아직 잠겨 있다';
   if (set.has(id)) return '이미 찍었다';
+  if (star.notable) {
+    for (let i = 1; i <= CIRCUIT.stars; i++) if (!set.has(star.br + i)) return `전문 별은 ${star.br}1 ~ ${star.br}${CIRCUIT.stars} 을 먼저 다 찍어야 한다`;
+    if (points != null && set.size >= points) return '남은 포인트가 없다';
+    return null;
+  }
   if (star.i > 1 && !set.has(star.br + (star.i - 1))) return `안쪽 ${star.br}${star.i - 1} 부터 찍어야 한다`;
   if (points != null && set.size >= points) return '남은 포인트가 없다';
   return null;
@@ -141,7 +149,8 @@ export function blockOf(type, taken, id, points) {
 export function checkTaken(type, taken, points) {
   const list = [...new Set(taken || [])], set = new Set();
   if (points != null && list.length > points) return '포인트보다 많이 찍었다';
-  const order = list.slice().sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
+  const key = id => [id[0], id[1] === '*' ? 99 : Number(id.slice(1))];       // 전문 별은 그 갈래 맨 뒤
+  const order = list.slice().sort((x, y) => { const a = key(x), b = key(y); return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]; });
   for (const id of order) { const why = blockOf(type, set, id, null); if (why) return `${id}: ${why}`; set.add(id); }
   return null;
 }
@@ -149,12 +158,37 @@ export function checkTaken(type, taken, points) {
 /* 찍은 별의 효과 합 { 효과: 값 } */
 export function circuitFx(type, taken) {
   const set = taken instanceof Set ? taken : new Set(taken || []), sum = {};
-  for (const s of constellation(type)) if (!s.locked && set.has(s.id)) for (const k in s.fx) sum[k] = (sum[k] || 0) + s.fx[k];
+  for (const s of constellation(type)) if (!s.notable && set.has(s.id)) for (const k in s.fx) sum[k] = (sum[k] || 0) + s.fx[k];
   return sum;
 }
 
-/* computeStats 결과에 얹는다 — 새 객체를 돌려준다. 상한은 computeStats 와 같다 */
-export function applyCircuit(st, fx) {
+/* 찍은 전문 별 — 갈래 8칸을 다 찍은 뒤 **포인트 1 을 써서** 찍는다(2026-09-25 사용자 결정).
+   { 갈래 종류: 값 } — 값은 data/circuit.js CIRCUIT_NOTABLE. 전투 규칙은 js/sim.js nbOut · nbIn · turnStart · stackStep */
+export function circuitNotables(type, taken) {
+  const set = taken instanceof Set ? taken : new Set(taken || []), th = themesOf(type), out = {};
+  th.forEach((theme, b) => {
+    if (!set.has(BR[b] + '*')) return;
+    for (let i = 1; i <= CIRCUIT.stars; i++) if (!set.has(BR[b] + i)) return;
+    if (CIRCUIT_NOTABLE[theme] != null) out[theme] = CIRCUIT_NOTABLE[theme];
+  });
+  return out;
+}
+/* 찍은(효과가 켜진) 전문 별의 id — ['A*', …] */
+export const openNotables = (type, taken) => {
+  const nb = circuitNotables(type, taken);
+  return themesOf(type).map((th, b) => (th in nb ? BR[b] + '*' : null)).filter(Boolean);
+};
+
+/* 기체 한 기(computeStats 가 받는 robot)의 찍은 별을 능력치에 얹는다. 없으면 받은 것을 그대로 돌려준다 */
+export function withCircuit(st, robot) {
+  const taken = robot && Array.isArray(robot.circuit) ? robot.circuit : null;
+  if (!taken || !taken.length || !ROBOT_TYPES[robot.type]) return st;
+  return applyCircuit(st, circuitFx(robot.type, taken), circuitNotables(robot.type, taken));
+}
+
+/* computeStats 결과에 얹는다 — 새 객체를 돌려준다. 상한은 computeStats 와 같다.
+   nb 는 열린 전문 별({ 갈래 종류: 값 }) — 비었으면 싣지 않는다 */
+export function applyCircuit(st, fx, nb) {
   const s = { ...st };
   const mul = (k, v) => { s[k] = Math.round(s[k] * (1 + v)); };
   if (fx.hp)    { mul('hp', fx.hp); s.hp = Math.max(1, s.hp); if (s.hpFull != null) s.hpFull = Math.max(1, Math.round(s.hpFull * (1 + fx.hp))); }
@@ -165,8 +199,12 @@ export function applyCircuit(st, fx) {
   if (fx.eva)   s.eva = Math.min(.6, Math.max(0, s.eva + fx.eva));
   if (fx.skill) s.skillMul = (s.skillMul || 1) * (1 + fx.skill);
   if (fx.pen)   s.pen = Math.min(1, (s.pen || 0) + fx.pen);
-  if (fx.regen) s.regen = (s.regen || 0) + fx.regen;
-  if (fx.accel && !(s.stackMax > 0)) { s.stackSpd = fx.accel; s.stackMax = 5; }   // 파츠의 감속 스택이 있으면 그쪽이 이긴다
+  /* 재생 장갑은 **내 턴마다 회복**이다(2026-09-25). 처음엔 파츠처럼 '피한 직후 회복' 이었는데, 파츠로 회피가 3 ~ 4배가 되면
+     값어치도 3 ~ 4배가 되어 파츠를 낀 빌드에서 이 갈래 하나가 정답이 됐다(빌드 차 최대 62%p · tools/circuitcheck.mjs --parts) */
+  if (fx.regen) s.regenT = (s.regenT || 0) + fx.regen;
+  /* 가속 회로는 파츠 스택(채프 런처 — 느려진다)과 **더한다**. 예전엔 파츠 쪽이 이겨서 갈래 하나가 통째로 헛것이 됐다 */
+  if (fx.accel) { s.stackSpd = (s.stackMax > 0 ? s.stackSpd : 0) + fx.accel; s.stackMax = Math.max(5, s.stackMax || 0); }
+  if (nb && Object.keys(nb).length) s.nb = { ...nb };
   return s;
 }
 
@@ -183,5 +221,8 @@ export const circuitKey = taken => {
   const l = [...new Set(taken || [])].sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
   return l.length ? JSON.stringify(l) : null;
 };
-/* 서킷을 비우는 값(정제 코어) — 2026-09-25 사용자 지시 '정제 코어 1개'. 추가 비용은 나중에 정한다 */
+/* 서킷을 비우는 값(정제 코어) — 2026-09-25 사용자 결정 '처음부터 정제 코어 1개'(첫 번 무료 없음) */
 export const circuitResetCost = () => ((CONST.REFINE || {}).circuitReset ?? 1);
+/* 비우기 단추를 누르면 띄울 주의 문구(2026-09-25 사용자 결정 — 경고만 띄우고 확인하면 비운다). 화면이 그대로 쓴다 */
+export const circuitResetWarn = () =>
+  `코어 서킷을 비우면 찍은 별이 모두 사라지고 정제 코어 ${circuitResetCost()}개가 듭니다. 되돌릴 수 없습니다.`;

@@ -23,7 +23,7 @@
  */
 import { CONST } from '../data/balance.js';
 import { COMBAT_TYPES } from './units.js';
-import { makeUnit, dmgCalc, mulberry32, afterSkill, SPECIAL, PARRY, tryParry } from './sim.js';
+import { makeUnit, dmgCalc, mulberry32, afterSkill, SPECIAL, PARRY, tryParry, nbOut, nbIn, turnStart, stackStep, NB_PIERCE_TURNS, gaugeStart } from './sim.js';
 
 const { CRIT_MULT, DEF_PEN } = CONST;
 export const JOINT = () => CONST.JOINT || { backAtk: 1.15, aoe: 0.6, boss: { hp: 1, atk: 1 } };
@@ -98,6 +98,11 @@ function hit(A, D, ev, rnd, o) {
   if (!o.noMiss && rnd() < D.eva) {
     D.dodged = true;
     ev.push({ t: 'hit', side: A.side, i: A.i, dside: D.side, di: D.i, miss: true, dmg: 0, crit: false, thp: D.hp });
+    /* 코어 서킷 '회피 기동' 전문 별 — sim.js doHit 과 같다 */
+    if (D.nb && D.nb.evade && D.nbCounter && !o.counter && D.hp > 0 && A.hp > 0) {
+      D.nbCounter = false;
+      hit(D, A, ev, rnd, { mult: D.nb.evade, counter: true });
+    }
     return;
   }
   D.dodged = false;
@@ -105,12 +110,15 @@ function hit(A, D, ev, rnd, o) {
   let crit = o.alwaysCrit || (!o.noCrit && rnd() < A.crit);
   if (dt.critnull) crit = false;                         // 굴린 뒤에 지운다 — 난수열은 그대로
   let pen = o.ignoreDef ? (o.ignoreDef === true ? DEF_PEN : o.ignoreDef) : 0;
-  if (A.pen > 0 && rnd() < A.pen) pen = Math.max(pen, A.penAmt);
-  const def = Math.max(0, D.def) * (1 - pen);
-  let m = (o.mult || 1) * (crit ? CRIT_MULT : 1);
+  let pr = false;
+  if (A.pen > 0 && rnd() < A.pen) { pen = Math.max(pen, A.penAmt); pr = true; }
+  if (o.first && A.nb && A.nb.amp) pen = Math.max(pen, A.nb.amp);          // 코어 서킷 전문 별 — sim.js 와 같다
+  const def = Math.max(0, D.def) * (1 - pen) * (1 - (D.defDown || 0));
+  let m = (o.mult || 1) * (crit ? CRIT_MULT : 1) * nbOut(A, D, o, crit);
   if (o.execute && D.hp < D.maxhp * SPECIAL().execHp) m *= 1 + o.execute;     // 특화기술 — sim.js doHit 과 같다
   let tk = (D.taken != null ? D.taken : 1) * (o.skill ? (D.takenSkill != null ? D.takenSkill : 1) : 1);
   if (D.mark) tk *= 1 + D.mark;
+  tk *= nbIn(D, o, crit);
   let dmg = Math.max(1, Math.round(dmgCalc(A.atk, def, rnd, m, A.spread) * tk));
   /* 역장 — 타격마다 '평타 한 대 기댓값의 flat 배' 를 깎는다. 배수와 무관한 고정량이라
      여러 번 약하게 치는 연타가 크게 손해를 보고, 한 방이 큰 공격은 거의 그대로다. */
@@ -126,7 +134,9 @@ function hit(A, D, ev, rnd, o) {
   const e = { t: 'hit', side: A.side, i: A.i, dside: D.side, di: D.i, miss: false, dmg, crit, thp: D.hp };
   if (cut > 0) e.cut = cut;
   if (absorb) e.absorb = absorb;
+  if (o.counter) e.counter = true;
   ev.push(e);
+  if (pr && A.nb && A.nb.pierce && D.hp > 0) { D.defDown = A.nb.pierce; D.defDownN = NB_PIERCE_TURNS; }
   if (o.shred && D.hp > 0) {
     if (D.def0 == null) D.def0 = D.def;
     D.def = Math.max(Math.round(D.def0 * SPECIAL().shredFloor), Math.round(D.def * (1 - o.shred)));
@@ -161,8 +171,9 @@ function skill(A, foes, ev, rnd, aim, allies) {
   for (let h = 0; h < hits; h++) {
     const list = foes();
     if (!list.length) break;
-    for (const D of list) if (alive(D)) hit(A, D, ev, rnd, up);
+    for (const D of list) if (alive(D)) hit(A, D, ev, rnd, h === 0 && A.nb ? { ...up, first: true } : up);
   }
+  if (A.nb && A.nb.cool) A.nbCool = true;
   /* 방벽 · 수리는 **체력 비율이 가장 낮은 아군**에게 — 후위 지원기가 전위를 받친다.
      동률이면 앞 자리(전위)가 먼저. 재밍은 스킬이 노린 상대에게 */
   const to = (allies || [A]).filter(alive).reduce((a, b) => (b.hp / b.maxhp < a.hp / a.maxhp ? b : a), A);
@@ -180,7 +191,7 @@ export function simulateJoint(team, boss, seed, opts) {
   const rnd = mulberry32(seed >>> 0);
   const ev = [{ t: 'start', n: team.length }];
   const all = [...team, boss];
-  const g = all.map(() => rnd() * 100);          // 게이지 시작값을 흩뿌린다(sim.js 머리말과 같은 이유)
+  const g = all.map(u => gaugeStart(u, rnd() * 100));   // 게이지 시작값을 흩뿌린다(sim.js 머리말과 같은 이유) · 경량 프레임 전문 별
   const teamUp = () => team.some(alive);
   const dead = new Set();
   let guard = 0, T = 0;                         // T — 흐른 시간(실시간 재생 · 흘려내기). sim.js 와 같다
@@ -227,6 +238,7 @@ export function simulateJoint(team, boss, seed, opts) {
         A.dodged = false;
         if (got > 0) ev.push({ t: 'heal', side: 'P', i: A.i, hp: A.hp, amt: got });
       }
+      { const got = turnStart(A); if (got > 0) ev.push({ t: 'heal', side: A.side, i: A.i, hp: A.hp, amt: got, src: 'circuit' }); }
 
       const foes = A === boss ? (a => () => targets(team, a)) : (() => () => [boss].filter(alive));
       if (A.sp >= 100) { A.sp = 0; skill(A, A === boss ? foes(aim) : foes(), ev, rnd, aim, A === boss ? [boss] : team); }
@@ -239,10 +251,7 @@ export function simulateJoint(team, boss, seed, opts) {
         } else if (D) hit(A, D, ev, rnd, {});
       }
       A.lastAt = T;
-      if (A.stackMax > 0 && A.stack < A.stackMax) {
-        A.stack++;
-        A.spd = Math.max(1, A.spd0 * (1 + A.stack * A.stackSpd));
-      }
+      stackStep(A);
       /* 재밍으로 밀린 게이지(특화기술) */
       for (let q = 0; q < all.length; q++) if (all[q].push) { g[q] -= all[q].push; all[q].push = 0; }
       for (const u of team) if (!alive(u) && !dead.has(u)) { dead.add(u); ev.push({ t: 'down', side: 'P', i: u.i }); }

@@ -1,6 +1,7 @@
 /* 조각 회수 작전 — 순수 규칙. (2026-09-25 사용자 지시)
  *
- * 개발 목표의 조각이 들어오는 **두 번째 길**이다. 첫째는 레벨(js/mastery.js).
+ * 기체 조각이 들어오는 **두 번째 길**이다. 첫째는 레벨(js/mastery.js).
+ * **C ~ R 기체 조각만** 준다(2026-09-25 사용자 결정) — 개발 목표가 C ~ R 이면 목표로, 아니면 salvTarget 이 고른다.
  * 하루 CONST.SALVAGE.daily(2) 번. 난이도 셋 중 하나를 골라 몬스터 하나와 싸우고, 이기면 그 난이도의 조각을 받는다.
  * 지면 횟수만 쓴다 — '어디까지 올려 볼까' 가 이 작전의 결정이다.
  *
@@ -9,10 +10,11 @@
  *
  * 브라우저와 Worker 가 같이 import 한다. DOM 을 참조하지 않는다.
  */
-import { CONST, MONSTER_TYPES } from '../data/balance.js';
+import { CONST, MONSTER_TYPES, ROBOT_TYPES } from '../data/balance.js';
 import { makeUnit, simulate } from './sim.js';
 import { foeStats } from './trial.js';
 import { dayOf } from './raid.js';
+import { goalOk } from './mastery.js';
 
 export { dayOf };
 export const SALV = () => CONST.SALVAGE || { daily: 2, tiers: [] };
@@ -27,6 +29,19 @@ function hash(a, b) {
   h = Math.imul(h ^ (h >>> 13), 2246822519);
   h = Math.imul(h ^ (h >>> 16), 3266489917);
   return (h ^ (h >>> 16)) >>> 0;
+}
+
+/* 작전 조각이 갈 기체 — **C ~ R 만**(CONST.SALVAGE.rar · 2026-09-25 사용자 결정).
+   개발 목표가 그 등급이면 목표로, 아니면(유니크 · 에픽) 열 수 있는 C ~ R 중 가장 높은 등급 · 같으면 id 순.
+   없으면(C ~ R 을 다 가졌다) null — 작전을 못 한다 */
+const RARS = ['C', 'UC', 'R', 'UQ', 'EP'];
+export const salvRarOk = type => (SALV().rar || ['C', 'UC', 'R']).includes((ROBOT_TYPES[type] || {}).rarity);
+export function salvTarget(goal, owned) {
+  const have = owned instanceof Set ? owned : new Set(owned || []);
+  if (goal && salvRarOk(goal) && goalOk(goal, have)) return goal;
+  const c = Object.keys(ROBOT_TYPES).filter(t => salvRarOk(t) && goalOk(t, have));
+  c.sort((a, b) => (RARS.indexOf(ROBOT_TYPES[b].rarity) - RARS.indexOf(ROBOT_TYPES[a].rarity)) || (a < b ? -1 : 1));
+  return c[0] || null;
 }
 
 /* 저장된 칸 → 오늘 한 횟수. 날이 바뀌었으면 0 */

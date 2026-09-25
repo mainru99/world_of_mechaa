@@ -5,13 +5,13 @@
  *
  * 규칙은 js/salvage.js. 여기서는 행을 읽고 쓰는 일만 한다. 시드는 서버가 굴리고 결과에 실어 보낸다 —
  * 화면은 같은 함수 · 같은 시드로 재생만 한다(시련과 같은 방식).
- * 조각은 **개발 목표**로 간다 — 숙련 조각(js/mastery.js)과 같은 목표다. 목표가 없으면(열 수 있는 기체를 다 가졌다) 싸우지 않는다.
+ * 조각은 **C ~ R 기체만** 받는다(사용자 결정) — 개발 목표가 C ~ R 이면 목표로, 아니면 열 수 있는 C ~ R 중 가장 높은 등급(js/salvage.js salvTarget).
+ * 받을 기체가 없으면(C ~ R 을 다 가졌다) 싸우지 않는다. 목표(m_goal)는 건드리지 않는다.
  * 쓰는 문장은 횟수 칸(salv)과 보관함(items)이 읽을 때 그대로일 것을 조건으로 건다 — 두 번 눌러도 한 판만 된다.
  */
 import { computeStats } from '../js/stats.js';
 import { shardKey, parseItems, shardNeed } from '../js/shop.js';
-import { goalOk, autoGoal } from '../js/mastery.js';
-import { salvView, salvLeft, salvNext, salvFoe, runSalvage, dayOf } from '../js/salvage.js';
+import { salvView, salvLeft, salvNext, salvFoe, runSalvage, dayOf, salvTarget } from '../js/salvage.js';
 import { PART_COLS, partOf } from './parts.js';
 import { codexMonsterStmt } from './codex.js';
 
@@ -25,8 +25,7 @@ async function load(env, acc) {
     `SELECT id, uid, type, level, fat, skill_lv, ${Object.values(SLOT_COL).join(', ')} FROM robot WHERE account_id = ?1 ORDER BY id`)
     .bind(acc).all()).results || [];
   const owned = robots.map(r => r.type);
-  const goal = goalOk(p.m_goal, owned) ? p.m_goal : autoGoal(owned);
-  return { p, robots, owned, goal };
+  return { p, robots, owned, goal: salvTarget(p.m_goal, owned) };
 }
 
 function goalView(L, items) {
@@ -70,11 +69,10 @@ export async function salvageRun(env, acc, now, body) {
   const items = parseItems(L.p.items);
   const got = out.win ? foe.shard : 0;
   if (got) items[shardKey(L.goal)] = (items[shardKey(L.goal)] | 0) + got;
-  /* 목표도 같이 박는다 — m_goal 이 비어 autoGoal 로 고른 경우, 다음에 계보가 바뀌어도 받은 조각과 목표가 어긋나지 않게 */
   const res = await env.DB.prepare(
-    `UPDATE player SET salv = ?4, items = ?5, m_goal = ?6, rev = rev + 1, updated_at = ?7
+    `UPDATE player SET salv = ?4, items = ?5, rev = rev + 1, updated_at = ?6
       WHERE account_id = ?1 AND salv IS ?2 AND items IS ?3`)
-    .bind(acc, L.p.salv, L.p.items, salvNext(L.p.salv, now), JSON.stringify(items), L.goal, now).run();
+    .bind(acc, L.p.salv, L.p.items, salvNext(L.p.salv, now), JSON.stringify(items), now).run();
   if ((res.meta?.changes ?? 0) !== 1) return err(409, 'state changed, retry');
   /* 도감 — 만났고, 이겼으면 처치 */
   const cs = codexMonsterStmt(env.DB, acc, [{ type: foe.type, win: out.win }]);

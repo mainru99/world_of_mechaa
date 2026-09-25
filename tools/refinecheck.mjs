@@ -9,7 +9,8 @@
  * node --no-warnings tools/refinecheck.mjs */
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import { CONST, PULL_TABLE, PULL_TABLE_RC, ROBOT_RARITY, ROBOT_RARITY_RC } from '../data/balance.js';
+import { CONST, PULL_TABLE, PULL_TABLE_RC, ROBOT_RARITY, ROBOT_RARITY_RC, ROBOT_TYPES } from '../data/balance.js';
+import { salvTarget } from '../js/salvage.js';
 import { refineRun, circuitRun } from '../server/refine.js';
 import { salvageView, salvageRun } from '../server/salvage.js';
 import { serverPull } from '../server/pull.js';
@@ -138,7 +139,8 @@ console.log('== ④ 작전 ==');
   ok(one.left === 1 && JSON.parse(P().salv).n === 1, '남은 횟수 1');
   const have1 = JSON.parse(P().items || '{}')['shard:' + goal] | 0;
   ok(have1 === (one.win ? CONST.SALVAGE.tiers[0].shard : 0), `${one.win ? '이김' : '짐'} → 목표 조각 ${have1}`);
-  ok(P().m_goal === goal, '목표가 박힌다');
+  ok(['C', 'UC', 'R'].includes(ROBOT_TYPES[goal].rarity), `작전 조각은 C ~ R 기체로(${goal} · ${ROBOT_TYPES[goal].rarity})`);
+  ok(P().m_goal === null, '목표(m_goal)는 건드리지 않는다');
   r = await salvageRun(env, 1, T0 + 1000, { tier: 2, uid: 'r1' });
   ok(r.ok && r.left === 0, `둘째 판(강습 · ${r.win ? '이김' : '짐'})`);
   r = await salvageRun(env, 1, T0 + 2000, { tier: 0 });
@@ -150,6 +152,24 @@ console.log('== ④ 작전 ==');
   let wins = 0, got = 0;
   for (let d = 2; d < 12; d++) { const z = await salvageRun(env, 1, T0 + d * 86400000, { tier: 0 }); if (z.win) { wins++; got += z.got; } }
   ok(wins > 0 && got === wins * CONST.SALVAGE.tiers[0].shard, `정찰 10판 중 ${wins}승 · 조각 ${got}`);
+  /* C ~ R 한정(2026-09-25 사용자 결정) — 목표가 에픽이면 작전 조각은 C ~ R 로, 목표가 R 이면 목표로 */
+  const ALL = Object.keys(ROBOT_TYPES).filter(t => !ROBOT_TYPES[t].story && !ROBOT_TYPES[t].monster);
+  const ep = ALL.find(t => ROBOT_TYPES[t].rarity === 'EP' && salvTarget(t, ['grit']) !== t);
+  const rr = ALL.find(t => ['C', 'UC', 'R'].includes(ROBOT_TYPES[t].rarity) && t !== salvTarget(null, ['grit']) && salvTarget(t, ['grit']) === t);
+  ok(ep && ['C', 'UC', 'R'].includes(ROBOT_TYPES[salvTarget(ep, ['grit'])].rarity), `목표가 에픽(${ep})이면 작전은 ${salvTarget(ep, ['grit'])}`);
+  ok(!!rr, `목표가 C ~ R(${rr} · ${rr && ROBOT_TYPES[rr].rarity})이면 자동 후보가 아니어도 그대로 목표로`);
+  db.prepare('UPDATE player SET m_goal = ?1 WHERE account_id = 1').run(ep);
+  const epBefore = JSON.parse(P().items || '{}')['shard:' + ep] | 0;
+  const z = await salvageRun(env, 1, T0 + 20 * 86400000, { tier: 0 });
+  const it = JSON.parse(P().items || '{}');
+  ok(z.ok && (it['shard:' + ep] | 0) === epBefore && P().m_goal === ep && ['C', 'UC', 'R'].includes(ROBOT_TYPES[z.goal.type].rarity),
+     `목표가 에픽이어도 에픽 조각은 안 들어온다(→ ${z.goal.type} +${z.got})`);
+  const cr = ALL.filter(t => ['C', 'UC', 'R'].includes(ROBOT_TYPES[t].rarity) && t !== 'grit');
+  ok(salvTarget(null, ['grit', ...cr]) === null, 'C ~ R 을 다 가지면 받을 기체가 없다');
+  for (const [i, t] of cr.entries()) db.prepare('INSERT INTO robot (account_id, type, level, uid, created_at) VALUES (1, ?1, 1, ?2, ?3)').run(t, 'x' + i, T0);
+  const n = await salvageRun(env, 1, T0 + 21 * 86400000, { tier: 0 });
+  ok(!n.ok && n.error === 'no goal', '그때는 작전을 못 한다(no goal)');
+  db.prepare("DELETE FROM robot WHERE uid LIKE 'x%'").run();
 }
 
 console.log('== ⑤ state ==');

@@ -40,7 +40,11 @@ console.log('== ① 규칙 ==');
   ok([...uq].join() === 'EP', '유니크의 명작은 에픽에서 멈춘다');
   const seen = new Set(); const r3 = mulberry32(5);
   for (let i = 0; i < 20000; i++) { const x = rollSynth('C', 6, r3); if (x.grade === 'same') seen.add(x.type); }
-  ok(seen.size === of('C').length, `결과 기체는 그 등급 전체에서 무작위(C ${seen.size}/${of('C').length})`);
+  ok(seen.size === of('C').length, `목표가 없으면 결과 기체는 그 등급 전체에서 무작위(C ${seen.size}/${of('C').length})`);
+  /* 개발 목표 우선(2026-09-25) — 결과 등급이 목표 등급과 같으면 늘 목표, 다르면 무작위 */
+  const [gq] = of('UQ'), r4 = mulberry32(8), hitUQ = new Set(), otherR = new Set();
+  for (let i = 0; i < 20000; i++) { const x = rollSynth('R', 10, r4, gq); if (x.rarity === 'UQ') hitUQ.add(x.type); if (x.rarity === 'R') otherR.add(x.type); }
+  ok([...hitUQ].join() === gq && otherR.size > 5, `목표 ${gq}(UQ) — UQ 로 오르면 늘 목표 조각, 동급(R)은 무작위(${otherR.size}종)`);
 }
 
 console.log('== ② 거절 ==');

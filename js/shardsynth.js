@@ -3,7 +3,8 @@
  * 같은 등급 기체 조각 6 ~ 10 개(기체는 섞여도 된다) + 스크랩 → 조각.
  *   결과 등급 — 매우 낮은 확률로 '명작'(두 등급 위) · 아니면 성공(한 등급 위) 또는 동급.
  *               성공률은 6 개에서 base, 7 개부터 하나 늘 때마다 step 씩 오른다.
- *   결과 기체 — 그 등급에서 무작위(가진 기체도 나온다 — 조립하면 자원으로 바뀐다).
+ *   결과 기체 — **개발 목표 우선**(2026-09-25 사용자 결정): 결과 등급이 개발 목표 기체의 등급과 같으면 그 기체 조각,
+ *               아니면 그 등급에서 무작위(가진 기체도 나온다 — 조립하면 자원으로 바뀐다).
  *   결과 수량 — 넣은 수에 비례. 동급 ½ · 한 등급 위 ⅓ · 명작 ⅕ (반올림 · 최소 1).
  * 에픽 조각은 넣을 수 없다(더 오를 등급이 없다). 유니크의 명작은 에픽에서 멈춘다.
  * 값은 CONST.SHARD_SYNTH. 재화를 깎고 보관함을 고치는 것은 부르는 쪽(server/shop.js)의 일이다.
@@ -59,16 +60,17 @@ export function synthCheck(mats, items) {
   return { rar, n, cost: S.scrap[rar] | 0, rates: synthRates(n, rar) };
 }
 
-/* 한 번 굴린다 — { grade: 'same' | 'up' | 'master', rarity, type, qty } */
-export function rollSynth(rar, n, rnd) {
+/* 한 번 굴린다 — { grade: 'same' | 'up' | 'master', rarity, type, qty, goal } · goal 은 개발 목표 기체 id(없으면 무작위만) */
+export function rollSynth(rar, n, rnd, goal) {
   const S = SYN(), r = synthRates(n, rar), x = rnd();
   const grade = x < r.master ? 'master' : x < r.master + r.up ? 'up' : 'same';
   const step = grade === 'master' ? 2 : grade === 'up' ? 1 : 0;
   const rarity = RARS[Math.min(RARS.length - 1, RARS.indexOf(rar) + step)];
   const pool = POOL[rarity];
-  const type = pool[Math.floor(rnd() * pool.length)];
+  const pick = pool[Math.floor(rnd() * pool.length)];         // 난수는 늘 같은 수만큼 뽑는다
+  const hit = !!goal && ROBOT_TYPES[goal] && ROBOT_TYPES[goal].rarity === rarity;
   const qty = Math.max(1, Math.round(n * S.qty[grade]));
-  return { grade, rarity, type, qty };
+  return { grade, rarity, type: hit ? goal : pick, qty, goal: hit };
 }
 
 /* 보관함에서 재료를 빼고 결과를 넣은 새 보관함 — 받은 것을 고치지 않는다 */

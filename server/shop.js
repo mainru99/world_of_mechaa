@@ -9,14 +9,14 @@ import { CONST, ROBOT_TYPES } from '../data/balance.js';
 import { periodEnd, refreshCost, shardNeed, shardKey, parseItems, shopState, rollShop, slotSig, bagView } from '../js/shop.js';
 import { insertPart } from './parts.js';
 import { canDevelop } from '../js/lineage.js';
-import { goalOk } from '../js/mastery.js';
+import { goalOk, autoGoal } from '../js/mastery.js';
 import { synthCheck, rollSynth, applySynth } from '../js/shardsynth.js';
 
 const err = (status, error, extra) => ({ ok: false, status, error, ...(extra || {}) });
 
 async function load(env, acc) {
   const p = await env.DB.prepare(
-    'SELECT credits, cores, scrap, items, shop, rev FROM player WHERE account_id = ?1').bind(acc).first();
+    'SELECT credits, cores, scrap, items, shop, rev, m_goal FROM player WHERE account_id = ?1').bind(acc).first();
   if (!p) return null;
   const robots = (await env.DB.prepare('SELECT type, level FROM robot WHERE account_id = ?1')
     .bind(acc).all()).results || [];
@@ -144,7 +144,9 @@ export async function shopRun(env, acc, now, body) {
     if (L.p.scrap < chk.cost) return err(400, 'not enough scrap', { need: chk.cost, have: L.p.scrap });
     const buf = new Uint32Array(1);
     const rnd = () => { crypto.getRandomValues(buf); return buf[0] / 4294967296; };
-    const out = rollSynth(chk.rar, chk.n, rnd);
+    /* 개발 목표 우선 — 숙련 조각 · 작전과 같은 목표(m_goal · 없으면 autoGoal) */
+    const goal = goalOk(L.p.m_goal, L.owned) ? L.p.m_goal : autoGoal(L.owned);
+    const out = rollSynth(chk.rar, chk.n, rnd, goal);
     const next = applySynth(items, body.mats, out);
     const res = await env.DB.prepare(
       `UPDATE player SET items = ?4, scrap = scrap - ?5, rev = rev + 1, updated_at = ?6

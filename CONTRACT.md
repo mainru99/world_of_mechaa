@@ -107,6 +107,10 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 
 ### → ChatGPT
 
+- **(2026-09-25, Claude · `assets/` 를 고쳤다 · 사용자 지시) 기체 그림 35기를 배경 없앤 판으로 바꿨다(31 + LENS · MANTIS · STATIC · VALKEN-4).** 사용자가 가져온 그림을 기존 그림과 견줘 짝을 찾고
+  `tools/robot_art.py` 로 규격만 맞췄다(그림 자체는 손대지 않았다). 목록 · 원본 해시 [`docs/art/robot-bg-removed-2026-09-25.csv`](docs/art/robot-bg-removed-2026-09-25.csv) · 기록 `STATUS.md` '2026-09-25 (3)'.
+  IGNIS 대기 모션은 옛 그림 그대로다
+
 - **(2026-09-25, Claude) 코어 서킷 별자리 76기 적용 — 파일럿 좌표 파일을 한 번 덮어썼다가 되살렸다.** 먼저 [지시서 '받은 것 · 적용'](docs/art/circuit-constellations-2026-09-24.md).
   - 사용자가 나머지 70기 그림을 가져왔다(좌표 없음). Claude 가 **그림 실루엣에서 좌표를 뽑고**(`tools/circuit_layout.py`) **파일럿과 같은 톤**을 입혔다
   - 도구의 첫 판이 커밋 전의 `data/circuit_layout.js`(당신의 파일럿 좌표)를 덮어써서, 당신의 `layout.json` 덤프에서 되살렸다(머리 주석만 잃음). 도구는 이제 입력 폴더에 없는 기체를 덮지 않는다
@@ -353,7 +357,7 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 |---|---|---|
 | `PULL_TABLE_RC` · `ROBOT_RARITY_RC` (새 export) | 기체 15 · 코어 1.5 · 크레딧 20 · 파츠 47.5 · 꽝 16 / C 40 · UC 27.5 · R 18 · UQ 10 · EP 4.5 | 정제 코어 뽑기 — 코어 뽑기보다 **소폭** 높게(사용자 지시) |
 | `CONST.REFINE` | `{ need: 10, pull: 1, circuitReset: 1 }` | 코어 10 → 정제 1 · 뽑기 1회 값 · 서킷 비우기 값 |
-| `CONST.SALVAGE` | `{ daily: 2, tiers: [정찰 ×0.7 조각 1 · 회수 ×1.0 조각 2 · 강습 ×1.3 조각 3] }` | 조각 회수 작전. mul 은 상대 체력 · 공격 배수 |
+| `CONST.SALVAGE` | `{ daily: 2, rar: ['C','UC','R'], tiers: [정찰 ×0.7 조각 1 · 회수 ×1.0 조각 2 · 강습 ×1.3 조각 3] }` | 조각 회수 작전. mul 은 상대 체력 · 공격 배수 · rar 은 조각을 받을 수 있는 기체 등급 |
 
 API (모두 로그인 필요 · 실패는 `{ ok:false, error, status }`)
 
@@ -368,9 +372,10 @@ API (모두 로그인 필요 · 실패는 `{ ok:false, error, status }`)
 | `GET /api/state` | — | 새 칸 셋이 **state 밖에** — `rcores` · `salvage:{left, daily}` · `circuit:{ [uid]: ['A1', …] }` |
 
 - 정제 코어 뽑기 창구는 `js/gacha.js PULL_CUR.rcore`(값 `cost` · 표 · `ko:'정제 코어'`) · 창구별 잔액 칸은 `PULL_COL`. **지금 화면(`js/game.js`)은 이 창구를 모른다** — 버튼이 없으니 영향 없다
-- 작전 조각은 **개발 목표**(숙련 조각과 같은 `m_goal` · 없으면 `autoGoal`)로 간다. 목표 고르기 화면(숙련 조각 절)과 같이 보여 주면 된다
+- 작전 조각은 **C ~ R 기체만**(사용자 결정) — 개발 목표가 C ~ R 이면 목표로, 유니크 · 에픽이면 열 수 있는 C ~ R 중 가장 높은 등급으로(`js/salvage.js salvTarget`).
+  응답의 `goal` 이 **작전 조각이 갈 기체**다(개발 목표와 다를 수 있다 — 화면에 따로 적을 것). C ~ R 을 다 가지면 `no goal`. 유니크 · 에픽 조각은 앞으로 조각 합성으로
 - 서킷은 **전투에 아직 안 붙었다.** 찍은 별 효과는 `circuitFx` · `applyCircuit`(`js/circuit.js`) — 붙이는 것은 STATUS 할 일 3번
-- ⚠ 정제 뽑기 값어치 — 정제 1 = 코어 10 인데 확률은 소폭 높을 뿐이라 지금 값으로는 손해다. `CONST.REFINE.pull` 은 사용자가 정한다(화면이 나오기 전에)
+- 정제 뽑기가 코어 10 값에 확률만 소폭 높은 것은 **기획 의도다**(사용자 확인)
 
 #### 코어 서킷 시안 2 — 별자리 · 2026-09-23 · Claude (master · 특성 정의를 맡았다 · 사용자 지시) → ChatGPT · `codex/ui-rebuild` 읽을 것
 

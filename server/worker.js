@@ -25,6 +25,8 @@ import { raidView, raidRun } from './raid.js';
 import { frontState, frontRun } from './front.js';
 import { codexRun, codexGet } from './codex.js';
 import { shopView, shopRun } from './shop.js';
+import { refineRun, circuitRun } from './refine.js';
+import { salvageView, salvageRun } from './salvage.js';
 import { sendExped, claimExped } from './expedition.js';
 import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion, migrateArena } from './arena.js';
@@ -310,9 +312,9 @@ async function handleApi(request, env, url) {
     let body; try { body = await request.json(); } catch { body = {}; }
     /* cur 은 창구(코어/크레딧)다. 값 검증은 serverPull 이 한다 — 모르는 값이면 코어로 떨어진다. */
     const r = await serverPull(env, sess.account_id, body && body.count, Date.now(), body && body.cur);
-    if (!r.ok) return json({ ok: false, error: r.error, cores: r.cores, credits: r.credits }, r.status || 500);
+    if (!r.ok) return json({ ok: false, error: r.error, cores: r.cores, credits: r.credits, rcores: r.rcores }, r.status || 500);
     return json({ ok: true, cur: r.cur, spent: r.spent, results: r.results, rev: r.rev,
-                  credits: r.credits, cores: r.cores, scrap: r.scrap, wrote: r.wrote });
+                  credits: r.credits, cores: r.cores, rcores: r.rcores, scrap: r.scrap, wrote: r.wrote });
   }
 
   /* 전투 — 상대 선택도 시드도 승패도 서버가 정한다. 클라는 재생만 한다. */
@@ -367,6 +369,36 @@ async function handleApi(request, env, url) {
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
     let sbody; try { sbody = await request.json(); } catch { sbody = {}; }
     const r = await shopRun(env, sess.account_id, Date.now(), sbody);
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+
+  /* 정제 코어(023) — 코어 10개 → 1개. 코어 서킷 — 별 찍기 · 비우기(정제 코어 1개). 화면은 UI 개편 뒤 */
+  if (path === '/refine' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let rbody; try { rbody = await request.json(); } catch { rbody = {}; }
+    const r = await refineRun(env, sess.account_id, Date.now(), rbody);
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  if (path === '/circuit' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let cbody; try { cbody = await request.json(); } catch { cbody = {}; }
+    const r = await circuitRun(env, sess.account_id, Date.now(), cbody);
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  /* 조각 회수 작전(023) — 하루 두 번 · 개발 목표의 조각. 보기(GET) · 한 판(POST) */
+  if (path === '/salvage' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await salvageView(env, sess.account_id, Date.now());
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  if (path === '/salvage' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let vbody; try { vbody = await request.json(); } catch { vbody = {}; }
+    const r = await salvageRun(env, sess.account_id, Date.now(), vbody);
     return json(r, r.ok ? 200 : (r.status || 400));
   }
 

@@ -107,6 +107,15 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 
 ### → ChatGPT
 
+- **(2026-09-25, Claude) 코어 서킷 별자리 76기 적용 — 파일럿 좌표 파일을 한 번 덮어썼다가 되살렸다.** 먼저 [지시서 '받은 것 · 적용'](docs/art/circuit-constellations-2026-09-24.md).
+  - 사용자가 나머지 70기 그림을 가져왔다(좌표 없음). Claude 가 **그림 실루엣에서 좌표를 뽑고**(`tools/circuit_layout.py`) **파일럿과 같은 톤**을 입혔다
+  - 도구의 첫 판이 커밋 전의 `data/circuit_layout.js`(당신의 파일럿 좌표)를 덮어써서, 당신의 `layout.json` 덤프에서 되살렸다(머리 주석만 잃음). 도구는 이제 입력 폴더에 없는 기체를 덮지 않는다
+  - **그 뒤 사용자가 파일럿 자리 6기도 70기와 같은 화풍으로 다시 그려 와서 바꿨다** — 76기 모두 한 벌. 당신의 파일럿 판은 `docs/art/circuit-pilot-2026-09-24/` 에 원본 · 좌표 · 검수 자료째 남아 있다
+  - 도구로 71기가 통과했고(촘촘한 갈래는 S 자 · 물결로 휘어 늘렸다 · 이름 칸끼리 겹침도 본다), **나머지는 사용자가 별자리 편집기**(`node tools/circuit_editor.mjs`)**로 직접 고쳐 76기 모두 통과**했다.
+    사용자가 손본 13기는 `hand:true` — 좌표 도구가 덮지 않는다. 다시 그리거나 좌표를 손보고 싶으면 그 기체만 알려 달라
+  - `circuit-remaining-2026-09-24.md`(70기 제작 중지 기록)은 대체됐다. 남은 그림 작업 없음
+  - 당신의 `docs/art/circuit-pilot-2026-09-24/verify.mjs` 는 키가 정확히 6기인지 단언해서 **이제 실패한다**(파일이 76기다). 76기 검사는 `node tools/circuitlayoutcheck.mjs` — 고치든 그대로 두든 당신 판단
+
 - **(2026-09-24, Claude · 사용자 지시) 코어 서킷 별자리 — 76기 모두 다른 형태와 그림을 그려 달라.**
   작업 지시서 **[`docs/art/circuit-constellations-2026-09-24.md`](docs/art/circuit-constellations-2026-09-24.md)**.
   사용자 말 그대로 — "모든 다른 별자리 형태와 별자리 그림을 가지라고 해줘. 그래봤자 88가지 정도뿐이 안 되긴 하지만 최대한 다르게 그려 달라."
@@ -333,6 +342,35 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 
 > 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
 > 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
+
+#### 정제 코어 · 정제 코어 뽑기 · 서킷 비우기 · 조각 회수 작전 — 2026-09-25 · Claude (master · `data/balance.js` 를 고쳤다 · 사용자 지시) → `codex/ui-rebuild` 가 화면을 만들 것 · ChatGPT 읽을 것
+
+**서버 · 규칙 · DB(이관 023)까지만 넣었다.** 화면 파일은 건드리지 않았다. 기록 전문 `STATUS.md` '2026-09-25 (2)'.
+
+`data/balance.js` 에 **넣기만 했다**(기존 값은 하나도 안 바꿨다) — `balance_ver` 가 바뀐다
+
+| 키 | 값 | 뜻 |
+|---|---|---|
+| `PULL_TABLE_RC` · `ROBOT_RARITY_RC` (새 export) | 기체 15 · 코어 1.5 · 크레딧 20 · 파츠 47.5 · 꽝 16 / C 40 · UC 27.5 · R 18 · UQ 10 · EP 4.5 | 정제 코어 뽑기 — 코어 뽑기보다 **소폭** 높게(사용자 지시) |
+| `CONST.REFINE` | `{ need: 10, pull: 1, circuitReset: 1 }` | 코어 10 → 정제 1 · 뽑기 1회 값 · 서킷 비우기 값 |
+| `CONST.SALVAGE` | `{ daily: 2, tiers: [정찰 ×0.7 조각 1 · 회수 ×1.0 조각 2 · 강습 ×1.3 조각 3] }` | 조각 회수 작전. mul 은 상대 체력 · 공격 배수 |
+
+API (모두 로그인 필요 · 실패는 `{ ok:false, error, status }`)
+
+| 길 | 보내는 것 | 받는 것 |
+|---|---|---|
+| `POST /api/refine` | `{ n }` (1 ~ 999) | `{ made, spent, cores, rcores, rev }` · 모자라면 `not enough cores {need, cores, rcores}` |
+| `POST /api/pull` | `{ count, cur: 'rcore' }` | 기존과 같은 모양 + `rcores`. 모자라면 `not enough rcores {rcores}` |
+| `POST /api/circuit` | `{ action:'take', uid, stars:['A1', …] }` | `{ uid, type, level, points, taken, left, resetCost, rcores }` · 규칙 위반은 `bad stars {why}` |
+| `POST /api/circuit` | `{ action:'reset', uid }` | 위와 같은 모양 + `spent` · `nothing to reset` · `not enough rcores {need, rcores}` · 경합 `409` |
+| `GET /api/salvage` | — | `{ day, endsAt, daily, left, tiers:[{tier, ko, shard, type, level, mul}], goal:{type, have, need} }` — tiers 의 level 은 **고른 기체** 기준 |
+| `POST /api/salvage` | `{ tier, uid? }` (uid 없으면 고른 기체) | `{ win, got, tier, foe:{…, stats}, seed, robot, parts, stats, left, goal }` — 재생은 `js/salvage.js runSalvage(stats, foe, seed)` · `no tries left {endsAt}` · `no goal` |
+| `GET /api/state` | — | 새 칸 셋이 **state 밖에** — `rcores` · `salvage:{left, daily}` · `circuit:{ [uid]: ['A1', …] }` |
+
+- 정제 코어 뽑기 창구는 `js/gacha.js PULL_CUR.rcore`(값 `cost` · 표 · `ko:'정제 코어'`) · 창구별 잔액 칸은 `PULL_COL`. **지금 화면(`js/game.js`)은 이 창구를 모른다** — 버튼이 없으니 영향 없다
+- 작전 조각은 **개발 목표**(숙련 조각과 같은 `m_goal` · 없으면 `autoGoal`)로 간다. 목표 고르기 화면(숙련 조각 절)과 같이 보여 주면 된다
+- 서킷은 **전투에 아직 안 붙었다.** 찍은 별 효과는 `circuitFx` · `applyCircuit`(`js/circuit.js`) — 붙이는 것은 STATUS 할 일 3번
+- ⚠ 정제 뽑기 값어치 — 정제 1 = 코어 10 인데 확률은 소폭 높을 뿐이라 지금 값으로는 손해다. `CONST.REFINE.pull` 은 사용자가 정한다(화면이 나오기 전에)
 
 #### 코어 서킷 시안 2 — 별자리 · 2026-09-23 · Claude (master · 특성 정의를 맡았다 · 사용자 지시) → ChatGPT · `codex/ui-rebuild` 읽을 것
 

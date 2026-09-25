@@ -14,6 +14,8 @@ import { parseItems } from '../js/shop.js';
 import { parsePresets } from '../js/preset.js';
 import { huntWeekView } from '../js/rewards.js';
 import { settleMastery, masteryView } from '../js/mastery.js';
+import { parseCircuit } from '../js/circuit.js';
+import { salvLeft, salvDaily } from '../js/salvage.js';
 import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
 import { expedView } from './expedition.js';
 import { PART_COLS, partOf, insertPart, updatePart, partChanged, checkNewPart } from './parts.js';
@@ -192,13 +194,13 @@ export async function noteMigration(env, accountId, clamped, now) {
 /* ── 읽기 ──────────────────────────────────────────────── */
 export async function loadState(env, accountId) {
   const p = await env.DB.prepare(
-    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items, presets,
-            campaign, hunt_wk, m_goal, sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
+    `SELECT nickname, credits, cores, rcores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items, presets,
+            campaign, hunt_wk, m_goal, salv, sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, m_lv, s_weapon, s_frame, s_booster, s_core
+    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, m_lv, circuit, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
 
   /* ── 숙련 조각 정산(022) ──────────────────────────────────────
@@ -244,6 +246,11 @@ export async function loadState(env, accountId) {
     /* 숙련 조각(022) — 개발 목표와 모인 조각. 조각 자체는 items 에 들어 있다(shard:<id>).
        방금 정산한 만큼은 grants 로 알려 준다 — 화면이 '조각 +n' 을 띄울 수 있게. */
     mastery: { ...masteryView(robots, parseItems(p.items), p.m_goal), got: mast.total, grants: mast.grants },
+    /* 023 — 정제 코어 · 조각 회수 작전 오늘 남은 횟수 · 기체마다 코어 서킷에 찍은 별({ uid: ['A1', …] }).
+       state 안에 넣지 않는다 — 클라는 state 를 저장본으로 갈아 끼우므로, 모르는 칸은 밖에 둔다 */
+    rcores: p.rcores | 0,
+    salvage: { left: salvLeft(p.salv, Date.now()), daily: salvDaily() },
+    circuit: Object.fromEntries(robots.filter(r => r.circuit).map(r => [r.uid, parseCircuit(r.circuit)])),
     state: {
       v: 2, credits: p.credits, cores: p.cores, scrap: p.scrap,
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },

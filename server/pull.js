@@ -5,7 +5,7 @@
  * 판정 자체는 js/gacha.js 를 클라와 공유한다 — 두 벌로 두면 반드시 어긋난다.
  */
 import { CONST } from '../data/balance.js';
-import { rollPull, PULL_CUR } from '../js/gacha.js';
+import { rollPull, PULL_CUR, PULL_COL } from '../js/gacha.js';
 import { insertPart } from './parts.js';
 
 /* 서버 난수. 클라가 보낸 값에 의존하지 않는다. */
@@ -19,21 +19,19 @@ const MAX_PULLS = 10;
 export async function serverPull(env, accountId, count, now, cur) {
   const n = Math.max(1, Math.min(MAX_PULLS, Math.round(Number(count) || 1)));
   /* 창구는 서버가 정한다. 클라가 보낸 문자열을 그대로 키로 쓰면 없는 창구를 만들어
-     값이 0 인 뽑기를 돌릴 수 있다. 모르는 값은 코어로 떨어뜨린다. */
-  const kind = PULL_CUR[cur] ? cur : 'core';
+     값이 0 인 뽑기를 돌릴 수 있다. 모르는 값은 코어로 떨어뜨린다.
+     hasOwn 으로 본다 — 'toString' 같은 이름이 창구로 읽히지 않게 */
+  const kind = Object.prototype.hasOwnProperty.call(PULL_CUR, cur) ? cur : 'core';
   const C = PULL_CUR[kind];
 
   const player = await env.DB.prepare(
-    'SELECT credits, cores, scrap, pulls, rev FROM player WHERE account_id = ?1').bind(accountId).first();
+    'SELECT credits, cores, rcores, scrap, pulls, rev FROM player WHERE account_id = ?1').bind(accountId).first();
   if (!player) return { ok: false, status: 404, error: 'no player' };
 
   const spend = n * C.cost;
-  if (kind === 'credit') {
-    if (player.credits < spend)
-      return { ok: false, status: 400, error: 'not enough credits', credits: player.credits };
-  } else if (player.cores < spend) {
-    return { ok: false, status: 400, error: 'not enough cores', cores: player.cores };
-  }
+  const col = PULL_COL[kind];
+  if (player[col] < spend)
+    return { ok: false, status: 400, error: 'not enough ' + col, [col]: player[col] };
 
   const robots = (await env.DB.prepare('SELECT uid, type FROM robot WHERE account_id = ?1')
     .bind(accountId).all()).results || [];
@@ -46,11 +44,11 @@ export async function serverPull(env, accountId, count, now, cur) {
   let seq = 0;
   const uid = () => 's' + now.toString(36) + (seq++).toString(36);
 
-  let { credits, cores, scrap } = player;
+  let { credits, cores, rcores, scrap } = player;
   const results = [], newParts = [], newRobots = [];
 
   for (let i = 0; i < n; i++) {
-    if (kind === 'credit') credits -= C.cost; else cores -= C.cost;
+    if (kind === 'credit') credits -= C.cost; else if (kind === 'rcore') rcores -= C.cost; else cores -= C.cost;
     const r = rollPull(owned, level, rnd, uid, kind);
     if (r.kind === 'robot') {
       owned.add(r.type);
@@ -80,10 +78,10 @@ export async function serverPull(env, accountId, count, now, cur) {
   }
   const rev = player.rev + 1;
   stmts.push(env.DB.prepare(
-    'UPDATE player SET credits=?1, cores=?2, scrap=?3, pulls=?4, rev=?5, updated_at=?6 WHERE account_id=?7')
-    .bind(credits, cores, scrap, player.pulls + n, rev, now, accountId));
+    'UPDATE player SET credits=?1, cores=?2, rcores=?3, scrap=?4, pulls=?5, rev=?6, updated_at=?7 WHERE account_id=?8')
+    .bind(credits, cores, rcores, scrap, player.pulls + n, rev, now, accountId));
 
   await env.DB.batch(stmts);
 
-  return { ok: true, cur: kind, spent: spend, results, rev, credits, cores, scrap, wrote: stmts.length };
+  return { ok: true, cur: kind, spent: spend, results, rev, credits, cores, rcores, scrap, wrote: stmts.length };
 }

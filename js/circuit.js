@@ -4,7 +4,7 @@
  * 별 id — 갈래 글자 + 순번: 'A1' ~ 'A8', 전문 별은 'A*'.
  * 찍기 규칙 — 갈래 안에서 **안쪽부터** 이어서 찍는다(A3 은 A2 가 있어야). 전문 별은 잠겨 있다.
  */
-import { ROBOT_TYPES } from '../data/balance.js';
+import { ROBOT_TYPES, CONST } from '../data/balance.js';
 import { CIRCUIT, CIRCUIT_THEMES, CIRCUIT_PICK, CIRCUIT_FIT } from '../data/circuit.js';
 
 const BR = 'ABCD'.slice(0, CIRCUIT.branches);
@@ -169,3 +169,19 @@ export function applyCircuit(st, fx) {
   if (fx.accel && !(s.stackMax > 0)) { s.stackSpd = fx.accel; s.stackMax = 5; }   // 파츠의 감속 스택이 있으면 그쪽이 이긴다
   return s;
 }
+
+/* ── 저장(이관 023 · robot.circuit) ───────────────────────────
+   찍은 별 목록을 JSON 배열로 둔다. 읽을 때는 모양만 거른다 — 규칙은 checkTaken 이 본다 */
+export function parseCircuit(raw) {
+  let o = raw;
+  if (typeof raw === 'string') { try { o = JSON.parse(raw); } catch { o = null; } }
+  if (!Array.isArray(o)) return [];
+  return [...new Set(o.filter(x => typeof x === 'string' && /^[A-D][1-9*]$/.test(x)))];
+}
+/* 저장할 모양 — 순서를 정해 두면 같은 서킷이 늘 같은 문자열이 된다(낙관적 잠금이 이 문자열을 본다). 비면 NULL */
+export const circuitKey = taken => {
+  const l = [...new Set(taken || [])].sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
+  return l.length ? JSON.stringify(l) : null;
+};
+/* 서킷을 비우는 값(정제 코어) — 2026-09-25 사용자 지시 '정제 코어 1개'. 추가 비용은 나중에 정한다 */
+export const circuitResetCost = () => ((CONST.REFINE || {}).circuitReset ?? 1);

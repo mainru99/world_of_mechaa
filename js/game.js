@@ -2528,7 +2528,10 @@ async function startBattle(){
      떨어뜨렸을 때 화면과 판정이 갈린다. */
   const P=makeUnit(r.nameP, my.type, r.statP, r.tacticP);
   const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE, r.tacticE);
-  const events=simulate(P,E,r.seed);
+  /* 교대 전투(2026-09-25 · 동결 예외 · CONST.RELAY) — 서버가 보낸 둘째 기체들을 같은 엔진에 넘긴다 */
+  const rl=r.relay;
+  const events=rl ? simulate(P,E,r.seed,{P:[makeUnit(rl.nameP2, rl.typeP2, rl.statP2, rl.tacticP2)], E:[makeUnit(rl.nameE2, rl.typeE2, rl.statE2, rl.tacticE2)]})
+                  : simulate(P,E,r.seed);
   renderArena(my.type, r.opponent.type, P.name, E.name, null, r.tacticP, r.tacticE);
 
   /* **재생이 끝날 때까지 기다린다.** 예전에는 여기서 바로 함수가 끝나, 재생이 도는 동안
@@ -2550,7 +2553,12 @@ function applyServerBattle(r, rb){
   S.stat.wins=r.player.wins; S.stat.losses=r.player.losses;
   rb.level=r.robot.level; rb.exp=r.robot.exp; rb.fat=r.robot.fat; rb.fatAt=r.robot.fatAt;
   if(r.reward.part) addPart(r.reward.part);
+  /* 교대 전투(동결 예외) — 둘째 기체가 나왔으면 그 기체도 받아 적고, 결과 창은 합동전처럼 기체마다 한 줄 */
+  const r2=r.relay&&r.relay.robot2, rb2=r2&&S.robots.find(x=>x.uid===r2.uid);
+  if(rb2){ rb2.level=r2.level; rb2.exp=r2.exp; rb2.fat=r2.fat; rb2.fatAt=r2.fatAt; }
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
+                robots: rb2 ? [{name:ROBOT_TYPES[rb.type].name, lv:r.reward.lv, fat:r.reward.fat},
+                               {name:ROBOT_TYPES[rb2.type].name, lv:r2.lv, fat:r2.fatGain}] : null,
                 lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
                 ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue, duel:r.mode==='duel',
                 band:r.band||null, hunt: r.mode==='hunt' ? { tier:r.tier, done:!!r.huntDone } : null };
@@ -2699,7 +2707,14 @@ async function playBattle(events,P,E,o){
   if(stopped()) return null;
   const rain=(P.type==='ignis'||E.type==='ignis')?createIgnisRain(arena):null;
   let rainSkill=null;
-  const nameOf=s=> s==='P'?`<span class="k">${P.name}</span>`:`<span style="color:var(--bad);font-weight:700">${E.name}</span>`;
+  /* 지금 서 있는 기체 — 교대 전투(swap 사건)에서 바뀐다(2026-09-25 · 동결 예외). 교대가 없으면 P · E 그대로다 */
+  const cu0={p:{name:P.name,max:P.maxhp,type:P.type}, e:{name:E.name,max:E.maxhp,type:E.type}}, cu={...cu0};
+  const mx=k=>cu[k].max;
+  const nameOf=s=> s==='P'?`<span class="k">${cu.p.name}</span>`:`<span style="color:var(--bad);font-weight:700">${cu.e.name}</span>`;
+  const swapIn=(x,draw)=>{ const k=x.side==='P'?'p':'e'; cu[k]={name:x.name,max:x.maxhp,type:x.type};
+    if(draw){ const f=AR('#fighter-'+k); if(f) f.innerHTML=sprite(x.type,k==='p');
+      const nm=AR('.hpwrap.'+k+' .nm span'); if(nm) nm.textContent=x.name; }
+    setHP(k,x.hp,x.maxhp); setSP(k,0); };
   try{
     /* 아레나는 simulate 가 끝난 뒤에 재생하므로 P.hp 가 이미 최종값이다 — 그래서 만땅으로 시작한다.
        점령전은 방어선 사이에 체력이 이어지므로 '들어갈 때의 값'을 따로 받는다. */
@@ -2711,11 +2726,13 @@ async function playBattle(events,P,E,o){
     /* 건너뛰기 — 남은 이벤트를 애니메이션 없이 한 번에 반영하고 끝낸다.
        마지막 체력·게이지를 그대로 그려 두므로 화면이 결과와 어긋나지 않는다. */
     const finishNow=(from)=>{
+      if(!from){ cu.p=cu0.p; cu.e=cu0.e; }               // 처음부터 다시 그린다 — 교대 전 기체부터
       for(let k=from;k<events.length;k++){ const x=events[k];
         if(x.t==='turn') setSP(x.side==='P'?'p':'e', x.sp);
         else if(x.t==='jam') setSP(x.dside==='P'?'p':'e', x.sp);
-        else if(x.t==='heal') setHP(x.side==='P'?'p':'e', x.hp, x.side==='P'?P.maxhp:E.maxhp);
-        else if(x.t==='hit' && !x.miss) setHP(x.dside==='P'?'p':'e', x.thp, x.dside==='P'?P.maxhp:E.maxhp);
+        else if(x.t==='heal') setHP(x.side==='P'?'p':'e', x.hp, mx(x.side==='P'?'p':'e'));
+        else if(x.t==='hit' && !x.miss) setHP(x.dside==='P'?'p':'e', x.thp, mx(x.dside==='P'?'p':'e'));
+        else if(x.t==='swap') swapIn(x,true);
       }
       blog('<b>건너뜀</b> — 결과는 그대로입니다');
       const last=events[events.length-1];
@@ -2733,16 +2750,17 @@ async function playBattle(events,P,E,o){
       if(stopped()) return null;                 // 보상 판정은 서버에 있으며 화면 재생만 중단한다.
       if(_skipReplay) return finishNow(0);   // 처음부터 다시 그린다 — 몇 번 그려도 결과는 같다
       if(e.t==='turn'){ rainSkill=null; setSP(e.side==='P'?'p':'e', e.sp); continue; }
+      if(e.t==='swap'){ rainSkill=null; swapIn(e,true); banner('교대!'); blog(`교대 — ${nameOf(e.side)} 출격`); continue; }
       if(e.t==='skill'){
         rainSkill=null;
-        if(rain&&(e.side==='P'?P:E).type==='ignis'){
+        if(rain&&cu[e.side==='P'?'p':'e'].type==='ignis'){
           rainSkill={side:e.side,index:0,left:COMBAT_TYPES.ignis.skill.fx.hits};
           rain.cast(e.side==='P'?'p':'e');
         }
         banner(e.name); blog(`${nameOf(e.side)} 스킬 <b>${e.name}</b>!`); continue;
       }
       if(e.t==='heal'){ const hS=e.side==='P'?'p':'e';
-        setHP(hS, e.hp, hS==='p'?P.maxhp:E.maxhp); floatDmg(hS,'+'+e.amt,'heal');
+        setHP(hS, e.hp, mx(hS)); floatDmg(hS,'+'+e.amt,'heal');
         blog(`${nameOf(e.side)} 체력 <span class="h">+${e.amt}</span> ${e.src==='repair'?'수리':'흡수'}`); continue; }
       /* 특화기술 — 방벽 · 표적 · 재밍 (js/sim.js afterSkill) */
       if(e.t==='shield'){ const k=e.side==='P'?'p':'e'; floatDmg(k,'방벽 '+e.amt,'heal');
@@ -2769,7 +2787,7 @@ async function playBattle(events,P,E,o){
         if(stopped()) return null;
         if(e.miss){ floatDmg(dS,'MISS','miss'); blog(`${nameOf(e.side)} 의 공격을 ${nameOf(e.dside)} 이(가) <span class="m">회피!</span>`); }
         else{ if(!isRain) flash(); shakeF(dS); floatDmg(dS,(e.crit?'CRIT ':'')+e.dmg,e.crit?'crit':'norm');
-          setHP(dS,e.thp, dS==='p'?P.maxhp:E.maxhp);
+          setHP(dS,e.thp, mx(dS));
           blog(`${nameOf(e.side)} → ${nameOf(e.dside)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해${e.absorb?` <span class="m">(방벽 −${e.absorb})</span>`:''}`); }
         continue;
       }

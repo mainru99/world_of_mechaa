@@ -171,6 +171,11 @@ function rowToOpponent(row, ver, pick) {
   };
   const stats = stale ? statOf(e) : e.stats;
   if (!stats) return null;
+  /* 교대 전투(CONST.RELAY) — 편성의 다른 기체. 옛 한 기짜리 행이면 빈 배열이다 */
+  const bench = list.filter((x, ix) => ix !== i && x && ROBOT_TYPES[x.type]).slice(0, 1).map(x => ({
+    type: x.type, level: x.level | 0, skillLv: x.skillLv | 0, slots: x.slots || { ...EMPTY_SLOTS },
+    parts: x.parts || [], circuit: x.circuit, stats: stale || !x.stats ? statOf(x) : x.stats,
+  }));
 
   return {
     kind: 'player',
@@ -182,6 +187,7 @@ function rowToOpponent(row, ver, pick) {
     slots: e.slots || { ...EMPTY_SLOTS },
     parts: e.parts || [],
     stats,                      // 스냅샷의 스탯. 옛 밸런스면 위에서 다시 계산한 것
+    bench,
     rating: row.rating,
     pick: i,
     /* 고를 수 있는 기체 목록. 한 기뿐이면 화면이 고르는 칸 자체를 안 그린다. */

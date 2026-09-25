@@ -278,8 +278,28 @@ export function afterSkill(A, D, side, dside, ev, fx, to) {
    시드에서 뽑으므로 서버와 클라의 재생은 그대로 일치한다. 난수 두 번을 앞에서
    먹으므로 예전 전투와 이벤트열이 달라진다 — 저장된 것은 스탯뿐이고 전투는 매번
    다시 계산하므로 재생이 깨지지는 않는다. */
-export function simulate(P, E, seed) {
+/* ── 교대 전투(2026-09-25 사용자 결정 · CONST.RELAY) ─────────────────────
+   bench = { P: [다음 기체 …], E: [다음 기체 …] } — makeUnit 으로 만든 것. 앞 기체가 쓰러지면 **바로** 다음 기체가 나온다.
+   나온 기체는 행동 게이지 0(경량 프레임 전문 별은 앞섬) · SP 0 으로 시작하고, 상대는 하던 그대로 이어서 싸운다.
+   사건 { t:'swap', side, i, name, type, hp, maxhp } — i 는 몇 번째로 나온 기체인가(1 = 두 번째).
+   **bench 가 없으면 예전과 한 글자도 다르지 않다**(난수도 안 뽑는다 · tools/regress.mjs). */
+export function simulate(P, E, seed, bench) {
   const rnd = mulberry32(seed >>> 0), ev = [{ t:'start' }];
+  const q = { P: bench && bench.P ? bench.P.slice() : [], E: bench && bench.E ? bench.E.slice() : [] };
+  const out = { P: 0, E: 0 };
+  let fresh = {};
+  /* 쓰러진 쪽에 다음 기체가 있으면 바꿔 끼운다. 바꿨으면 true */
+  const swap = (side) => {
+    const cur = side === 'P' ? P : E;
+    if (cur.hp > 0 || !q[side].length) return false;
+    const nx = q[side].shift();
+    out[side]++;
+    if (side === 'P') P = nx; else E = nx;
+    g[side] = gaugeStart(nx, 0);
+    fresh[side] = true;
+    ev.push({ t:'swap', side, i: out[side], name: nx.name, type: nx.type, hp: nx.hp, maxhp: nx.maxhp });
+    return true;
+  };
   const g = { P: rnd() * 100, E: rnd() * 100 };
   g.P = gaugeStart(P, g.P); g.E = gaugeStart(E, g.E);
   let guard = 0;
@@ -308,8 +328,10 @@ export function simulate(P, E, seed) {
       actors[0] = pFirst ? 'P' : 'E';
       actors[1] = pFirst ? 'E' : 'P';
     }
+    fresh = {};                                         // 이 틱에 교대해 나온 쪽 — 이 틱에는 행동하지 않는다
     for (const side of actors) {
       if (P.hp <= 0 || E.hp <= 0) break;
+      if (fresh[side]) continue;
       g[side] -= 100;
       const A = side === 'P' ? P : E, D = side === 'P' ? E : P, dside = side === 'P' ? 'E' : 'P';
       A.sp = Math.min(100, A.sp + (A.spGain != null ? A.spGain : 30));
@@ -333,6 +355,8 @@ export function simulate(P, E, seed) {
       }
       else doHit(A, D, side, dside, ev, rnd, {});
       A.lastAt = T;
+      /* 교대 — 이 행동으로 쓰러진 쪽(맞은 쪽 · 반격을 맞은 쪽)에 다음 기체가 있으면 곧바로 나온다 */
+      if (q.P.length || q.E.length) { swap(dside); swap(side); }
       /* 재밍으로 밀린 게이지 — 특화기술이 없으면 D.push 가 없어 아무 일도 없다 */
       if (D.push) { g[dside] -= D.push; D.push = 0; }
       /* 스택 — 쏠수록 느려진다(채프 런처). **초기화가 없다.**
@@ -345,3 +369,9 @@ export function simulate(P, E, seed) {
   ev.push({ t:'end', winner: P.hp > 0 ? 'P' : (E.hp > 0 ? 'E' : 'P') });
   return ev;
 }
+/* 교대 전투에서 몇 기가 나왔나 — 사건에서 센다. { P: 1 | 2 …, E: … } */
+export const relayOut = ev => {
+  const n = { P: 1, E: 1 };
+  for (const e of ev) if (e.t === 'swap') n[e.side] = Math.max(n[e.side], e.i + 1);
+  return n;
+};

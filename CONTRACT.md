@@ -347,6 +347,16 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 > 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
 > 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
 
+#### 교대 전투 — 2026-09-25 · Claude (master · `data/balance.js` 에 넣기만 · 사용자 결정) → `codex/ui-rebuild` 가 재생을 만들 것
+
+- `CONST.RELAY` **(새)** `{ on: true, share: [0.6, 0.4] }` — 2026-09-25 켰다(사용자가 동결 예외를 줘 main 화면 재생을 고쳤다 · '화면 파일 동결' 기록). UI 브랜치 대전 화면도 아래대로 재생해야 한다
+- `POST /api/battle/start` 요청 — `tactic2`(둘째 기체 전술 · 없으면 `tactic` 과 같다). `/api/battle/find` 의 `opponent.bench` = `[{ type, level, name }]`(켜져 있을 때만)
+- 응답 `relay` — 켜져 있고 양쪽이 두 기면 `{ nameP2, typeP2, statP2, tacticP2, nameE2, typeE2, statE2, tacticE2, out:{P,E}, share:[첫째 경험치, 둘째 경험치], robot2 }`, 아니면 `null`.
+  `robot2` = `{ uid, level, exp, fat, fatAt, lv:{amt,from,to}, fatGain:{add,now} }`(둘째가 나왔을 때만 · `fat` 은 피로도 숫자)
+- **재생** — `simulate(makeUnit(nameP, typeP, statP, tacticP), makeUnit(callsign, type, statE, tacticE), seed, { P: [makeUnit(nameP2, typeP2, statP2, tacticP2)], E: [makeUnit(nameE2, typeE2, statE2, tacticE2)] })`.
+  새 사건 `{ t:'swap', side, i, name, type, hp, maxhp }` — 그 쪽 기체 그림 · 이름 · 체력 막대를 바꾼다(체력 막대의 최대치는 **이 사건의 maxhp** 로. 유닛 객체의 maxhp 는 전투가 끝난 뒤의 값이다)
+- 경험치 — 첫째 60% · 둘째 40%(둘째가 안 나왔으면 첫째 100%). 피로도 — 나온 기체마다 한 판치. 결과 창은 `reward`(첫째)와 `relay.robot2`(둘째)를 같이 보여 준다
+
 #### 코어 서킷 전투 반영 · 전문 별 — 2026-09-25 · Claude (master · 사용자 결정) → `codex/ui-rebuild` · ChatGPT 읽을 것
 
 - **공용 모듈이 바뀌었다(화면 파일은 안 건드렸다)** — `js/stats.js computeStats(robot, parts)` 가 `robot.circuit`(찍은 별 id 배열)이 있으면 서킷을 얹는다.
@@ -362,7 +372,8 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 #### 조각 합성 — 2026-09-25 · Claude (master · `data/balance.js` 에 넣기만 했다 · 사용자 결정) → `codex/ui-rebuild` 가 화면을 만들 것
 
 - `CONST.SHARD_SYNTH` **(새)** `{ min: 6, max: 10, base: 0.25, step: 0.07, master: 0.01, qty: { same: ½, up: ⅓, master: ⅕ }, scrap: { C: 120, UC: 200, R: 320, UQ: 500 } }`
-- `POST /api/shop { action: 'synth', mats: { 기체 id: 개수 } }` → 상점 보기와 같은 모양 + `synth: { grade: 'same'|'up'|'master', rarity, type, qty, from, used, spent, rates }`.
+- `POST /api/shop { action: 'synth', mats: { 기체 id: 개수 } }` → 상점 보기와 같은 모양 + `synth: { grade: 'same'|'up'|'master', rarity, type, qty, goal, from, used, spent, rates }`.
+  **결과 기체는 개발 목표 우선** — 결과 등급이 목표 등급과 같으면 목표(`goal: true`), 아니면 그 등급 무작위(사용자 결정)
   거절 `bad synth { why }`(문장 그대로 보여 주면 된다) · `not enough scrap { need, have }` · 경합 409
 - 화면이 미리 보여 줄 확률 · 값은 `js/shardsynth.js synthCheck(mats, items)` → `{ rar, n, cost, rates:{ up, master, same } }` — 서버와 같은 함수
 - 규칙 전문 `STATUS.md` '2026-09-25 (4)'
@@ -480,6 +491,14 @@ GPT 계획서(`docs/balance/mech-traits-plan-2026-09-22.md`)를 사용자가 보
   **`boot()` · `go()` 는 건드리지 않았다** — UI 브랜치가 고친 자리다. `git merge-tree` 충돌 0.
   **통합 때 할 일** — UI 브랜치는 `boot()` 의 해 본 계정 첫 화면을 `'home'` 으로 바꿨다. `frontAfterState` 의 `go('hangar')` 도 같은 값으로 맞춘다.
   확인(오프라인 모드) — 처음 온 사람: 대문 뒤에서는 안 틀고 '시작하기' 뒤에 1장 도입 · 1장을 깬 저장본(전적 0 · '봤다' 표 없음): 격납고로 가고, 전선에 가면 2장이 골라진다(1장 도입 없음)
+- **2026-09-25 · 교대 전투 재생 · 사용자 지시(동결 예외)** — `js/game.js` 만. 서버가 교대 전투(`CONST.RELAY.on`)를 판정하므로 화면도 둘째 기체까지 재생해야 한다.
+  | 자리 | 바뀐 것 |
+  |---|---|
+  | 대전 시작(`ROWAR.startBattle` 의 재생부 · `simulate` 부르는 곳) | 응답의 `r.relay` 가 있으면 `simulate(P, E, seed, { P:[둘째], E:[둘째] })` |
+  | `applyServerBattle` | `r.relay.robot2` 를 그 기체(uid)에 받아 적는다 · 둘째가 나왔으면 `_lastReward.robots` 두 줄(합동전 결과 표시를 그대로 쓴다) |
+  | `playBattle` | 지금 서 있는 기체 `cu`(이름 · 최대 체력 · 종류) — `P.maxhp`/`E.maxhp` 를 쓰던 체력 막대가 `mx(k)` 를 쓴다 · `swap` 사건에서 그림 · 이름 · 체력 막대를 바꾼다 · 건너뛰기는 교대 전 기체부터 다시 그린다 |
+  **통합 때 할 일** — UI 브랜치 대전 화면이 같은 재생(`simulate(…, bench)` + `swap` 사건)을 해야 한다. 규칙 · 응답은 '교대 전투' 절.
+  확인(격리한 로컬 서버) — 양쪽 두 기 · 교대 사건에 이름 · 체력 막대(새 기체 최대치) · 그림이 바뀐다 · 결과 창 두 줄(경험치 60/40 · 피로도) · 저장본 피로도는 숫자
 
 #### 전투 분석 · 딜표 — 2026-09-21 밤 2 · Claude (master)
 

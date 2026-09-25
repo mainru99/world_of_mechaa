@@ -7,6 +7,7 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 - **배포 주소** — https://rowar.hun7539.workers.dev (공개, Cloudflare Workers + D1)
 - **리포** — https://github.com/mainru99/world_of_mechaa (private)
 - **마지막 갱신** — 2026-09-25 · **정제 코어 · 정제 뽑기 · 서킷 저장/비우기 · 조각 회수 작전(이관 023 · 서버까지)** · 별자리 76기 · 2026-09-23 밤 · **숙련 조각(이관 022 · 배포 완료)** · **세트 06 EP 5기(76종)** · 숙련 = 특성 포인트 · 개발 계보 판정(꺼 둠) · 합동전 공명 · 전투력 보정 · schema **23** · `balance_ver` **1efvw2l**
+- **UI 브랜치 인계(2026-09-25 밤)** — [`docs/handoff/2026-09-25-main-to-ui.md`](docs/handoff/2026-09-25-main-to-ui.md) · GPT 가 2026-09-26 부터 이어서 작업한다
 - **할 일** — 아래 [할 일 — 이 목록이 최신](#할-일--이-목록이-최신-2026-09-23-밤-다시-정리) 절 하나만 본다(아직 안 한 것 · 동결 중인 것 · 끝난 것)
 - **스키마 버전** — 로컬 **23** · 운영 **23** (2026-09-25 023 `player.rcores` · `player.salv` · `robot.circuit` 적용)
 - **운영 확인** — 2026-09-25 배포 `4f37cba3` (커밋 `fc231c6` 교대 전투 · 동결 예외 · `8eb6115` 합성 목표 우선) · 이관 없음 · schema **23** · `balance_ver` 1sc8o2g → **1efvw2l** · 계정 34 ·
@@ -51,6 +52,14 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 - **이전 배포** — 2026-09-19 배포 `c7a17894` (커밋 `460e756` 파츠 그림 · `b6915dc` 코드 · `79f79a3` 기록) · 이관 021 먼저 적용(`changes 2`) · schema **21** · `balance_ver` **151i21l** · 계정 33.
   `index` · `style` · `game.js` · `codex.js` · `rewards.js` · `balance.js` 내용 일치 · 파츠 그림 25/25 200 · `/api/state` · `/api/codex` · `/api/front` 401(인증 필요 = 살아 있음).
   **배포 확인은 해시가 아니라 내용 비교로 한다** — 로컬(LF)과 운영(배포한 PC 의 줄바꿈)이 달라 해시는 늘 어긋난다
+
+### 2026-09-25 (7) — 서버가 느리다 → 스마트 배치 (사용자 지시)
+
+- **원인 둘** — ① 한국 접속이 `*.workers.dev` 에서 **LAX(로스앤젤레스)** 로 들어간다(`/cdn-cgi/trace` colo=LAX · 같은 때 cloudflare.com 은 ICN). 무료 요금제의 한국 경로라 우리가 못 바꾼다 —
+  정적 파일도 첫 바이트 0.5 ~ 1초. ② Worker 는 LAX 에서 도는데 **D1 은 APAC** 이라 조회 한 번마다 태평양 왕복(약 115ms). `/api/health`(조회 5번) 서버 안 시간 572ms ·
+  요청 전체 약 1.1초. 조회가 많은 요청(상태 불러오기 · 대전 시작)은 몇 초. 오늘 작업 때문이 아니다 — 아침에도 574ms 였다
+- **스마트 배치** `wrangler.jsonc` `"placement": { "mode": "smart" }` — Worker 를 DB 가까이에서 돌린다(무료 · 코드 변경 없음). 배포 `9cde5f63` 직후 `cf-placement: local-LAX`(분석 중)
+- 측정 도구 — 헤더 `cf-placement` 가 `remote-…` 면 옮겨진 것이다. 아직 옮겨지지 않거나 옮겨도 느리면 다음은 **D1 읽기를 한 묶음으로**(`env.DB.batch`) 보내 왕복 수를 줄이는 것
 
 ### 2026-09-25 (6) — 교대 전투 (사용자 결정 · 할 일 17번 · 켰다 — 동결 예외로 main 화면 재생도 고쳤다)
 

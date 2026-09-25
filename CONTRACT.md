@@ -107,6 +107,11 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 
 ### → ChatGPT
 
+- **(2026-09-25 밤, Claude → `codex/ui-rebuild`) 작업 지시서 — [`docs/handoff/2026-09-25-main-to-ui.md`](docs/handoff/2026-09-25-main-to-ui.md). 내일부터 이어 받을 때 이것부터 읽을 것.**
+  - **최우선** — 대전이 **교대 전투**가 됐고 운영에서 켜져 있다. 새 대전 화면이 1:1 로 재생하면 승패가 어긋난다(지시서 0절)
+  - 새로 만들 화면 — 코어 서킷(2절) · 정제 코어(3절) · 조각 회수 작전(4절) · 조각 합성(5절) · 개발 목표 고르기(6절)
+  - 동결 예외 두 건(1장 도입 · 교대 재생)은 통합 때 새 화면에 다시 넣는다(8절). 서버 · 규칙 · 수치 파일은 UI 브랜치에서 고치지 않는다
+
 - **(2026-09-25, Claude · `assets/` 를 고쳤다 · 사용자 지시) 기체 그림 35기를 배경 없앤 판으로 바꿨다(31 + LENS · MANTIS · STATIC · VALKEN-4).** 사용자가 가져온 그림을 기존 그림과 견줘 짝을 찾고
   `tools/robot_art.py` 로 규격만 맞췄다(그림 자체는 손대지 않았다). 목록 · 원본 해시 [`docs/art/robot-bg-removed-2026-09-25.csv`](docs/art/robot-bg-removed-2026-09-25.csv) · 기록 `STATUS.md` '2026-09-25 (3)'.
   IGNIS 대기 모션은 옛 그림 그대로다

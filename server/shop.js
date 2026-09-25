@@ -10,6 +10,7 @@ import { periodEnd, refreshCost, shardNeed, shardKey, parseItems, shopState, rol
 import { insertPart } from './parts.js';
 import { canDevelop } from '../js/lineage.js';
 import { goalOk } from '../js/mastery.js';
+import { synthCheck, rollSynth, applySynth } from '../js/shardsynth.js';
 
 const err = (status, error, extra) => ({ ok: false, status, error, ...(extra || {}) });
 
@@ -45,7 +46,8 @@ export async function shopView(env, acc, now) {
 /* POST /api/shop  { action: 'buy', slot, sig }   진열 한 칸을 산다
                    { action: 'refresh' }          크레딧을 내고 진열을 새로 굴린다
                    { action: 'assemble', type }   조각을 모아 기체를 조립한다
-                   { action: 'goal', type }       개발 목표를 고른다 — 숙련 조각이 그리로 모인다(022) */
+                   { action: 'goal', type }       개발 목표를 고른다 — 숙련 조각이 그리로 모인다(022)
+                   { action: 'synth', mats }      조각 합성 — { 기체 id: 개수 } 같은 등급 6 ~ 10 개 + 스크랩(js/shardsynth.js) */
 export async function shopRun(env, acc, now, body) {
   const a = body && body.action;
   const L = await load(env, acc);
@@ -131,6 +133,26 @@ export async function shopRun(env, acc, now, body) {
                     p: { ...L.p, items: JSON.stringify(items), credits: L.p.credits + g.cr,
                          scrap: L.p.scrap + g.sc, cores: L.p.cores + g.co, rev: L.p.rev + 1 } };
     return { ...view(acc, after, now), assembled: { type, uid: dupe ? null : uid, dupe, gain: dupe ? g : null },
+             rev: L.p.rev + 1 };
+  }
+
+  /* 조각 합성(2026-09-25) — 굴리는 것은 서버 난수. 보관함 · 스크랩이 읽을 때 그대로일 때만 쓴다 */
+  if (a === 'synth') {
+    const items = parseItems(L.p.items);
+    const chk = synthCheck(body.mats, items);
+    if (chk.error) return err(400, 'bad synth', { why: chk.error });
+    if (L.p.scrap < chk.cost) return err(400, 'not enough scrap', { need: chk.cost, have: L.p.scrap });
+    const buf = new Uint32Array(1);
+    const rnd = () => { crypto.getRandomValues(buf); return buf[0] / 4294967296; };
+    const out = rollSynth(chk.rar, chk.n, rnd);
+    const next = applySynth(items, body.mats, out);
+    const res = await env.DB.prepare(
+      `UPDATE player SET items = ?4, scrap = scrap - ?5, rev = rev + 1, updated_at = ?6
+        WHERE ${guard} AND scrap >= ?5`)
+      .bind(acc, L.p.shop, L.p.items, JSON.stringify(next), chk.cost, now).run();
+    if ((res.meta?.changes ?? 0) !== 1) return err(409, 'shop changed, retry');
+    const after = { ...L, p: { ...L.p, items: JSON.stringify(next), scrap: L.p.scrap - chk.cost, rev: L.p.rev + 1 } };
+    return { ...view(acc, after, now), synth: { ...out, from: chk.rar, used: chk.n, spent: chk.cost, rates: chk.rates },
              rev: L.p.rev + 1 };
   }
 

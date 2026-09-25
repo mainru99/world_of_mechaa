@@ -1044,6 +1044,14 @@ export const CONST = {
      UI 개편에서 나온 뒤 켠다(CONTRACT '개발 계보'). */
   LINEAGE: { gate: false },
 
+  /* 조각 합성(2026-09-25 사용자 결정 · js/shardsynth.js) — 같은 등급 조각 min ~ max 개 + 스크랩 → 조각.
+     성공(한 등급 위) = base + (넣은 수 − min) × step · 명작(두 등급 위) = master · 나머지는 동급.
+     6개 25% → 10개 53% · 명작 1%. 결과 수량 = 넣은 수 × qty(반올림) — 예: R 10개 → UQ 3개 · 명작이면 EP 2개 · 동급이면 R 5개.
+     scrap — 재료 등급별 한 번 값. 에픽은 넣을 수 없다 */
+  SHARD_SYNTH: { min: 6, max: 10, base: 0.25, step: 0.07, master: 0.01,
+                 qty: { same: 1 / 2, up: 1 / 3, master: 1 / 5 },
+                 scrap: { C: 120, UC: 200, R: 320, UQ: 500 } },
+
   /* 정제 코어(2026-09-25 사용자 지시) — 코어 need 개를 합쳐 1개. **지금은 합치기 말고는 얻을 길이 없다.**
      pull — 정제 코어 뽑기 1회 값 · circuitReset — 코어 서킷을 비울 때 드는 값(추가 비용은 사용자가 나중에 정한다) */
   REFINE: { need: 10, pull: 1, circuitReset: 1 },

@@ -6,7 +6,9 @@ import http from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
 import {resolve,dirname,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {TERRITORY,SLOTS} from '../data/balance.js';
+import {TERRITORY,SLOTS,MONSTER_TYPES} from '../data/balance.js';
+import {battleView} from '../js/ui/battle.js';
+import {computeStats,power} from '../js/stats.js';
 import {rollPart,rollPull,PULL_CUR} from '../js/gacha.js';
 import {mulberry32} from '../js/sim.js';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
@@ -29,6 +31,14 @@ const json=(res,code,data)=>{res.writeHead(code,{'content-type':'application/jso
 const server=http.createServer(async(req,res)=>{
  try{
   const url=new URL(req.url,'http://127.0.0.1');
+  // Isolated presentation fixture, no combat API or production route.
+  if(url.pathname==='/__battle-layout'){
+   const unit=rb=>({type:rb.type,level:rb.level,stats:computeStats(rb,parts),power:power(rb,parts)});
+   const boss={type:Object.values(MONSTER_TYPES).find(t=>t.rarity==='BOSS').id,level:42,slots:{},fat:0};
+   const view=battleView({allies:robots.slice(0,2).map(unit),enemies:[unit(boss)],playerName:'아군 편성 예시',playerMeta:'2기 배치 검수',enemyName:'보스 배치 예시',enemyMeta:'실제 전투 연결 전',brief:'<p>2:1 화면 배치 전용 예시입니다. 전투 엔진에 연결되지 않았습니다.</p>',costLabel:'검수 예시',rewardLabel:'보상 없음',actions:'<button class="bv-launch" disabled>배치 미리보기</button>'}).replace(/onclick="[^"]*"/g,'disabled');
+   const html=`<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROWAR · 2:1 배치 검수</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="themes/ui-v2.css"><link rel="stylesheet" href="themes/battle-v2.css"></head><body class="ui-v2"><div id="app"><div class="ui-preview-ribbon">2:1 배치 전용 검수 · 전투 엔진 미연결 / 운영과 무관</div><main><section class="screen active" id="sc-battle">${view}</section></main></div></body></html>`;
+   res.writeHead(200,{'content-type':mime['.html'],'cache-control':'no-store'});res.end(html);return;
+  }
   if(url.pathname.startsWith('/api/')){
    let raw='';for await(const c of req){raw+=c;if(raw.length>16384){json(res,413,{error:'too large'});return;}}
    let body={};try{body=raw?JSON.parse(raw):{};}catch{json(res,400,{error:'invalid json'});return;}

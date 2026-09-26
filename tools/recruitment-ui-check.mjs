@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {recruitmentPool,percentText} from '../js/ui/recruitment.js';
-import {MONSTER_TYPES} from '../data/balance.js';
+import {MONSTER_TYPES,ROBOT_TYPES} from '../data/balance.js';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,`${a} != ${b}`);
@@ -18,6 +18,11 @@ near(recruitmentPool('core').rarities.find(x=>x.k==='EP').percent,.36);
 near(recruitmentPool('credit').rarities.find(x=>x.k==='EP').percent,.056);
 near(recruitmentPool('core').parts.find(x=>x.k==='SSR').percent,1.8);
 near(recruitmentPool('credit').parts.find(x=>x.k==='SSR').percent,2.32);
+// Future data may contain story-only units. A preview must not dilute per-unit rates.
+const originalRates=recruitmentPool('core').robots.map(r=>[r.id,r.percent]);
+ROBOT_TYPES.ui_story_fixture={...ROBOT_TYPES.ignis,id:'ui_story_fixture',story:true};
+try{assert.deepEqual(recruitmentPool('core').robots.map(r=>[r.id,r.percent]),originalRates);}
+finally{delete ROBOT_TYPES.ui_story_fixture;}
 assert.equal(percentText(0),'0%');assert.equal(percentText(.056),'0.056%');
 console.log('Recruitment probabilities passed: normalized pools; per-unit totals; unconditional part rates; monsters excluded.');
 

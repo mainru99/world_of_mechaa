@@ -33,6 +33,7 @@ import { makeOpponent as _makeOpponent, pickTactic, bandStart, bandGoal, huntWee
 import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 import { icon, emblem } from './ui/icons.js';
+import { battleView, BATTLE_MODES } from './ui/battle.js';
 import { territoryView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
 
@@ -468,6 +469,7 @@ function go(scr){ if(!['home','hangar','gacha','battle','rank','trial','hunt','t
   if(scr!==cur) window.scrollTo({top:0,left:0,behavior:'instant'});
   if(cur==='hangar' && scr!=='hangar') seenFresh();
   if(scr!=='terr') _terrRequest++;
+  _battleRequest++; // Invalidate a pending opponent search, even on battle -> battle.
   const returnBar=$('#ui-return'); if(returnBar) returnBar.hidden=!(scr==='hangar' && _returnToTerritory);
   cur=scr; _sceneTerrain=null; setScene(scr); document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='sc-'+scr));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.s===scr));
@@ -1425,80 +1427,34 @@ function bigPartArt(p){ return partIco(p, 'lg'); }
    기본은 균형(none)이라, 아무것도 건드리지 않으면 예전과 똑같이 싸운다. */
 let _tactic='none';
 function setTactic(k){ if(!CONST.TACTIC || !CONST.TACTIC[k]) return; _tactic=k;
-  document.querySelectorAll('#sc-battle .tacbtn').forEach(b=>b.classList.toggle('on', b.dataset.k===k)); }
+  document.querySelectorAll('#sc-battle .tacbtn[data-k]').forEach(b=>{b.classList.toggle('on', b.dataset.k===k);b.setAttribute('aria-pressed',String(b.dataset.k===k));}); }
 const tacKo = k => (CONST.TACTIC && CONST.TACTIC[k] && CONST.TACTIC[k].ko) || '균형';
 
 let _pendingOpp=null, _battleRobot=null, battleSpeed=1;   // 기본은 등속. 빠르게 보고 싶으면 x2~x8 로 올린다
-/* 대전 홈 — 넓은 화면에서는 '내 기체'(왼쪽)와 '출격'(오른쪽) 두 단이다.
-
-   예전에는 한 단으로만 쌓았다. 모바일에서는 그게 맞지만 데스크톱에서는 1,000px 짜리
-   판 왼쪽에 글과 버튼이 몰리고 오른쪽 절반이 비었다. 게다가 이 화면이 알려 주는 것이
-   이름·역할·전투력뿐이라, 정작 '무엇을 들고 나가는가'를 보려면 격납고로 돌아가야 했다.
-
-   그래서 왼쪽에는 출전 기체의 능력치와 스킬을 그대로 펴 놓는다 — 상대 발견 화면이
-   상대의 방어·회피·속도를 보여 주므로, 고르기 전에 내 쪽 숫자가 같은 자리에 있어야
-   견줄 수 있다. 오른쪽에는 '누구를 만나는가'와 '얼마가 드는가'만 남기고 버튼을 붙인다.
-
-   DOM 은 한 벌이다. 900px 미만에서는 .bh 가 한 줄 격자라 예전처럼 위아래로 쌓인다. */
-function renderBattleHome(){
-  const rb=selRobot(), T=ROBOT_TYPES[rb.type], st=computeStats(rb);
-  const cost=sortieCost(rb), poor=S.credits<cost, on=net.state.online;
-
-  /* 상대 풀 — 서버가 실제로 고르는 순서 그대로다(server/battle.js).
-     사람이 먼저고, 맞는 사람이 없을 때만 생성 상대로 넘어간다. */
-  const pool = `
-    <div class="dh">상대 풀</div>
-    <ul class="bh-pool">
-      <li><b>다른 플레이어</b><span>격납고에 등록된 방어 기체 · 전투력 ±15% 안에서 찾습니다</span></li>
-      <li><b>야생 몬스터</b><span>대전에서만 나타납니다 · 레이팅이 걸리지 않습니다</span></li>
-      <li><b>훈련 기체</b><span>맞는 사람 상대가 없을 때 · 내 레이팅에 맞춰 장비를 갖춥니다</span></li>
-    </ul>`;
-
-  $('#sc-battle').innerHTML = `
-    <h2 class="title">대전 · 상대 찾기</h2>
-    <div class="bh">
-      <div class="panel bh-me">
-        <div class="dh">출전 기체</div>
-        <div class="oppcard">
-          <div class="sprite" data-t="${T.rarity}" style="height:120px">${sprite(rb.type,false)}</div>
-          <div>
-            <div class="rname">${T.name} ${robRarTag(rb.type)} <span class="lv">Lv.${rb.level}</span></div>
-            <div class="rrole">${T.role}</div>
-            <div class="bh-pw">전투력 ${fmt(power(rb))}</div>
-            <div class="hint">격납고에서 고른 기체가 그대로 나갑니다</div>
-          </div>
-        </div>
-        <div class="bh-stats">${['spd','atk','def','hp','crit','eva'].map(k=>statBar(k,st[k],
-            k==='hp'?st.hpFull:null, k==='atk'?atkRange(st):null)).join('')}</div>
-        <div class="my-skill"><strong>${T.skill.name}</strong>
-          <span class="fxrow">${fxTags(rb.type)}</span><span>${T.skill.desc}</span></div>
-      </div>
-
-      <div class="panel bh-go">
-        ${on ? pool : `<div class="dh">연습 대전</div>
-          <div class="hint">서버에 연결되지 않았습니다 · 싸워 볼 수는 있지만 <b style="color:var(--bad)">아무것도 얻지 못합니다</b></div>`}
-        <div class="bh-rows">
-          ${on ? `<div class="bh-row"><span>출격비</span><b style="color:var(--gold)">${fmt(cost)} 크레딧</b></div>
-                  <div class="bh-row"><span>보유 크레딧</span><b${poor?' style="color:var(--bad)"':''}>${fmt(S.credits)}</b></div>` : ''}
-          <div class="bh-row"><span>전적</span><b>${S.stat.wins}승 ${S.stat.losses}패</b></div>
-        </div>
-        ${on && poor ? `<div class="hint" style="margin-top:8px;color:var(--bad)">
-          크레딧이 모자라 <b>비상 출격</b>으로 나갑니다 — 출격비가 없는 대신 보상은 크레딧만입니다.</div>` : ''}
-        <button class="btn big${on?' gold':''}" onclick="ROWAR.${on?'findMatch':'practiceFind'}()">
-          ${on?'상대 찾기':'연습 대전'}</button>
-        ${on ? `<div class="hint" style="margin-top:8px">상대와 승패는 서버가 정합니다</div>
-        <div class="bh-duel">
-          <div class="dh">지목 대전</div>
-          <div class="duelrow">
-            <input id="duelNick" class="duelin" placeholder="GUEST-0002" maxlength="24"
-                   autocomplete="off" spellcheck="false"
-                   onkeydown="if(event.key==='Enter'){event.preventDefault();ROWAR.duelFind()}">
-            <button class="btn ghost" onclick="ROWAR.duelFind()">붙기</button>
-          </div>
-          <div class="hint">적은 이름의 등록 기체와 붙습니다 · <b>친선전</b>이라 출격비·보상·레이팅이 없습니다</div>
-        </div>` : ''}
-      </div>
-    </div>`;
+let _battleMode='arena', _battleRequest=0, _battleFindOpts;
+function battleUnit(rb,parts){return {type:rb.type,level:rb.level,stats:computeStats(rb,parts),power:power(rb,parts)};}
+function battleIdentity(){return {playerName:net.state.loginId||net.state.accountId||'지휘관',playerMeta:`${S.stat.wins}승 ${S.stat.losses}패`};}
+function setBattleMode(mode){
+  if(!BATTLE_MODES[mode])return;
+  _battleMode=mode; _battleRequest++;
+  renderBattleHome();
+}
+function battleRetry(practice=false){
+  if(practice)return practiceFind();
+  const opp=_pendingOpp;
+  if(opp?.mode==='duel')return findMatch({mode:'duel',target:opp.target||_duelTarget,pick:opp.pick});
+  if(opp?.mode==='hunt'||opp?.tier)return findMatch({mode:'hunt',tier:opp.tier});
+  return findMatch();
+}
+function renderBattleHome(searching=false){
+  const rb=selRobot(),on=net.state.online,cost=sortieCost(rb),poor=S.credits<cost;
+  const practice=_battleMode==='practice',duel=_battleMode==='duel';
+  const brief=practice?'가상 상대와 전술을 시험하세요. 경험치·재화·피로도·전적은 변하지 않습니다.':duel?'이름으로 상대의 등록 기체를 찾습니다. 출격비·보상·레이팅 변동이 없는 친선전입니다.':!on?'서버 연결을 확인해 주세요. 연습 대전은 연결 없이도 이용할 수 있습니다.':poor?'비상 출격 · 비용 없이 전투하며 보상은 크레딧만 지급됩니다.':'플레이어를 우선 매칭합니다. 상대가 없으면 훈련 기체 또는 몬스터를 만납니다.';
+  const input=duel&&!searching?`<div class="bv-duel-input"><label for="duelNick">상대 이름</label><input id="duelNick" class="duelin" placeholder="GUEST-0002" maxlength="24" value="${esc(_duelTarget||'')}" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();ROWAR.duelFind()}"></div>`:'';
+  const action=practice?'practiceFind':duel?'duelFind':'findMatch';
+  $('#sc-battle').innerHTML=battleView({mode:_battleMode,allies:[battleUnit(rb)],...battleIdentity(),searching,
+    brief:`<p>${brief}</p>`,costLabel:practice||duel||poor?'무료':fmt(cost)+' 크레딧',rewardLabel:practice||duel?'보상 없음':poor?'크레딧':'상대·승패에 따라 결정',
+    actions:input+`<button class="bv-launch" onclick="ROWAR.${action}()" ${searching||(!on&&!practice)?'disabled':''}>${searching?'탐색 중':practice?'연습 상대 찾기':'상대 찾기'} ${icon('chevron')}</button>`});
 }
 /* ------------------------------- 랭킹 ------------------------------- */
 /* 순위는 서버 크론이 미리 계산해 둔 값을 받아 오기만 한다.
@@ -2096,12 +2052,14 @@ async function codexTitle(id){
    만렙 상대만 잡아 경험치를 부풀릴 수 있다. */
 async function findMatch(opts){
   toBattle();
-  $('#sc-battle').innerHTML = `<h2 class="title">대전</h2><div class="panel"><div class="mm">
-    <div class="spinner"></div><div style="font-weight:800">상대를 검색하는 중...</div>
-    <div class="hint">상대 로봇과 야생 몬스터의 신호를 탐색합니다.</div></div></div>`;
+  const request=++_battleRequest,account=net.state.accountId,state=S;
+  _battleFindOpts=opts?{...opts}:undefined;
+  _battleMode=opts?.mode==='duel'?'duel':'arena';
+  renderBattleHome(true);
 
   if(!net.state.online){ renderBattleHome(); toast('대전은 서버 연결이 필요합니다'); return; }
   const [r] = await Promise.all([net.battleFind(opts), sleep(1000)]);   // 연출용 최소 대기
+  if(request!==_battleRequest||cur!=='battle'||account!==net.state.accountId||state!==S)return;
   if(!r || r.error){
     if(r && r.need!=null){ go('hunt'); toast(`크레딧이 모자랍니다 · 필요 ${fmt(r.need)} / 보유 ${fmt(r.have)}`); return; }
     if(r && r.error==='hunt limit'){ go('hunt'); toast(`이번 주 ${HUNT_KO[r.tier]||''} 토벌 한도를 다 썼습니다 · ${huntResetTxt(r.resetAt)}`); return; }
@@ -2306,7 +2264,7 @@ function huntResetTxt(at){
    (예전에는 여기서 findMatch 를 불러 한 판마다 요청을 두 번 썼다)
    미리 받은 게 없거나 만료됐으면 그때만 다시 찾는다. */
 function nextMatch(){
-  if(!_pendingOpp) return findMatch();
+  if(!_pendingOpp) return findMatch(_battleFindOpts);
   toBattle();
   showOpponent(_pendingOpp);
 }
@@ -2353,60 +2311,20 @@ function showOpponent(opp, practice){
   if(oPow > myPow*1.10) notes.push('전투력이 밀립니다 — 공격력 <b>구간이 넓은</b> 편성이 뒤집을 여지가 큽니다');
   else if(oPow < myPow*0.90) notes.push('전투력이 앞섭니다 — 구간이 <b>좁을수록</b> 확실합니다');
 
-  $('#sc-battle').innerHTML = `
-    <h2 class="title">${opp.mode==='duel'?'지목 대전':(monster?'몬스터 출현':(opp.kind==='player'?'플레이어 발견':'상대 발견'))}</h2>
-    <div class="panel">
-      <div class="oppcard">
-        <div class="sprite" data-t="${T.rarity}" style="height:120px">${sprite(opp.robot.type,false)}</div>
-        <div>
-          <div class="rname">${esc(opp.callsign)} ${monster?'<span class="tag monster-tag">몬스터</span>':robRarTag(opp.robot.type)}${
-            opp.kind==='player'?' <span class="tag" style="color:var(--acc2)">플레이어</span>':''}</div>
-          <div class="rrole">${monster?'위험도 '+T.rarity:T.name} · ${T.role} · Lv.${opp.robot.level}${
-            opp.band?` · <span class="bandtag">구간 ${opp.band}/${opp.bandTotal||12}</span>`:''}</div>
-          ${bandLine(opp.bandGoal)}
-          <div style="margin-top:6px;font-weight:800;color:var(--bad)">전투력 ${fmt(oPow)} <span style="color:var(--dim);font-weight:600">/ 나 ${fmt(myPow)}</span></div>
-        </div>
-      </div>
-      <div class="oppstats">${['def','eva','spd'].map(cmp).join('')}</div>
-      ${oppGear(opp)}
-      <div class="monster-skill"><strong>${T.skill.name}</strong> <span class="fxrow">${fxTags(opp.robot.type)}</span><span>${T.skill.desc}</span></div>
-      <!-- 고르는 순간에 둘을 나란히 둔다. 내 스킬을 기억해서 오라고 하면 아무도 안 본다. -->
-      <div class="my-skill"><strong>내 스킬 · ${COMBAT_TYPES[my.type].skill.name}</strong> <span class="fxrow">${fxTags(my.type)}</span><span>${COMBAT_TYPES[my.type].skill.desc}</span></div>
-      ${notes.length?`<div class="oppnote">${notes.map(n=>`<div>· ${n}</div>`).join('')}</div>`:''}
-      ${practice
-        ? '<div class="hint" style="margin-top:10px;color:var(--gold)">연습 대전 · 보상 없음</div>'
-        : opp.mode==='duel'
-          ? `<div class="hint" style="margin-top:10px;color:var(--acc2)">친선전 · 출격비 없음 ·
-              전적·레이팅·보상이 움직이지 않습니다</div>`
-        : opp.rescue
-          ? `<div class="hint" style="margin-top:10px;color:var(--bad)">비상 출격 · 출격비 없음 · 보상은 크레딧만</div>`
-          : `<div class="hint" style="margin-top:10px">${opp.tier?`토벌 <b style="color:var(--acc2)">${HUNT_KO[opp.tier]||opp.tier}</b> · `:''}출격비 <b style="color:var(--gold)">${fmt(opp.cost)}</b> 크레딧</div>`}
-      ${opp.mode==='duel' && opp.choices && opp.choices.length>1 ? `
-      <!-- 상대가 편성한 기체 중에서 고른다. 무작위 매칭에는 없는 칸이다 —
-           그쪽은 전투력 ±15% 창이 뜻을 가지려면 늘 상대의 출전 기체여야 한다. -->
-      <div class="tacwrap">
-        <div class="tachead">상대 편성 <small>붙을 기체를 고르세요</small></div>
-        <div class="tacrow">${opp.choices.map(c=>{
-          const CT=COMBAT_TYPES[c.type]; if(!CT) return '';
-          return `<button class="btn tacbtn${(c.i|0)===(opp.pick|0)?' on':''}" onclick="ROWAR.duelPick(${c.i|0})">
-            <b>${CT.name} <span class="lv">Lv.${c.level}</span></b>
-            <span>${CT.role} · 전투력 ${fmt(c.power)}${c.skillLv?` · 스킬 +${c.skillLv}`:''}</span></button>`;
-        }).join('')}</div>
-      </div>` : ''}
-      <!-- 전술 — 상대를 보고 나서 고르는, 이 게임의 유일한 전투 개입이다.
-           상대의 전술은 보이지 않는다. 위 스킬 딱지로 짐작하는 것이 이 기능의 재미다. -->
-      <div class="tacwrap">
-        <div class="tachead">전술 지시 <small>상대의 스킬을 보고 고르세요</small></div>
-        <div class="tacrow">${Object.keys(CONST.TACTIC||{}).map(k=>{
-          const T=CONST.TACTIC[k];
-          return `<button class="btn tacbtn${k===_tactic?' on':''}" data-k="${k}" onclick="ROWAR.setTactic('${k}')">
-            <b>${T.ko}</b><span>${T.desc||''}</span></button>`; }).join('')}</div>
-      </div>
-      <div class="row-btns" style="margin-top:12px">
-        <button class="btn big gold" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작</button>
-        <button class="btn ghost" onclick="ROWAR.${practice?'practiceFind':'findMatch'}()">다시 찾기</button>
-      </div>
-    </div>`;
+  const mode=practice?'practice':opp.mode==='duel'?'duel':'arena';
+  _battleMode=mode;
+  const tactics=`<div class="tacwrap"><div class="tachead">전술 지시 <small>상대의 스킬을 보고 고르세요</small></div><div class="tacrow">${Object.entries(CONST.TACTIC||{}).map(([k,t])=>`<button class="btn tacbtn${k===_tactic?' on':''}" data-k="${k}" aria-pressed="${k===_tactic}" onclick="ROWAR.setTactic('${k}')"><b>${t.ko}</b><span>${t.desc||''}</span></button>`).join('')}</div></div>`;
+  const choices=opp.mode==='duel'&&opp.choices?.length>1?`<div class="tacwrap"><div class="tachead">상대 편성 <small>대결할 기체를 선택하세요</small></div><div class="tacrow">${opp.choices.map(c=>{
+    const CT=COMBAT_TYPES[c.type]; if(!CT)return '';
+    return `<button class="btn tacbtn${c.i===opp.pick?' on':''}" aria-pressed="${c.i===opp.pick}" onclick="ROWAR.duelPick(${c.i|0})"><b>${CT.name} · Lv.${c.level}</b><span>전투력 ${fmt(c.power)}</span></button>`;
+  }).join('')}</div></div>`:'';
+  const intel=`<details class="bv-intel"><summary>기체 분석 · 스킬과 장비 비교</summary><div class="oppstats">${['def','eva','spd'].map(cmp).join('')}</div>${oppGear(opp)}<div class="monster-skill"><strong>${T.skill.name}</strong><span class="fxrow">${fxTags(opp.robot.type)}</span><span>${T.skill.desc}</span></div><div class="my-skill"><strong>내 스킬 · ${COMBAT_TYPES[my.type].skill.name}</strong><span class="fxrow">${fxTags(my.type)}</span><span>${COMBAT_TYPES[my.type].skill.desc}</span></div></details>`;
+  const brief=practice?'연습 대전 · 경험치·재화·피로도·전적은 변하지 않습니다.':opp.mode==='duel'?'친선 대전 · 출격비·보상·전적·레이팅 변동이 없습니다.':opp.rescue?'비상 출격 · 출격비 없이 전투합니다. 보상은 크레딧만 지급됩니다.':opp.tier?`토벌 ${HUNT_KO[opp.tier]||opp.tier} · 상대를 확인하고 전술을 선택하세요.`:'기체와 전술을 확인하세요. 전투는 자동으로 진행됩니다.';
+  $('#sc-battle').innerHTML=battleView({mode,allies:[battleUnit(my)],enemies:[battleUnit(opp.robot,opp.parts||[])],...battleIdentity(),
+    enemyName:opp.callsign,enemyMeta:`${monster?'몬스터 · 위험도 '+T.rarity:opp.kind==='player'?'플레이어':'훈련 기체'}${opp.band?' · 구간 '+opp.band+'/'+(opp.bandTotal||12):''}`,
+    brief:`<p>${esc(brief)}</p>${bandLine(opp.bandGoal)}`,costLabel:practice||opp.mode==='duel'||opp.rescue?'무료':fmt(opp.cost)+' 크레딧',rewardLabel:practice||opp.mode==='duel'?'보상 없음':opp.rescue?'크레딧':'상대·승패에 따라 결정',
+    actions:`<button class="bv-launch" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작 ${icon('chevron')}</button><button class="btn ghost" onclick="ROWAR.battleRetry(${!!practice})">다시 찾기</button>`,
+    details:choices+tactics+(notes.length?`<div class="oppnote">${notes.map(n=>`<div>· ${n}</div>`).join('')}</div>`:'')+intel});
 }
 
 /* ------------------------------- 연습 대전 ------------------------------- */
@@ -2420,6 +2338,7 @@ function showOpponent(opp, practice){
 let _practiceOpp=null;
 
 function practiceFind(){
+  _battleRequest++;
   toBattle();
   const o=makeOpponent();
   _practiceOpp={ ...o, rating:null, seed:(Math.random()*0xffffffff)>>>0 };
@@ -2450,9 +2369,9 @@ function renderPracticeResult(win,P,E){
   shield();
   toBattle();
   $('#sc-battle').innerHTML = `
-    <div class="panel result">
+    <div class="panel result bv-result">
       <div class="big ${win?'win':'lose'}">${win?'VICTORY':'DEFEAT'}</div>
-      <div class="hint">${P.name} vs ${E.name}</div>
+      <div class="hint">${esc(P.name)} vs ${esc(E.name)}</div><div class="bv-result-art">${sprite(P.type,true)}<span>VS</span>${sprite(E.type,false)}</div>
       <div class="reward"><div class="r" style="color:var(--dim)">연습 대전 · 보상 없음</div>
         <div class="r" style="color:var(--dim)">경험치·크레딧·파츠·피로도·전적이 그대로입니다</div></div>
       <div class="row-btns">
@@ -2466,21 +2385,31 @@ function renderPracticeResult(win,P,E){
 /* 승패와 보상은 서버가 확정한다. 클라는 서버가 준 시드와 스탯으로 같은 전투를
    다시 돌려 애니메이션만 재생한다 — 결정적 시뮬이라 결과가 반드시 일치한다.
    각자 계산하면 피로도 정산 시점 차이 등으로 어긋나므로 스탯도 서버 것을 쓴다. */
+async function requestBattleStart(tactic){
+  const button=$('#sc-battle .bv-launch'),html=button?.innerHTML;
+  if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='전투 준비 중…';}
+  try{return await net.battleStart(tactic);}
+  finally{if(button?.isConnected){button.disabled=false;button.removeAttribute('aria-busy');button.innerHTML=html;}}
+}
 async function startBattle(){
   beginReplay();
   const opp=_pendingOpp; if(!opp) return;
   if(!net.state.online){ toast('대전은 서버 연결이 필요합니다'); return; }
 
-  const my=selRobot(); _battleRobot=my;
-  const r=await net.battleStart(_tactic);
+  const my=selRobot(),account=net.state.accountId,state=S,request=_battleRequest; _battleRobot=my;
+  const r=await requestBattleStart(_tactic);
+  if(account!==net.state.accountId||state!==S)return;
+  const left=request!==_battleRequest||cur!=='battle';
   if(!r || r.error){
+    if(left)return;
     /* 미리 잡아 둔 상대는 10분이 지나면 서버가 무효로 돌린다.
        결과 화면에 오래 머물다 '한 판 더'를 누른 경우가 여기 걸린다 — 막다른 길로 두지 않는다. */
     /* 출격비가 모자라면 다시 찾는다 — 서버가 그때 비상 출격을 잡아 준다. */
-    if(r && /expired|no pending|already started|not enough credits/i.test(r.error||'')){ _pendingOpp=null; return findMatch(); }
+    if(r && /expired|no pending|already started|not enough credits/i.test(r.error||'')){ _pendingOpp=null; return findMatch(_battleFindOpts); }
     toast('전투를 시작하지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
   }
-  setPending(r.next && r.next.opponent, r.next && r.next.cost, r.next && r.next.rescue, r.next && r.next.tier);
+  setPending(r.next && r.next.opponent, r.next && r.next.cost, r.next && r.next.rescue, r.next && r.next.tier, r.next && r.next.mode, r.next);
+  if(left){applyServerBattle(r,my);renderAll();return;}
 
   /* 출격비는 **지금** 깎는다. 서버는 이미 걷었는데 화면은 전투가 끝나야 반영돼서,
      싸우는 내내 없는 크레딧이 지갑에 남아 있었다.
@@ -2499,8 +2428,9 @@ async function startBattle(){
      전투 시작을 또 누를 수 있었다(문지기가 이미 풀린 뒤라 막지 못한다). */
   if(rarOf(r.opponent.type)==='BOSS') await bossEntrance();
   const winner = await playBattle(events,P,E);
-  if(!winner) return;                            // 중간에 나갔으면 화면만 접는다(보상은 이미 서버에 반영됨)
-  applyServerBattle(r, my);
+  if(account!==net.state.accountId||state!==S)return;
+  applyServerBattle(r, my); // A completed server result survives leaving the replay.
+  if(!winner||request!==_battleRequest||cur!=='battle'){renderAll();return;}
   renderResult(r.win, _lastReward, P, E, opp);
 }
 
@@ -2600,7 +2530,7 @@ function renderArena(pType,eType,pName,eName,label,tacP,tacE,navAs){
       <button class="btn ghost spd" id="spdbtn" onclick="ROWAR.toggleSpeed()">속도 x${battleSpeed}</button>
       <button class="btn ghost spd" id="skipbtn" onclick="ROWAR.skipReplay()">건너뛰기</button>
     </div>
-    <div class="arena" id="arena">
+    <div class="arena bv-arena" id="arena">
       <div class="grid"></div><div class="vs">VS</div>
       <div class="hpwrap p"><div class="nm"><span>${pName}</span>${tac(tacP,'p')}<small id="hpn-p"></small></div>
         <div class="hpbar" id="hp-p"><i></i></div><div class="spbar" id="sp-p"><i></i></div></div>
@@ -2752,9 +2682,9 @@ function renderResult(win,rw,P,E,opp){
     else if(b) rewards.push(`<div class="r" style="color:var(--dim)">${bandText(b)}</div>`);
   }
   $('#sc-battle').innerHTML = `
-    <div class="panel result">
+    <div class="panel result bv-result">
       <div class="big ${win?'win':'lose'}">${win?'VICTORY':'DEFEAT'}</div>
-      <div class="hint">${P.name} vs ${E.name}</div>
+      <div class="hint">${esc(P.name)} vs ${esc(E.name)}</div><div class="bv-result-art">${sprite(P.type,true)}<span>VS</span>${sprite(E.type,false)}</div>
       <div class="reward">${rewards.join('')}</div>
       <div class="row-btns">
         ${rw.hunt && rw.hunt.done
@@ -3624,7 +3554,7 @@ window.ROWAR = {
   setRecruitmentHero, openRecruitmentRates, openRecruitmentPool, openRecruitmentDetails,
   setShopTab, shopBuy: guard(shopBuy, 600), shopRefresh: guard(shopRefresh, 800), shopAssemble: guard(shopAssemble, 800),
   practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
-  setTactic,
+  setTactic, setBattleMode, battleRetry: guard(battleRetry, 1000),
   sendExped: guard(sendExped), claimExped: guard(claimExped),
   attackTerr: guard(attackTerr, 1000), raidTerr: guard(raidTerr, 1000), claimTerr: guard(claimTerr),
   account:accountScreen, doRegister: guard(doRegister), doLogin: guard(doLogin), logout:doLogout,
@@ -3870,6 +3800,7 @@ async function doRegister(){
 /* 로그인 뒤에 할 일. 대문의 로그인 칸과 계정 창이 **같은 함수**를 쓴다 —
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 async function afterLogin(r){
+  ++_battleRequest; _pendingOpp=null; _practiceOpp=null; _battleFindOpts=undefined; _duelTarget=null; _battleMode='arena';
   hangarUid=null; hangarTab='info'; hangarInventory=false;
   ++_terrRequest; dropTerrCache(); dropRankCache();
   _territorySelected='n01'; _territoryFilter='all'; _returnToTerritory=false;

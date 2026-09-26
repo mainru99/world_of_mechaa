@@ -9,6 +9,8 @@ ChatGPT 와 Claude 가 같은 저장소를 동시에 만진다. 서로 직접 �
 
 ### 2026-09-21 사용자 확정 — 브랜치 주도권과 자료 분리
 
+2026-09-22 UI 진행: ChatGPT가 대전 홈/준비/재생/결과 표시를 이관했다. 신규 `js/ui/battle.js`, `themes/battle-v2.css` 및 관련 game.js 어댑터는 ChatGPT 담당. 준비 화면은 아군 2기·보스 1기 배열을 수용하지만 동시 전투 엔진은 미연결이며 main에서 반입하지 않았다. 서버/DB/밸런스 변경 없음. 다음 프론트 단계는 파견. 세부 계약은 `docs/ui/battle-implementation-2026-09-22.md` 참조.
+
 | 브랜치 | 메인 담당 | 서브 담당 |
 |---|---|---|
 | `codex/ui-rebuild` | ChatGPT | Claude |

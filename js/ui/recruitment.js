@@ -20,7 +20,7 @@ export function recruitmentPool(currency='core') {
   const partPercent=outcomes.find(row=>row.k==='part')?.percent||0;
   const rarities=config.rar.map(row=>({...row,percent:robotPercent*row.w/rarityTotal}));
   const robots=rarities.slice().reverse().flatMap(row=>{
-    const candidates=Object.values(ROBOT_TYPES).filter(robot=>robot.rarity===row.k);
+    const candidates=Object.values(ROBOT_TYPES).filter(robot=>!robot.story&&robot.rarity===row.k);
     return row.w>0?candidates.map(robot=>({...robot,percent:row.percent/candidates.length})):[];
   });
   const parts=RARITY.map(row=>({k:row.k,ko:row.ko,percent:partPercent*row.w/partTotal,conditional:row.w/partTotal*100}));

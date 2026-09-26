@@ -47,6 +47,7 @@ function startSetup(){
  const result=deferred(),replay=deferred(),events=[];
  const c=vm.createContext({_pendingOpp:{mode:'duel'},_battleRequest:0,_battleFindOpts:{mode:'duel',target:'TEST'},_tactic:'none',S:{credits:1000},cur:'battle',net:{state:{online:true,accountId:'a'},battleStart:()=>result.promise},beginReplay(){},selRobot:()=>({type:'ignis'}),toast:x=>events.push(['toast',x]),findMatch:opts=>events.push(['find',opts]),setPending:()=>events.push(['pending']),applyServerBattle:()=>events.push(['reward']),renderAll:()=>events.push(['all']),renderWallet(){},makeUnit:(name,type)=>({name,type}),simulate:()=>[],renderArena:()=>events.push(['arena']),rarOf:()=> 'EP',playBattle:()=>replay.promise,renderResult:()=>events.push(['result']),_lastReward:{}});
  c.requestBattleStart=tactic=>c.net.battleStart(tactic);
+ vm.runInContext(fn('playBattleForAccount'),c);
  vm.runInContext(fn('startBattle'),c);return {c,result,replay,events};
 }
 const response={nameP:'IGNIS',opponent:{type:'ranger',callsign:'TEST'},statP:{},statE:{},seed:1,cost:10,win:true};

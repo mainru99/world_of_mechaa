@@ -2391,6 +2391,16 @@ async function requestBattleStart(tactic){
   try{return await net.battleStart(tactic);}
   finally{if(button?.isConnected){button.disabled=false;button.removeAttribute('aria-busy');button.innerHTML=html;}}
 }
+/* Keep navigation settlement outside the result/insight insertion point shared with main.
+   Only an interrupted replay is settled here; a normal replay uses the existing result path. */
+async function playBattleForAccount(events,P,E,r,my,account,state,request){
+  const winner=await playBattle(events,P,E);
+  if(account!==net.state.accountId||state!==S)return null;
+  if(!winner||request!==_battleRequest||cur!=='battle'){
+    applyServerBattle(r,my);renderAll();return null;
+  }
+  return winner;
+}
 async function startBattle(){
   beginReplay();
   const opp=_pendingOpp; if(!opp) return;
@@ -2427,10 +2437,9 @@ async function startBattle(){
   /* **재생이 끝날 때까지 기다린다.** 예전에는 여기서 바로 함수가 끝나, 재생이 도는 동안
      전투 시작을 또 누를 수 있었다(문지기가 이미 풀린 뒤라 막지 못한다). */
   if(rarOf(r.opponent.type)==='BOSS') await bossEntrance();
-  const winner = await playBattle(events,P,E);
-  if(account!==net.state.accountId||state!==S)return;
-  applyServerBattle(r, my); // A completed server result survives leaving the replay.
-  if(!winner||request!==_battleRequest||cur!=='battle'){renderAll();return;}
+  const winner = await playBattleForAccount(events,P,E,r,my,account,state,request);
+  if(!winner) return;                            // 중간에 나갔으면 화면만 접는다(보상은 이미 서버에 반영됨)
+  applyServerBattle(r, my);
   renderResult(r.win, _lastReward, P, E, opp);
 }
 

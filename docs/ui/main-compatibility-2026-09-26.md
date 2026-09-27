@@ -57,3 +57,9 @@
 
 - `git fetch origin main`으로 다시 확인한 `origin/main`은 `0ed5a54` 그대로다. UI 랭킹·도감 커밋 `9c8ec82`와의 `git merge-tree --write-tree --name-only origin/main HEAD`는 exit 0, 텍스트 충돌 0, 진단 tree `a6a48973fead08c1ca04cde9452a465b332632bc`였다.
 - 이는 Git 텍스트 충돌 검사일 뿐, 운영 API·데이터/자산 수량과 실제 UI 동작의 통합 검수가 아니다. main의 순위/도감 규칙이 새로 바뀌면 다시 확인한다. main 병합·체크아웃·운영 배포는 하지 않았다.
+
+## 2026-09-27 로그인·타이틀 체크포인트
+
+- `origin/main`은 다시 조회해도 `0ed5a54`다. UI 로그인 변경 첫 체크포인트에서 `js/game.js` 충돌이 났다. main의 `frontAfterState()`·오프라인 전선 도입과 UI의 로그인 후 토스트/시작 버튼 복원이 같은 줄을 수정했기 때문이다.
+- UI 커밋 `cff5be0`에서 이 공통 줄을 그대로 두고 실패 상태/재시도 처리를 분리했다. `git merge-tree --write-tree --name-only origin/main HEAD` 재검사는 exit 0, 텍스트 충돌 0, 진단 tree `8fffd83aa3a97b74a4ca362b9c31f377db0ee8ac`였다. 실제 병합은 하지 않았다.
+- **텍스트 충돌 0은 로그인 런타임 통합 완료가 아니다.** main의 `frontAfterState`와 `_frontReady`를 반영할 때 신규/기존/오프라인 계정의 전선 도입 중복, UI의 `home` 첫 화면과 상태 다운로드 실패 재시도를 함께 실기능 검수한다.

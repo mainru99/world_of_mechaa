@@ -150,6 +150,7 @@ function load(){
   return freshState();
 }
 function save(){
+  if(_gateNeedsPull)return;             // 새 계정의 상태를 못 받았다면 이전 계정 자료를 쓰지 않는다
   try{ localStorage.setItem(SAVE_KEY,JSON.stringify(S)); }catch(e){}
   net.scheduleSync(()=>S);          // 실제 전송은 몇 초 뒤 한 번만. 오프라인이면 아무 일도 안 한다
 }
@@ -3824,15 +3825,16 @@ function accountScreen(){
 async function doRegister(){
   const id=$('#rg-id').value.trim(), pw=$('#rg-pw').value;
   const r=await net.register(id, pw);
-  if(r.error){ toast(r.error); return; }
-  /* 보이는 이름이 그 자리에서 바뀐다. 서버가 세 표를 고쳐도 랭킹 캐시가 남아 있으면
-     한동안 예전 GUEST 이름이 그대로 보인다. */
-  dropRankCache(); dropTerrCache();
-  closeModal(); renderAcct(); renderGate();
+  if(r.error){ renderAcct();renderGate();toast(r.error); return; }
+  /* 신규 계정도 서버 저장본을 받아야 한다. 대문에서 바로 가입하면 게스트 생성과
+     정식 전환이 연달아 일어나므로, 로컬 초기 기체를 새 계정의 것으로 오인하지 않는다. */
+  if(await afterLogin(r)===false){closeModal();return;}
+  closeModal();
   toast('정식 계정이 되었습니다 · '+r.loginId);
 }
 /* 로그인 뒤에 할 일. 대문의 로그인 칸과 계정 창이 **같은 함수**를 쓴다 —
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
+let _gateNeedsPull=false;
 async function afterLogin(r){
   _dispatchUid=null;_dispatchPending=null;_dispatchTab='missions';_dispatchFilter='all';_dispatchSelected='exped:SHORT';
   ++_rankEpoch;_rankTab='rank';_rankPage=null;_codexRaw=null;_codexAt=0;_codexGroup='monster';
@@ -3842,7 +3844,17 @@ async function afterLogin(r){
   _territorySelected='n01'; _territoryFilter='all'; _returnToTerritory=false;
   Object.assign(_territoryViewport,{zoom:1,left:0,top:0});
   const remote=await net.pull();                 // 그 계정의 진행상황으로 갈아탄다
-  if(remote){ S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex; S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync(); }
+  if(!remote){
+    /* 인증만 성공하고 상태 다운로드가 실패한 경우 이전 계정 S를 새 계정으로 저장/표시하지 않는다.
+       대문에서 다시 누르면 이 계정의 상태를 재요청한다. */
+    _gateNeedsPull=true;
+    setGateVisible(true);
+    renderGate();toast('계정 기록을 불러오지 못했습니다 · 시작하기로 다시 시도하세요');
+    return false;
+  }
+  _gateNeedsPull=false;
+  S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex;
+  S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync();
   renderAcct(); renderGate(); renderAll();
   toast(r.loginId+' 으로 로그인했습니다');
 }
@@ -3850,8 +3862,7 @@ async function doLogin(){
   const id=$('#lg-id').value.trim(), pw=$('#lg-pw').value;
   const r=await net.login(id, pw);
   if(r.error){ toast(r.error); return; }
-  closeModal();
-  await afterLogin(r);
+  await afterLogin(r);closeModal();
 }
 async function doLogout(){
   await net.logout();
@@ -3862,12 +3873,23 @@ async function doLogout(){
 
 /* ── 대문 ──────────────────────────────────────────────
    시작을 누르기 전까지 게임 화면을 가린다. 접속 상태에 따라 문구가 바뀐다. */
+function setGateVisible(open){
+  $('#gate').classList.toggle('hide',!open);
+  document.body.classList.toggle('gated',open);
+  $('#app').inert=open;
+}
 function renderGate(){
   const el=$('#gate-who'); if(!el) return;
   const s=net.state;
-  if(s.needGuest){ el.textContent='시작하면 게스트로 접속합니다'; el.className='gate-who guest'; }
+  const toggle=$('#gate-login-toggle');
+  const saveNote=$('#gate-save-note');
+  if(toggle)toggle.textContent=s.online&&!s.guest?'계정 관리':'계정 · 로그인';
+  if(saveNote)saveNote.textContent=_gateNeedsPull?'계정 기록을 받을 때까지 게임을 열지 않습니다.':!s.checkedAt?'연결 상태를 확인하고 있습니다.':s.online?(s.guest?'게스트 기록은 이 브라우저에 연결됩니다.':'진행 상황은 서버에 저장됩니다.'):'오프라인 진행은 이 브라우저에 저장됩니다.';
+  if(_gateNeedsPull){ el.textContent='계정 기록을 불러오지 못했습니다. 시작하기로 다시 시도하세요'; el.className='gate-who off'; }
+  else if(!s.checkedAt){ el.textContent='연결 상태를 확인하는 중입니다'; el.className='gate-who off'; }
+  else if(s.needGuest){ el.textContent='시작하면 게스트로 접속합니다 · 브라우저를 지우면 복구할 수 없습니다'; el.className='gate-who guest'; }
   else if(!s.online){ el.textContent='오프라인 · 서버에 연결하지 못했습니다'; el.className='gate-who off'; }
-  else if(s.guest){ el.textContent='게스트 #'+String(s.accountId).padStart(4,'0')+'로 시작합니다'; el.className='gate-who guest'; }
+  else if(s.guest){ el.textContent='게스트 #'+String(s.accountId).padStart(4,'0')+' · 이 브라우저에서만 이어집니다'; el.className='gate-who guest'; }
   else { el.textContent=s.loginId+' 님으로 접속했습니다'; el.className='gate-who on'; }
 }
 /* 대문을 연다. **게스트 계정이 여기서 처음 만들어진다.**
@@ -3875,6 +3897,12 @@ function renderGate(){
    account·player·robot·arena_entry 행이 쌓였다. 계정은 '시작한 사람' 에게만 준다. */
 async function openGate(){
   const g=$('#gate'); if(!g) return;
+  if(_gateAuthPending)return;
+  if(_gateNeedsPull){
+    const btn=$('#gate-start');btn.disabled=true;btn.textContent='기록 불러오는 중…';
+    try{if(await afterLogin({loginId:net.state.loginId})===false)return;}
+    finally{btn.disabled=false;btn.innerHTML='시작하기 <span aria-hidden="true">›</span>';}
+  }
   if(net.state.needGuest){
     const btn=$('#gate-start'), was=btn && btn.textContent;
     if(btn){ btn.disabled=true; btn.textContent='접속 중...'; }
@@ -3887,26 +3915,35 @@ async function openGate(){
     if(btn){ btn.disabled=false; btn.textContent=was||'시작하기'; }
     /* 접속에 실패해도 문은 연다 — 오프라인으로도 놀 수 있는 게 이 게임의 규칙이다. */
   }
-  g.classList.add('hide'); document.body.classList.remove('gated');
+  setGateVisible(false);
 }
+let _gateAuthPending=false;
 function initGate(){
-  document.body.classList.add('gated');
+  setGateVisible(true);
   $('#gate-start').addEventListener('click', openGate);
   /* 대문을 닫지 않는다. 계정 창은 대문 위에 뜨고, 닫으면 다시 대문으로 돌아온다.
      로그인/가입을 마쳐도 '시작하기'를 누르기 전까지는 게임에 들어가지 않는다. */
+  $('#gate-login-toggle').addEventListener('click',()=>{
+    if(net.state.online&&!net.state.guest)return accountScreen();
+    const form=$('#gate-login'),opened=!form.hidden;
+    form.hidden=opened;$('#gate-login-toggle').setAttribute('aria-expanded',String(!opened));
+    if(!opened)$('#gate-id').focus();
+  });
   $('#gate-acct').addEventListener('click', accountScreen);
   /* 대문에서 바로 로그인. 성공하면 문을 열고 들어간다 — 로그인은 곧 '시작' 이다. */
   $('#gate-login').addEventListener('submit', async e => {
     e.preventDefault();
+    if(_gateAuthPending)return;
     const id = $('#gate-id').value.trim(), pw = $('#gate-pw').value;
     if(!id || !pw){ toast('아이디와 비밀번호를 넣으세요'); return; }
-    const btn = $('#gate-in'); btn.disabled = true; btn.textContent = '로그인 중...';
-    const r = await net.login(id, pw);
-    btn.disabled = false; btn.textContent = '로그인';
-    if(r.error){ toast(r.error); return; }
-    $('#gate-pw').value = '';
-    await afterLogin(r);
-    openGate();
+    const btn = $('#gate-in');_gateAuthPending=true;btn.disabled=true;btn.textContent='로그인 중...';
+    try{
+      const r=await net.login(id,pw);
+      if(r.error){toast(r.error);return;}
+      $('#gate-pw').value='';
+      if(await afterLogin(r))setGateVisible(false);
+    }catch(err){console.error(err);toast('로그인을 마치지 못했습니다 · 다시 시도하세요');}
+    finally{_gateAuthPending=false;btn.disabled=false;btn.textContent='로그인';}
   });
   renderGate();
 }
@@ -3947,7 +3984,7 @@ function boot(){
 
   /* 탭을 닫기 전에 남은 변경을 밀어 넣는다. visibilitychange 가 더 확실하게 불린다. */
   document.addEventListener('visibilitychange', ()=>{
-    if(document.visibilityState==='hidden') net.flush(()=>S);
+    if(document.visibilityState==='hidden'&&!_gateNeedsPull) net.flush(()=>S);
   });
 }
 // type="module" 은 defer 라 이미 파싱이 끝나 있을 수 있다
@@ -3961,7 +3998,7 @@ function boot(){
    돌아왔을 때 한 번에 따라잡는다. 모달이 열려 있으면 무거운 화면은 건드리지 않는다. */
 let _slowAt = 0, _fatChanged = 0;
 setInterval(()=>{
-  if(!S || document.hidden) return;
+  if(!S || document.hidden || _gateNeedsPull) return;
   /* 이번 초에 실제로 깎인 만큼만 저장한다. 누적값(_fatChanged)으로 판단하면
      한 번 회복된 뒤 20초 동안 매초 저장하게 된다. */
   let changed = 0;

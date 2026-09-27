@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="themes/battle-v2.css?v=20260922-1">
 <link rel="stylesheet" href="themes/dispatch-v2.css?v=20260926-1">
 <link rel="stylesheet" href="themes/ranking-v2.css?v=20260927-1">
+<link rel="stylesheet" href="themes/login-v2.css?v=20260927-1">
 </head>
 <body class="ui-v2" data-scene="hangar">
 <!-- 화면별 배경 연출 레이어. 전부 pointer-events:none 이라 조작을 막지 않는다 -->
@@ -22,29 +23,36 @@
 <!-- 대문. 게임 화면이 바로 뜨지 않게 한 겹 둔다. 시작을 누르면 사라진다. -->
 <div id="gate">
   <div class="gate-inner">
-    <div class="gate-logo">ROWAR<span>ROBOT · WAR</span></div>
-    <p class="gate-tag">기체를 뽑고, 정비하고, 내보낸다.</p>
-
-    <div class="gate-who" id="gate-who">연결 중…</div>
-
-    <button class="btn big gold gate-start" id="gate-start">시작하기</button>
-
-    <!-- 로그인 칸을 대문에 그대로 둔다. 예전에는 '계정 · 로그인' 을 눌러 창을 띄워야
-         입력칸이 나왔다 — 이미 계정이 있는 사람이 매번 한 번 더 눌러야 했다.
-         계정이 있는 사람은 여기서 바로 들어가고, 없는 사람은 아래 링크로 만든다. -->
-    <form class="gate-login" id="gate-login" autocomplete="on">
-      <input class="ainput" id="gate-id" placeholder="아이디" maxlength="20" autocomplete="username">
-      <input class="ainput" id="gate-pw" type="password" placeholder="비밀번호" autocomplete="current-password">
-      <button class="btn gate-in" id="gate-in" type="submit">로그인</button>
-    </form>
-
-    <button class="btn ghost gate-acct" id="gate-acct">계정 만들기 · 관리</button>
-
-    <div class="gate-foot">
-      <a href="#" class="gate-help" onclick="ROWAR.guide();return false">게임 설명 보기</a>
-      <span class="dot">·</span>
-      <span>진행 상황은 서버에 저장됩니다</span>
+    <header class="gate-head">
+      <div class="gate-brand"><span data-emblem aria-hidden="true"></span><span>ROWAR<small>ROBOT · WAR</small></span></div>
+      <span class="gate-headline">YOUR MACHINES. YOUR FRONTLINE.</span>
+    </header>
+    <div class="gate-scene">
+      <div class="gate-copy">
+        <span class="gate-kicker">STRATEGY DRIVES<br>A STRONGER TOMORROW.</span>
+        <h1 class="gate-logo">ROWAR<span>ROBOT · WAR</span></h1>
+        <p class="gate-tag">기체를 뽑고, 정비하고, 내보낸다.</p>
+        <div class="gate-actions">
+          <button class="gate-start" id="gate-start" type="button">시작하기 <span aria-hidden="true">›</span></button>
+          <button class="gate-login-toggle" id="gate-login-toggle" type="button" aria-expanded="false" aria-controls="gate-login">계정 · 로그인</button>
+        </div>
+        <form class="gate-login" id="gate-login" autocomplete="on" hidden>
+          <div class="gate-login-title"><strong>계정으로 이어하기</strong><span>다른 기기의 진행 상황을 불러옵니다</span></div>
+          <label for="gate-id">아이디</label>
+          <input class="ainput" id="gate-id" placeholder="아이디" maxlength="20" autocomplete="username" required>
+          <label for="gate-pw">비밀번호</label>
+          <input class="ainput" id="gate-pw" type="password" placeholder="비밀번호" autocomplete="current-password" required>
+          <button class="gate-in" id="gate-in" type="submit">로그인</button>
+          <button class="gate-acct" id="gate-acct" type="button">새 계정 만들기</button>
+        </form>
+        <div class="gate-who" id="gate-who" role="status" aria-live="polite">연결 중…</div>
+        <div class="gate-feature">
+          <img src="assets/backgrounds/battle-industrial-ruins.webp" alt="전장의 폐허와 기체" loading="eager">
+          <div><strong>전장의 새로운 시대</strong><p>지휘관이여, 기체를 넘어 더 큰 전장을 지배하라.</p><button type="button" onclick="ROWAR.guide()">게임 설명 보기 <span aria-hidden="true">›</span></button></div>
+        </div>
+      </div>
     </div>
+    <footer class="gate-foot"><span>ROWAR · ROBOT WAR</span><span id="gate-save-note">연결 상태를 확인하고 있습니다.</span></footer>
   </div>
 </div>
 <div id="app">
@@ -97,6 +105,6 @@
 
 <!-- ES 모듈이라 file:// 로 직접 열면 동작하지 않는다. README 의 로컬 서버 안내 참고.
      인라인 onclick="ROWAR.x()" 는 js/game.js 가 window.ROWAR 를 대입하므로 그대로 동작한다. -->
-<script type="module" src="js/game.js?v=20260927-ui6-ranking"></script>
+<script type="module" src="js/game.js?v=20260927-ui7-login"></script>
 </body>
 </html>

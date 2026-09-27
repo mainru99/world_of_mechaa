@@ -20,6 +20,11 @@ const samplePulls=process.argv.includes('--sample-pulls');
 // is deliberately shorter than production and never reaches a real API/DB.
 const sampleDispatch=process.argv.includes('--sample-dispatch');
 const sampleArchive=process.argv.includes('--sample-archive');
+const sampleLogin=process.argv.includes('--sample-login');
+const sampleLoginPullRetry=process.argv.includes('--sample-login-pull-retry');
+let previewFailPull=false;
+let previewIdentity=sampleLogin?null:{id:'preview',guest:false,loginId:'지휘관_01'};
+const previewToken='ui-preview-only';
 let previewRev=1001;
 const rng=mulberry32(20260920);
 let nextId=0;
@@ -52,8 +57,33 @@ const server=http.createServer(async(req,res)=>{
    let raw='';for await(const c of req){raw+=c;if(raw.length>16384){json(res,413,{error:'too large'});return;}}
    let body={};try{body=raw?JSON.parse(raw):{};}catch{json(res,400,{error:'invalid json'});return;}
    if(url.pathname==='/api/health'){json(res,200,{ok:true,preview:true,schema_version:21});return;}
-   if(url.pathname==='/api/me'){json(res,200,{ok:true,account_id:'preview',guest:false,login_id:'지휘관_01'});return;}
-   if(url.pathname==='/api/state'&&req.method==='GET'){json(res,200,{ok:true,rev:previewRev,nickname:'지휘관_01',rating:1480,state,server_now:Date.now(),band:{i:2,pts:1},items:{},presets:[],...(sampleArchive?{codex:sampleCodex}:{})});return;}
+   if(sampleLogin&&url.pathname==='/api/auth/guest'&&req.method==='POST'){
+    previewIdentity={id:'preview-guest',guest:true,loginId:null};json(res,200,{ok:true,token:previewToken});return;
+   }
+   if(sampleLogin&&url.pathname==='/api/auth/login'&&req.method==='POST'){
+    if(body.login_id!=='tester'||body.password!=='password123'){json(res,401,{error:'아이디 또는 비밀번호가 맞지 않습니다'});return;}
+    previewIdentity={id:'preview-member',guest:false,loginId:'tester'};
+    previewFailPull=sampleLoginPullRetry;
+    json(res,200,{ok:true,token:previewToken,account_id:previewIdentity.id,login_id:previewIdentity.loginId});return;
+   }
+   if(sampleLogin&&url.pathname==='/api/auth/register'&&req.method==='POST'){
+    if(!previewIdentity?.guest||!req.headers.authorization){json(res,401,{error:'게스트 계정이 필요합니다'});return;}
+    if(!/^[A-Za-z0-9_]{4,20}$/.test(body.login_id||'')||(body.password||'').length<8){json(res,400,{error:'아이디 또는 비밀번호 형식을 확인하세요'});return;}
+    previewIdentity={id:'preview-guest',guest:false,loginId:body.login_id};
+    json(res,200,{ok:true,login_id:previewIdentity.loginId});return;
+   }
+   if(sampleLogin&&url.pathname==='/api/auth/logout'&&req.method==='POST'){
+    previewIdentity=null;json(res,200,{ok:true});return;
+   }
+   if(url.pathname==='/api/me'){
+    if(sampleLogin&&(!previewIdentity||req.headers.authorization!==`Bearer ${previewToken}`)){json(res,401,{error:'not signed in'});return;}
+    json(res,200,{ok:true,account_id:previewIdentity.id,guest:previewIdentity.guest,login_id:previewIdentity.loginId});return;
+   }
+   if(url.pathname==='/api/state'&&req.method==='GET'){
+    if(sampleLogin&&(!previewIdentity||req.headers.authorization!==`Bearer ${previewToken}`)){json(res,401,{error:'not signed in'});return;}
+    if(previewFailPull){previewFailPull=false;json(res,503,{error:'sample state retry'});return;}
+    json(res,200,{ok:true,rev:previewRev,nickname:previewIdentity.loginId||'게스트',rating:1480,state,server_now:Date.now(),band:{i:2,pts:1},items:{},presets:[],...(sampleArchive?{codex:sampleCodex}:{})});return;
+   }
    if(sampleArchive&&url.pathname==='/api/ranking'&&req.method==='GET'){
     json(res,200,{ok:true,top:sampleRank,me:{...sampleRank[11],rank:12,live:false},total:sampleRank.length,ranked_at:Date.now()-120000});return;
    }
@@ -126,10 +156,10 @@ const server=http.createServer(async(req,res)=>{
   let content=await readFile(file);
   if(name==='/index.html'){
    const seed=JSON.stringify(state).replaceAll('<','\\u003c');
-   const bootstrap=`<script>localStorage.setItem('rowar.session','ui-preview-only');localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
-   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
+   const bootstrap=`<script>${sampleLogin?"localStorage.removeItem('rowar.session');":"localStorage.setItem('rowar.session','ui-preview-only');"}localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
+   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleLogin?'샘플 로그인 검수 · 가상 계정 / tester · password123 / 운영 계정과 무관합니다':sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
   }
   res.writeHead(200,{'content-type':mime[extname(file)],'cache-control':'no-store','x-content-type-options':'nosniff'});res.end(content);
  }catch(e){res.writeHead(404);res.end('Not found');}
 });
-server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleArchive?'in-memory sample archive enabled':sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':'spending/claiming disabled'}`));
+server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleLogin?'in-memory sample login enabled':sampleArchive?'in-memory sample archive enabled':sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':'spending/claiming disabled'}`));

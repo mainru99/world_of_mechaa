@@ -33,6 +33,7 @@ import { makeOpponent as _makeOpponent, pickTactic, bandStart, bandGoal, huntWee
 import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 import { icon, emblem } from './ui/icons.js';
+import { dispatchView, dispatchMissions, expeditionEstimate, expeditionProgress } from './ui/dispatch.js';
 import { battleView, BATTLE_MODES } from './ui/battle.js';
 import { territoryView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
@@ -567,7 +568,7 @@ function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core')
 /* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
    그래서 renderAll 은 대전 화면을 건드리지 않는다. 대전 화면은 go() 가 그린다. */
-function renderAll(){ renderWallet(); if(cur==='home')renderHome(); else if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); else if(cur==='terr')renderTerrHome(); }
+function renderAll(){ renderWallet(); if(cur==='home')renderHome(); else if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); else if(cur==='terr')renderTerrHome(); else if(cur==='hunt')renderHunt(); }
 let modalOpener=null;
 function openModal(html){
   shield(); const m=$('#modal');
@@ -2116,10 +2117,78 @@ const HUNT_KO = { ...Object.fromEntries(ROBOT_RARITY.map(r=>[r.k, r.ko])), BOSS:
    기체를 얼마간 내보내 두고 재화를 받아 온다. 보낸 기체는 그동안 못 싸운다 —
    편성이 두 기뿐이라 주력을 보내면 대전이 눈에 띄게 불편해진다. 그게 이 기능의 대가다.
    남은 시간은 서버가 준 endsAt 으로 여기서 센다. 진행을 물으러 서버에 가지 않는다. */
+let _dispatchFilter='all',_dispatchTab='missions',_dispatchSelected='exped:SHORT',_dispatchUid=null,_dispatchPending=null,_dispatchWeekReset=0;
+function dispatchRobot(){
+  return S.robots.find(r=>r.uid===_dispatchUid&&r.uid!==S.expd?.uid)
+    || S.robots.find(r=>!S.squad.includes(r.uid)&&r.uid!==S.expd?.uid)
+    || selRobot();
+}
+function dispatchOptions(){
+  return dispatchMissions({expeditionLevel:dispatchRobot().level,huntLevel:selRobot().level,sortieCost:sortieCost(selRobot()),credits:S.credits,weekly:huntNow()});
+}
+function renderDispatch(){
+  const missions=dispatchOptions();
+  if(!missions.some(m=>m.key===_dispatchSelected))_dispatchSelected=missions[0].key;
+  const selected=missions.find(m=>m.key===_dispatchSelected),rb=selected.kind==='exped'?dispatchRobot():selRobot();
+  _dispatchWeekReset=huntNow().resetAt;
+  $('#sc-hunt').innerHTML=dispatchView({missions,selected:_dispatchSelected,filter:_dispatchFilter,tab:_dispatchTab,robot:rb,robotPower:power(rb),inSquad:S.squad.includes(rb.uid),
+    expedition:S.expd,expeditionRobot:S.robots.find(r=>r.uid===S.expd?.uid),online:net.state.online,pending:!!_dispatchPending,canSend:S.robots.length>1&&rb.uid!==S.expd?.uid,weeklyReset:huntResetTxt(_dispatchWeekReset)});
+}
+function setDispatchFilter(filter){
+  if(!['all','exped','hunt'].includes(filter))return;
+  _dispatchFilter=filter;_dispatchTab='missions';
+  if(filter!=='all'&&!_dispatchSelected.startsWith(filter+':'))_dispatchSelected=dispatchOptions().find(m=>m.kind===filter).key;
+  renderHunt();
+}
+function setDispatchTab(tab){if(!['missions','status'].includes(tab))return;_dispatchTab=tab;renderHunt();}
+function setDispatchMission(kind,tier){
+  const key=kind+':'+tier;if(!dispatchOptions().some(m=>m.key===key))return;
+  _dispatchSelected=key;_dispatchTab='missions';renderHunt();
+  if(window.matchMedia('(max-width:700px)').matches)$('#dv-preparation')?.scrollIntoView({block:'nearest',behavior:'auto'});
+}
+function pickDispatchRobot(){
+  if(_dispatchPending)return;
+  const tier=_dispatchSelected.split(':')[1];if(!CONST.EXPED[tier])return;
+  const cards=S.robots.filter(r=>r.uid!==S.expd?.uid).map(r=>{
+    const rw=expeditionEstimate(tier,r.level);
+    return `<button onclick="ROWAR.selectDispatchRobot('${esc(r.uid)}')">${sprite(r.type,false)}<span><b>${esc(ROBOT_TYPES[r.type].name)} · Lv.${r.level}</b><small>크레딧 ${fmt(rw.cr)} · 스크랩 ${fmt(rw.sc)}</small><em>${S.squad.includes(r.uid)?'편성 중 · 보내면 편성에서 제외':'대기 기체'}</em></span>${icon('chevron')}</button>`;
+  }).join('');
+  openModal(`<div class="mhead">파견 기체 선택<button class="mx" onclick="ROWAR.closeModal()" aria-label="닫기">×</button></div><p class="hint">기체를 고른 뒤 파견 시작을 눌러 출발합니다.</p><div class="dv-picker">${cards}</div>`);
+}
+function selectDispatchRobot(uid){
+  if(_dispatchPending||!S.robots.some(r=>r.uid===uid&&r.uid!==S.expd?.uid))return;
+  _dispatchUid=uid;closeModal();renderHunt();
+}
+async function launchDispatch(){
+  if(!net.state.online){toast('서버 연결이 필요합니다');return;}
+  if(_dispatchPending)return;
+  const m=dispatchOptions().find(x=>x.key===_dispatchSelected);if(!m)return;
+  if(m.kind==='exped')return sendExped(m.tier,dispatchRobot().uid);
+  if(m.blocked){toast(m.blocked);return;}
+  return hunt(m.tier);
+}
+async function dispatchRequest(action,args){
+  const token={account:net.state.accountId,state:S};_dispatchPending=token;
+  if(cur==='hunt')renderHunt();
+  try{
+    const result=await net.expedition(action,args);
+    return token.account===net.state.accountId&&token.state===S?result:null;
+  }finally{
+    if(_dispatchPending===token){_dispatchPending=null;if(cur==='hunt')renderHunt();}
+  }
+}
+function tickDispatch(){
+  if(cur!=='hunt')return;
+  if(_dispatchWeekReset!==huntNow().resetAt){renderHunt();return;}
+  const p=expeditionProgress(S.expd);if(!p)return;
+  const label=$('#dv-countdown'),fill=$('#dv-progress-fill'),button=$('#dv-claim'),status=$('#dv-progress-label');
+  if(label)label.textContent=p.done?'수령 가능':p.clock;
+  if(status)status.textContent=p.done?'귀환 완료':'귀환까지';
+  if(fill){fill.style.width=p.percent+'%';fill.parentElement.setAttribute('aria-valuenow',String(Math.floor(p.percent)));}
+  if(button){button.disabled=!p.done||!net.state.online||!!_dispatchPending;button.textContent=_dispatchPending?'요청 처리 중':p.done?'보상 받기':'원정 진행 중';}
+}
 function expedReward(tier, lv){
-  const T=CONST.EXPED[tier];
-  return { cr: Math.round(T.crH*T.h*lv), sc: Math.round(T.scH*T.h*lv),
-           coreP: T.coreP, partP: T.partP, h: T.h };
+  return expeditionEstimate(tier,lv);
 }
 function renderExped(){
   if(!net.state.online)
@@ -2178,26 +2247,31 @@ function pickExped(tier){
     <div style="display:grid;gap:8px">${list}</div>`);
 }
 async function sendExped(tier, uid){
+  if(_dispatchPending||!net.state.online||!CONST.EXPED[tier])return;
+  if(S.expd){toast('이미 원정 중인 기체가 있습니다');return;}
+  if(S.robots.length<2){toast('출격할 기체를 한 기 이상 남겨야 합니다');return;}
+  if(!S.robots.some(x=>x.uid===uid))return;
   closeModal();
-  const r=await net.expedition('send',{tier, robotUid:uid});
+  const r=await dispatchRequest('send',{tier, robotUid:uid});
   if(!r) return;
   if(r.error){ toast(ERR_KO[r.error]||('실패: '+r.error)); return; }
   const rb=S.robots.find(x=>x.uid===uid);
   S.expd={ tier, level:rb?rb.level:1, endsAt:r.endsAt, uid, ready:false };
   S.squad=S.squad.filter(u=>u!==uid);
-  if(!S.squad.length){ const alt=S.robots.find(x=>x.uid!==uid); if(alt) S.squad=[alt.uid]; }
+  if(!S.squad.length){ const alt=S.robots.filter(x=>x.uid!==uid).sort((a,b)=>b.level-a.level)[0]; if(alt) S.squad=[alt.uid]; }
   if(!S.squad.includes(S.robots[S.sel].uid)) S.sel=S.robots.findIndex(x=>x.uid===S.squad[0]);
   _pendingOpp=null;                       // 서버가 잡아 둔 상대를 놓았다
-  commitLocal(); renderHunt();
+  commitLocal(); if(cur==='hunt')renderHunt();else renderAll();
   toast(CONST.EXPED[tier].ko+' 출발 · '+CONST.EXPED[tier].h+'시간 뒤 귀환');
 }
 async function claimExped(){
-  const r=await net.expedition('claim',{});
+  if(_dispatchPending||!net.state.online||!S.expd||S.expd.endsAt>Date.now())return;
+  const r=await dispatchRequest('claim',{});
   if(!r) return;
   if(r.error){ toast(ERR_KO[r.error]||('실패: '+r.error)); return; }
   S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;
   if(r.reward.part) addPart(r.reward.part);
-  S.expd=null; commitLocal(); renderHunt(); renderWallet();
+  S.expd=null; commitLocal(); if(cur==='hunt')renderHunt();else renderAll(); renderWallet();
   const g=[`크레딧 +${fmt(r.reward.cr)}`,`스크랩 +${fmt(r.reward.sc)}`];
   if(r.reward.core) g.push(`코어 +${r.reward.core}`);
   if(r.reward.part) g.push(`파츠 ${r.reward.part.name}`);
@@ -2205,6 +2279,7 @@ async function claimExped(){
 }
 
 function renderHunt(){
+  if(document.body.classList.contains('ui-v2'))return renderDispatch();
   const rb=selRobot();
   if(!net.state.online){
     $('#sc-hunt').innerHTML = `<div class="hx">${renderExped()}
@@ -2244,7 +2319,7 @@ function renderHunt(){
       <div class="hint">${Object.keys(hw.tiers).map(t=>HUNT_KO[t]).join(' · ')} 토벌은 주마다 들어갈 수 있는 횟수가 정해져 있습니다 · ${huntResetTxt(hw.resetAt)}</div>
     </div></div>`;
 }
-function hunt(tier){ findMatch({ mode:'hunt', tier }); }
+function hunt(tier){ return findMatch({ mode:'hunt', tier }); }
 
 /* 토벌 주간 입장 수. 서버가 state · 전투 응답에 실어 보낸다(huntWeekView).
    받은 것이 지난주 것이면(초기화 시각을 넘겼으면) 0 으로 본다 — 일요일 0시를 넘겨 켜 둔 화면도 맞게. */
@@ -3565,6 +3640,7 @@ window.ROWAR = {
   practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
   setTactic, setBattleMode, battleRetry: guard(battleRetry, 1000),
   sendExped: guard(sendExped), claimExped: guard(claimExped),
+  setDispatchFilter,setDispatchTab,setDispatchMission,pickDispatchRobot,selectDispatchRobot,launchDispatch:guard(launchDispatch),
   attackTerr: guard(attackTerr, 1000), raidTerr: guard(raidTerr, 1000), claimTerr: guard(claimTerr),
   account:accountScreen, doRegister: guard(doRegister), doLogin: guard(doLogin), logout:doLogout,
   net,                    // 콘솔에서 상태 확인용: ROWAR.net.state
@@ -3809,6 +3885,7 @@ async function doRegister(){
 /* 로그인 뒤에 할 일. 대문의 로그인 칸과 계정 창이 **같은 함수**를 쓴다 —
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 async function afterLogin(r){
+  _dispatchUid=null;_dispatchPending=null;_dispatchTab='missions';_dispatchFilter='all';_dispatchSelected='exped:SHORT';
   ++_battleRequest; _pendingOpp=null; _practiceOpp=null; _battleFindOpts=undefined; _duelTarget=null; _battleMode='arena';
   hangarUid=null; hangarTab='info'; hangarInventory=false;
   ++_terrRequest; dropTerrCache(); dropRankCache();
@@ -3941,6 +4018,7 @@ setInterval(()=>{
   for(const rb of S.robots) changed += decayFat(rb);
   if(changed){ save(); _fatChanged += changed; }
   renderTicker();
+  tickDispatch();
 
   const now = Date.now();
   if(now - _slowAt < 20000) return;
@@ -3948,7 +4026,7 @@ setInterval(()=>{
   if(document.querySelector('#modal.on, .modal.on')) return;   // 모달을 보고 있으면 건드리지 않는다
   if(_fatChanged) renderWallet();
   if(cur==='hangar' && (_fatChanged || S.robots.some(r=>fatOf(r)>0))) renderHangar();
-  if(cur==='hunt' && S.expd) renderHunt();     // 남은 시간만 다시 그린다. 서버에 묻지 않는다.
+  // Dispatch clock updates in place above; never replace a focused mission/claim button on a timer.
   _fatChanged = 0;
 }, 1000);
 

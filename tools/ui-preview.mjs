@@ -15,6 +15,9 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const port=Number(process.argv[2]||8806);
 // Explicit opt-in for disposable in-memory animation tests. No real API or DB.
 const samplePulls=process.argv.includes('--sample-pulls');
+// Opt-in disposable expedition cycle for UI verification. The three-second timer
+// is deliberately shorter than production and never reaches a real API/DB.
+const sampleDispatch=process.argv.includes('--sample-dispatch');
 let previewRev=1001;
 const rng=mulberry32(20260920);
 let nextId=0;
@@ -65,6 +68,21 @@ const server=http.createServer(async(req,res)=>{
     state.stat.pulls+=count;
     json(res,200,{ok:true,rev:++previewRev,results,credits:state.credits,cores:state.cores,scrap:state.scrap});return;
    }
+   if(sampleDispatch&&url.pathname==='/api/expedition'&&req.method==='POST'){
+    if(body.action==='send'){
+     const robot=state.robots.find(r=>r.uid===body.robotUid);
+     if(!robot||!['SHORT','LONG','DEEP'].includes(body.tier)||state.expd||state.robots.length<2){json(res,400,{error:'invalid sample dispatch'});return;}
+     state.expd={tier:body.tier,uid:robot.uid,level:robot.level,endsAt:Date.now()+3000};
+     state.squad=state.squad.filter(uid=>uid!==robot.uid);
+     if(!state.squad.length)state.squad=[state.robots.find(r=>r.uid!==robot.uid).uid];
+     json(res,200,{ok:true,rev:++previewRev,endsAt:state.expd.endsAt,squadChanged:true});return;
+    }
+    if(body.action==='claim'){
+     if(!state.expd||Date.now()<state.expd.endsAt){json(res,400,{error:'sample expedition not ready'});return;}
+     const cr=200,sc=40;state.credits+=cr;state.scrap+=sc;state.expd=null;
+     json(res,200,{ok:true,rev:++previewRev,player:{credits:state.credits,cores:state.cores,scrap:state.scrap},reward:{cr,sc,core:0,part:null}});return;
+    }
+   }
    if(url.pathname==='/api/territory'&&body.action==='view'){json(res,200,{ok:true,nodes,mine:3,pending,world:{avgPower:8500},myLv:32,at:Date.now()});return;}
    json(res,403,{error:'로컬 디자인 미리보기에서는 재화를 사용하거나 보상을 수령하지 않습니다'});return;
   }
@@ -76,9 +94,9 @@ const server=http.createServer(async(req,res)=>{
   if(name==='/index.html'){
    const seed=JSON.stringify(state).replaceAll('<','\\u003c');
    const bootstrap=`<script>localStorage.setItem('rowar.session','ui-preview-only');localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
-   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
+   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
   }
   res.writeHead(200,{'content-type':mime[extname(file)],'cache-control':'no-store','x-content-type-options':'nosniff'});res.end(content);
  }catch(e){res.writeHead(404);res.end('Not found');}
 });
-server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${samplePulls?'in-memory sample pulls enabled':'spending/claiming disabled'}`));
+server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':'spending/claiming disabled'}`));

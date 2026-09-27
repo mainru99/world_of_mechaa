@@ -52,3 +52,8 @@
 
 - `origin/main`을 다시 조회한 결과 `0ed5a54` 그대로다. UI `b0440cd`와 `origin/main`의 `git merge-tree --write-tree --name-only`는 exit 0, 텍스트 충돌 0, 진단 tree `25a429f75ec04594e34cb3cca8e82bfe5dfde1dc`였다. 실제 병합이나 main 체크아웃 변경은 없다.
 - [52개 커밋별 제목·경로 점검](main-commit-audit-2026-09-27.md)을 남겼다. 이 결과는 코드/그림 전체 줄 단위 검토나 운영 API 호환성 확인을 뜻하지 않는다. 특히 교대·합동 전투, 코어 서킷, 정제 코어, 조각 회수/합성은 통합 단계의 검수 항목이다.
+
+## 2026-09-27 랭킹·도감 체크포인트
+
+- `git fetch origin main`으로 다시 확인한 `origin/main`은 `0ed5a54` 그대로다. UI 랭킹·도감 커밋 `9c8ec82`와의 `git merge-tree --write-tree --name-only origin/main HEAD`는 exit 0, 텍스트 충돌 0, 진단 tree `a6a48973fead08c1ca04cde9452a465b332632bc`였다.
+- 이는 Git 텍스트 충돌 검사일 뿐, 운영 API·데이터/자산 수량과 실제 UI 동작의 통합 검수가 아니다. main의 순위/도감 규칙이 새로 바뀌면 다시 확인한다. main 병합·체크아웃·운영 배포는 하지 않았다.

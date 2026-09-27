@@ -34,6 +34,7 @@ import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recover
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 import { icon, emblem } from './ui/icons.js';
 import { dispatchView, dispatchMissions, expeditionEstimate, expeditionProgress } from './ui/dispatch.js';
+import { rankShell, rankingView } from './ui/ranking.js';
 import { battleView, BATTLE_MODES } from './ui/battle.js';
 import { territoryView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
@@ -468,6 +469,7 @@ function toBattle(bg, navAs){
    계속 반짝이게 두면 그 반짝임이 곧 배경이 되어 아무것도 알려 주지 못한다. */
 function go(scr){ if(!['home','hangar','gacha','battle','rank','trial','hunt','terr'].includes(scr)) return;
   if(scr!==cur) window.scrollTo({top:0,left:0,behavior:'instant'});
+  if(scr!=='rank') ++_rankEpoch;
   if(cur==='hangar' && scr!=='hangar') seenFresh();
   if(scr!=='terr') _terrRequest++;
   _battleRequest++; // Invalidate a pending opponent search, even on battle -> battle.
@@ -568,7 +570,7 @@ function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core')
 /* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
    그래서 renderAll 은 대전 화면을 건드리지 않는다. 대전 화면은 go() 가 그린다. */
-function renderAll(){ renderWallet(); if(cur==='home')renderHome(); else if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); else if(cur==='terr')renderTerrHome(); else if(cur==='hunt')renderHunt(); }
+function renderAll(){ renderWallet(); if(cur==='home')renderHome(); else if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); else if(cur==='terr')renderTerrHome(); else if(cur==='hunt')renderHunt(); else if(cur==='rank')renderRank(); }
 let modalOpener=null;
 function openModal(html){
   shield(); const m=$('#modal');
@@ -1764,94 +1766,36 @@ function renderTrialResult(r){
 
 /* 랭킹 화면은 두 갈래다 — 순위와 도감. 칭호가 순위표에 뜨므로 한자리에 둔다. */
 let _rankTab = 'rank';
-function setRankTab(k){ _rankTab = k==='codex' ? 'codex' : 'rank'; renderRank(); }
-function rankTabs(){
-  return `<div class="ttabs">
-    <button class="gtab ${_rankTab==='rank'?'on':''}" onclick="ROWAR.setRankTab('rank')"><em>🏆</em> 순위<span>대전 전적</span></button>
-    <button class="gtab ${_rankTab==='codex'?'on':''}" onclick="ROWAR.setRankTab('codex')"><em>📖</em> 도감<span>수집 · 칭호${codexDueBadge()}</span></button>
-  </div>`;
-}
-const titleChip = id => { const n=titleName(id); return n ? ` <span class="ttl">${esc(n)}</span>` : ''; };
+let _rankEpoch = 0;
+function setRankTab(k){ _rankTab = k==='codex' ? 'codex' : 'rank'; ++_rankEpoch; renderRank(); }
+function rankWrap(inner){ return rankShell(_rankTab,inner,codexDueBadge()); }
 
 async function renderRank(){
   if(_rankTab==='codex') return renderCodex();
   const el=$('#sc-rank');
-  const wrap = inner => `${rankTabs()}<h2 class="title">랭킹</h2>${inner}`;
+  const request=++_rankEpoch,account=net.state.accountId,wrap=rankWrap;
   if(!net.state.online){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">랭킹은 서버 연결이 필요합니다.</div></div>`);
+    el.innerHTML = wrap('<div class="rv-message">랭킹은 서버 연결이 필요합니다.</div>');
     return;
   }
   const fresh = _rankCache && (Date.now()-_rankAt) < RANK_TTL;
-  if(!fresh) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
-    <div style="font-weight:800">순위를 불러오는 중...</div></div></div>`);
+  if(!fresh) el.innerHTML = wrap('<div class="rv-message"><div class="spinner"></div><b>순위를 불러오는 중...</b></div>');
 
   const r = fresh ? _rankCache : await net.ranking();
+  if(request!==_rankEpoch||cur!=='rank'||_rankTab!=='rank'||account!==net.state.accountId)return;
   if(r && !r.error){ _rankCache=r; _rankAt=Date.now(); }
-  /* 기다리는 사이 도감 탭으로 넘어갔으면 그리지 않는다 — 늦게 온 순위표가 도감을 덮는다. */
-  if(_rankTab!=='rank') return;
   if(!r || r.error){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">순위를 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
+    el.innerHTML = wrap(`<div class="rv-message">순위를 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div>`);
     return;
   }
-
-  const me=r.me;
-  const myRank = me.rank==null ? '집계 중' : me.rank+'위';
-  const when = r.ranked_at ? (d=>`${d.getMonth()+1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`)(new Date(r.ranked_at)) : '아직 없음';
-
-  /* 레이팅 숫자는 화면에 내지 않는다. 순위를 정하는 값이지만, 사용자가 볼 것은 순위와
-     전적이면 충분하다 — 숫자가 보이면 그 숫자를 올리는 게 목적이 되어 버린다.
-     (서버 응답에는 그대로 있다. 상대 장비를 이 값에 맞추므로 클라도 들고는 있어야 한다) */
-  const wr = (w, l) => (w + l) ? Math.round(w / (w + l) * 100) + '%' : '—';
-
-  /* 첫 진입은 **내가 있는 페이지**로 연다. 1페이지로 열어 두면 하위권일수록
-     자기 줄을 찾으려고 매번 넘겨야 한다. */
   const list = r.top || [];
-  const pages = Math.max(1, Math.ceil(list.length / RANK_PAGE));
+  const pages = Math.max(1, Math.ceil(Math.max(0,list.length-3) / RANK_PAGE));
   if(_rankPage === null){
-    const mi = list.findIndex(t=>t.me);
+    const mi = list.slice(3).findIndex(t=>t.me);
     _rankPage = mi >= 0 ? Math.floor(mi / RANK_PAGE) : 0;
   }
   _rankPage = Math.min(_rankPage, pages-1);
-  const page = list.slice(_rankPage*RANK_PAGE, _rankPage*RANK_PAGE + RANK_PAGE);
-
-  const rows = page.map(t=>`
-    <tr class="${t.me?'mine':''}">
-      <td class="rk">${t.rank}</td>
-      <td class="nm">${esc(t.nickname)}${titleChip(t.title)}${t.me?' <span class="tag">나</span>':''}</td>
-      <td class="rt">${wr(t.wins, t.losses)}</td>
-      <td class="wl">${t.wins}승 ${t.losses}패</td>
-    </tr>`).join('');
-
-  /* 페이지가 하나뿐이면 넘김 줄 자체를 안 그린다 — 누를 것이 없는 버튼은 잡음이다. */
-  const nav = pages>1 ? `<div class="pager">
-      <button class="btn ghost" ${_rankPage<=0?'disabled':''} onclick="ROWAR.rankPage(${_rankPage-1})">‹ 이전</button>
-      <span class="pg">${_rankPage+1} / ${pages}</span>
-      <button class="btn ghost" ${_rankPage>=pages-1?'disabled':''} onclick="ROWAR.rankPage(${_rankPage+1})">다음 ›</button>
-    </div>` : '';
-
-  /* 넓은 화면에서는 표를 왼쪽에, 내 성적을 오른쪽에 둔다. 한 단으로 쌓으면 표가
-     720px 로 잘려 1,280px 짜리 줄 왼쪽에 붙고 오른쪽이 통째로 빈다. */
-  el.innerHTML = wrap(`
-    <div class="rx">
-      <div class="panel">
-        <table class="rank">
-          <thead><tr><th class="rk">#</th><th class="nm">이름</th><th class="rt">승률</th><th class="wl">전적</th></tr></thead>
-          <tbody>${rows||'<tr><td class="hint" colspan="4">아직 아무도 없습니다.</td></tr>'}</tbody></table>
-        ${nav}
-      </div>
-      <div class="panel">
-        <div class="dh">내 성적</div>
-        <div class="myrank">
-          <div><div class="hint">내 순위</div><div class="big">${myRank}</div></div>
-          <div><div class="hint">승률</div><div class="big">${wr(me.wins, me.losses)}</div></div>
-          <div><div class="hint">전적</div><div class="big">${me.wins}승 ${me.losses}패</div></div>
-        </div>
-        <div class="hint" style="margin-top:12px">
-          ${when} 집계 기준 · 전체 ${fmt(r.total)}명${me.live?' · 내 순위는 방금 계산한 값':''}
-        </div>
-        <div class="hint">표에는 상위 ${fmt(list.length)}명까지 나옵니다 · 한 쪽에 ${RANK_PAGE}명</div>
-      </div>
-    </div>`);
+  el.innerHTML = wrap(rankingView(r,{page:_rankPage,pageSize:RANK_PAGE,titleName}));
 }
 
 /* ── 도감 ────────────────────────────────────────────────
@@ -1877,19 +1821,18 @@ const costTxt = c => [c.cr?`${fmt(c.cr)} 크레딧`:'', c.co?`코어 ${c.co}`:''
 
 async function renderCodex(){
   const el=$('#sc-rank');
-  const wrap = inner => `${rankTabs()}<h2 class="title">도감</h2>${inner}`;
+  const request=++_rankEpoch,account=net.state.accountId,wrap=rankWrap;
   if(!net.state.online){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">도감은 서버 연결이 필요합니다 — 처치 기록이 서버에 있습니다.</div></div>`);
+    el.innerHTML = wrap('<div class="rv-message">도감은 서버 연결이 필요합니다. 처치 기록은 서버에 저장됩니다.</div>');
     return;
   }
   if(!_codexRaw || Date.now()-_codexAt > CODEX_TTL){
-    if(!_codexRaw) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
-      <div style="font-weight:800">도감을 펼치는 중...</div></div></div>`);
+    if(!_codexRaw) el.innerHTML = wrap('<div class="rv-message"><div class="spinner"></div><b>도감을 펼치는 중...</b></div>');
     const r = await net.codex();
+    if(request!==_rankEpoch||cur!=='rank'||_rankTab!=='codex'||account!==net.state.accountId)return;
     if(r && !r.error){ _codexRaw = r.codex; _codexAt = Date.now(); }
-    if(_rankTab!=='codex') return;                 // 기다리는 사이 순위 탭으로 돌아갔다
     if(!_codexRaw){
-      el.innerHTML = wrap(`<div class="panel"><div class="hint">도감을 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
+      el.innerHTML = wrap(`<div class="rv-message">도감을 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div>`);
       return;
     }
   }
@@ -1926,7 +1869,7 @@ async function renderCodex(){
       : `<span class="cxt lock"><span class="gl" data-t="${esc(t.name)}" style="--d:${(i*0.73%3.2).toFixed(2)}s"><span class="gm">${esc(t.name)}</span></span></span>`;
   }).join('');
 
-  const tabs = G.map(([g,ko,em]) => `<button class="gtab ${_codexGroup===g?'on':''}" onclick="ROWAR.setCodexGroup('${g}')">
+  const tabs = G.map(([g,ko,em]) => `<button class="gtab ${_codexGroup===g?'on':''}" aria-pressed="${_codexGroup===g}" onclick="ROWAR.setCodexGroup('${g}')">
       <em>${em}</em> ${ko}${bar(g)}</button>`).join('');
 
   /* 다음 이정표 — 몇 칸 더 켜면 닿나. 이게 이 화면의 목표다.
@@ -2000,12 +1943,12 @@ async function renderCodex(){
       <div class="hint">● 활성 · ○ 모았음(눌러서 활성화) · ? 아직. 활성화 값 — ${RARS.map(r=>`${r} ${costTxt(actCost('part', r))}`).join(' / ')}</div>`;
   }
 
-  el.innerHTML = wrap(`
-    ${dueHtml}${actHtml}
-    <div class="panel"><div class="dh">칭호 <span class="hint">순위표에 이름과 함께 뜹니다</span></div>
-      <div class="cxts">${tHtml}</div></div>
-    <div class="ttabs cx3">${tabs}</div>
-    <div class="panel">${nextHtml}${body}</div>`);
+  const totalOn=GROUPS.reduce((n,g)=>n+v.count[g].on,0),total=GROUPS.reduce((n,g)=>n+v.count[g].total,0);
+  el.innerHTML = wrap(`<section class="cv-hero"><span>ARCHIVE · COLLECTION</span><h2>전장의 모든 흔적</h2><p>만난 적, 지휘한 기체, 획득한 파츠를 기록하고 활성화하세요.</p></section>
+    <div class="cv-summary">${G.map(([g,ko])=>`<div><span>${ko}</span><b>${v.count[g].on} / ${v.count[g].total}</b><small>활성화한 기록</small></div>`).join('')}</div>
+    <div class="cv-actions">${dueHtml}${actHtml}</div>
+    <div class="cv-layout"><div class="cv-main"><div class="cv-tabs" role="group" aria-label="도감 종류">${tabs}</div><section class="cv-catalog" aria-label="${GROUP_KO[_codexGroup]} 도감">${nextHtml}${body}</section></div>
+    <aside class="cv-side"><section class="cv-titles"><span class="rv-eyebrow">HONORS</span><h3>칭호</h3><p>획득한 칭호를 달면 순위표의 이름 옆에 표시됩니다. 전체 ${totalOn} / ${total}칸 활성화.</p><div class="cxts">${tHtml}</div></section></aside></div>`);
 }
 
 /* 서버가 확정한 재화를 받아 적는다 — 도감 쪽 세 동작이 같이 쓴다. */
@@ -2016,36 +1959,42 @@ function codexApply(r){
   renderWallet();
 }
 async function codexRetry(r, what){
-  if(r && r.status===409){ _codexAt = 0; await renderCodex(); toast('기록이 방금 바뀌었습니다 — 다시 눌러 주세요'); return true; }
+  if(r && r.status===409){ _codexAt = 0; if(cur==='rank'&&_rankTab==='codex')await renderCodex(); toast('기록이 방금 바뀌었습니다 — 다시 눌러 주세요'); return true; }
   if(r && r.error==='not enough'){ toast(`재화가 모자랍니다 · 필요 ${costTxt(r.need||{})}`); return true; }
   toast(what+(r&&r.error?' · '+r.error:'')); return true;
 }
 async function codexActivate(key){
+  const account=net.state.accountId,state=S;
   const r = await net.codex('activate', { keys: key==='all' ? 'all' : [key] });
+  if(account!==net.state.accountId||state!==S)return;
   if(!r || r.error) return codexRetry(r, '활성화하지 못했습니다');
   codexApply(r);
   const cx = parseCodex(_codexRaw); for(const k of r.activated) cx.a[k]=1; _codexRaw = cx;
-  renderCodex();
+  if(cur==='rank'&&_rankTab==='codex')renderCodex();
   const due = codexRewards(codexNow()).items.length;
   toast(`${r.activated.length}칸 활성화 · ${costTxt(r.spent)}` + (due?` · 이정표 ${due}개 달성 — 받기를 누르세요`:''));
 }
 async function codexClaim(){
+  const account=net.state.accountId,state=S;
   const r = await net.codex('claim');
+  if(account!==net.state.accountId||state!==S)return;
   if(!r || r.error) return codexRetry(r, '받지 못했습니다');
   codexApply(r);
   const cx = parseCodex(_codexRaw);
   for(const x of r.claimed) cx.c[x.key]=1;
   _codexRaw = cx; _codexAt = 0;                  // 돌려받은 칸 표시(rf)는 서버에서 다시 받는다
-  await renderCodex();
+  if(cur==='rank'&&_rankTab==='codex')await renderCodex();
   const t = r.claimed.filter(x=>x.title).map(x=>titleName(x.title)).filter(Boolean);
   toast(`이정표 ${r.claimed.length}개 · ${costTxt(r.total)||'환급 없음'} 돌려받음` + (t.length?` · 칭호 「${t.join('」「')}」 열림`:''));
 }
 async function codexTitle(id){
+  const account=net.state.accountId,state=S;
   const r = await net.codex('title', { id: id || null });
+  if(account!==net.state.accountId||state!==S)return;
   if(!r || r.error){ toast('칭호를 바꾸지 못했습니다'+(r&&r.error?' · '+r.error:'')); return; }
   const cx = parseCodex(_codexRaw); cx.t = r.title; _codexRaw = cx;
   dropRankCache();                               // 순위표에 뜨는 칭호가 바뀌었다
-  renderCodex();
+  if(cur==='rank'&&_rankTab==='codex')renderCodex();
   toast(r.title ? `칭호 「${titleName(r.title)}」 을(를) 달았습니다` : '칭호를 뗐습니다');
 }
 
@@ -3886,6 +3835,7 @@ async function doRegister(){
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 async function afterLogin(r){
   _dispatchUid=null;_dispatchPending=null;_dispatchTab='missions';_dispatchFilter='all';_dispatchSelected='exped:SHORT';
+  ++_rankEpoch;_rankTab='rank';_rankPage=null;_codexRaw=null;_codexAt=0;_codexGroup='monster';
   ++_battleRequest; _pendingOpp=null; _practiceOpp=null; _battleFindOpts=undefined; _duelTarget=null; _battleMode='arena';
   hangarUid=null; hangarTab='info'; hangarInventory=false;
   ++_terrRequest; dropTerrCache(); dropRankCache();

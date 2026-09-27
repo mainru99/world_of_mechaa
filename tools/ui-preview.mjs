@@ -8,6 +8,7 @@ import {resolve,dirname,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {TERRITORY,SLOTS,MONSTER_TYPES} from '../data/balance.js';
 import {battleView} from '../js/ui/battle.js';
+import {codexView,codexActivatable,codexRewards,codexTitles} from '../js/codex.js';
 import {computeStats,power} from '../js/stats.js';
 import {rollPart,rollPull,PULL_CUR} from '../js/gacha.js';
 import {mulberry32} from '../js/sim.js';
@@ -18,12 +19,17 @@ const samplePulls=process.argv.includes('--sample-pulls');
 // Opt-in disposable expedition cycle for UI verification. The three-second timer
 // is deliberately shorter than production and never reaches a real API/DB.
 const sampleDispatch=process.argv.includes('--sample-dispatch');
+const sampleArchive=process.argv.includes('--sample-archive');
 let previewRev=1001;
 const rng=mulberry32(20260920);
 let nextId=0;
 const parts=Array.from({length:12},(_,i)=>rollPart(32,rng,`preview-part-${++nextId}`,i<4?'SSR':'SR',SLOTS[i%4]));
 const robots=['ignis','ranger','azure','mule','bastion'].map((type,i)=>({uid:`preview-robot-${i}`,type,level:i<2?32:24,exp:0,fat:i===1?12:0,fatAt:Date.now(),skillLv:2,slots:Object.fromEntries(SLOTS.map((slot,j)=>[slot,i<2?parts[i*4+j].uid:null]))}));
 const state={v:2,credits:12460,cores:128,scrap:8320,robots,parts,sel:0,squad:robots.slice(0,2).map(x=>x.uid),stat:{wins:48,losses:12,pulls:80},campaign:'',items:{},presets:[]};
+const sampleNames=['화염선','서리날','검은별','새벽','철의창','푸른빛','황혼','정찰자','굉음','유성','북극성','지휘관_01','백야','선회','지평선','파도','적월','잔광','폭풍','등대','섬광','청동','산맥'];
+const sampleRank=sampleNames.map((nickname,i)=>({rank:i+1,nickname,rating:2100-i*28,wins:i===11?48:90-i*3,losses:i===11?12:14+i*2,me:i===11,title:null}));
+const sampleMonsters=Object.keys(MONSTER_TYPES).filter(id=>MONSTER_TYPES[id].rarity==='C').slice(0,3);
+const sampleCodex={ms:Object.fromEntries(sampleMonsters.map(id=>[id,30])),mk:Object.fromEntries(sampleMonsters.map(id=>[id,20])),r:{ignis:1,ranger:1},p:{},a:{['m:'+sampleMonsters[0]]:1},rf:{},c:{},t:null};
 const nodes=TERRITORY.map((n,i)=>{
   const owner=[0,3,6].includes(i)?'me':[1,4,7,8].includes(i)?'other':null;
   return {id:n.id,owner,ownerName:owner==='me'?'지휘관_01':owner?'ARES':null,lines:n.mon.length+(owner?1:0),hp:Array.from({length:n.mon.length+(owner?1:0)},(_,j)=>i===5?(j===0?0:.72):1),pw:1700+n.lv*140,lv:n.lv,minLv:n.minLv,locked:n.minLv>32,protectUntil:i===4?Date.now()+45*60000:null,...(owner==='me'?{income:{cr:n.crH*4,sc:n.scH*4,core:0,h:4}}:{})};
@@ -47,7 +53,34 @@ const server=http.createServer(async(req,res)=>{
    let body={};try{body=raw?JSON.parse(raw):{};}catch{json(res,400,{error:'invalid json'});return;}
    if(url.pathname==='/api/health'){json(res,200,{ok:true,preview:true,schema_version:21});return;}
    if(url.pathname==='/api/me'){json(res,200,{ok:true,account_id:'preview',guest:false,login_id:'지휘관_01'});return;}
-   if(url.pathname==='/api/state'&&req.method==='GET'){json(res,200,{ok:true,rev:previewRev,nickname:'지휘관_01',rating:1480,state,server_now:Date.now(),band:{i:2,pts:1},items:{},presets:[]});return;}
+   if(url.pathname==='/api/state'&&req.method==='GET'){json(res,200,{ok:true,rev:previewRev,nickname:'지휘관_01',rating:1480,state,server_now:Date.now(),band:{i:2,pts:1},items:{},presets:[],...(sampleArchive?{codex:sampleCodex}:{})});return;}
+   if(sampleArchive&&url.pathname==='/api/ranking'&&req.method==='GET'){
+    json(res,200,{ok:true,top:sampleRank,me:{...sampleRank[11],rank:12,live:false},total:sampleRank.length,ranked_at:Date.now()-120000});return;
+   }
+   if(sampleArchive&&url.pathname==='/api/codex'){
+    if(req.method==='GET'){json(res,200,{ok:true,codex:sampleCodex});return;}
+    const view=()=>codexView(sampleCodex,state.robots,state.parts,'preview');
+    if(body.action==='activate'){
+     const act=codexActivatable(view(),body.keys==='all'?null:body.keys);
+     if(!act.list.length||state.credits<act.total.cr||state.cores<act.total.co){json(res,400,{error:'not enough',need:act.total});return;}
+     for(const x of act.list)sampleCodex.a[x.key]=1;
+     state.credits-=act.total.cr;state.cores-=act.total.co;
+     json(res,200,{ok:true,activated:act.list.map(x=>x.key),spent:act.total,credits:state.credits,cores:state.cores,rev:++previewRev});return;
+    }
+    if(body.action==='claim'){
+     const due=codexRewards(view());
+     if(!due.items.length){json(res,400,{error:'nothing to claim'});return;}
+     for(const x of due.items)sampleCodex.c[x.key]=1;
+     for(const key of due.refundKeys)sampleCodex.rf[key]=1;
+     state.credits+=due.total.cr;state.cores+=due.total.co;
+     json(res,200,{ok:true,claimed:due.items,refunded:due.refundKeys.length,total:due.total,credits:state.credits,cores:state.cores,rev:++previewRev});return;
+    }
+    if(body.action==='title'){
+     const id=body.id||null;
+     if(id&&!codexTitles(view()).some(x=>x.id===id&&x.got)){json(res,400,{error:'title locked'});return;}
+     sampleCodex.t=id;json(res,200,{ok:true,title:id});return;
+    }
+   }
    if(samplePulls&&url.pathname==='/api/pull'&&req.method==='POST'){
     const count=body.count,currency=body.cur,config=PULL_CUR[currency];
     if(![1,10].includes(count)||!config){json(res,400,{error:'invalid sample request'});return;}
@@ -94,9 +127,9 @@ const server=http.createServer(async(req,res)=>{
   if(name==='/index.html'){
    const seed=JSON.stringify(state).replaceAll('<','\\u003c');
    const bootstrap=`<script>localStorage.setItem('rowar.session','ui-preview-only');localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
-   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
+   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
   }
   res.writeHead(200,{'content-type':mime[extname(file)],'cache-control':'no-store','x-content-type-options':'nosniff'});res.end(content);
  }catch(e){res.writeHead(404);res.end('Not found');}
 });
-server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':'spending/claiming disabled'}`));
+server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleArchive?'in-memory sample archive enabled':sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':'spending/claiming disabled'}`));

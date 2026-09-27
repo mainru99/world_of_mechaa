@@ -1180,23 +1180,23 @@ function gachaStageHtml(){
    뽑기 화면을 세 갈래로 나눈다 — 뽑기(그대로) · 상점(주기마다 바뀌는 진열) · 보관함(기체 조각).
    진열·값·조각 수는 **서버가 js/shop.js 로 정한다.** 화면은 받은 진열을 그리고 누른 칸의
    서명(sig)을 함께 보낸다 — 주기가 넘어가 진열이 바뀐 뒤 옛 화면으로 누르면 서버가 거절한다. */
-let _gTab = 'pull', _shop = null, _shopAt = 0;
+let _gTab = 'pull', _shop = null, _shopAt = 0, _shopOwner = null, _shopPending = false, _shopViewSeq = 0;
 const SHOP_TTL = 60000;
 function setShopTab(k){ if(_pullPending)return; _gTab = ['pull','shop','bag'].includes(k) ? k : 'pull'; renderGacha(); }
 function shopTabs(){
   const bagN = Object.entries(S.items||{}).filter(([k,v])=>k.startsWith('shard:') && v>0 &&
     v >= shardNeed(k.slice(6))).length;
   return `<nav class="gv-section-tabs" aria-label="뽑기와 보급">
-    <button class="${_gTab==='pull'?'on':''}" onclick="ROWAR.setShopTab('pull')">${icon('gacha')} 뽑기</button>
-    <button class="${_gTab==='shop'?'on':''}" onclick="ROWAR.setShopTab('shop')">${icon('refresh')} 보급 상점</button>
-    <button class="${_gTab==='bag'?'on':''}" onclick="ROWAR.setShopTab('bag')">${icon('hangar')} 기체 조각${bagN?` <i class="cxdot">${bagN}</i>`:''}</button>
+    <button class="${_gTab==='pull'?'on':''}" ${_gTab==='pull'?'aria-current="page"':''} onclick="ROWAR.setShopTab('pull')">${icon('gacha')} 뽑기</button>
+    <button class="${_gTab==='shop'?'on':''}" ${_gTab==='shop'?'aria-current="page"':''} onclick="ROWAR.setShopTab('shop')">${icon('refresh')} 보급 상점</button>
+    <button class="${_gTab==='bag'?'on':''}" ${_gTab==='bag'?'aria-current="page"':''} onclick="ROWAR.setShopTab('bag')">${icon('hangar')} 기체 조각${bagN?` <i class="cxdot">${bagN}</i>`:''}</button>
   </nav>`;
 }
 const leftTxt = ms => { const m = Math.max(0, Math.ceil(ms/60000)); return m>=60 ? `${Math.floor(m/60)}시간 ${m%60}분` : `${m}분`; };
 
 /* 서버가 확정한 재화·보관함을 받아 적는다 — 상점 쪽 동작이 같이 쓴다. */
 function shopApply(r){
-  _shop = r; _shopAt = Date.now();
+  _shop = r; _shopAt = Date.now(); _shopOwner = net.state.accountId;
   S.credits = r.credits; S.cores = r.cores; S.scrap = r.scrap; S.items = r.items || {};
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();
@@ -1205,100 +1205,115 @@ function shopApply(r){
 
 async function renderShop(){
   const el = $('#sc-gacha');
-  const wrap = inner => `${shopTabs()}<h2 class="title">상점</h2>${inner}`;
-  if(!net.state.online){ el.innerHTML = wrap(`<div class="panel"><div class="hint">상점은 서버 연결이 필요합니다.</div></div>`); return; }
+  const wrap = inner => `${shopTabs()}<div class="sv-page">${inner}</div>`;
+  const message = (title,body,retry=false) => wrap(`<div class="sv-message ui-surface"><span class="ui-eyebrow">SUPPLY DEPOT</span><h2>${title}</h2><p>${body}</p>${retry?'<button class="btn" onclick="ROWAR.setShopTab(\'shop\')">다시 불러오기</button>':''}</div>`);
+  if(!net.state.online){ el.innerHTML = message('상점에 연결할 수 없습니다','진열과 구매는 서버 연결 중에만 이용할 수 있습니다.'); return; }
+  if(_shopOwner!==net.state.accountId){ _shop=null; _shopAt=0; }
   const stale = !_shop || Date.now()-_shopAt > SHOP_TTL || (_shop.endsAt && Date.now() >= _shop.endsAt);
   if(stale){
-    if(!_shop) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div><div style="font-weight:800">진열을 살피는 중...</div></div></div>`);
-    const r = await net.shop();
-    if(_gTab!=='shop') return;                    // 기다리는 사이 다른 갈래로 옮겼다
+    const owner=S, account=net.state.accountId, seq=++_shopViewSeq;
+    el.innerHTML = message('진열을 불러오는 중','이번 주기의 상품과 가격을 확인하고 있습니다.');
+    let r;try{r=await net.shop();}catch(e){r={error:'연결 오류'};}
+    if(_gTab!=='shop'||cur!=='gacha'||S!==owner||net.state.accountId!==account||seq!==_shopViewSeq) return;
     if(r && !r.error) shopApply(r);
-    else if(!_shop){ el.innerHTML = wrap(`<div class="panel"><div class="hint">상점을 열지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`); return; }
+    else { el.innerHTML = message('진열을 불러오지 못했습니다',`연결을 확인한 뒤 다시 시도해 주세요.${r&&r.error?' · '+esc(r.error):''}`,true); return; }
   }
   const sh = _shop;
-  const left = sh.endsAt - Date.now();
+  const left = Math.max(0,sh.endsAt - Date.now());
+  const sold = sh.stock.filter(x=>x.sold).length;
   const card = x => {
     const afford = S.credits >= x.price;
-    let icon='', name='', sub='';
+    let art='', name='', sub='', kind='';
     if(x.kind==='part'){
-      icon = `<div class="shi pic">${partIco(x.part,'md')}</div>`;
+      art = partIco(x.part,'md'); kind='파츠';
       name = `${esc(x.part.name)} ${rarTag(x.part)}`;
-      sub = `파츠 · Lv.${x.part.lv||sh.lv}`;
+      sub = `Lv.${x.part.lv||sh.lv} · 격납고 파츠함에 보관`;
     } else if(x.kind==='shard'){
       const T = ROBOT_TYPES[x.type], have = (S.items||{})[shardKey(x.type)]|0, need = shardNeed(x.type);
-      icon = `<div class="shi spr" data-t="${T.rarity}">${sprite(x.type,false)}</div>`;
+      art = sprite(x.type,false); kind='기체 조각';
       name = `${esc(T.name)} 조각 ×${x.qty} ${robRarTag(x.type)}`;
-      sub = `보유 ${have} / 조립 ${need}${S.robots.some(r=>r.type===x.type)?' · 이미 가진 기체(조립하면 자원)':''}`;
+      sub = `보유 ${have} / 조립 ${need}${S.robots.some(r=>r.type===x.type)?' · 중복 조립은 자원 전환':''}`;
     } else if(x.kind==='scrap'){
-      icon = `<div class="shi big">🔩</div>`; name = `스크랩 ×${x.qty}`; sub = '강화 재료';
+      art = icon('hangar'); kind='강화 재료'; name = `스크랩 ×${x.qty}`; sub = '기체와 파츠 강화에 사용';
     } else {
-      icon = `<div class="shi core big">💠</div>`; name = `코어 ×${x.qty}`; sub = '드물게 들어온다';
+      art = icon('gacha'); kind='희귀 재화'; name = `코어 ×${x.qty}`; sub = '코어 캡슐에 사용';
     }
-    return `<div class="shc ${x.sold?'sold':''} k-${x.kind}">
-      ${icon}
-      <div class="shb"><div class="shn">${name}</div><div class="hint">${sub}</div></div>
-      <button class="btn ${x.kind==='core'?'gold':''}" ${x.sold||!afford?'disabled':''}
-        onclick="ROWAR.shopBuy(${x.i})">${x.sold?'판매 완료':`${fmt(x.price)} 크레딧`}</button>
-    </div>`;
+    return `<article class="sv-item ${x.sold?'sold':''} sv-${x.kind}">
+      <div class="sv-item-top"><span>0${x.i+1} / ${kind}</span>${x.sold?'<b>판매 완료</b>':''}</div>
+      <div class="sv-art">${art}</div>
+      <div class="sv-item-copy"><h3>${name}</h3><p>${sub}</p></div>
+      <button class="btn sv-action ${x.kind==='core'?'gold':''}" ${x.sold||!afford||_shopPending?'disabled':''}
+        onclick="ROWAR.shopBuy(${x.i})">${x.sold?'판매 완료':!afford?'크레딧 부족':`${fmt(x.price)} 크레딧`}</button>
+    </article>`;
   };
   el.innerHTML = wrap(`
-    <div class="panel">
-      <div class="shhead">
-        <div><b>이번 진열</b> <span class="hint">${leftTxt(left)} 뒤 새 진열 · 값은 레벨 ${sh.lv} 기준</span></div>
-        <button class="btn ghost" ${S.credits<sh.refresh?'disabled':''} onclick="ROWAR.shopRefresh()">지금 새로 굴리기 · ${fmt(sh.refresh)} 크레딧</button>
-      </div>
-      <div class="shgrid">${sh.stock.map(card).join('')}</div>
-      <div class="hint wide" style="margin-top:10px">칸마다 무엇이 나올지 확률로 정해집니다 — 파츠&nbsp;${CONST.SHOP.kind.part}% · 기체&nbsp;조각&nbsp;${CONST.SHOP.kind.shard}% · 스크랩&nbsp;${CONST.SHOP.kind.scrap}% · <b>코어&nbsp;${CONST.SHOP.kind.core}%</b>. 높은 등급일수록 드물고 비쌉니다. 새로 굴릴수록 값이 오릅니다(이번&nbsp;주기&nbsp;${sh.refreshed}번).</div>
-    </div>`);
+    <header class="sv-hero"><span class="ui-eyebrow">SUPPLY DEPOT / LIVE STOCK</span><h1>보급 상점</h1><p>필요한 파츠와 재료를 확보하고, 기체 조각을 모아 전력을 확장하세요.</p><div class="sv-hero-meta"><span>다음 진열까지 <b>${leftTxt(left)}</b></span><span>Lv.${sh.lv} 기준 가격</span></div></header>
+    <div class="sv-layout"><section class="sv-stock ui-surface"><div class="sv-section-head"><div><span class="ui-eyebrow">CURRENT SELECTION</span><h2>이번 진열</h2></div><span>${sh.stock.length-sold} / ${sh.stock.length}개 구매 가능</span></div><div class="sv-grid">${sh.stock.map(card).join('')}</div></section>
+      <aside class="sv-side"><div class="sv-refresh ui-surface"><span class="ui-eyebrow">STOCK CONTROL</span><h2>진열 갱신</h2><p>시간이 지나면 자동으로 바뀝니다. 지금 바꾸면 현재 진열은 사라지고 갱신 비용이 차감됩니다.</p><div class="sv-fact"><span>이번 주기 갱신</span><b>${sh.refreshed}회</b></div><div class="sv-fact"><span>다음 갱신 비용</span><b>${fmt(sh.refresh)} 크레딧</b></div><button class="btn sv-action" ${S.credits<sh.refresh||_shopPending?'disabled':''} onclick="ROWAR.shopRefresh()">${S.credits<sh.refresh?'크레딧 부족':'지금 진열 바꾸기'}</button></div>
+      <div class="sv-note ui-surface"><h3>진열 안내</h3><p>상품마다 등장 종류를 따로 추첨합니다. 파츠 ${CONST.SHOP.kind.part}% · 기체 조각 ${CONST.SHOP.kind.shard}% · 스크랩 ${CONST.SHOP.kind.scrap}% · 코어 ${CONST.SHOP.kind.core}%.</p><p>상품의 등급은 종류 안에서 다시 결정됩니다. 갱신할수록 이번 주기의 비용이 오릅니다.</p><button class="ui-text-button" onclick="ROWAR.setShopTab('bag')">기체 조각 보관함 ${icon('chevron')}</button></div></aside></div>`);
 }
 
 async function renderBag(){
   const el = $('#sc-gacha');
   const bag = bagView(S.items||{}, S.robots.map(r=>r.type));
+  const ready = bag.filter(b=>b.ready).length;
+  const collected = bag.reduce((n,b)=>n+b.have,0);
   const row = b => {
     const T = ROBOT_TYPES[b.type], pct = Math.min(100, Math.round(b.have/b.need*100));
-    return `<div class="bgr ${b.ready?'ready':''}">
-      <div class="shi spr" data-t="${T.rarity}">${sprite(b.type,false)}</div>
-      <div class="shb"><div class="shn">${esc(T.name)} 조각 ${robRarTag(b.type)}</div>
-        <div class="bgbar"><i style="width:${pct}%"></i><span>${b.have} / ${b.need}</span></div>
-        ${b.owned?'<div class="hint">이미 가진 기체 — 조립하면 뽑기의 중복과 같이 자원으로 바뀝니다</div>':''}</div>
-      <button class="btn ${b.ready?'gold':''}" ${b.ready&&net.state.online?'':'disabled'} onclick="ROWAR.shopAssemble('${b.type}')">${b.ready?'조립':'부족'}</button>
-    </div>`;
+    const gain=CONST.DUPE_GAIN[T.rarity]||{cr:0,sc:0,co:0};
+    return `<article class="sv-bag-card ${b.ready?'ready':''}"><div class="sv-bag-art">${sprite(b.type,false)}</div><div class="sv-bag-copy"><div class="sv-bag-title">${robRarTag(b.type)}<h3>${esc(T.name)}</h3></div><div class="sv-progress"><span>조립 진행</span><b>${b.have} / ${b.need}</b><div role="progressbar" aria-label="${esc(T.name)} 조각" aria-valuenow="${Math.min(b.have,b.need)}" aria-valuemin="0" aria-valuemax="${b.need}"><i style="width:${pct}%"></i></div></div>${b.owned?`<p>보유 기체 · 조립 시 크레딧 ${fmt(gain.cr)}, 스크랩 ${fmt(gain.sc)}${gain.co?`, 코어 ${fmt(gain.co)}`:''} 획득</p>`:'<p>미보유 기체 · 조립하면 격납고에 추가됩니다.</p>'}</div><button class="btn sv-action ${b.ready?'gold':''}" ${b.ready&&net.state.online&&!_shopPending?'':'disabled'} onclick="ROWAR.shopAssemble('${b.type}')">${b.ready?'조립하기':'조각 부족'}</button></article>`;
   };
-  el.innerHTML = `${shopTabs()}<h2 class="title">보관함</h2>
-    <div class="panel">
-      ${bag.length ? bag.map(row).join('') : `<div class="hint">비어 있습니다. <b>상점</b>에서 기체 조각을 살 수 있습니다 — 모으면 그 기체를 조립합니다.</div>`}
-      <div class="hint" style="margin-top:10px">조립에 필요한 조각 — ${Object.entries(CONST.SHARD_NEED).map(([k,v])=>`${k} ${v}개`).join(' · ')}</div>
-    </div>`;
+  el.innerHTML = `${shopTabs()}<div class="sv-page"><header class="sv-hero sv-bag-hero"><span class="ui-eyebrow">SUPPLY DEPOT / COLLECTION</span><h1>기체 조각 보관함</h1><p>모은 조각을 확인하고, 기준 수량이 되면 기체를 조립하세요.</p><div class="sv-hero-meta"><span>보유 조각 <b>${fmt(collected)}개</b></span><span>조립 가능 <b>${ready}기</b></span></div></header><div class="sv-layout"><section class="sv-stock ui-surface"><div class="sv-section-head"><div><span class="ui-eyebrow">COLLECTED SHARDS</span><h2>보유 목록</h2></div><span>${bag.length}종</span></div>${bag.length?`<div class="sv-bag-grid">${bag.map(row).join('')}</div>`:`<div class="sv-empty"><h3>아직 모은 조각이 없습니다</h3><p>보급 상점의 기체 조각을 구매하면 이곳에 표시됩니다.</p><button class="btn" onclick="ROWAR.setShopTab('shop')">상점 살펴보기</button></div>`}</section><aside class="sv-side"><div class="sv-note ui-surface"><h3>조립 기준</h3><div class="sv-need-list">${Object.entries(CONST.SHARD_NEED).map(([k,v])=>`<div><span>${k}</span><b>${v}개</b></div>`).join('')}</div><p>이미 보유한 기체를 조립하면 기체 대신 등급에 맞는 자원을 받습니다.</p><button class="ui-text-button" onclick="ROWAR.setShopTab('shop')">보급 상점 ${icon('chevron')}</button></div></aside></div></div>`;
 }
 
 async function shopBuy(i){
+  if(_shopPending||!net.state.online)return;
   const x = _shop && _shop.stock.find(s=>s.i===i);
-  if(!x) return;
-  const r = await net.shop('buy', { slot: i, sig: x.sig });
+  if(!x||x.sold||S.credits<x.price||_shopOwner!==net.state.accountId) return;
+  const owner=S,account=net.state.accountId;_shopPending=true;
+  $('#sc-gacha').querySelectorAll('.sv-action').forEach(b=>b.disabled=true);
+  let r;
+  try{ r = await net.shop('buy', { slot: i, sig: x.sig }); }
+  catch(e){r={error:'연결 오류'};}
+  finally{ _shopPending=false; }
+  if(S!==owner||net.state.accountId!==account)return;
   if(!r || r.error){
-    if(r && r.status===409){ _shopAt=0; await renderShop(); toast('진열이 바뀌었습니다 — 다시 확인해 주세요'); return; }
-    toast(r && r.error==='not enough credits' ? `크레딧이 모자랍니다 · 필요 ${fmt(r.need)}` : '사지 못했습니다'+(r&&r.error?' · '+r.error:'')); return;
+    if(r && r.status===409){ _shopAt=0; if(cur==='gacha')renderGacha(); toast('진열이 바뀌었습니다 — 다시 확인해 주세요'); return; }
+    if(cur==='gacha')renderGacha();toast(r && r.error==='not enough credits' ? `크레딧이 모자랍니다 · 필요 ${fmt(r.need)}` : '사지 못했습니다'+(r&&r.error?' · '+r.error:'')); return;
   }
   if(r.bought.kind==='part') addPart(r.bought.part);
-  shopApply(r); renderShop();
+  shopApply(r); if(cur==='gacha')renderGacha();
   const b = r.bought;
   toast(b.kind==='part' ? `${b.part.name} (${b.rarity}) 구입 — 격납고 파츠함에 들어갔습니다`
       : b.kind==='shard' ? `${ROBOT_TYPES[b.type].name} 조각 ×${b.qty} — 보관함에 들어갔습니다`
       : b.kind==='scrap' ? `스크랩 +${b.qty}` : `코어 +${b.qty}`);
 }
 async function shopRefresh(){
-  const r = await net.shop('refresh');
-  if(!r || r.error){ toast('새로 굴리지 못했습니다'+(r&&r.error?' · '+r.error:'')); if(r&&r.status===409){_shopAt=0; renderShop();} return; }
-  shopApply(r); renderShop();
+  if(_shopPending||!net.state.online||!_shop||S.credits<_shop.refresh||_shopOwner!==net.state.accountId)return;
+  const owner=S,account=net.state.accountId;_shopPending=true;
+  $('#sc-gacha').querySelectorAll('.sv-action').forEach(b=>b.disabled=true);
+  let r;
+  try{ r = await net.shop('refresh'); }
+  catch(e){r={error:'연결 오류'};}
+  finally{ _shopPending=false; }
+  if(S!==owner||net.state.accountId!==account)return;
+  if(!r || r.error){ toast('새로 굴리지 못했습니다'+(r&&r.error?' · '+r.error:'')); if(r&&r.status===409)_shopAt=0; if(cur==='gacha')renderGacha(); return; }
+  shopApply(r); if(cur==='gacha')renderGacha();
   toast(`진열을 새로 굴렸습니다 · −${fmt(r.spent)} 크레딧`);
 }
 async function shopAssemble(type){
-  const r = await net.shop('assemble', { type });
-  if(!r || r.error){ toast('조립하지 못했습니다'+(r&&r.error?' · '+r.error:'')); return; }
+  if(_shopPending||!net.state.online||!bagView(S.items||{},S.robots.map(r=>r.type)).some(b=>b.type===type&&b.ready))return;
+  const owner=S,account=net.state.accountId;_shopPending=true;
+  $('#sc-gacha').querySelectorAll('.sv-action').forEach(b=>b.disabled=true);
+  let r;
+  try{ r = await net.shop('assemble', { type }); }
+  catch(e){r={error:'연결 오류'};}
+  finally{ _shopPending=false; }
+  if(S!==owner||net.state.accountId!==account)return;
+  if(!r || r.error){ toast('조립하지 못했습니다'+(r&&r.error?' · '+r.error:'')); if(cur==='gacha')renderGacha();return; }
   const a = r.assembled;
   if(!a.dupe) S.robots.push({uid:a.uid,type:a.type,level:1,exp:0,fat:0,skillLv:0,slots:emptySlots()});
-  shopApply(r); renderBag();
+  shopApply(r); if(cur==='gacha')renderGacha();
   toast(a.dupe ? `${ROBOT_TYPES[type].name} — 이미 가진 기체라 자원으로 바뀌었습니다 (크레딧 +${fmt(a.gain.cr)} · 스크랩 +${a.gain.sc}${a.gain.co?` · 코어 +${a.gain.co}`:''})`
                : `${ROBOT_TYPES[type].name} 조립 완료! 격납고에 들어갔습니다`);
 }

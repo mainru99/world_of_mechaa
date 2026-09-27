@@ -6,11 +6,12 @@ import http from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
 import {resolve,dirname,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {TERRITORY,SLOTS,MONSTER_TYPES} from '../data/balance.js';
+import {TERRITORY,SLOTS,MONSTER_TYPES,ROBOT_TYPES,CONST} from '../data/balance.js';
 import {battleView} from '../js/ui/battle.js';
 import {codexView,codexActivatable,codexRewards,codexTitles} from '../js/codex.js';
 import {computeStats,power} from '../js/stats.js';
 import {rollPart,rollPull,PULL_CUR} from '../js/gacha.js';
+import {periodOf,periodEnd,refreshCost,rollShop,slotSig,shardNeed,shardKey,bagView} from '../js/shop.js';
 import {mulberry32} from '../js/sim.js';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const port=Number(process.argv[2]||8806);
@@ -22,6 +23,7 @@ const sampleDispatch=process.argv.includes('--sample-dispatch');
 const sampleArchive=process.argv.includes('--sample-archive');
 const sampleLogin=process.argv.includes('--sample-login');
 const sampleLoginPullRetry=process.argv.includes('--sample-login-pull-retry');
+const sampleShop=process.argv.includes('--sample-shop');
 let previewFailPull=false;
 let previewIdentity=sampleLogin?null:{id:'preview',guest:false,loginId:'지휘관_01'};
 const previewToken='ui-preview-only';
@@ -31,6 +33,10 @@ let nextId=0;
 const parts=Array.from({length:12},(_,i)=>rollPart(32,rng,`preview-part-${++nextId}`,i<4?'SSR':'SR',SLOTS[i%4]));
 const robots=['ignis','ranger','azure','mule','bastion'].map((type,i)=>({uid:`preview-robot-${i}`,type,level:i<2?32:24,exp:0,fat:i===1?12:0,fatAt:Date.now(),skillLv:2,slots:Object.fromEntries(SLOTS.map((slot,j)=>[slot,i<2?parts[i*4+j].uid:null]))}));
 const state={v:2,credits:12460,cores:128,scrap:8320,robots,parts,sel:0,squad:robots.slice(0,2).map(x=>x.uid),stat:{wins:48,losses:12,pulls:80},campaign:'',items:{},presets:[]};
+const sampleNewType=Object.keys(ROBOT_TYPES).find(type=>!robots.some(r=>r.type===type));
+if(sampleShop){state.credits=250000;state.items[shardKey('ranger')]=shardNeed('ranger');state.items[shardKey(sampleNewType)]=Math.max(1,Math.floor(shardNeed(sampleNewType)*.55));}
+let sampleShopState={p:periodOf(Date.now()),n:0,lv:32,b:[]};
+const sampleShopView=()=>{const now=Date.now();if(sampleShopState.p!==periodOf(now))sampleShopState={p:periodOf(now),n:0,lv:32,b:[]};return {ok:true,server_now:now,endsAt:periodEnd(sampleShopState.p),stock:rollShop('preview',sampleShopState).map(x=>({...x,sold:sampleShopState.b.includes(x.i),sig:slotSig(x)})),refresh:refreshCost(sampleShopState.n,sampleShopState.lv),refreshed:sampleShopState.n,lv:sampleShopState.lv,items:state.items,bag:bagView(state.items,state.robots.map(r=>r.type)),credits:state.credits,cores:state.cores,scrap:state.scrap};};
 const sampleNames=['화염선','서리날','검은별','새벽','철의창','푸른빛','황혼','정찰자','굉음','유성','북극성','지휘관_01','백야','선회','지평선','파도','적월','잔광','폭풍','등대','섬광','청동','산맥'];
 const sampleRank=sampleNames.map((nickname,i)=>({rank:i+1,nickname,rating:2100-i*28,wins:i===11?48:90-i*3,losses:i===11?12:14+i*2,me:i===11,title:null}));
 const sampleMonsters=Object.keys(MONSTER_TYPES).filter(id=>MONSTER_TYPES[id].rarity==='C').slice(0,3);
@@ -82,7 +88,7 @@ const server=http.createServer(async(req,res)=>{
    if(url.pathname==='/api/state'&&req.method==='GET'){
     if(sampleLogin&&(!previewIdentity||req.headers.authorization!==`Bearer ${previewToken}`)){json(res,401,{error:'not signed in'});return;}
     if(previewFailPull){previewFailPull=false;json(res,503,{error:'sample state retry'});return;}
-    json(res,200,{ok:true,rev:previewRev,nickname:previewIdentity.loginId||'게스트',rating:1480,state,server_now:Date.now(),band:{i:2,pts:1},items:{},presets:[],...(sampleArchive?{codex:sampleCodex}:{})});return;
+    json(res,200,{ok:true,rev:previewRev,nickname:previewIdentity.loginId||'게스트',rating:1480,state,server_now:Date.now(),band:{i:2,pts:1},items:state.items,presets:[],...(sampleArchive?{codex:sampleCodex}:{})});return;
    }
    if(sampleArchive&&url.pathname==='/api/ranking'&&req.method==='GET'){
     json(res,200,{ok:true,top:sampleRank,me:{...sampleRank[11],rank:12,live:false},total:sampleRank.length,ranked_at:Date.now()-120000});return;
@@ -110,6 +116,35 @@ const server=http.createServer(async(req,res)=>{
      if(id&&!codexTitles(view()).some(x=>x.id===id&&x.got)){json(res,400,{error:'title locked'});return;}
      sampleCodex.t=id;json(res,200,{ok:true,title:id});return;
     }
+   }
+   if(sampleShop&&url.pathname==='/api/shop'){
+    if(req.method==='GET'){json(res,200,sampleShopView());return;}
+    const current=sampleShopView();
+    if(body.action==='buy'){
+     const x=current.stock.find(s=>s.i===body.slot);
+     if(!x||x.sold||x.sig!==body.sig){json(res,409,{error:'stock changed'});return;}
+     if(state.credits<x.price){json(res,400,{error:'not enough credits',need:x.price});return;}
+     state.credits-=x.price;sampleShopState.b.push(x.i);
+     if(x.kind==='part')state.parts.push(x.part);
+     if(x.kind==='shard')state.items[shardKey(x.type)]=(state.items[shardKey(x.type)]||0)+x.qty;
+     if(x.kind==='scrap')state.scrap+=x.qty;
+     if(x.kind==='core')state.cores+=x.qty;
+     json(res,200,{...sampleShopView(),bought:x,rev:++previewRev});return;
+    }
+    if(body.action==='refresh'){
+     if(state.credits<current.refresh){json(res,400,{error:'not enough credits',need:current.refresh});return;}
+     state.credits-=current.refresh;sampleShopState={...sampleShopState,n:sampleShopState.n+1,b:[]};
+     json(res,200,{...sampleShopView(),spent:current.refresh,rev:++previewRev});return;
+    }
+    if(body.action==='assemble'){
+     const type=body.type,need=shardNeed(type),have=state.items[shardKey(type)]||0;
+     if(!ROBOT_TYPES[type]||!need||have<need){json(res,400,{error:'not enough shards',need,have});return;}
+     state.items[shardKey(type)]=have-need;if(!state.items[shardKey(type)])delete state.items[shardKey(type)];
+     const dupe=state.robots.some(r=>r.type===type),gain=dupe?CONST.DUPE_GAIN[ROBOT_TYPES[type].rarity]:null;
+     let uid=null;if(dupe){state.credits+=gain.cr;state.scrap+=gain.sc;state.cores+=gain.co;}else{uid=`preview-shop-${++nextId}`;state.robots.push({uid,type,level:1,exp:0,fat:0,skillLv:0,slots:Object.fromEntries(SLOTS.map(s=>[s,null]))});}
+     json(res,200,{...sampleShopView(),assembled:{type,uid,dupe,gain},rev:++previewRev});return;
+    }
+    json(res,400,{error:'unknown action'});return;
    }
    if(samplePulls&&url.pathname==='/api/pull'&&req.method==='POST'){
     const count=body.count,currency=body.cur,config=PULL_CUR[currency];
@@ -157,9 +192,9 @@ const server=http.createServer(async(req,res)=>{
   if(name==='/index.html'){
    const seed=JSON.stringify(state).replaceAll('<','\\u003c');
    const bootstrap=`<script>${sampleLogin?"localStorage.removeItem('rowar.session');":"localStorage.setItem('rowar.session','ui-preview-only');"}localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
-   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleLogin?'샘플 로그인 검수 · 가상 계정 / tester · password123 / 운영 계정과 무관합니다':sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
+   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleLogin?'샘플 로그인 검수 · 가상 계정 / tester · password123 / 운영 계정과 무관합니다':sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':sampleShop?'샘플 보급 상점 검수 · 가상 진열/재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
   }
   res.writeHead(200,{'content-type':mime[extname(file)],'cache-control':'no-store','x-content-type-options':'nosniff'});res.end(content);
  }catch(e){res.writeHead(404);res.end('Not found');}
 });
-server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleLogin?'in-memory sample login enabled':sampleArchive?'in-memory sample archive enabled':sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':'spending/claiming disabled'}`));
+server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleLogin?'in-memory sample login enabled':sampleArchive?'in-memory sample archive enabled':sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':sampleShop?'in-memory sample shop enabled':'spending/claiming disabled'}`));

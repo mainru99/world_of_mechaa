@@ -1,5 +1,6 @@
 <title>ROWAR 코어 서킷</title>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
 <style>
@@ -117,12 +118,32 @@ section{display:flex;flex-direction:column;gap:14px}
 .todo li span{font-size:13.5px;color:var(--sub)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .board svg .star *{transition:fill .15s,stroke .15s}
+.grid{grid-template-columns:minmax(0,1.8fr) minmax(290px,1fr)}
+.board{border:1px solid #69573b;border-radius:5px;box-shadow:inset 0 0 0 3px #0a1017, inset 0 0 0 4px #322d24,0 16px 40px #0003;padding:20px}
+.board .who{padding-bottom:12px;border-bottom:1px solid #b99a5633}
+.board .who b{letter-spacing:.12em;color:#ead7af}
+.board .br{border:1px solid #b99a5626;border-radius:3px}
+.board .br .t b{color:#d7b875}
+.tree-legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:11px;color:#a8b0b8;border-top:1px solid #b99a5633;padding-top:10px}
+.tree-legend span{display:flex;align-items:center;gap:6px}
+.tree-legend i{display:inline-block;width:9px;height:9px;border:1px solid #7d7260;border-radius:50%;background:#141d24}
+.tree-legend .available{border-color:#e8cd89;box-shadow:0 0 0 2px #c5a66522}
+.tree-legend .taken{background:#64e1d0;border-color:#eed8a2}
+.tree-legend .notable{width:12px;height:12px;border:3px double #d0a959}
+.tools .field{min-width:0;max-width:100%}
+.tools select{min-width:0;width:100%}
+.board svg .star:focus-visible{outline:none}
+.star .focus-ring{opacity:0}
+.star:focus-visible .focus-ring,.star:hover .focus-ring{opacity:1}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+@media(max-width:520px){.board{padding:12px}.lvrow input{width:150px}}
 </style>
 
 <div class="wrap">
 <header>
   <span class="eyebrow">ROWAR · 할 일 3번 · 시안 2 · 2026-09-23</span>
   <h1>코어 서킷</h1>
+  <p class="chip"><b>공개 미리보기</b> — 이 페이지의 선택은 계정에 저장되지 않으며, 재화도 소모하지 않습니다. 실제 게임 화면 연결은 별도 예정입니다.</p>
   <p>기체마다 <b>별자리 하나</b> — 네 갈래에 작은 별이 8개씩, 갈래 끝에 <b>전문 별</b>이 하나씩 있다(모두 36).
      특성 포인트 하나로 별 하나를 찍고, Lv.60 에 20점이라 <b>32개 중 20개</b>만 찍는다. 갈래 안에서는 안쪽부터 이어서 찍는다.
      별에는 <b>+ 와 − 가 섞여</b> 바깥으로 갈수록 뾰족해지고, 갈래의 종류는 <b>기체마다 다르다</b>(14종 중 넷).</p>
@@ -148,6 +169,7 @@ section{display:flex;flex-direction:column;gap:14px}
     <div class="board">
       <div class="who"><b id="whoName">IGNIS</b><span id="whoRole"></span></div>
       <svg id="svg" viewBox="0 0 520 430" role="group" aria-label="별자리"></svg>
+      <div class="tree-legend" aria-label="노드 상태 안내"><span><i></i>미획득</span><span><i class="available"></i>선택 가능</span><span><i class="taken"></i>획득</span><span><i class="notable"></i>전문 노드</span><span>붉은 점 · 감소 효과 포함</span></div>
       <div class="pts"><span>남은 포인트</span><b id="left">20</b><span id="total">/ 20</span><div class="pbar" id="pbar"></div></div>
       <div class="brs" id="brs"></div>
     </div>
@@ -307,6 +329,10 @@ function drawSvg() {
   const cp = el('clipPath', { id: 'cc' }, defs); el('circle', { cx: P.core[0], cy: P.core[1], r: 34 }, cp);
   const gl = el('filter', { id: 'glow', x: '-60%', y: '-60%', width: '220%', height: '220%' }, defs);
   el('feGaussianBlur', { stdDeviation: '2.6', result: 'b' }, gl); const mg = el('feMerge', {}, gl); el('feMergeNode', { in: 'b' }, mg); el('feMergeNode', { in: 'SourceGraphic' }, mg);
+  for (const [id, colors] of [['socket-metal',['#f1db9b','#8b6939','#302c25','#ba9151']],['socket-cold',['#a2b1b6','#4c565b','#202931','#73746b']],['socket-gem',['#b9fff0','#38adab','#113b49','#08151f']],['socket-dark',['#344149','#18232d','#080f17','#26333b']]]) {
+    const gradient = el('linearGradient', {id, x1:'0%',y1:'0%',x2:'85%',y2:'100%'}, defs);
+    colors.forEach((color,i)=>el('stop',{offset:`${i*100/3}%`,'stop-color':color},gradient));
+  }
   /* 장식 — 이동 경로로 오인하지 않게 흐린 점과 끊긴 호만 */
   const deco = el('g', { 'pointer-events': 'none' }, svg);
   for (const [x, y, r, o] of BG) el('circle', { cx: x, cy: y, r, fill: '#6d86a0', opacity: o * .6 }, deco);
@@ -322,8 +348,11 @@ function drawSvg() {
     let prev = P.core;
     for (let i = 1; i <= 9; i++) {
       const id = b + (i === 9 ? '*' : i), p = P[id], on = isTaken(id);
-      el('line', { x1: prev[0], y1: prev[1], x2: p[0], y2: p[1], stroke: on ? (i === 9 ? 'var(--brass)' : 'var(--teal)') : (i === 9 ? 'var(--brassDim)' : 'var(--steel)'),
-        'stroke-width': on ? 2.2 : 1.2, 'stroke-dasharray': i === 9 && !on ? '3 4' : '', filter: on ? 'url(#glow)' : '' }, lines);
+      // The exact prerequisite edges stay straight: decorative curves must not imply new connections.
+      const edge = {x1:prev[0],y1:prev[1],x2:p[0],y2:p[1],'stroke-linecap':'round'};
+      el('line',{...edge,stroke:'#070c12','stroke-width':4.6},lines);
+      el('line',{...edge,stroke:on?'#ba9858':'#485052','stroke-width':2.6,'data-edge':id},lines);
+      el('line',{...edge,stroke:on?'#f0dba0':'#151e25','stroke-width':.8},lines);
       prev = p;
     }
     /* 갈래 이름 — ★ 둘레에서 판 안이고 별을 덮지 않는 첫 자리(tools/circuitlayoutcheck.mjs labelSpot 과 같은 순서) */
@@ -343,28 +372,40 @@ function drawSvg() {
   }
   /* 별 */
   for (const b of BR) for (let i = 1; i <= 9; i++) {
-    const id = b + (i === 9 ? '*' : i), [x, y] = P[id], lock = i === 9, x0 = lock ? null : starOf(id);
-    const taken = isTaken(id), open = !lock && !taken && !why(id), sel = st.sel === id;
+    const id = b + (i === 9 ? '*' : i), lock = i === 9;
+    const taken = isTaken(id), open = !lock && !taken && !why(id);
     const g = el('g', { class: 'star', tabindex: 0, role: 'button', 'data-id': id, style: 'cursor:pointer',
       'aria-label': lock ? `${id} 전문 별 ${nbOpen(b) ? '찍음' : !why(id) ? '찍을 수 있음' : '잠김'}` : `${id} ${taken ? '찍음' : open ? '찍을 수 있음' : '잠김'}`, 'aria-pressed': taken ? 'true' : 'false' }, svg);
-    el('circle', { cx: x, cy: y, r: P.art ? 10 : 15, fill: 'transparent' }, g);   // 누르기 쉬운 크기(그림 좌표는 이웃 별이 14 까지 붙는다)
-    if (sel) el('circle', { cx: x, cy: y, r: lock ? 19 : 14, fill: 'none', stroke: 'var(--teal)', 'stroke-width': 1.4, opacity: .9 }, g);
-    if (lock) {
-      if (nbOpen(b)) el('path', { d: starPath(x, y, 14, 5.6), fill: 'var(--brass)', stroke: 'var(--brass)', 'stroke-width': 1.5, filter: 'url(#glow)' }, g);
-      else if (!why(id)) el('path', { d: starPath(x, y, 13, 5.2), fill: '#171a14', stroke: 'var(--brass)', 'stroke-width': 1.8 }, g);   // 찍을 수 있다
-      else {
-        el('path', { d: starPath(x, y, 13, 5.2), fill: '#171a14', stroke: 'var(--brass)', 'stroke-width': 1.5, 'stroke-dasharray': '3 2' }, g);
-        el('circle', { cx: x, cy: y, r: 3, fill: 'var(--brassDim)' }, g);
+  }
+  // Presentation only: IDs, positions, prerequisites and all click handlers remain unchanged.
+  for (const g of svg.querySelectorAll('.star')) {
+    const id=g.dataset.id, [x,y]=P[id], notable=id.endsWith('*'), node=notable?null:starOf(id);
+    const taken=isTaken(id), available=!taken&&!why(id), kind=notable?'notable':node[1];
+    const nearest=Math.min(...Object.entries(P).filter(([k,v])=>k!==id&&Array.isArray(v)).map(([,p])=>Math.hypot(x-p[0],y-p[1])));
+    const r=Math.min(notable?12:kind==='c'?9.5:kind==='b'?8:6.5,nearest*.45-(notable?3:2));
+    g.setAttribute('data-state',taken?'taken':available?'available':'locked');
+    g.setAttribute('data-kind',kind);
+    const circle=(radius,attrs)=>el('circle',{cx:x,cy:y,r:radius,...attrs},g);
+    circle(Math.min(15,nearest*.48),{fill:'transparent'});
+    circle(r+2,{class:'focus-ring',fill:'none',stroke:'#fff0bc','stroke-width':1.1});
+    if(st.sel===id) circle(r+1.6,{fill:'none',stroke:'#f5dfad','stroke-width':.8,'stroke-dasharray':'2 2'});
+    circle(r+.7,{fill:'#080d13',stroke:'#0b1117','stroke-width':1.3});
+    circle(r,{fill: taken||available||notable?'url(#socket-metal)':'url(#socket-cold)',stroke:taken?'#f3dca4':'#827451','stroke-width':.5});
+    circle(r-1.8,{fill:taken?'url(#socket-gem)':'url(#socket-dark)',stroke:'#080e15','stroke-width':1});
+    circle(Math.max(1,r-2.8),{fill:'none',stroke:taken?'#a8f9df':available?'#d8c393':'#738387','stroke-width':.45,opacity:taken?.8:.45});
+    if(notable){
+      for(let a=0;a<4;a++) {
+        const theta=a*Math.PI/2,dx=Math.cos(theta),dy=Math.sin(theta);
+        el('path',{d:`M${x+dx*(r-1)} ${y+dy*(r-1)} L${x+dx*(r+2)-dy*1.5} ${y+dy*(r+2)+dx*1.5} L${x+dx*(r+3)} ${y+dy*(r+3)} L${x+dx*(r+2)+dy*1.5} ${y+dy*(r+2)-dx*1.5} Z`,fill:'url(#socket-metal)'},g);
       }
-      continue;
     }
-    const kind = x0[1], fill = taken ? 'var(--teal)' : '#0e161e', stroke = taken ? 'var(--teal)' : open ? 'var(--teal)' : 'var(--steel2)';
-    const extra = { fill, stroke, 'stroke-width': open ? 1.6 : 1.2, filter: taken ? 'url(#glow)' : '' };
-    if (kind === 'a') el('circle', { cx: x, cy: y, r: 5.5, ...extra }, g);
-    else if (kind === 'x') { el('circle', { cx: x, cy: y, r: 6, ...extra }, g); el('circle', { cx: x, cy: y, r: 2.2, fill: taken ? '#0e161e' : stroke }, g); }
-    else if (kind === 'b') el('path', { d: starPath(x, y, 8.5, 3.4), ...extra }, g);
-    else el('path', { d: starPath(x, y, 11, 3.6), ...extra }, g);
-    if (x0[2] && Object.values(x0[2]).some(v => v < 0)) el('circle', { cx: x + 7, cy: y - 7, r: 2, fill: 'var(--minus)' }, g);   // − 가 섞인 별
+    // Different silhouettes retain the basic / mixed / specialized node distinction.
+    const ink=taken?'#dbfff0':available?'#f1db9d':notable?'#b89453':'#87999d', s=r*.43;
+    if(notable||kind==='c') el('path',{d:starPath(x,y,s,s*.4),fill:ink},g);
+    else if(kind==='b') el('path',{d:`M${x} ${y-s} L${x+s*.8} ${y} L${x} ${y+s} L${x-s*.8} ${y} Z`,fill:ink},g);
+    else if(kind==='x') {circle(s,{fill:'none',stroke:ink,'stroke-width':.8});circle(1,{fill:ink});}
+    else el('path',{d:`M${x-s*.5} ${y-s} L${x+s*.7} ${y-s*.15} L${x+s*.25} ${y+s} L${x-s*.65} ${y+s*.2} Z`,fill:ink},g);
+    if(node&&Object.values(node[2]||{}).some(v=>v<0)) el('circle',{cx:x+r*.72,cy:y-r*.72,r:1.6,fill:'var(--minus)',stroke:'#10161c','stroke-width':.6},g);
   }
   for (const g of svg.querySelectorAll('.star')) {
     g.addEventListener('click', () => { st.sel = g.dataset.id; toggle(g.dataset.id); draw(); });

@@ -4251,3 +4251,10 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 
 > **2026-09-24 갱신** — 특성 정의(노드 · 단위 · 상한)는 사용자가 Claude 에게 맡겼다(`data/circuit.js` · `js/circuit.js`, '코어 서킷 시안 2 — 별자리').
 > ChatGPT 몫은 별자리 **형태와 그림**이다 — [`docs/art/circuit-constellations-2026-09-24.md`](docs/art/circuit-constellations-2026-09-24.md)
+
+### → Claude · ChatGPT — 코어 서킷 트리 외관 (2026-09-28 사용자 요청)
+
+- ChatGPT가 `docs/balance/core-circuit-draft-2026-09-23.html` 프로토타입의 노드·연결선 외관을 마무리한다. 원형 보석 소켓, 금속 링, 전문 노드 장식으로 패시브 트리의 위계를 표현한다.
+- 배경 그림, 76기 좌표와 이름 칸(사용자 수동 편집 포함), 36개 노드 ID·효과·선행 조건·20점 규칙·전문 별 비용은 유지한다.
+- main의 동결된 게임 UI 및 서버 전투는 수정하지 않는다. 시안 검수와 실제 게임 화면 연결·배포는 구분한다.
+- 2026-09-28 사용자 시안 승인 및 커밋·푸시·배포 요청. `server/build.mjs`가 승인 시안 하나만 `/core-circuit-preview.html`로 복사하도록 추가한다. 내부 문서 전체는 공개하지 않는다. 계정 저장·게임 UI 통합·DB 변경 없음.

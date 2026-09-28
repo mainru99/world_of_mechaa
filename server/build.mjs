@@ -42,4 +42,7 @@ for (const name of INCLUDE) {
   n++;
   console.log(`  복사: ${name}`);
 }
-console.log(`\ndist/ 준비 완료 — ${n}개 항목. 이제 npx wrangler dev 또는 npx wrangler deploy`);
+// 사용자 승인 공개 시안 하나만 포함한다. docs/ 전체를 공개하지 않는다.
+await cp(join(ROOT, 'docs/balance/core-circuit-draft-2026-09-23.html'), join(DIST, 'core-circuit-preview.html'));
+console.log('  복사: core-circuit-preview.html (계정 저장 없는 미리보기)');
+console.log(`\ndist/ 준비 완료 — ${n + 1}개 항목. 이제 npx wrangler dev 또는 npx wrangler deploy`);

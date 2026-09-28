@@ -39,5 +39,6 @@
 
 - 원격 main을 `0ed5a54`에서 `ab45b4c`까지 fetch하여 5개 신규 커밋의 제목·변경 경로와 `docs/handoff/2026-09-28-main-to-ui.md`, `js/bind.js`를 읽었다. 서킷 시안/파츠 귀속 서버 기능·이관024가 추가됐다. `CONST.PART_BIND.on=false`이며 현행 프론트 계약은 유지된다.
 - 파츠 귀속 켜기 전 필요한 귀속 표시·해제 확인/정제 코어·기체별 프리셋·합성 제한은 **전체 UI 완료 뒤 사용자 지시에 따른 통합 단계의 과제**다. main 코드를 복사하거나 스위치를 변경하지 않았다. 앞선 교대/합동전·서킷 인계도 계속 남아 있다.
+- `git merge-tree --write-tree --name-only origin/main HEAD`로 main `ab45b4c`와 UI 구현 커밋 `dda5539`를 가상 검사했다. **exit 1, `js/game.js` 1파일 / 충돌 블록 3곳**: `drawRaid`, `raidRunGo`, `renderRaidResult`. main은 합동 준비/`jointReq`/동시 전투 `playJoint`/분석 화면이고 UI는 이 브랜치의 순차 재생/새 결과 표시이므로, 향후 엔진·입출력·결과 UI 통합 판단이 필요하다. 텍스트 충돌을 숨기려고 함수 이름만 바꾸거나 main 구현을 반입하지 않았다. 실제 merge/rebase/cherry-pick·작업 폴더 충돌은 없다.
 - 다음 UI 작업은 **전선**: 기존 `enterFront`/챕터 선택/지도·대사·삽화/전투·보상/다시 보기 흐름을 조사하고 본문·결과를 이관한다. 그 뒤 공통 모달·레거시 스타일 정리와 실제 API 통합 검수다.
 - 이 단계는 `codex/ui-rebuild`에만 커밋·푸시한다. main 병합·운영 배포 없음.

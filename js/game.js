@@ -21,7 +21,7 @@ import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, ga
          computeStats as _computeStats, power as _power } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed, applyTerrain, maxRounds } from './breach.js';
-import { weekOf, trialOf, runTrial, trialWon, foeStats } from './trial.js';
+import { weekOf, weekEnd, TRIAL_WIN_BASE, trialOf, runTrial, trialWon, foeStats } from './trial.js';
 import { raidOf, runRaid, raidSeeds, raidLeft } from './raid.js';
 import { SPEAKERS, openingOf, closingOf, scriptOf, artPath } from '../data/story.js';
 import { FRONT_CHAPTERS, FRONT_CELLS, readProgress, writeProgress, clearedCount, cellIndex, cellOpen,
@@ -35,6 +35,7 @@ import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 import { icon, emblem } from './ui/icons.js';
 import { dispatchView, dispatchMissions, expeditionEstimate, expeditionProgress } from './ui/dispatch.js';
 import { rankShell, rankingView } from './ui/ranking.js';
+import { trialChallengeView, raidChallengeView, challengeMessage } from './ui/challenge.js';
 import { battleView, BATTLE_MODES } from './ui/battle.js';
 import { territoryView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
@@ -471,6 +472,7 @@ function toBattle(bg, navAs){
 function go(scr){ if(!['home','hangar','gacha','battle','rank','trial','hunt','terr'].includes(scr)) return;
   if(scr!==cur) window.scrollTo({top:0,left:0,behavior:'instant'});
   if(scr!=='rank') ++_rankEpoch;
+  ++_challengeEpoch;
   if(cur==='hangar' && scr!=='hangar') seenFresh();
   if(scr!=='terr') _terrRequest++;
   _battleRequest++; // Invalidate a pending opponent search, even on battle -> battle.
@@ -1510,274 +1512,124 @@ function rankPage(n){ _rankPage = Math.max(0, n|0); renderRank(); }
 
    규칙(js/trial.js)은 서버와 공유한다. 여기서는 **판정하지 않는다** — 서버가 낸
    점수를 받아 적고, 재생만 같은 함수로 다시 돌린다. */
-let _trial=null, _trialAt=0;
-const TRIAL_TTL = 30000;
+let _trial=null, _trialAt=0, _trialOwner=null;
+let _raid=null, _raidAt=0, _raidOwner=null;
+let _trialTab='trial', _challengeEpoch=0, _challengeAction=null;
+const TRIAL_TTL=30000, RAID_TTL=20000;
 function dropTrialCache(){ _trial=null; _trialAt=0; }
-
-/* 시련 탭은 두 갈래다 — 혼자 재는 '주간 시련' 과 다 같이 깎는 '보스 레이드'.
-   탭을 하나 더 만들지 않고 여기 묶은 이유: 둘 다 주 단위 서버 공통 도전이고,
-   모바일 하단 탭이 이미 일곱 개라 여덟 번째는 48px 밑으로 내려간다. */
-let _trialTab = 'trial';
-function setTrialTab(k){ _trialTab = (k==='raid') ? 'raid' : 'trial'; renderTrial(); }
-function trialTabs(){
-  return `<div class="ttabs">
-    <button class="gtab ${_trialTab==='trial'?'on':''}" onclick="ROWAR.setTrialTab('trial')"><em>🏅</em> 주간 시련<span>혼자 · 결정적</span></button>
-    <button class="gtab ${_trialTab==='raid'?'on':''}"  onclick="ROWAR.setTrialTab('raid')"><em>☠️</em> 보스 레이드<span>다 같이 · 하루 제한</span></button>
-  </div>`;
-}
-
-async function renderTrial(){
-  if(_trialTab==='raid') return renderRaid();
-  const el=$('#sc-trial');
-  const wrap = inner => `${trialTabs()}<h2 class="title">주간 시련</h2>${inner}`;
-  if(!net.state.online){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">주간 시련은 서버 연결이 필요합니다. 순위는 서버에 하나뿐입니다.</div></div>`);
-    return;
-  }
-  const fresh = _trial && (Date.now()-_trialAt) < TRIAL_TTL;
-  if(!fresh) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
-    <div style="font-weight:800">이번 주 시련을 불러오는 중...</div></div></div>`);
-  const r = fresh ? _trial : await net.trial(false);
-  if(r && !r.error){ _trial=r; _trialAt=Date.now(); }
-  if(!r || r.error){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
-    return;
-  }
-  drawTrial(r);
-}
-
-function trialScoreText(sc, winBase){
-  if(sc==null) return '—';
-  return sc >= (winBase||500000)
-    ? `<b style="color:var(--gold)">${fmt(sc)}</b> <span class="tag">클리어</span>`
-    : `<b>${fmt(sc)}</b> <span class="ps" style="color:var(--dim)">피해 ${(sc/999).toFixed(0)}%</span>`;
-}
-
-function drawTrial(r){
-  const t=r.trial, M=MONSTER_TYPES[t.type]||{}, TE=TERRAIN[t.terrain]||{};
-  /* 이번 주 지형을 화면 배경으로 깐다. 점령전에서 쓰던 그 장치 그대로다 —
-     지형 보정이 양쪽에 걸리는 규칙이라, 어디서 싸우는지가 화면에 남아야 한다. */
-  setTerrain(t.terrain);
-  const rb=selRobot();
-  const left=Math.max(0, r.endsAt - Date.now());
-  const rows = r.top.length ? r.top.map(x=>`<tr class="${x.me?'me':''}">
-      <td class="rk">${x.rank}</td>
-      <td class="nm">${esc(x.nickname)}${x.me?' <span class="tag">나</span>':''}</td>
-      <td>${x.type&&ROBOT_TYPES[x.type]?esc(ROBOT_TYPES[x.type].name):'—'}</td>
-      <td class="sc">${trialScoreText(x.score, r.winBase)}</td></tr>`).join('')
-    : `<tr><td colspan="4" class="empty">아직 아무도 기록하지 않았습니다. 첫 번째가 되세요.</td></tr>`;
-
-  $('#sc-trial').innerHTML = `${trialTabs()}<h2 class="title">주간 시련</h2>
-    <div class="tr2">
-      <div class="panel">
-        <div class="dh">이번 주 상대 · ${dur(left)} 남음</div>
-        <div class="trfoe" data-terrain="${esc(t.terrain)}">
-          <div class="sprite" data-t="${esc(M.rarity||'C')}">${sprite(t.type,false)}</div>
-          <div>
-            <div class="rname">${esc(M.name||t.type)} <span class="lv">Lv.${t.level}</span></div>
-            <div class="rrole">${esc(M.role||'')}</div>
-            <div class="trterr"><b>${esc(TE.ko||t.terrain)}</b> · ${esc(TE.desc||'보정 없음')}</div>
-          </div>
-        </div>
-        <div class="hint">지형 보정은 <b>양쪽 모두</b>에 걸립니다. 이번 주 내내 상대와 지형이 같습니다.</div>
-        <div class="fpv" style="margin-top:10px">
-          <div><span>내 출전 기체</span><b>${rb?esc(ROBOT_TYPES[rb.type].name)+' Lv.'+rb.level:'없음'}</b></div>
-          <div><span>전투력</span><b>${rb?fmt(power(rb)):'—'}</b></div>
-          <div><span>내 최고 점수</span><b>${r.me?trialScoreText(r.me.score,r.winBase):'—'}</b></div>
-          <div><span>내 순위</span><b>${r.me&&r.me.rank?`${r.me.rank} / ${fmt(r.total)}`:'—'}</b></div>
-        </div>
-        <button class="btn big gold" style="margin-top:10px" onclick="ROWAR.trialRun()">도전</button>
-        <div class="hint">출격비·피로도·횟수 제한이 없습니다. <b>같은 빌드면 결과가 같습니다</b> —
-          점수를 올리려면 파츠나 기체를 바꿔야 합니다.</div>
-      </div>
-
-      <div class="panel">
-        <h2 class="title" style="margin-top:0">순위 <span class="cnt">${fmt(r.total)}명</span></h2>
-        <div class="rx"><table class="rank"><thead><tr>
-          <th>#</th><th>이름</th><th>기체</th><th>점수</th></tr></thead>
-          <tbody>${rows}</tbody></table></div>
-      </div>
-    </div>`;
-}
-
-/* ── 보스 레이드 ──────────────────────────────────────────
-   서버 전체가 하나의 체력 막대를 같이 깎는다. 혼자 하는 게임에 다른 사람이 처음
-   보이는 곳이다 — 순위표의 이름이 아니라, 내가 깎은 만큼 남들의 막대가 줄어든다.
-
-   전투는 매번 보스를 **꽉 찬 체력**으로 만난다. 막대와 전투 체력을 같이 두면 두
-   사람이 동시에 칠 때 한쪽 피해가 사라진다(js/raid.js 머리말). 그래서 화면도
-   '막대'와 '이번 판 피해'를 따로 보여 준다 — 같은 수가 아니라는 것이 보여야 한다. */
-let _raid=null, _raidAt=0;
-const RAID_TTL = 20000;
 function dropRaidCache(){ _raid=null; _raidAt=0; }
-
-async function renderRaid(){
-  setTerrain(null);                    // 레이드는 지형이 없다 — 보스 조명만 남긴다
-  const el=$('#sc-trial');
-  const wrap = inner => `${trialTabs()}<h2 class="title">보스 레이드</h2>${inner}`;
-  if(!net.state.online){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">보스 레이드는 서버 연결이 필요합니다. 막대는 서버에 하나뿐입니다.</div></div>`);
-    return;
-  }
-  const fresh = _raid && (Date.now()-_raidAt) < RAID_TTL;
-  if(!fresh) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
-    <div style="font-weight:800">이번 주 보스를 불러오는 중...</div></div></div>`);
-  const r = fresh ? _raid : await net.raid(false);
-  if(r && !r.error){ _raid=r; _raidAt=Date.now(); }
-  if(!r || r.error){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div></div>`);
-    return;
-  }
-  drawRaid(r);
+const challengeOwner=()=>({state:S,account:net.state.accountId});
+const sameChallengeOwner=o=>o?.state===S&&o.account===net.state.accountId;
+const challengePending=()=>sameChallengeOwner(_challengeAction);
+const challengeVisible=(epoch,owner,mode)=>epoch===_challengeEpoch&&sameChallengeOwner(owner)&&cur==='trial'&&_trialTab===mode;
+function trialLead(){
+  const selected=selRobot(),ids=S.squad||[];
+  return selected&&(!ids.length||ids.includes(selected.uid))?selected:S.robots.find(r=>ids.includes(r.uid))||S.robots[0];
 }
-
+function raidTeam(){
+  const ids=S.squad||[],selected=selRobot(),team=[];
+  if(selected&&ids.includes(selected.uid))team.push(selected);
+  for(const id of ids){const r=S.robots.find(x=>x.uid===id);if(r&&!team.includes(r))team.push(r);}
+  if(!team.length&&S.robots[0])team.push(S.robots[0]);
+  return team.slice(0,2);
+}
+function setTrialTab(k){ _trialTab=k==='raid'?'raid':'trial'; renderTrial(); }
+async function renderTrial(){ return loadChallenge(_trialTab); }
+async function renderRaid(){ return loadChallenge('raid'); }
+async function loadChallenge(mode){
+  const el=$('#sc-trial'),owner=challengeOwner(),epoch=++_challengeEpoch,raid=mode==='raid';
+  setTerrain(null);
+  const name=raid?'보스 레이드':'주간 시련';
+  if(!net.state.online){el.innerHTML=challengeMessage(mode,'서버 연결이 필요합니다',`${name}의 주간 기록은 서버에서 관리됩니다. 연결 후 다시 불러오세요.`,{retry:true});return;}
+  const cache=raid?_raid:_trial,at=raid?_raidAt:_trialAt,cacheOwner=raid?_raidOwner:_trialOwner;
+  const fresh=cache&&sameChallengeOwner(cacheOwner)&&Date.now()-at<(raid?RAID_TTL:TRIAL_TTL)&&Date.now()<cache.endsAt;
+  if(!fresh)el.innerHTML=challengeMessage(mode,`이번 주 ${raid?'보스를':'시련을'} 불러오는 중`, '상대와 도전 기록을 확인하고 있습니다.',{loading:true});
+  let r;try{r=fresh?cache:await (raid?net.raid(false):net.trial(false));}catch{r=null;}
+  if(!challengeVisible(epoch,owner,mode))return;
+  if(!r||r.error){el.innerHTML=challengeMessage(mode,'불러오지 못했습니다',r?.error||'연결을 확인한 뒤 다시 시도하세요.',{retry:true});return;}
+  if(raid){_raid=r;_raidAt=Date.now();_raidOwner=owner;drawRaid(r);}
+  else{_trial=r;_trialAt=Date.now();_trialOwner=owner;drawTrial(r);}
+}
+function drawTrial(r){
+  setTerrain(r.trial.terrain);
+  const robot=trialLead();
+  $('#sc-trial').innerHTML=trialChallengeView(r,{robot,power:robot?power(robot):0,pending:challengePending()});
+}
 function drawRaid(r){
-  const pct = Math.max(0, Math.min(100, (r.left / Math.max(1,r.maxHp)) * 100));
-  /* 막대가 얼마 안 남으면 색이 달라진다. 숫자를 읽지 않아도 '이번 주에 넘어가겠다' 가 보여야
-     오늘 칠 이유가 생긴다. 서버 전체가 같이 깎는 막대라 내가 안 쳐도 줄어 있다. */
-  const heat = r.killed ? 'down' : (pct<=15 ? 'hot' : pct<=45 ? 'warm' : '');
-  const left=Math.max(0, r.endsAt - Date.now());
-  const rows = r.top.length ? r.top.map(x=>`<tr class="${x.me?'me':''}">
-      <td class="rk">${x.rank}</td>
-      <td class="nm">${esc(x.nickname)}${x.me?' <span class="tag">나</span>':''}</td>
-      <td class="sc">${fmt(x.damage)}</td>
-      <td class="sc" style="color:var(--dim)">${fmt(x.best)}</td></tr>`).join('')
-    : `<tr><td colspan="4" class="empty">아직 아무도 치지 않았습니다. 첫 번째가 되세요.</td></tr>`;
-  const can = r.triesLeft>0 && !r.killed;
-
-  $('#sc-trial').innerHTML = `${trialTabs()}<h2 class="title">보스 레이드</h2>
-    <div class="tr2">
-      <div class="panel">
-        <div class="dh">이번 주 보스 · ${dur(left)} 남음</div>
-        <div class="trfoe boss${r.killed?' slain':''}">
-          <div class="sprite" data-t="EP">${sprite(r.boss,false)}</div>
-          <div>
-            <div class="bosstag">${r.killed?'격파':'WEEKLY BOSS'}</div>
-            <div class="rname">${esc(r.name)} <span class="lv">Lv.${r.level}</span></div>
-            <div class="rrole">${esc(r.role||'')}</div>
-            <div class="trterr">전투 체력 ${fmt(r.battleHp)} · 한 판에 깎을 수 있는 최대</div>
-          </div>
-        </div>
-        <div class="rbar ${heat}">
-          <i style="width:${pct.toFixed(2)}%"></i>
-          <b>${r.killed?'격파됨':`${fmt(r.left)} / ${fmt(r.maxHp)}`}</b>
-        </div>
-        ${r.killed
-          ? `<div class="hint" style="color:var(--gold)">이번 주 보스는 쓰러졌습니다${r.killer?` · 마지막 일격 <b>${esc(r.killer)}</b>`:''}. 다음 주에 새 보스가 옵니다.</div>`
-          : `<div class="hint">서버 전체가 <b>하나의 막대</b>를 같이 깎습니다. ${fmt(r.joined)}명이 참가했습니다.</div>`}
-        <div class="fpv" style="margin-top:10px">
-          <div><span>오늘 남은 도전</span><b class="${can?'good':'bad'}">${r.triesLeft} / ${r.daily}</b></div>
-          <div><span>내 누적 피해</span><b>${r.me?fmt(r.me.damage):'0'}</b></div>
-          <div><span>한 판 최고</span><b>${r.me?fmt(r.me.best):'—'}</b></div>
-        </div>
-        <button class="btn big gold" ${can?'':'disabled'} onclick="ROWAR.raidRun()">
-          ${r.killed?'격파됨':(r.triesLeft>0?'보스 공격':'오늘 도전을 다 썼습니다')}</button>
-        <div class="hint">편성한 <b>두 기</b>가 차례로 들어갑니다. 선봉이 쓰러지면 예비가 이어서 깎습니다.
-          보스는 <b>매번 꽉 찬 체력</b>으로 만납니다 — 깎은 만큼이 위 막대에 더해집니다.<br>
-          레이드의 보스는 파견에서 만나는 같은 보스보다 <b>훨씬 단단합니다</b>.
-          한 번에 쓰러뜨리는 것이 목표가 아니라 <b>여럿이 나눠 깎는 것</b>이 목표입니다 —
-          보상은 깎은 만큼 받습니다.</div>
-      </div>
-
-      <div class="panel">
-        <h2 class="title" style="margin-top:0">기여 순위 <span class="cnt">${fmt(r.joined)}명</span></h2>
-        <div class="rx"><table class="rank"><thead><tr>
-          <th>#</th><th>이름</th><th>누적 피해</th><th>한 판 최고</th></tr></thead>
-          <tbody>${rows}</tbody></table></div>
-      </div>
-    </div>`;
+  setTerrain(null);
+  $('#sc-trial').innerHTML=raidChallengeView(r,{team:raidTeam().map(m=>({...m,power:power(m)})),pending:challengePending()});
 }
 
+/* One action per account; a completed server reward survives navigation, but an
+   old response cannot start playback or overwrite another account's state. */
 async function raidRunGo(){
-  beginReplay();
-  if(!net.state.online){ toast('보스 레이드는 서버 연결이 필요합니다'); return; }
-  const r = await net.raid(true);
-  if(!r || r.error){
-    toast(r&&r.error==='no tries left' ? '오늘 도전을 다 썼습니다'
-        : r&&r.error==='raid already down' ? '이번 주 보스는 이미 쓰러졌습니다'
-        : ('실패'+(r&&r.error?': '+r.error:'')));
-    dropRaidCache(); renderRaid(); return;
-  }
-  _raid = r; _raidAt = Date.now();
-  S.credits = r.credits; S.scrap = r.scrap;
-  commitLocal(); renderWallet();
-
-  /* 재생 — 서버가 준 시드로 **같은 함수**를 다시 돌린다. 결과를 따로 받지 않는 이유가
-     이것이다: 따로 받으면 재생과 기록이 갈린다(점령전과 같은 규칙). */
-  const mechs = r.mechs.map(m=>({ name: ROBOT_TYPES[m.type].name, type: m.type, stats: m.stats }));
-  const foe = r.foe;                        // r.boss 는 몬스터 id 문자열이다 (server/raid.js 주석)
-  const out = runRaid(mechs, { boss:foe.type, level:foe.level, stats:foe.stats,
-                               battleHp:r.battleHp }, r.seeds);
-  const bossName = r.name;
-  for(let i=0;i<out.rounds.length;i++){
-    const rd=out.rounds[i], M=mechs[rd.mi];
-    renderArena(M.type, foe.type, M.name, bossName, `보스 레이드 · ${bossName}`);
-    if(arenaGone()) return;
-    if(i>0 && rd.mi!==out.rounds[i-1].mi)
-      blog(`<b style="color:var(--bad)">선봉 격추</b> — <span class="k">${M.name}</span> 투입`);
-    const P=makeUnit(M.name,M.type,M.stats); P.hp=rd.pHp; P.sp=rd.pSp;
-    const E=makeUnit(bossName,foe.type,foe.stats); E.hp=rd.eHp; E.sp=rd.eSp;
-    if(i===0) await bossEntrance();
-    const w=await playBattle(rd.events,P,E,{pHp:rd.pHp,eHp:rd.eHp,pSp:rd.pSp,eSp:rd.eSp});
-    if(!w) return;
-    await sleep(320/battleSpeed);
-  }
-  renderRaidResult(r);
+  if(challengePending()||cur!=='trial'||_trialTab!=='raid')return;
+  if(!net.state.online){toast('보스 레이드는 서버 연결이 필요합니다');return;}
+  const token=challengeOwner(),epoch=++_challengeEpoch;
+  _challengeAction=token;if(_raid&&sameChallengeOwner(_raidOwner))drawRaid(_raid);
+  try{
+    const r=await net.raid(true);
+    if(!sameChallengeOwner(token))return;
+    if(!r||r.error){
+      toast(r?.error==='no tries left'?'오늘 도전을 다 썼습니다':r?.error==='raid already down'?'이번 주 보스는 이미 쓰러졌습니다':'공격 요청에 실패했습니다');
+      dropRaidCache();return;
+    }
+    _raid=r;_raidAt=Date.now();_raidOwner=token;
+    S.credits=r.credits;S.scrap=r.scrap;commitLocal();renderWallet();
+    if(!challengeVisible(epoch,token,'raid')){toast(`레이드 기록 완료 · 피해 ${fmt(r.damage)} · 크레딧 +${fmt(r.reward.cr)}`);return;}
+    beginReplay();
+    const replayRequest=_battleRequest;
+    const mechs=r.mechs.map(m=>({name:ROBOT_TYPES[m.type].name,type:m.type,stats:m.stats})),foe=r.foe;
+    const out=runRaid(mechs,{boss:foe.type,level:foe.level,stats:foe.stats,battleHp:r.battleHp},r.seeds);
+    for(let i=0;i<out.rounds.length;i++){
+      if(!sameChallengeOwner(token)||replayRequest!==_battleRequest)return;
+      const rd=out.rounds[i],M=mechs[rd.mi];
+      renderArena(M.type,foe.type,M.name,r.name,`보스 레이드 · ${r.name}`);
+      if(arenaGone())return;
+      if(i>0&&rd.mi!==out.rounds[i-1].mi)blog(`<b style="color:var(--bad)">선봉 격추</b> — <span class="k">${M.name}</span> 투입`);
+      const P=makeUnit(M.name,M.type,M.stats);P.hp=rd.pHp;P.sp=rd.pSp;
+      const E=makeUnit(r.name,foe.type,foe.stats);E.hp=rd.eHp;E.sp=rd.eSp;
+      if(i===0)await bossEntrance();
+      if(arenaGone()||!sameChallengeOwner(token)||replayRequest!==_battleRequest)return;
+      if(!await playBattle(rd.events,P,E,{pHp:rd.pHp,eHp:rd.eHp,pSp:rd.pSp,eSp:rd.eSp}))return;
+      await sleep(320/battleSpeed);
+      if(arenaGone()||!sameChallengeOwner(token)||replayRequest!==_battleRequest)return;
+    }
+    renderRaidResult(r);
+  }catch{if(sameChallengeOwner(token)){dropRaidCache();toast('공격 요청을 확인하지 못했습니다. 최신 기록을 다시 확인하세요.');}}
+  finally{if(_challengeAction===token){_challengeAction=null;if(sameChallengeOwner(token)&&cur==='trial')renderTrial();}}
 }
-
 function renderRaidResult(r){
-  shield(); toBattle();
-  $('#sc-battle').innerHTML = `<h2 class="title">보스 레이드 결과</h2>
-    <div class="panel">
-      <div class="rname" style="color:${r.kill?'var(--gold)':'var(--acc2)'}">${r.kill?'격파!':'피해를 입혔습니다'}</div>
-      <div class="fpv" style="margin-top:8px">
-        <div><span>이번 판 피해</span><b>${fmt(r.damage)}</b>${r.raw>r.damage?` <span class="ps">(막대가 ${fmt(r.raw-r.damage)}만큼 모자랐습니다)</span>`:''}</div>
-        <div><span>내 누적</span><b>${r.me?fmt(r.me.damage):fmt(r.damage)}</b></div>
-        <div><span>보스 남은 체력</span><b>${r.killed?'격파됨':fmt(r.left)+' / '+fmt(r.maxHp)}</b></div>
-        <div><span>보상</span><b style="color:var(--gold)">크레딧 +${fmt(r.reward.cr)} · 스크랩 +${fmt(r.reward.sc)}</b></div>
-        <div><span>오늘 남은 도전</span><b>${r.triesLeft} / ${r.daily}</b></div>
-      </div>
-      <button class="btn big" style="margin-top:10px" onclick="ROWAR.go('trial')">레이드로 돌아가기</button>
-    </div>`;
+  shield();toBattle();
+  $('#sc-battle').innerHTML=`<section class="tv-result ui-surface"><span class="ui-eyebrow">RAID REPORT</span><h2>${r.kill?'보스 격파':'공동 체력에 피해 반영'}</h2><p>${esc(r.name)} · 오늘 남은 도전 ${r.triesLeft} / ${r.daily}</p><div class="tv-result-grid"><div><span>이번에 반영된 피해</span><b>${fmt(r.damage)}</b></div><div><span>내 누적 피해</span><b>${fmt(r.me?.damage??r.damage)}</b></div><div><span>공동 보스 남은 체력</span><b>${r.killed?'격파됨':fmt(r.left)}</b></div></div>${r.raw>r.damage?`<p>공동 체력보다 많은 피해를 입혀, 남아 있던 ${fmt(r.damage)}만 반영했습니다.</p>`:''}<div class="tv-result-reward"><span>획득 보상</span><b>크레딧 +${fmt(r.reward.cr)}</b><b>스크랩 +${fmt(r.reward.sc)}</b></div><div class="row-btns"><button class="btn gold" onclick="ROWAR.go('trial')">레이드로 돌아가기</button><button class="btn" onclick="ROWAR.go('hangar')">출격 편성 확인</button></div></section>`;
 }
-
 async function trialRunGo(){
-  beginReplay();
-  if(!net.state.online){ toast('주간 시련은 서버 연결이 필요합니다'); return; }
-  const r = await net.trial(true);
-  if(!r || r.error){ toast(r&&r.error?('실패: '+r.error):'실패했습니다'); return; }
-  _trial = { ...(_trial||{}), ...r }; _trialAt = Date.now();
-  /* 재생 — 서버가 준 점수는 그대로 쓰고, 화면에 보여 줄 전투만 같은 규칙으로 다시 돌린다. */
-  const out = runTrial(r.stats, r.trial, 'none');
-  const M = MONSTER_TYPES[r.trial.type]||{};
-  renderArena(r.robot.type, r.trial.type, ROBOT_TYPES[r.robot.type].name, M.name||r.trial.type,
-    `주간 시련 · ${(TERRAIN[r.trial.terrain]||{}).ko||r.trial.terrain}`);
-  if(arenaGone()) return;
-  const P=makeUnit('나', r.robot.type, out.mine), E=makeUnit(M.name||r.trial.type, r.trial.type, out.foe);
-  const w = await playBattle(out.ev, P, E, {});
-  if(!w) return;
-  renderTrialResult(r);
+  if(challengePending()||cur!=='trial'||_trialTab!=='trial')return;
+  if(!net.state.online){toast('주간 시련은 서버 연결이 필요합니다');return;}
+  const token=challengeOwner(),epoch=++_challengeEpoch;
+  _challengeAction=token;if(_trial&&sameChallengeOwner(_trialOwner))drawTrial(_trial);
+  try{
+    const r=await net.trial(true);
+    if(!sameChallengeOwner(token))return;
+    if(!r||r.error){toast('시련 요청에 실패했습니다');dropTrialCache();return;}
+    _trial={...r,endsAt:weekEnd(r.week),winBase:TRIAL_WIN_BASE};_trialAt=Date.now();_trialOwner=token;
+    if(!challengeVisible(epoch,token,'trial')){toast(`시련 기록 완료 · ${fmt(r.score)}점`);return;}
+    beginReplay();
+    const replayRequest=_battleRequest;
+    const out=runTrial(r.stats,r.trial,'none'),M=MONSTER_TYPES[r.trial.type]||{};
+    renderArena(r.robot.type,r.trial.type,ROBOT_TYPES[r.robot.type].name,M.name||r.trial.type,`주간 시련 · ${(TERRAIN[r.trial.terrain]||{}).ko||r.trial.terrain}`);
+    if(arenaGone())return;
+    const P=makeUnit('나',r.robot.type,out.mine),E=makeUnit(M.name||r.trial.type,r.trial.type,out.foe);
+    if(!await playBattle(out.ev,P,E,{}))return;
+    if(!sameChallengeOwner(token)||replayRequest!==_battleRequest||arenaGone())return;
+    renderTrialResult(r);
+  }catch{if(sameChallengeOwner(token)){dropTrialCache();toast('시련 요청을 확인하지 못했습니다. 최신 기록을 다시 확인하세요.');}}
+  finally{if(_challengeAction===token){_challengeAction=null;if(sameChallengeOwner(token)&&cur==='trial')renderTrial();}}
 }
-
 function renderTrialResult(r){
-  shield(); toBattle();
-  const best = r.me ? r.me.score : r.score;
-  const isBest = r.score >= best;
-  $('#sc-battle').innerHTML = `<h2 class="title">주간 시련 결과</h2>
-    <div class="panel">
-      <div class="rname" style="color:${r.win?'var(--gold)':'var(--sub)'}">${r.win?'클리어':'실패'}</div>
-      <div class="fpv" style="margin-top:8px">
-        <div><span>이번 점수</span><b>${fmt(r.score)}</b></div>
-        <div><span>내 최고</span><b>${fmt(best)}${isBest?' <span class="tag">갱신</span>':''}</b></div>
-        <div><span>순위</span><b>${r.me&&r.me.rank?`${r.me.rank} / ${fmt(r.total)}`:'—'}</b></div>
-      </div>
-      ${isBest?'':`<div class="hint">최고 기록은 그대로입니다. 낮은 점수로는 기록이 지워지지 않습니다.</div>`}
-      <div class="hint">같은 빌드면 결과가 같습니다. 파츠나 기체를 바꾸고 다시 도전하세요.</div>
-      <div class="row-btns" style="margin-top:10px">
-        <button class="btn big" onclick="ROWAR.go('trial')">시련으로 돌아가기</button>
-        <button class="btn big" onclick="ROWAR.go('hangar')">격납고에서 빌드 바꾸기</button>
-      </div>
-    </div>`;
+  shield();toBattle();
+  const best=r.me?.score??r.score;
+  $('#sc-battle').innerHTML=`<section class="tv-result ui-surface"><span class="ui-eyebrow">TRIAL REPORT</span><h2>${r.win?'시련 클리어':'시련 기록 완료'}</h2><p>${r.win?'상대를 넘어선 빌드입니다.':'이번 빌드가 남긴 피해를 점수로 기록했습니다.'}</p><div class="tv-result-grid"><div><span>이번 점수</span><b>${fmt(r.score)}</b></div><div><span>내 최고 기록</span><b>${fmt(best)}</b></div><div><span>현재 순위</span><b>${r.me?.rank?`${r.me.rank} / ${fmt(r.total)}`:'—'}</b></div></div>${r.score<best?'<p>최고 기록은 유지됩니다. 낮은 점수로 이전 기록이 지워지지 않습니다.</p>':''}<p>같은 빌드에서는 결과가 같습니다. 기체나 파츠를 바꿔 다시 도전해 보세요.</p><div class="row-btns"><button class="btn gold" onclick="ROWAR.go('trial')">시련으로 돌아가기</button><button class="btn" onclick="ROWAR.go('hangar')">격납고에서 빌드 변경</button></div></section>`;
 }
 
 /* 랭킹 화면은 두 갈래다 — 순위와 도감. 칭호가 순위표에 뜨므로 한자리에 둔다. */

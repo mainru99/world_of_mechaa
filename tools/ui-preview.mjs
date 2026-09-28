@@ -13,6 +13,8 @@ import {computeStats,power} from '../js/stats.js';
 import {rollPart,rollPull,PULL_CUR} from '../js/gacha.js';
 import {periodOf,periodEnd,refreshCost,rollShop,slotSig,shardNeed,shardKey,bagView} from '../js/shop.js';
 import {mulberry32} from '../js/sim.js';
+import {weekOf,weekEnd,trialOf,runTrial,TRIAL_WIN_BASE,trialWon} from '../js/trial.js';
+import {raidOf,raidSeeds,runRaid,raidReward,raidDaily} from '../js/raid.js';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const port=Number(process.argv[2]||8806);
 // Explicit opt-in for disposable in-memory animation tests. No real API or DB.
@@ -24,6 +26,8 @@ const sampleArchive=process.argv.includes('--sample-archive');
 const sampleLogin=process.argv.includes('--sample-login');
 const sampleLoginPullRetry=process.argv.includes('--sample-login-pull-retry');
 const sampleShop=process.argv.includes('--sample-shop');
+const sampleChallenge=process.argv.includes('--sample-challenge');
+const sampleChallengeDelay=process.argv.includes('--sample-challenge-delay');
 let previewFailPull=false;
 let previewIdentity=sampleLogin?null:{id:'preview',guest:false,loginId:'지휘관_01'};
 const previewToken='ui-preview-only';
@@ -39,6 +43,9 @@ let sampleShopState={p:periodOf(Date.now()),n:0,lv:32,b:[]};
 const sampleShopView=()=>{const now=Date.now();if(sampleShopState.p!==periodOf(now))sampleShopState={p:periodOf(now),n:0,lv:32,b:[]};return {ok:true,server_now:now,endsAt:periodEnd(sampleShopState.p),stock:rollShop('preview',sampleShopState).map(x=>({...x,sold:sampleShopState.b.includes(x.i),sig:slotSig(x)})),refresh:refreshCost(sampleShopState.n,sampleShopState.lv),refreshed:sampleShopState.n,lv:sampleShopState.lv,items:state.items,bag:bagView(state.items,state.robots.map(r=>r.type)),credits:state.credits,cores:state.cores,scrap:state.scrap};};
 const sampleNames=['화염선','서리날','검은별','새벽','철의창','푸른빛','황혼','정찰자','굉음','유성','북극성','지휘관_01','백야','선회','지평선','파도','적월','잔광','폭풍','등대','섬광','청동','산맥'];
 const sampleRank=sampleNames.map((nickname,i)=>({rank:i+1,nickname,rating:2100-i*28,wins:i===11?48:90-i*3,losses:i===11?12:14+i*2,me:i===11,title:null}));
+let challengeWeek=weekOf(Date.now()),sampleTrialMe=null,sampleRaidMe=null,sampleRaidTries=0,sampleRaidDamage=0;
+const challengeTrialView=()=>({ok:true,week:challengeWeek,endsAt:weekEnd(challengeWeek),winBase:TRIAL_WIN_BASE,trial:trialOf(challengeWeek),top:sampleNames.slice(0,8).map((nickname,i)=>({rank:i+1,nickname,type:robots[i%robots.length].type,score:600000-i*55000,me:false})).concat(sampleTrialMe?[{...sampleTrialMe,nickname:'지휘관_01',me:true}]:[]),me:sampleTrialMe,total:8+(sampleTrialMe?1:0)});
+const challengeRaidView=()=>{const r=raidOf(challengeWeek),base=Math.round(r.maxHp*.62),left=Math.max(0,r.maxHp-base-sampleRaidDamage);return {ok:true,week:r.week,endsAt:weekEnd(r.week),boss:r.boss,name:MONSTER_TYPES[r.boss].name,role:MONSTER_TYPES[r.boss].role,level:r.level,battleHp:r.battleHp,maxHp:r.maxHp,dealt:base+sampleRaidDamage,left,killed:!left,killer:!left?'지휘관_01':null,daily:raidDaily(),triesLeft:Math.max(0,raidDaily()-sampleRaidTries),me:sampleRaidMe,top:sampleNames.slice(0,8).map((nickname,i)=>({rank:i+1,nickname,damage:140000-i*14000,best:16000-i*1100,me:false})).concat(sampleRaidMe?[{...sampleRaidMe,rank:9,nickname:'지휘관_01',me:true}]:[]),joined:8+(sampleRaidMe?1:0)};};
 const sampleMonsters=Object.keys(MONSTER_TYPES).filter(id=>MONSTER_TYPES[id].rarity==='C').slice(0,3);
 const sampleCodex={ms:Object.fromEntries(sampleMonsters.map(id=>[id,30])),mk:Object.fromEntries(sampleMonsters.map(id=>[id,20])),r:{ignis:1,ranger:1},p:{},a:{['m:'+sampleMonsters[0]]:1},rf:{},c:{},t:null};
 const nodes=TERRITORY.map((n,i)=>{
@@ -146,6 +153,24 @@ const server=http.createServer(async(req,res)=>{
     }
     json(res,400,{error:'unknown action'});return;
    }
+   if(sampleChallenge&&['/api/trial','/api/raid'].includes(url.pathname)){
+    if(sampleChallengeDelay)await new Promise(r=>setTimeout(r,1500));
+    const week=weekOf(Date.now());if(week!==challengeWeek){challengeWeek=week;sampleTrialMe=sampleRaidMe=null;sampleRaidTries=sampleRaidDamage=0;}
+    const raid=url.pathname==='/api/raid',view=raid?challengeRaidView:challengeTrialView;
+    if(req.method==='GET'){json(res,200,view());return;}
+    if(req.method!=='POST'){json(res,405,{error:'method not allowed'});return;}
+    if(!raid){
+     const robot=state.robots[state.sel],stats=computeStats(robot,state.parts),t=trialOf(challengeWeek),out=runTrial(stats,t,'none');
+     const best=Math.max(sampleTrialMe?.score||0,out.score);
+     sampleTrialMe={score:best,type:robot.type,power:power(robot,state.parts),tries:(sampleTrialMe?.tries||0)+1,rank:1+challengeTrialView().top.filter(x=>!x.me&&x.score>=best).length};
+     json(res,200,{...view(),score:out.score,win:trialWon(out.score),robot,parts:state.parts,stats,foe:out.foe});return;
+    }
+    const before=view();if(!before.triesLeft||before.killed){json(res,400,{error:before.killed?'raid already down':'no tries left'});return;}
+    const rules=raidOf(challengeWeek),team=state.squad.map(uid=>state.robots.find(r=>r.uid===uid)).filter(Boolean),mechs=team.map(robot=>({uid:robot.uid,type:robot.type,level:robot.level,name:ROBOT_TYPES[robot.type].name,power:power(robot,state.parts),stats:computeStats(robot,state.parts)}));
+    const seeds=raidSeeds(challengeWeek,1,++sampleRaidTries,mechs.length),out=runRaid(mechs,rules,seeds),damage=Math.min(before.left,out.damage),reward=raidReward(damage,rules.baseHp,32);
+    sampleRaidDamage+=damage;sampleRaidMe={damage:sampleRaidDamage,best:Math.max(sampleRaidMe?.best||0,damage),tries:sampleRaidTries};state.credits+=reward.cr;state.scrap+=reward.sc;
+    json(res,200,{...view(),damage,raw:out.damage,reward,kill:damage>=before.left,credits:state.credits,scrap:state.scrap,mechs,seeds,tries:sampleRaidTries,foe:{type:rules.boss,level:rules.level,stats:rules.stats}});return;
+   }
    if(samplePulls&&url.pathname==='/api/pull'&&req.method==='POST'){
     const count=body.count,currency=body.cur,config=PULL_CUR[currency];
     if(![1,10].includes(count)||!config){json(res,400,{error:'invalid sample request'});return;}
@@ -192,9 +217,9 @@ const server=http.createServer(async(req,res)=>{
   if(name==='/index.html'){
    const seed=JSON.stringify(state).replaceAll('<','\\u003c');
    const bootstrap=`<script>${sampleLogin?"localStorage.removeItem('rowar.session');":"localStorage.setItem('rowar.session','ui-preview-only');"}localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
-   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleLogin?'샘플 로그인 검수 · 가상 계정 / tester · password123 / 운영 계정과 무관합니다':sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':sampleShop?'샘플 보급 상점 검수 · 가상 진열/재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
+   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleChallenge?'샘플 주간 도전 검수 · 가상 기록/재화 / 운영 계정과 무관합니다':sampleLogin?'샘플 로그인 검수 · 가상 계정 / tester · password123 / 운영 계정과 무관합니다':sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':sampleShop?'샘플 보급 상점 검수 · 가상 진열/재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
   }
   res.writeHead(200,{'content-type':mime[extname(file)],'cache-control':'no-store','x-content-type-options':'nosniff'});res.end(content);
  }catch(e){res.writeHead(404);res.end('Not found');}
 });
-server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleLogin?'in-memory sample login enabled':sampleArchive?'in-memory sample archive enabled':sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':sampleShop?'in-memory sample shop enabled':'spending/claiming disabled'}`));
+server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleChallenge?'in-memory sample challenge enabled':sampleLogin?'in-memory sample login enabled':sampleArchive?'in-memory sample archive enabled':sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':sampleShop?'in-memory sample shop enabled':'spending/claiming disabled'}`));

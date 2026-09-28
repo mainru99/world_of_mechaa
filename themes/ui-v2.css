@@ -2,6 +2,9 @@
 body.ui-v2{--bg:#070e13;--bg2:#0b141b;--panel:#0b161e;--panel2:#0a1218;--line:#2b3d48;--ink:#eef3f4;--sub:#a7bac5;--dim:#8499a7;--acc:#9bd4e6;--acc2:#87d8f4;--gold:#f1bb73;--good:#68dcb0;--bad:#ff696c;--ui-red:#e33239;--ui-muted:#8ca3b0;background:#081017;color:var(--ink);font-family:'Segoe UI','맑은 고딕',system-ui,sans-serif;font-size:15px;line-height:1.55;color-scheme:dark}
 body.ui-v2::before{content:'';position:fixed;inset:0;z-index:-1;background:linear-gradient(180deg,#06101866,#061017ee 78%),url('../assets/backgrounds/gate.webp') center top/cover no-repeat;pointer-events:none}
 .ui-v2 #app{height:auto;grid-template-areas:none}
+/* Scene chrome used backdrop blur, which traps the mobile fixed navigation
+   inside its header. The v2 header is opaque and must not create that boundary. */
+body.ui-v2 .topbar{backdrop-filter:none;-webkit-backdrop-filter:none}
 .ui-v2 .topbar{grid-area:auto;height:auto;flex-shrink:0;grid-template-areas:none}
 .ui-v2 .nav{grid-area:auto;height:auto;grid-column:2;grid-row:1}
 .ui-v2 .wallet{grid-column:3;grid-row:1}

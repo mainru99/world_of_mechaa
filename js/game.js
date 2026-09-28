@@ -36,6 +36,7 @@ import { icon, emblem } from './ui/icons.js';
 import { dispatchView, dispatchMissions, expeditionEstimate, expeditionProgress } from './ui/dispatch.js';
 import { rankShell, rankingView } from './ui/ranking.js';
 import { trialChallengeView, raidChallengeView, challengeMessage } from './ui/challenge.js';
+import { frontCampaignView, frontStoryView, frontResultView } from './ui/front.js';
 import { battleView, BATTLE_MODES } from './ui/battle.js';
 import { territoryView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
@@ -470,6 +471,7 @@ function toBattle(bg, navAs){
 /* 격납고를 떠나면 '새 파츠' 표를 지운다 — 인벤토리를 볼 기회가 한 번 있었다는 뜻이다.
    계속 반짝이게 두면 그 반짝임이 곧 배경이 되어 아무것도 알려 주지 못한다. */
 function go(scr){ if(!['home','hangar','gacha','battle','rank','trial','hunt','terr'].includes(scr)) return;
+  stopScript();
   if(scr!==cur) window.scrollTo({top:0,left:0,behavior:'instant'});
   if(scr!=='rank') ++_rankEpoch;
   ++_challengeEpoch;
@@ -560,7 +562,7 @@ function renderTicker(){
 
   const html = out.join('') + '<div class="sp"></div>'
     + `<div class="tk off">전적 ${S.stat.wins}승 ${S.stat.losses}패</div>`
-    + `<div class="tk off">진행 상황은 서버에 저장됩니다</div>`;
+    + `<div class="tk off">${net.state.online ? '진행 상황은 서버에 저장됩니다' : '진행은 이 브라우저에 저장됩니다'}</div>`;
   /* 1초마다 불리므로 달라진 게 없으면 DOM 을 건드리지 않는다. 움직일 것이 하나도
      없는 계정에서는 문자열 하나 만드는 것이 전부다. */
   if(html===_tickHtml) return;
@@ -2675,105 +2677,72 @@ function speakerHtml(s){
 /* 대사 구간 사이를 넘어가는 '지금 걸린 그림'. before → 전투 → after 가 각각 다른
    playScript 라, 여기 두지 않으면 구간이 바뀔 때마다 그림이 사라진다. */
 let _storyArt = null;
-async function playScript(beats, title, endLabel){
-  if(!beats || !beats.length) return true;
-  const ac = { stop: false, skip: false, next: null };
-  _scriptAbort = ac;
-  toBattle(null, 'terr');
-  const el = $('#sc-battle');
-
-  el.innerHTML = `<div class="story-view" id="storyView">
-    <div class="story-top"><span class="story-ttl">${esc(title || '')}</span>
-      <span class="story-n" id="storyN"></span>
-      <button class="story-skip" id="storySkip">건너뛰기 ▸▸</button></div>
-    <figure class="story-art" id="storyArt" hidden><img id="storyArtImg" alt=""></figure>
-    <div class="story-box">
-      <div class="story-spk" id="storySpk"></div>
-      <p class="story-line" id="storyLine"></p>
-      <div class="story-more" id="storyMore">▼</div>
-      <button class="story-go" id="storyGo" hidden>${esc(endLabel || '계속')} ▸</button>
-    </div>
-    <div class="story-hint">아무 곳이나 눌러 다음으로</div>
-  </div>`;
-
-  const view = $('#storyView'), lineEl = $('#storyLine'), spkEl = $('#storySpk'),
-        moreEl = $('#storyMore'), nEl = $('#storyN'), goEl = $('#storyGo'),
-        artEl = $('#storyArt'), artImg = $('#storyArtImg');
-  /* 삽화 칸. **그림 파일이 없으면 칸을 통째로 접는다** — 깨진 이미지가 뜨면
-     "만들다 만 화면" 으로 읽힌다. 지금은 한 장도 없으므로 늘 접혀 있고,
-     `assets/story/` 에 파일을 넣는 순간부터 저절로 펴진다(코드는 안 바뀐다). */
-  /* **앞 구간의 그림을 이어받는다.** before / 전투 / after 가 각각 다른 playScript 라
-     매번 null 로 시작했는데, 그러면 그림을 안 적은 대목이 통째로 빈 채로 흐른다
-     (129줄 중 22줄이 그랬다 — 특히 1-3 전투 후 5줄은 전부 빈 화면이었다).
-     전투 전후는 **같은 장소**이므로 앞 그림이 걸려 있는 편이 맞다. */
-  let artKey = _storyArt;
-  if(artKey) { artImg.src = artPath(artKey); artEl.hidden = false; }
-  /* **새 그림이 다 올 때까지 앞 그림을 그대로 둔다.** 곧바로 src 를 갈아 끼우면
-     onload 가 오기까지 칸이 접혔다 펴져서, 장면이 바뀔 때마다 대사 상자가 위아래로 튄다
-     (그림이 실제로 생기고 나서야 보이는 문제였다 — 파일이 0장일 때는 늘 접혀 있었다). */
-  const setArt = key => {
-    if(key === undefined || key === artKey) return;          // 안 적은 beat 는 앞 그림을 잇는다
-    artKey = _storyArt = key;
-    const src = artPath(key);
-    if(!src){ artEl.hidden = true; artImg.removeAttribute('src'); return; }
-    const pre = new Image();
-    pre.onload  = () => { if(artKey !== key) return; artImg.src = src; artEl.hidden = false; };
-    pre.onerror = () => { if(artKey !== key) return; artEl.hidden = true; artImg.removeAttribute('src'); };
-    pre.src = src;
+function stopScript(){
+  const ac=_scriptAbort;
+  if(!ac) return;
+  ac.stop=true; ac.next?.();
+}
+async function playScript(beats,title,endLabel){
+  if(!beats?.length) return true;
+  stopScript();
+  const ac={stop:false,skip:false,next:null}; _scriptAbort=ac;
+  toBattle(null,'terr');
+  $('#sc-battle').innerHTML=frontStoryView(title,endLabel);
+  const view=$('#storyView'),lineEl=$('#storyLine'),spkEl=$('#storySpk'),
+    nEl=$('#storyN'),goEl=$('#storyGo'),nextEl=$('#storyNext'),
+    artEl=$('#storyArt'),artImg=$('#storyArtImg'),readingEl=$('#storyReading');
+  const live=()=>!ac.stop && _scriptAbort===ac && cur==='battle' && view.isConnected && $('#storyView')===view;
+  let artKey=_storyArt;
+  if(artKey){artImg.src=artPath(artKey);artEl.hidden=false;}
+  const setArt=key=>{
+    if(key===undefined||key===artKey)return;
+    artKey=_storyArt=key;
+    const src=artPath(key);
+    if(!src){artEl.hidden=true;artImg.removeAttribute('src');return;}
+    const pre=new Image();
+    pre.onload=()=>{if(!live()||artKey!==key)return;artImg.src=src;artEl.hidden=false;};
+    pre.onerror=()=>{if(!live()||artKey!==key)return;artEl.hidden=true;artImg.removeAttribute('src');};
+    pre.src=src;
   };
-  /* 다음 장면 그림을 미리 받아 둔다. 한 장이 200KB 라 넘어가는 순간에 받으면 한 박자 늦는다.
-     16장을 통째로 받지는 않는다 — 3MB 를 첫 줄에서 다 받을 이유가 없다. */
-  const prefetch = from => {
-    for(let j = from; j < beats.length; j++){
-      if(beats[j].art && beats[j].art !== artKey){ new Image().src = artPath(beats[j].art); return; }
+  const prefetch=from=>{
+    for(let j=from;j<beats.length;j++)if(beats[j].art&&beats[j].art!==artKey){new Image().src=artPath(beats[j].art);return;}
+  };
+  const advance=()=>ac.next?.();
+  view.addEventListener('click',e=>{if(!e.target.closest('button'))advance();});
+  nextEl.addEventListener('click',advance);goEl.addEventListener('click',advance);
+  $('#storySkip').addEventListener('click',()=>{ac.skip=true;advance();});
+  $('#storyExit').addEventListener('click',enterFront);
+  nextEl.focus({preventScroll:true});
+  try{
+    for(let bi=0;bi<beats.length;bi++){
+      if(!live()||ac.skip)break;
+      const b=beats[bi],last=bi===beats.length-1;
+      nEl.textContent=`${bi+1} / ${beats.length}`;
+      if(b.bg)setTerrain(b.bg);setArt(b.art);prefetch(bi+1);
+      spkEl.innerHTML=speakerHtml(b.s);
+      const sp=SPEAKERS[b.s];
+      lineEl.className='story-line'+(sp?.kind==='system'?' sys':'')+(sp?.hostile?' foe':'')+(!b.s||sp?.kind==='narr'?' narr':'');
+      lineEl.textContent='';readingEl.textContent='';nextEl.hidden=false;goEl.hidden=true;
+      const text=b.t;
+      await new Promise(resolve=>{
+        let i=0,done=false;
+        const finish=()=>{if(done)return;done=true;clearInterval(timer);lineEl.textContent=text;resolve();};
+        const timer=setInterval(()=>{
+          if(!live()||ac.skip){finish();return;}
+          i+=2;lineEl.textContent=text.slice(0,i);if(i>=text.length)finish();
+        },SPEAK_MS);
+        ac.next=finish;
+        if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)finish();
+      });
+      if(!live()||ac.skip)break;
+      readingEl.textContent=(sp?.ko?sp.ko+' · ':'')+text;
+      nextEl.hidden=last;goEl.hidden=!last;
+      /* Move keyboard focus only from the button that has just become hidden. */
+      if(last&&document.activeElement===nextEl)goEl.focus({preventScroll:true});
+      await new Promise(resolve=>{ac.next=resolve;});
     }
-  };
-  const advance = () => { if(ac.next) ac.next(); };
-  view.addEventListener('click', advance);
-  $('#storySkip').addEventListener('click', e => { e.stopPropagation(); ac.skip = true; advance(); });
-
-  for(let bi = 0; bi < beats.length; bi++){
-    const b = beats[bi], last = bi === beats.length - 1;
-    if(ac.stop || ac.skip) break;
-    if(!$('#storyView')) { _scriptAbort = null; return false; }   // 화면을 떠났다
-    /* 몇 줄이 남았는지 보여 준다. 끝이 안 보이면 읽지 않고 건너뛰게 된다. */
-    nEl.textContent = `${bi + 1} / ${beats.length}`;
-    /* 장면이 바뀌면 **배경도 바뀐다.** 삽화(art)는 아직 한 장도 없어서 칸이 늘 접혀
-       있었고, 그래서 129줄이 같은 그림 앞에서 흘렀다 — 캠페인이 아니라 자막이었다.
-       배경은 이미 가진 것(지형 6장 + 격납고·폐허 배경)으로 지금 당장 바꿀 수 있다.
-       `body[data-scene="battle"][data-terrain]` 규칙이 그대로 그려 준다. */
-    if(b.bg) setTerrain(b.bg);
-    setArt(b.art);
-    prefetch(bi + 1);
-    spkEl.innerHTML = speakerHtml(b.s);
-    const sp = SPEAKERS[b.s];
-    lineEl.className = 'story-line' + (sp && sp.kind === 'system' ? ' sys' : '')
-                     + (sp && sp.hostile ? ' foe' : '')
-                     + (!b.s || (sp && sp.kind === 'narr') ? ' narr' : '');
-    moreEl.style.visibility = 'hidden';
-
-    /* 글자를 흘린다. 누르면 그 줄이 즉시 끝나고, 한 번 더 누르면 다음 줄이다. */
-    const text = b.t;
-    let done = false;
-    await new Promise(res => {
-      let i = 0;
-      const timer = setInterval(() => {
-        if(ac.stop || ac.skip){ clearInterval(timer); done = true; lineEl.textContent = text; res(); return; }
-        i += 2;
-        lineEl.textContent = text.slice(0, i);
-        if(i >= text.length){ clearInterval(timer); done = true; res(); }
-      }, SPEAK_MS);
-      ac.next = () => { if(!done){ clearInterval(timer); done = true; lineEl.textContent = text; res(); } };
-    });
-    if(ac.stop || ac.skip) break;
-    /* 마지막 줄에서는 '다음' 이 아니라 **다음에 할 일의 이름**을 띄운다 —
-       이야기가 곧바로 조작으로 넘어가야 캠페인이 이어진 느낌이 난다. */
-    moreEl.style.visibility = last ? 'hidden' : 'visible';
-    goEl.hidden = !last;
-    await new Promise(res => { ac.next = res; });                  // 다음 줄까지 기다린다
-  }
-  _scriptAbort = null;
-  return !ac.stop;
+    return live();
+  }finally{if(_scriptAbort===ac)_scriptAbort=null;}
 }
 
 /* ------------------------------- 전선 화면 ------------------------------- */
@@ -2786,13 +2755,7 @@ async function playScript(beats, title, endLabel){
    규칙(js/front.js)이 클라와 서버 양쪽에 같은 파일로 있으므로, 서버가 있으면 서버가
    판정하고 없으면 같은 함수로 여기서 돌린 뒤 로컬 저장에 적는다. */
 let _frontTab = 'front';
-function setFrontTab(k){ _frontTab = (k === 'terr') ? 'terr' : 'front'; renderTerrHome(); }
-function frontTabs(){
-  return `<div class="gtabs">
-    <button class="gtab ${_frontTab==='front'?'on':''}" onclick="ROWAR.setFrontTab('front')"><em>🔻</em> 전선<span>혼자 · 한 줄기</span></button>
-    <button class="gtab ${_frontTab==='terr'?'on':''}" onclick="ROWAR.setFrontTab('terr')"><em>🗺️</em> 점령전<span>다 같이 · 지키는 땅</span></button>
-  </div>`;
-}
+function setFrontTab(k){ _frontTab = (k === 'terr') ? 'terr' : 'front'; go('terr'); }
 function renderTerrHome(){ return _frontTab === 'terr' ? renderTerr() : renderFront(); }
 
 /* 진행은 로컬 저장에 둔다. 서버가 있으면 서버 값으로 덮어쓴다 —
@@ -2803,60 +2766,47 @@ const myMaxLv = () => Math.max(1, ...S.robots.map(r => r.level | 0), 1);
 /* 장 고르기. 기본은 **지금 밀고 있는 장** — 아직 안 깬 칸 중 열린 첫 칸이 있는 장이다.
    다 깼으면 마지막 장. 앞 장을 다 깨야 다음 장의 첫 칸이 열리므로(cellOpen) 장에 따로 잠금을 달지 않는다. */
 let _frontCh = null;
-function setFrontCh(id){ _frontCh = id; renderFront(); }
+const _frontIntroAttempted=new Set();
+let _frontCell=null;
+function setFrontCh(id){
+  const ch=frontView(frontProg(),myMaxLv()).find(x=>x.id===id);
+  if(!ch?.cells[0].open)return;
+  _frontCh=id;_frontCell=null;renderFront();
+}
 function currentChapter(view){
   const live = view.find(ch => ch.cells.some(c => c.open && !c.cleared));
   return (live || view[view.length - 1]).id;
 }
 function chapterOfCell(id){ return FRONT_CHAPTERS.find(ch => ch.cells.some(c => c.id === id)) || null; }
 
+function frontTeam(){
+  const selected=selRobot();
+  if(!net.state.online)return selected?[selected]:[];
+  let list=(S.squad?.length?S.squad:[selected?.uid]).map(u=>S.robots.find(r=>r.uid===u)).filter(r=>r&&S.expd?.uid!==r.uid);
+  const i=list.findIndex(r=>r.uid===selected?.uid);
+  if(i>0)list.unshift(list.splice(i,1)[0]);
+  return list.slice(0,2);
+}
 function renderFront(){
-  const el = $('#sc-terr');
-  const prog = frontProg(), maxLv = myMaxLv();
-  const view = frontView(prog, maxLv);
-  if(!_frontCh || !view.some(v => v.id === _frontCh)) _frontCh = currentChapter(view);
-  const ch = view.find(v => v.id === _frontCh);
-  /* 장이 둘 이상이면 위에 장 탭. 첫 칸이 안 열린 장은 잠근다(앞 장을 깨면 열린다). */
-  const chTabs = view.length > 1 ? `<div class="fchs">${view.map(v => {
-      const open = v.cells[0].open, done = v.cells.filter(c => c.cleared).length;
-      return `<button class="fch ${v.id === ch.id ? 'on' : ''}" ${open ? '' : 'disabled'} onclick="ROWAR.setFrontCh('${v.id}')">
-        <b>${v.no}장</b> ${esc(v.ko)}<span>${open ? `${done} / ${v.cells.length}` : '🔒 앞 장을 깨면 열립니다'}</span></button>`;
-    }).join('')}</div>` : '';
-  /* 장 도입은 처음 한 번만. 볼 때마다 틀면 탭을 오갈 수가 없다. */
-  if(!cellSeen(ch.id, 'open')){
-    const op = openingOf(ch.id);
-    if(op){ markSeen(ch.id, 'open'); playScript(op, `${ch.no}장 ${ch.ko}`, '전선으로').then(ok => { if(ok) go('terr'); }); return; }
+  const view=frontView(frontProg(),myMaxLv());
+  if(!_frontCh||!view.some(v=>v.id===_frontCh&&v.cells[0].open))_frontCh=currentChapter(view);
+  const ch=view.find(v=>v.id===_frontCh);
+  if(!cellSeen(ch.id,'open')&&!_frontIntroAttempted.has(ch.id)){
+    const op=openingOf(ch.id);
+    if(op){
+      _frontIntroAttempted.add(ch.id);
+      const owner=S,account=net.state.accountId,request=_battleRequest;
+      playScript(op,`${ch.no}장 ${ch.ko}`,'전선으로').then(ok=>{
+        if(!ok||S!==owner||net.state.accountId!==account||request!==_battleRequest)return;
+        markSeen(ch.id,'open');go('terr');
+      });return;
+    }
   }
-  /* 진행은 **이 장 안에서** 센다. 전체로 세면 2장 화면이 '5 / 6 칸' 같은 엉뚱한 값을 띄운다. */
-  const done = ch.cells.filter(c => c.cleared).length, total = ch.cells.length;
-
-  const cells = ch.cells.map((c, i) => {
-    const st = c.cleared ? 'done' : c.open ? 'open' : 'lock';
-    const mons = c.mon.map(m => MONSTER_TYPES[m]).filter(Boolean);
-    return `<button class="fcell ${st}" ${c.open ? '' : 'disabled'} onclick="ROWAR.openCell('${c.id}')">
-      <span class="fno">${i + 1}</span>
-      <span class="fmid">
-        <span class="fnm">${esc(c.ko)}${c.boss ? ' <b class="fboss">BOSS</b>' : ''}</span>
-        <span class="fsub">${TERRAIN[c.terrain] ? esc(TERRAIN[c.terrain].ko) : esc(c.terrain)} · Lv.${c.lv} · 방어선 ${c.lines}겹</span>
-        <span class="ffoe">${mons.map(m => `<i>${esc(m.name)}</i>`).join('')}</span>
-      </span>
-      <span class="fst">${c.cleared ? '✓' : c.open ? '▶' : '🔒'}</span>
-    </button>`;
-  }).join('');
-
-  const gates = lockedGates(prog, maxLv);
-  el.innerHTML = `${frontTabs()}${chTabs}
-    <h2 class="title">전선 · ${ch.no}장 ${esc(ch.ko)}</h2>
-    <div class="panel fhead">
-      <div class="fsub2">${esc(ch.sub)}</div>
-      <p class="flead">${leadHtml(ch.lead)}</p>
-      <div class="fprog"><i style="width:${done / total * 100}%"></i></div>
-      <div class="fprow"><div class="hint">${done} / ${total} 칸${net.state.online ? '' : ' · <b style="color:var(--gold)">오프라인 — 진행은 이 브라우저에 저장됩니다</b>'}</div>
-        ${done > 0 || cellSeen(ch.id, 'open') ? `<button class="fre" onclick="ROWAR.restartCh('${ch.id}')">↺ 처음부터 다시 보기</button>` : ''}</div>
-      ${gates.length ? `<div class="fgate">아직 잠긴 것 — ${gates.map(g => `<b>${esc(g.ko)}</b>`).join(' · ')}
-        <span>전선 ${gates[0].need}칸을 깨거나 기체가 Lv.${gates[0].altLv} 이 되면 열립니다</span></div>` : ''}
-    </div>
-    <div class="fcells">${cells}</div>`;
+  const selected=ch.cells.find(c=>c.id===_frontCell&&c.open)||ch.cells.find(c=>c.open&&!c.cleared)||[...ch.cells].reverse().find(c=>c.open);
+  _frontCell=selected?.id||null;
+  $('#sc-terr').innerHTML=frontCampaignView({chapters:view,chapter:ch,selected,
+    team:frontTeam().map(rb=>({...rb,power:power(rb),fat:fatOf(rb)})),
+    gates:lockedGates(frontProg(),myMaxLv()),online:net.state.online});
 }
 
 /* 장을 처음부터 다시 — **이야기만** 되감는다(2026-09-19 사용자 지시: "다시 시작할 경우 얻는 이익은 없다").
@@ -2881,81 +2831,65 @@ function restartChGo(id){
     for(const k of keys) delete m[k];
     localStorage.setItem(seenKey, JSON.stringify(m));
   }catch(e){}
+  _frontIntroAttempted.delete(ch.id);
   _storyArt = null;                        // 앞 장면의 그림을 이어받지 않는다 — 첫 줄부터 새로
   closeModal();
   _frontCh = id;
   renderFront();                           // 도입을 안 본 상태가 됐으므로 곧바로 도입이 흐른다
 }
 
-/* 장 도입문을 문장 단위로 싼다. 넓은 화면에서는 **문장 안에서 줄을 바꾸지 않는다** —
-   어절에서 끊어도 '가장 낡은 / 기체로' 처럼 꾸밈말과 꾸밈 받는 말이 갈라지면 어색하다.
-   좁은 화면에서는 이 규칙이 풀려 어절에서 넘어간다(style.css .flead .snt). */
-const leadHtml = t => String(t || '').split(/(?<=[.!?…])\s+/).map(s => `<span class="snt">${esc(s)}</span>`).join(' ');
-
-/* 칸 상세 — 들어가기 전에 이야기를 먼저 보여 준다. */
+/* Selection changes the briefing; only the explicit launch button starts a sortie. */
 function openCell(id){
-  const prog = frontProg();
-  const c = FRONT_CELLS.find(x => x.id === id); if(!c) return;
-  const i = cellIndex(id);
-  if(!cellOpen(prog, i)){ toast('앞 칸을 먼저 깨야 합니다'); return; }
-  const done = prog[i] > 0;
-  const mons = c.mon.map(m => MONSTER_TYPES[m]).filter(Boolean);
-  const rw = c.reward || {};
-  const gain = [rw.credits ? `크레딧 <b>${fmt(rw.credits)}</b>` : '',
-                rw.scrap ? `스크랩 <b>${fmt(rw.scrap)}</b>` : '',
-                rw.part ? `파츠 <b>${rw.part}</b>` : ''].filter(Boolean).join(' · ');
-  openModal(`<div class="mhead">${esc(c.ko)} <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
-    <p class="fstory">${esc(c.intro)}</p>
-    <div class="fmeta">
-      <span>${TERRAIN[c.terrain] ? esc(TERRAIN[c.terrain].ko) : esc(c.terrain)}</span>
-      <span>Lv.${c.lv}</span><span>방어선 ${c.lines}겹</span>
-    </div>
-    <div class="ffoes">${mons.map(m => `<div class="ffoe1">${sprite(m.id, false)}
-      <b>${esc(m.name)}</b><small>${esc(m.role || '')}</small></div>`).join('')}</div>
-    ${done ? `<div class="hint" style="margin:12px 0">이미 깬 칸입니다. 다시 가도 보상은 없습니다 — 파밍은 파견에서 합니다.</div>`
-           : `<div class="freward">첫 클리어 — ${gain}</div>`}
-    <div class="row-btns">
-      <button class="btn big gold" onclick="ROWAR.runCell('${id}')">출격</button>
-      <button class="btn big ghost" onclick="ROWAR.closeModal()">그만두기</button></div>`);
+  if(!cellOpen(frontProg(),cellIndex(id))){toast('앞 칸을 먼저 깨야 합니다');return;}
+  _frontCh=chapterOfCell(id)?.id;_frontCell=id;renderFront();
+  const title=$('#frontDetailTitle');
+  if(window.matchMedia('(max-width:700px)').matches){
+    $('#frontDetail')?.scrollIntoView({block:'start',behavior:'instant'});
+    title?.focus({preventScroll:true});
+  }
 }
 
 async function runCell(id){
   closeModal();
-  const c = FRONT_CELLS.find(x => x.id === id); if(!c) return;
-  const rb = selRobot(); if(!rb){ toast('기체가 없습니다'); return; }
-  setTerrain(c.terrain);
-
-  /* 전투 앞의 대사. **한 번 본 칸은 안 틀어 준다** — 다시 하는 사람에게
-     같은 대사를 강제하면 그게 벌이 된다. */
-  const pre = scriptOf(id, 'before');
-  if(pre && !cellSeen(id, 'before')){
-    const ok = await playScript(pre, `${c.ko}`, '출격');
-    markSeen(id, 'before');
-    if(!ok) return;                          // 화면을 떠났다
+  const c=FRONT_CELLS.find(x=>x.id===id);if(!c)return;
+  if(!cellOpen(frontProg(),cellIndex(id))){toast('앞 칸을 먼저 깨야 합니다');return;}
+  if(!frontTeam().length){toast('출전 가능한 기체가 없습니다');return;}
+  const owner=S,account=net.state.accountId,request=_battleRequest,online=net.state.online;
+  const sameOwner=()=>S===owner&&net.state.accountId===account;
+  const active=()=>sameOwner()&&request===_battleRequest&&cur==='battle';
+  _frontCh=chapterOfCell(id)?.id;_frontCell=id;setTerrain(c.terrain);
+  const pre=scriptOf(id,'before');
+  if(pre&&!cellSeen(id,'before')){
+    const ok=await playScript(pre,c.ko,'출격');
+    if(!ok||!active())return;
+    markSeen(id,'before');
   }
-  toBattle(null, 'terr');
-  $('#sc-battle').innerHTML = `<h2 class="title">전선</h2><div class="panel"><div class="mm">
-    <div class="spinner"></div><div style="font-weight:800">${esc(c.ko)} 진입 중...</div></div></div>`;
-  await sleep(500);
-
-  /* 서버가 있으면 서버가 판정한다. 없으면 **같은 규칙 파일로** 여기서 돌린다. */
-  let r = await net.front(id);
-  if(r && r.error){ toast(ERR_KO[r.error] || ('들어가지 못했습니다: ' + r.error)); go('terr'); return; }
-  if(!r) r = runCellLocal(c);
+  toBattle(null,'terr');
+  $('#sc-battle').innerHTML=`<div class="fv-empty ui-surface" role="status"><div class="spinner"></div>${esc(c.ko)} · 전선 진입 중…</div>`;
+  /* A request can succeed after navigation. Save its authoritative result for this
+     account, but never reopen the replay or transplant it into another account. */
+  let r=online?await net.front(id):null;
+  if(!sameOwner())return;
+  if(r?.error||online&&!r){
+    if(active()){toast(ERR_KO[r?.error]||r?.error||'전선 결과를 받지 못했습니다');go('terr');}return;
+  }
+  if(!r){if(!active())return;r=runCellLocal(c);}
   applyFront(r);
-  const ok = await replayBreach(r, c.ko);
-  if(!ok) return;
+  if(!active()){if(cur==='terr'&&_frontTab==='front')renderFront();return;}
+  if(!await replayBreach(r,c.ko,active)||!active())return;
   if(r.win){
-    const post = scriptOf(id, 'after');
-    if(post){ const seen = await playScript(post, `${c.ko}`, '전과 확인'); markSeen(id, 'after'); if(!seen) return; }
-    /* 장의 마지막 칸이면 장 마무리를 한 번 흘린다(2장 23~28절 — 후일담이 칸 하나에 다 안 들어간다) */
-    const chp = chapterOfCell(id);
-    if(chp && chp.cells[chp.cells.length - 1].id === id && !cellSeen(chp.id, 'close')){
-      const close = closingOf(chp.id);
-      if(close){ markSeen(chp.id, 'close'); const ok2 = await playScript(close, `${chp.no}장 ${chp.ko}`, '다음으로'); if(!ok2) return; }
+    const post=scriptOf(id,'after');
+    if(post&&!cellSeen(id,'after')){
+      const seen=await playScript(post,c.ko,'전과 확인');
+      if(!seen||!active())return;markSeen(id,'after');
+    }
+    const chp=chapterOfCell(id);
+    if(chp&&chp.cells.at(-1).id===id&&!cellSeen(chp.id,'close')){
+      const close=closingOf(chp.id);
+      if(close){const ok=await playScript(close,`${chp.no}장 ${chp.ko}`,'다음으로');if(!ok||!active())return;markSeen(chp.id,'close');}
     }
   }
-  renderFrontResult(r, c);
+  if(active())renderFrontResult(r,c);
 }
 
 /* 오프라인 판정. 서버(server/front.js)와 **같은 함수들**을 쓴다 —
@@ -3026,18 +2960,7 @@ function renderFrontResult(r, c){
   for(const f of (r.fat || [])){ const rb = S.robots.find(x => x.uid === f.uid); if(!rb || !f.add) continue;
     lines.push(`<div class="r" style="color:var(--bad)">${ROBOT_TYPES[rb.type].name} 피로도 +${f.add} (${f.now})</div>`); }
 
-  $('#sc-battle').innerHTML = `
-    <h2 class="title">${r.win ? '돌파' : '후퇴'} · ${esc(c.ko)}</h2>
-    <div class="panel">
-      ${r.win ? `<p class="fstory out">${esc(c.outro)}</p>` : ''}
-      <div class="rw">${lines.join('')}</div>
-      ${r.unlocked ? `<div class="funlock"><b>${esc(r.unlocked.ko)}</b>가 열렸습니다</div>` : ''}
-      <div class="row-btns">
-        <button class="btn big gold" onclick="ROWAR.go('terr')">전선으로</button>
-        ${frontFixHtml((r.fat || []).map(f => f.uid))}
-        <button class="btn big" onclick="ROWAR.go('hangar')">격납고</button>
-      </div>
-    </div>`;
+  $('#sc-battle').innerHTML=frontResultView(r,c,{rewards:lines.join(''),repair:frontFixHtml((r.fat||[]).map(f=>f.uid))});
 }
 
 /* 전선 결과에서 바로 정비 — 방금 싸운 기체만(편성 두 기가 같이 나간다).
@@ -3048,22 +2971,25 @@ function frontFixHtml(uids){
   const rbs = uids.map(u => S.robots.find(x => x.uid === u)).filter(Boolean);
   const cost = rbs.reduce((a, rb) => a + serviceCost(rb), 0);
   const dis = cost <= 0 || !net.state.online || S.credits < cost;
-  const label = cost <= 0 ? '정비 완료' : `정비하기 · 크레딧 ${fmt(cost)}`;
+  const label = cost <= 0 ? '정비 완료' : !net.state.online ? '정비 · 서버 연결 필요' : S.credits < cost ? `정비 · 크레딧 ${fmt(cost)} 필요` : `정비하기 · 크레딧 ${fmt(cost)}`;
   return `<button class="btn big" id="frontFix" ${dis ? 'disabled' : ''}
     ${cost > 0 && S.credits < cost ? 'title="크레딧이 부족합니다"' : ''}
     onclick="ROWAR.frontFix('${uids.map(esc).join(',')}')">${label}</button>`;
 }
 async function frontFix(list){
-  const uids = String(list || '').split(',').filter(Boolean);
+  const owner=S,account=net.state.accountId,button=$('#frontFix');
+  const sameOwner=()=>S===owner&&net.state.accountId===account;
+  const uids = [...new Set(String(list || '').split(',').filter(Boolean))];
   let spent = 0, n = 0;
   for(const u of uids){
     const rb = S.robots.find(x => x.uid === u);
     if(!rb || serviceCost(rb) <= 0) continue;
-    const r = await srvHangar('service', { robotUid: u }); if(!r) break;   // 실패는 srvHangar 가 알린다
+    if(!sameOwner())return;
+    const r = await srvHangar('service', { robotUid: u }); if(!sameOwner())return; if(!r) break;   // 실패는 srvHangar 가 알린다
     S.credits = r.credits; rb.fat = 0; rb.fatAt = Date.now(); spent += r.cost | 0; n++;
   }
   if(n){ commitLocal(); toast(`${n}기 정비 완료 · 크레딧 −${fmt(spent)}`); }
-  const b = $('#frontFix'); if(b) b.outerHTML = frontFixHtml(uids);
+  const b = $('#frontFix'); if(b&&b===button) b.outerHTML = frontFixHtml(uids);
 }
 
 async function renderTerr(){
@@ -3293,12 +3219,13 @@ async function playBreach(r){
 /* 방어선 재생만 하는 부분. 점령전과 전선이 같이 쓴다 — 결과 화면은 서로 다르지만
    '여러 겹을 이어서 친다' 는 재생 규칙은 하나여야 한다.
    돌려주는 값: 끝까지 재생했으면 true, 화면을 떠났으면 false. */
-async function replayBreach(r, label){
+async function replayBreach(r, label,active=()=>true){
   beginReplay();
   const out=runBreach({ mechs:r.mechs, lines:r.lines, seeds:r.seeds, hpLeft:r.hpLeft0 });
   const total=r.lines.length;
 
   for(let i=0;i<out.rounds.length;i++){
+    if(!active()||cur!=='battle')return false;
     const rd=out.rounds[i];
     const M=r.mechs[rd.mi], L=r.lines[rd.li];
     const P=makeUnit(M.name,M.type,M.stats); P.hp=rd.pHp; P.sp=rd.pSp;
@@ -3313,11 +3240,13 @@ async function replayBreach(r, label){
       blog(`<b class="k">방어선 ${rd.li} 돌파</b> — 체력 ${Math.round(rd.pHp)} 로 이어서 진입`);
 
     if(rarOf(L.type)==='BOSS') await bossEntrance();
+    if(!active()||arenaGone())return false;
     const w=await playBattle(rd.events,P,E,{ pHp:rd.pHp, eHp:rd.eHp, pSp:rd.pSp, eSp:rd.eSp });
     if(!w) return false;                 // 화면을 떠났다. 보상은 이미 반영됨
     await sleep(320/battleSpeed);
+    if(!active()||arenaGone())return false;
   }
-  return true;
+  return active();
 }
 
 function renderBreachResult(r){
@@ -3703,6 +3632,7 @@ async function doRegister(){
    두 벌로 두면 한쪽만 고쳐지는 날이 온다. */
 let _gateNeedsPull=false;
 async function afterLogin(r){
+  stopScript();_storyArt=null;_frontCh=null;_frontCell=null;_frontIntroAttempted.clear();
   _dispatchUid=null;_dispatchPending=null;_dispatchTab='missions';_dispatchFilter='all';_dispatchSelected='exped:SHORT';
   ++_rankEpoch;_rankTab='rank';_rankPage=null;_codexRaw=null;_codexAt=0;_codexGroup='monster';
   ++_battleRequest; _pendingOpp=null; _practiceOpp=null; _battleFindOpts=undefined; _duelTarget=null; _battleMode='arena';
@@ -3732,6 +3662,7 @@ async function doLogin(){
   await afterLogin(r);closeModal();
 }
 async function doLogout(){
+  stopScript();++_battleRequest;
   await net.logout();
   closeModal();
   localStorage.removeItem(SAVE_KEY);             // 남의 기기에 진행상황을 남기지 않는다

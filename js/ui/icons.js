@@ -17,6 +17,7 @@ const paths = {
   arrow:'M4 12h16m-6-6 6 6-6 6',
   chevron:'m9 5 7 7-7 7',
   close:'m5 5 14 14M19 5 5 19',
+  check:'m5 12 4 4L19 6',
   lock:'M6 10h12v11H6zM8 10V6a4 4 0 0 1 8 0v4M12 14v3',
   target:'M12 2v4m0 12v4M2 12h4m12 0h4M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0Zm-4 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
   clock:'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM12 7v5l3 2',

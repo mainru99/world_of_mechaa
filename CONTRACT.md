@@ -4258,3 +4258,16 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - 배경 그림, 76기 좌표와 이름 칸(사용자 수동 편집 포함), 36개 노드 ID·효과·선행 조건·20점 규칙·전문 별 비용은 유지한다.
 - main의 동결된 게임 UI 및 서버 전투는 수정하지 않는다. 시안 검수와 실제 게임 화면 연결·배포는 구분한다.
 - 2026-09-28 사용자 시안 승인 및 커밋·푸시·배포 요청. `server/build.mjs`가 승인 시안 하나만 `/core-circuit-preview.html`로 복사하도록 추가한다. 내부 문서 전체는 공개하지 않는다. 계정 저장·게임 UI 통합·DB 변경 없음.
+
+## Claude — 파츠 귀속 · 2026-09-28 (main · 이관 024 · 스위치 꺼 둠)
+
+사용자 결정 — 기체별 파츠는 **귀속**으로. 처음 끼면 그 기체에 귀속 · 풀려면 정제 코어 1 · 켜는 날 끼고 있는 파츠는 그 기체에 귀속 ·
+빌드 프리셋은 기체마다 · 스위치는 화면이 나올 때까지 꺼 둔다. 기록 `STATUS.md` 2026-09-28 · **UI 인계 [`docs/handoff/2026-09-28-main-to-ui.md`](docs/handoff/2026-09-28-main-to-ui.md)**.
+
+- 규칙 `js/bind.js` — `bindOn()` · `unbindCost()` · `equipCheck(bound, robotId)` · `fuseBind(bounds)` · `presetBindFilter(rows, robotId)`
+- 서버 `POST /api/hangar` — `equip`(켜지면 다른 기체 귀속이면 `{ error:'part bound', boundTo: 기체uid }` · 성공 응답에 `bound`) ·
+  **새 `unbind { partUid }`**(`not enough rcores` · `not bound` · `bind off`) · `presetSave/Apply/Delete`(켜지면 `robotUid` 의 기체 프리셋 · Apply 응답 `bound: [건너뛴 파츠uid]`) ·
+  `fuse`(`bound mismatch`)
+- `/api/state` — 밖에 `bind: { on, unbind, parts: { 파츠uid: 기체uid }, presets?: { 기체uid: [...] } }`(presets 는 켜졌을 때만)
+- DB — 이관 024 `part.bound` · `robot.presets`. 켜는 날 `tools/bindnow.sql`
+- 화면 동결 파일은 건드리지 않았다. 이 커밋에서 UI 브랜치와 `merge-tree` 충돌 없음

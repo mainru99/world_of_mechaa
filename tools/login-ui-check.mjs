@@ -11,6 +11,7 @@ function fn(name){
 function setup(pull){
  const old={owner:'old'},events=[];
  const c=vm.createContext({S:old,cur:'home',net:{state:{loginId:'new',accountId:'new',online:true,guest:false},pull,cancelSync:()=>events.push(['cancel'])},
+  stopScript:()=>events.push(['stopStory']),_frontIntroAttempted:new Set(['old:intro']),
   _dispatchUid:null,_dispatchPending:null,_dispatchTab:'',_dispatchFilter:'',_dispatchSelected:'',_rankEpoch:0,_rankTab:'',_rankPage:0,_codexRaw:null,_codexAt:0,_codexGroup:'',
   _battleRequest:0,_pendingOpp:null,_practiceOpp:null,_battleFindOpts:null,_duelTarget:null,_battleMode:'',hangarUid:null,hangarTab:'',hangarInventory:false,
   _terrRequest:0,_territorySelected:'',_territoryFilter:'',_returnToTerritory:false,_territoryViewport:{},_gateNeedsPull:false,
@@ -27,6 +28,8 @@ function setup(pull){
  assert.equal(t.events.some(x=>x[0]==='save'),false);
  assert.equal(t.events.some(x=>x[0]==='all'),false);
  assert.equal(t.c._gateNeedsPull,true);
+ assert.equal(t.events[0][0],'stopStory','account changes stop the previous account story');
+ assert.equal(t.c._frontIntroAttempted.size,0);
  assert.deepEqual(t.events.find(x=>x[0]==='gate'),['gate',true]);
  t.c.net.pull=async()=>({state:{owner:'new'},band:{},items:{},presets:[]});
  const retried=await t.c.afterLogin({loginId:'new'});

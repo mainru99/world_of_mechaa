@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#081116">
 <title>ROWAR · ROBOT WAR</title>
-<link rel="stylesheet" href="style.css?v=20260919-front">
+<link rel="stylesheet" href="style.css?v=20260928-common">
 <link rel="stylesheet" href="themes/scenes.css?v=20260918-preset">
 <link rel="stylesheet" href="themes/ui-v2.css?v=20260928-1">
 <link rel="stylesheet" href="themes/territory-v2.css?v=20260920-1">
@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="themes/dispatch-v2.css?v=20260926-1">
 <link rel="stylesheet" href="themes/ranking-v2.css?v=20260927-1">
 <link rel="stylesheet" href="themes/login-v2.css?v=20260927-1">
+<link rel="stylesheet" href="themes/common-v2.css?v=20260928-1">
 </head>
 <body class="ui-v2" data-scene="hangar">
 <!-- 화면별 배경 연출 레이어. 전부 pointer-events:none 이라 조작을 막지 않는다 -->
@@ -104,10 +105,10 @@
 </div>
 
 <div id="toast" class="toast"></div>
-<div id="modal"></div>
+<dialog id="modal" aria-modal="true"></dialog>
 
 <!-- ES 모듈이라 file:// 로 직접 열면 동작하지 않는다. README 의 로컬 서버 안내 참고.
      인라인 onclick="ROWAR.x()" 는 js/game.js 가 window.ROWAR 를 대입하므로 그대로 동작한다. -->
-<script type="module" src="js/game.js?v=20260928-ui10-front"></script>
+<script type="module" src="js/game.js?v=20260928-ui11-common"></script>
 </body>
 </html>

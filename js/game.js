@@ -6,7 +6,7 @@
  * 데이터는 data/balance.js, 스탯 계산은 js/stats.js, 전투는 js/sim.js 에 있다.
  * 이 파일만 DOM 을 만진다 — 나머지는 서버(Worker)에서도 그대로 import 된다.
  * ================================================================== */
-import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR,
+import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY,
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST,
          AFFIXES, TERRITORY, TERRAIN, PART_BASES } from '../data/balance.js';
 import { shardNeed, shardKey, bagView } from './shop.js';
@@ -37,6 +37,8 @@ import { dispatchView, dispatchMissions, expeditionEstimate, expeditionProgress 
 import { rankShell, rankingView } from './ui/ranking.js';
 import { trialChallengeView, raidChallengeView, challengeMessage } from './ui/challenge.js';
 import { frontCampaignView, frontStoryView, frontResultView } from './ui/front.js';
+import { createModal } from './ui/modal.js';
+import { guideView, operationMenu, commonMessage } from './ui/common.js';
 import { battleView, BATTLE_MODES } from './ui/battle.js';
 import { territoryView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
@@ -270,7 +272,7 @@ function openPresets(){
   const rb = hangarRobot(), list = presetsNow();
   const T = ROBOT_TYPES[rb.type];
   const rows = list.map((x,i)=>`<div class="pset-row">
-      <div class="pset-h"><input class="ainput pset-name" id="psn${i}" maxlength="${NAME_MAX}" value="${esc(x ? x.n : `프리셋 ${i+1}`)}">
+      <div class="pset-h"><input class="ainput pset-name" aria-label="프리셋 ${i+1} 이름" id="psn${i}" maxlength="${NAME_MAX}" value="${esc(x ? x.n : `프리셋 ${i+1}`)}">
         ${x ? '' : '<span class="hint">빈 칸</span>'}</div>
       ${x ? `<div class="pset-lns">${presetLines(x)}</div>` : ''}
       <div class="row-btns">
@@ -355,7 +357,7 @@ function bulkScrap(){
   }).join('');
   openModal(`<div class="mhead">등급별 일괄 분해 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="hint">장착 중인 파츠는 세지 않습니다.</div>
-    <label class="bulkchk"><input type="checkbox" ${bulkKeepEnh?'checked':''}
+    <label class="bulkchk"><input id="bulk-keep-enh" type="checkbox" ${bulkKeepEnh?'checked':''}
       onchange="ROWAR.setBulkKeepEnh(this.checked)"> 강화한 파츠는 남기기</label>
     ${rows}
     <div class="hint" style="margin-top:10px;color:var(--bad)">분해하면 되돌릴 수 없습니다.</div>
@@ -492,11 +494,8 @@ function go(scr){ if(!['home','hangar','gacha','battle','rank','trial','hunt','t
   else if(scr==='hunt') renderHunt();
   else if(scr==='terr') renderTerrHome(); }
 function uiGo(scr){closeModal();go(scr);}
-function uiMore(){
-  openModal(`<div class="mhead">작전 메뉴 <button class="mx" onclick="ROWAR.closeModal()" aria-label="닫기">×</button></div><div class="ui-home-brief">
-  ${[['gacha','뽑기 · 상점','코어 캡슐, 크레딧 캡슐, 보관함'],['hunt','파견','토벌과 원정'],['trial','시련 · 레이드','주간 기록과 공동 보스'],['rank','랭킹 · 도감','순위, 수집 기록, 칭호']].map(([id,name,desc])=>`<button onclick="ROWAR.uiGo('${id}')">${icon(id)}<span><b>${name}</b><small>${desc}</small></span>${icon('chevron')}</button>`).join('')}
-  <button onclick="ROWAR.closeModal();ROWAR.enterFront()">${icon('battle')}<span><b>전선</b><small>ROWAR의 이야기를 이어갑니다</small></span>${icon('chevron')}</button></div>`);
-}
+function uiMore(){openModal(operationMenu());}
+
 function renderHome(){
   const rb=selRobot()||S.robots[0], t=ROBOT_TYPES[rb.type];
   const p=livePending();
@@ -576,31 +575,9 @@ function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core')
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
    그래서 renderAll 은 대전 화면을 건드리지 않는다. 대전 화면은 go() 가 그린다. */
 function renderAll(){ renderWallet(); if(cur==='home')renderHome(); else if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); else if(cur==='terr')renderTerrHome(); else if(cur==='hunt')renderHunt(); else if(cur==='rank')renderRank(); }
-let modalOpener=null;
-function openModal(html){
-  shield(); const m=$('#modal');
-  if(!m.classList.contains('on')) modalOpener=document.activeElement;
-  m.innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" tabindex="-1">${html}</div>`;
-  const card=m.firstElementChild, title=card.querySelector('.mhead');
-  if(title){title.id='modal-title';card.setAttribute('aria-labelledby','modal-title');}
-  else card.setAttribute('aria-label','상세 정보');
-  m.classList.add('on'); m.onclick=e=>{if(e.target===m) closeModal();};
-  m.onkeydown=e=>{
-    if(e.key==='Escape'){e.preventDefault();closeModal();return;}
-    if(e.key!=='Tab')return;
-    const fields=[...card.querySelectorAll('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,[tabindex="0"]')].filter(el=>el.getClientRects().length);
-    const first=fields[0],last=fields.at(-1);
-    if(!first){e.preventDefault();card.focus();return;}
-    if(e.shiftKey&&(document.activeElement===first||document.activeElement===card)){e.preventDefault();last.focus();}
-    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
-  };
-  card.focus({preventScroll:true});
-}
-function closeModal(){
-  const m=$('#modal');m.classList.remove('on');m.innerHTML='';m.onkeydown=null;
-  if(modalOpener?.isConnected)modalOpener.focus({preventScroll:true});
-  modalOpener=null;
-}
+const modalController=createModal($('#modal'));
+function openModal(html){shield();modalController.open(html);}
+function closeModal(){modalController.close();}
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
 /* 파츠 그림 — assets/parts/<베이스>.png (128×128 투명, assets/parts/README.md).
@@ -951,6 +928,8 @@ function syncFuse(){
     const p = findPart(el.dataset.uid, S.parts);
     if(!p) return;
     el.classList.toggle('on', _fuseSel.includes(p.uid));
+    el.setAttribute('aria-pressed',String(_fuseSel.includes(p.uid)));
+    el.disabled=!fuseFits(p,lock);
     if(!fuseFits(p, lock)){
       el.style.setProperty('--i', out++);   // 한꺼번에 사라지면 뭐가 빠졌는지 안 보인다. 차례로 뺀다
       el.classList.add('gone');
@@ -1022,10 +1001,10 @@ function drawFuse(){
     (ord[x.slot]-ord[y.slot]) || (RAR_ORDER[y.rarity]-RAR_ORDER[x.rarity]) || ((y.enh|0)-(x.enh|0)));
   const f = fuseInfo();
   const chips = pool.length ? pool.map((p,i)=>
-    `<div class="pchip ic fusec${_fuseSel.includes(p.uid)?' on':''}${enhClass(p)}${isFresh(p.uid)?' fresh':''}"
+    `<button type="button" aria-pressed="${_fuseSel.includes(p.uid)}" class="pchip ic fusec${_fuseSel.includes(p.uid)?' on':''}${enhClass(p)}${isFresh(p.uid)?' fresh':''}"
       data-uid="${p.uid}" style="--i:${i}" onclick="ROWAR.fuseToggle('${p.uid}')">
       ${partIco(p)}<div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}</div>
-      <div class="ps">${SLOT_KO[p.slot]}${p.enh?` · +${p.enh}`:''}</div></div>`).join('')
+      <div class="ps">${SLOT_KO[p.slot]}${p.enh?` · +${p.enh}`:''}</div></button>`).join('')
     : `<div class="empty">합성할 수 있는 파츠가 없습니다. 끼고 있는 파츠는 재료가 될 수 없습니다.</div>`;
 
   openModal(`<div class="mhead">파츠 합성 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
@@ -2997,12 +2976,11 @@ async function renderTerr(){
   const el=$('#sc-terr');
   const wrap = inner => `<div class="ui-pagehead"><div><span class="ui-eyebrow">TERRITORY CONTROL</span><h1>점령</h1></div></div>${inner}`;
   if(!net.state.online){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">점령전은 서버 연결이 필요합니다. 지도는 서버에 하나뿐입니다.</div></div>`);
+    el.innerHTML = wrap(commonMessage({title:'서버 연결이 필요합니다',description:'점령 지도는 모든 플레이어가 공유합니다. 서버 연결 후 거점을 확인할 수 있습니다.'}));
     return;
   }
   const fresh = _terr && (Date.now()-_terrAt) < TERR_TTL;
-  if(!fresh) el.innerHTML = wrap(`<div class="panel"><div class="mm"><div class="spinner"></div>
-    <div style="font-weight:800">지도를 불러오는 중...</div></div></div>`);
+  if(!fresh) el.innerHTML = wrap(commonMessage({title:'작전 지도를 불러오는 중',description:'거점과 방어선 현황을 확인하고 있습니다.',loading:true}));
 
   const r = fresh ? _terr : await net.territory('view');
   if(request!==_terrRequest || accountId!==net.state.accountId) return;
@@ -3011,7 +2989,7 @@ async function renderTerr(){
      지도가 전선 화면을 덮는다(도감·순위에서 났던 것과 같은 모양). 받은 지도는 위에서 캐시했다. */
   if(_frontTab !== 'terr' || cur !== 'terr') return;
   if(!r || r.error){
-    el.innerHTML = wrap(`<div class="panel"><div class="hint">지도를 불러오지 못했습니다${r&&r.error?' · '+esc(r.error):''}</div><button class="btn" onclick="ROWAR.enterTerritory()">다시 불러오기</button></div>`);
+    el.innerHTML = wrap(commonMessage({title:'지도를 불러오지 못했습니다',description:r?.error||'서버 응답을 받지 못했습니다. 잠시 후 다시 시도하세요.',action:true}));
     return;
   }
   drawTerr(r);
@@ -3312,6 +3290,9 @@ const CLICK_SHIELD_MS = 600;
 let _shieldUntil = 0;
 const shield = (ms = CLICK_SHIELD_MS) => { _shieldUntil = Date.now() + ms; };
 document.addEventListener('click', e => {
+  // Keyboard activation targets a focused control intentionally.
+  // Keep the pointer transition shield and the API action guards intact.
+  if(e.detail===0) return;
   if (Date.now() >= _shieldUntil) return;
   e.stopPropagation(); e.preventDefault();
 }, true);
@@ -3402,7 +3383,7 @@ function renderAcct(){
   if(s.online){
     el.textContent = s.guest ? ('게스트 #'+String(s.accountId).padStart(4,'0')) : s.loginId;
     el.dataset.tip = s.guest
-      ? '이 브라우저에만 저장되는 게스트 계정입니다. 눌러서 정식 계정으로 만드세요.'
+      ? '접근 정보가 이 브라우저에 묶인 게스트 계정입니다. 눌러서 정식 계정으로 만드세요.'
       : ('정식 계정 · '+s.loginId+' (눌러서 계정 관리)');
     el.className='coin acct '+(s.guest?'on guest':'on');
   } else {
@@ -3459,104 +3440,8 @@ async function syncOnConnect(){
   return pushOrAdopt();
 }
 
-/* ── 게임 설명 ────────────────────────────────────────────
-   규칙이 늘면서 '눌러 보기 전에는 모르는 것'이 많아졌다 — 특히 편성 두 기를 번갈아
-   쓴다는 것, 파츠에 대가가 붙는다는 것, 점령전은 져도 남는다는 것.
-   시뮬레이션에서도 교대를 안 하면 승률이 20%대로 주저앉는 것이 확인됐다.
-   그래서 '조작법'이 아니라 **모르면 손해 보는 것**을 골라 적는다.
-
-   숫자는 전부 CONST 에서 끌어온다. 글에 박아 두면 밸런스를 고칠 때마다 설명이 거짓이 된다. */
-function guide(){
-  const T = CONST.TERR, fatMin = CONST.FAT_RECOVER_MIN, fatLv = CONST.FAT_RECOVER_LV;
-  const robotP = PULL_TABLE.find(t=>t.k==='robot').w;
-  const robotCr = PULL_TABLE_CR.find(t=>t.k==='robot').w;
-  const epCore = (robotP/100) * (ROBOT_RARITY.find(r=>r.k==='EP').w / ROBOT_RARITY.reduce((a,b)=>a+b.w,0)) * 100;
-  const epCr   = (robotCr/100) * (ROBOT_RARITY_CR.find(r=>r.k==='EP').w / ROBOT_RARITY_CR.reduce((a,b)=>a+b.w,0)) * 100;
-
-  const sec = (t, body) => `<div class="gsec"><div class="gh">${t}</div>${body}</div>`;
-
-  openModal(`<div class="mhead">게임 설명 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
-  <div class="guide">
-
-    ${sec('한 줄로 말하면', `
-      <p>기체를 뽑아 키운 뒤 전장으로 내보내는 게임입니다. 전투는 자동으로 진행되므로,
-        플레이어가 할 일은 <b>어떤 기체를 데려가고 어떤 파츠를 장착할지 고르는 것</b>입니다.</p>`)}
-
-    ${sec('격납고 — 한 번에 데려가는 기체는 ' + CONST.SQUAD_MAX + '기입니다', `
-      <p>기체를 아무리 많이 보유해도 한 번에 데려갈 수 있는 것은 <b>${CONST.SQUAD_MAX}기</b>입니다.
-        그중 <b>출격</b>으로 지정한 기체가 선봉으로 나섭니다.</p>
-      <p class="gwarn">두 기를 <b>번갈아 출전시키는 것이 중요합니다.</b>
-        한 기만 계속 내보내면 피로도가 쌓여 승률이 크게 떨어집니다.</p>`)}
-
-    ${sec('피로도 — 가장 신경 써야 할 값입니다', `
-      <p>전투를 치를 때마다 피로도가 쌓이고, 쌓인 만큼 <b>최대 내구가 줄어듭니다.</b>
-        피로도가 최대치인 ${CONST.FAT_MAX}에 이르면 최대 내구가 ${CONST.FAT_MAX}% 줄어들어
-        사실상 전투가 어렵습니다.</p>
-      <p>피로도는 시간이 지나면 <b>저절로 회복됩니다.</b> 다만 레벨이 높을수록 회복이 느립니다
-        (피로도 1을 회복하는 데 Lv.1은 ${fatMin.toFixed(1)}분,
-        Lv.${CONST.MAXLV}은 ${(fatMin+CONST.MAXLV*fatLv).toFixed(1)}분이 걸립니다).
-        급할 때는 크레딧을 들여 정비하고, 한 기가 쉬는 동안 다른 기체를 출전시키세요.</p>`)}
-
-    ${sec('파츠 — 이점만 있는 파츠는 없습니다', `
-      <p>파츠에는 능력치를 올려 주는 값과 <b>반드시 깎아 내리는 값(대가)</b>이 함께 붙습니다.
-        무장과 코어는 속도를, 프레임은 회피를, 부스터는 방어를 깎습니다.</p>
-      <p><b>구간</b>은 좋고 나쁨이 아니라 성향입니다. 구간이 넓으면 피해량이 크게 흔들려
-        열세인 쪽에 유리하고, 좁으면 일정하게 들어가 우세한 쪽에 유리합니다.
-        무장과 코어는 구간을 넓히고, 프레임과 부스터는 좁힙니다.</p>
-      <p>강화하면 올려 주는 값과 함께 <b>대가도 같이 커집니다.</b> 그래서 가장 높은 등급을
-        최대까지 강화한 조합이 언제나 정답은 아닙니다. 다른 파츠로 약점을 보완하세요.</p>`)}
-
-    ${sec('대전 — 상대는 내 성적에 맞춰 나타납니다', `
-      <p>출격비로 크레딧을 내고 싸웁니다. 크레딧이 부족하면 <b>비상 출격</b>으로 바뀌므로
-        진행이 막히지는 않습니다. 다만 이때는 보상으로 크레딧만 받습니다.</p>
-      <p>상대의 장비는 <b>내가 장착한 파츠가 아니라 내 성적</b>에 따라 정해집니다.
-        좋은 파츠를 갖추면 <b>한동안 승리가 이어지고</b>, 승리가 쌓이면 순위가 오르는 대신
-        상대도 그만큼 강해집니다.</p>`)}
-
-    ${sec('파견 — 토벌과 원정', `
-      <p><b>토벌</b>은 사냥할 등급을 직접 골라 몬스터와 싸웁니다.
-        <b>스크랩과 파츠</b>가 주된 보상이고 크레딧은 적습니다.
-        기체가 강해지면 낮은 등급은 손쉬운 사냥터가 되니 위 등급으로 올라가세요.</p>
-      <p><b>원정</b>은 편성에 들지 않은 기체를 일정 시간 내보내 두었다가 보상을 받는 방식입니다.
-        전투를 치르지 않으므로 <b>들인 시간에 견주면 효율이 가장 좋습니다.</b>
-        쉬고 있는 기체는 원정을 보내 두세요.</p>`)}
-
-    ${sec('점령전 — 실패해도 성과가 남습니다', `
-      <p>세계 지도는 <b>서버에 하나뿐</b>이며, 모든 플레이어가 같은 지도를 두고 다툽니다.
-        칸 하나는 여러 겹의 방어선으로 이루어져 있고, 이를 모두 뚫어야 점령됩니다.</p>
-      <p>편성한 ${CONST.SQUAD_MAX}기가 <b>체력을 이어받은 채</b> 연이어 싸웁니다.
-        방어선 사이에 회복이 없으므로, 목표가 '이기는 것'에서
-        <b>'덜 소모하고 이기는 것'</b>으로 바뀝니다.</p>
-      <p class="ggood">실패해도 <b>깎아 놓은 방어선은 그대로 남습니다.</b>
-        며칠에 걸쳐 큰 칸을 공략하는 것이 정상입니다.
-        다만 방어선은 시간당 ${Math.round(T.LINE_REGEN*100)}%씩 스스로 회복하니
-        너무 오래 미루지는 마세요.</p>
-      <p>칸마다 <b>해금 레벨</b>과 <b>편성 제한</b>이 있으며, 지형 보정은
-        <b>양쪽 모두</b>에 적용됩니다. 점령된 칸은 ${T.PROTECT_MIN}분 동안 보호되고,
-        코어 ${T.RAID_CORE}개를 쓰면 보호 중에도 공격할 수 있습니다.
-        대신 점령자의 기체 ${CONST.SQUAD_MAX}기가 방어선 뒤에 더해집니다.</p>
-      <p>수입은 칸마다 나오는 재화가 다릅니다. ${T.INCOME_CAP_H}시간치까지만 쌓이니
-        하루에 한 번은 받는 것이 좋습니다.</p>`)}
-
-    ${sec('뽑기 — 창구는 두 가지입니다', `
-      <p><b>코어 캡슐</b>은 코어 ${CONST.PULL_COST}개를 씁니다.
-        기체가 나올 확률은 ${robotP}%, 그중 에픽은 ${epCore.toFixed(2)}%입니다.<br>
-        <b>크레딧 캡슐</b>은 ${fmt(CONST.PULL_CR_COST)} 크레딧을 씁니다.
-        기체가 나올 확률은 ${robotCr}%, 그중 에픽은 ${epCr.toFixed(3)}%입니다.</p>
-      <p>코어는 모으기 어렵고 크레딧은 꾸준히 들어옵니다.
-        크레딧 캡슐은 코어가 떨어졌을 때 쓰는 창구입니다.</p>
-      <p><b>뽑은 파츠는 자동으로 분해되지 않습니다.</b> 한번 장착해 보고
-        쓰지 않겠다고 판단되면 격납고에서 직접 분해하세요.</p>`)}
-
-    ${sec('계정 — 게스트 계정은 브라우저에 묶여 있습니다', `
-      <p class="gwarn">게스트 계정은 <b>지금 쓰는 브라우저에만</b> 저장됩니다.
-        브라우저 데이터를 지우거나 다른 기기에서 접속하면 <b>되찾을 수 없습니다.</b></p>
-      <p>화면 위쪽의 계정 항목을 눌러 <b>정식 계정</b>을 만들어 두세요.
-        지금까지의 진행 상황을 그대로 이어받습니다.</p>`)}
-
-  </div>
-  <button class="btn big" style="margin-top:12px" onclick="ROWAR.closeModal()">닫기</button>`);
-}
+/* 안내 내용과 수치는 js/ui/common.js에서 현행 공유 규칙을 읽는다. */
+function guide(topic='start'){openModal(guideView(topic));}
 
 /* 계정 화면 — 게스트면 승격/로그인, 정식이면 로그아웃 */
 function accountScreen(){
@@ -3571,13 +3456,17 @@ function accountScreen(){
           아래에서 바로 정식 계정을 만들 수도 있습니다.</p>
         <div class="asec">
           <div class="atitle">정식 계정 만들기</div>
+          <label class="cv-input-label" for="rg-id">가입 아이디</label>
           <input id="rg-id" class="ainput" placeholder="아이디 (영문·숫자·밑줄 4~20자)" maxlength="20" autocomplete="username">
+          <label class="cv-input-label" for="rg-pw">가입 비밀번호</label>
           <input id="rg-pw" class="ainput" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="new-password">
           <button class="btn big gold" onclick="ROWAR.doRegister()">정식 계정으로 만들기</button>
         </div>
         <div class="asec">
           <div class="atitle">이미 계정이 있다면</div>
+          <label class="cv-input-label" for="lg-id">로그인 아이디</label>
           <input id="lg-id" class="ainput" placeholder="아이디" maxlength="20" autocomplete="username">
+          <label class="cv-input-label" for="lg-pw">로그인 비밀번호</label>
           <input id="lg-pw" class="ainput" type="password" placeholder="비밀번호" autocomplete="current-password">
           <button class="btn big" onclick="ROWAR.doLogin()">로그인</button>
         </div>
@@ -3598,21 +3487,25 @@ function accountScreen(){
 
   openModal(`<div class="mhead">계정 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div class="acctbox">
-      <p class="hint" style="color:var(--gold)">지금은 <b>게스트 #${String(s.accountId).padStart(4,'0')}</b> · 이 브라우저에만 저장되어, 데이터를 지우면 계정을 잃습니다</p>
+      <p class="hint" style="color:var(--gold)">지금은 <b>게스트 #${String(s.accountId).padStart(4,'0')}</b> · 접근 정보가 이 브라우저에 묶여 있습니다. 데이터를 지우면 같은 게스트로 접속할 수 없습니다</p>
 
       <div class="asec">
         <div class="atitle">정식 계정 만들기</div>
         <p class="hint">지금까지의 진행 상황을 그대로 이어받습니다</p>
-        <input id="rg-id" class="ainput" placeholder="아이디 (영문·숫자·밑줄 4~20자)" maxlength="20" autocomplete="username">
-        <input id="rg-pw" class="ainput" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="new-password">
+        <label class="cv-input-label" for="rg-id">가입 아이디</label>
+          <input id="rg-id" class="ainput" placeholder="아이디 (영문·숫자·밑줄 4~20자)" maxlength="20" autocomplete="username">
+        <label class="cv-input-label" for="rg-pw">가입 비밀번호</label>
+          <input id="rg-pw" class="ainput" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="new-password">
         <button class="btn big gold" onclick="ROWAR.doRegister()">정식 계정으로 만들기</button>
       </div>
 
       <div class="asec">
         <div class="atitle">이미 계정이 있다면</div>
         <p class="hint" style="color:var(--bad)">로그인하면 그 계정을 따릅니다 · <b>지금 게스트 계정의 진행 상황은 더 이상 보이지 않습니다</b></p>
-        <input id="lg-id" class="ainput" placeholder="아이디" maxlength="20" autocomplete="username">
-        <input id="lg-pw" class="ainput" type="password" placeholder="비밀번호" autocomplete="current-password">
+        <label class="cv-input-label" for="lg-id">로그인 아이디</label>
+          <input id="lg-id" class="ainput" placeholder="아이디" maxlength="20" autocomplete="username">
+        <label class="cv-input-label" for="lg-pw">로그인 비밀번호</label>
+          <input id="lg-pw" class="ainput" type="password" placeholder="비밀번호" autocomplete="current-password">
         <button class="btn big" onclick="ROWAR.doLogin()">로그인</button>
       </div>
     </div>`);

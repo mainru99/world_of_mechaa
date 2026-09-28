@@ -9,6 +9,8 @@ ChatGPT 와 Claude 가 같은 저장소를 동시에 만진다. 서로 직접 �
 
 ### 2026-09-21 사용자 확정 — 브랜치 주도권과 자료 분리
 
+2026-09-28 UI 공통 단계: 공통 native 팝업, 11항목 작전 안내, 모바일 작전 메뉴, 계정/프리셋/장비/합성/분해 양식과 점령 연결/로딩/오류 상태를 정리했다. `js/ui/modal.js`, `js/ui/common.js`, `themes/common-v2.css`와 game.js 표시 어댑터는 ChatGPT 담당이다. 서버/DB/공유 규칙/밸런스 변경 없음. 다음은 전체 화면·이동 흐름 통합 검수와 실제 API/저장 확인이다. main의 별도 전투/파츠 기능은 미반입이며 병합/배포도 하지 않는다. 세부 검수·한계는 `docs/ui/common-implementation-2026-09-28.md` 참조.
+
 2026-09-28 UI 진행: 전선 장/작전 목록·상세, 기존 삽화/대사, 결과/정비를 이관했다. `js/ui/front.js`, `themes/front-v2.css`, game.js 전선/이야기 어댑터는 ChatGPT 담당이다. 온라인 1~2기 순차/오프라인 1기·기존 대사/보상/밸런스를 보존한다. 서버/DB/공유 전선 규칙 변경 없음. 다음은 공통 모달/안내/레거시 스타일·전체 검수. 상세는 `docs/ui/front-implementation-2026-09-28.md` 참조. 전체 개편 완료나 main 통합 완료를 의미하지 않는다.
 
 2026-09-22 UI 진행: ChatGPT가 대전 홈/준비/재생/결과 표시를 이관했다. 신규 `js/ui/battle.js`, `themes/battle-v2.css` 및 관련 game.js 어댑터는 ChatGPT 담당. 준비 화면은 아군 2기·보스 1기 배열을 수용하지만 동시 전투 엔진은 미연결이며 main에서 반입하지 않았다. 서버/DB/밸런스 변경 없음. 다음 프론트 단계는 파견. 세부 계약은 `docs/ui/battle-implementation-2026-09-22.md` 참조.

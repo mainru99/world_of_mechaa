@@ -1,0 +1,108 @@
+/* Shared overlays follow the mockups' dark frames, restrained accents and red
+ * primary actions. Base legacy component styles remain for live callers. */
+html{scrollbar-gutter:stable}
+html.ui-modal-open,html.ui-modal-open body{overflow:hidden}
+.ui-v2 #modal{inset:0;margin:0;width:100%;height:100%;max-width:none;max-height:none;padding:28px;border:0;color:var(--ink);background:transparent;backdrop-filter:none;overflow:hidden;align-items:center;justify-content:center}
+.ui-v2 #modal:not([open]){display:none}
+.ui-v2 #modal::backdrop{background:#02070dd4;backdrop-filter:blur(5px)}
+.ui-v2 #modal .modal-card{display:flex;flex-direction:column;width:100%;max-width:680px;max-height:calc(100dvh - 56px);padding:0;overflow:hidden;border:1px solid #637a85;border-radius:5px;background:linear-gradient(130deg,#12212b,#0a151deB 60%),#0a151d;box-shadow:0 24px 90px #000b;animation:cv-arrive .16s ease-out;outline:none}
+.ui-v2 #modal .modal-card.ui-modal-wide{max-width:980px}
+.ui-v2 #modal .modal-card.ui-modal-replacing{animation:none}
+.ui-v2 #modal .mhead{flex:none;min-height:70px;gap:16px;margin:0;padding:10px 14px 10px 24px;border-bottom:1px solid #3c515e;background:linear-gradient(100deg,#182a35,#0b1821);color:#edf4f6}
+.ui-v2 #modal .mhead h2{margin:0;padding-left:12px;border-left:3px solid var(--ui-red);font-size:19px;line-height:1.4;font-weight:800}
+.ui-v2 #modal .mx{display:grid;place-items:center;flex:none;width:44px;height:44px;background:#0d1a23;border:1px solid #405562;border-radius:3px;font-size:27px;line-height:1;color:#cadbe2}
+.ui-v2 #modal .mx:hover{border-color:#e56670;color:#fff;background:#351b25}
+.ui-modal-body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:24px;scrollbar-width:thin;scrollbar-color:#526d7b #0a151d}
+.ui-v2 #modal .btn{min-height:44px;line-height:1.4}
+.ui-v2 #modal .hint{font-size:13px;line-height:1.7;color:#a8bdc9}
+.ui-v2 #modal .hint:first-child{margin-top:0}
+.ui-v2 #modal :is(button,input,select,summary):focus-visible{outline:2px solid #a4ddec;outline-offset:3px}
+.ui-v2 #modal :is(.pchip,.pset-row,.asec,.rprev,.rpslot,.fpv,.bulkrow){border-radius:3px;border-color:#3a505d;background-color:#0b1b25}
+.ui-v2 #modal .pchip{box-shadow:none}
+.ui-v2 #modal .pchip .pn{font-size:14px;line-height:1.65}
+.ui-v2 #modal .pchip .ps{font-size:12px;line-height:1.7}
+.ui-v2 #modal .pset-list{max-height:none;overflow:visible;gap:14px}
+.ui-v2 #modal .pset-row{padding:14px}
+.ui-v2 #modal .pset-lns{margin:10px 0 14px;line-height:1.8}
+.ui-v2 #modal .ainput{border:1px solid #566d7b;background:#06121a;border-radius:3px;min-height:44px;padding:10px 12px;color:#edf4f6;font:inherit}
+.ui-v2 #modal .pset-name{margin:0;font-size:14px}
+.ui-v2 #modal .acctbox{display:flex;flex-direction:column;gap:18px}
+.ui-v2 #modal .asec{padding:20px}
+.ui-v2 #modal .atitle{margin-bottom:12px;color:#f1f5f6;font-size:16px}
+.cv-input-label{display:block;margin-top:14px;font-size:12px;font-weight:700;color:#b8cdd7}
+.ui-v2 #modal .cv-input-label+.ainput{margin-top:5px}
+.ui-v2 #modal .arow{gap:20px;padding:10px 0;border-bottom:1px solid #2c414e}
+.ui-v2 #modal .arow span{overflow-wrap:anywhere}
+.ui-v2 #modal .rprev{gap:20px;padding:18px}
+.ui-v2 #modal .rprev .sprite{width:140px;height:140px}
+.ui-v2 #modal .rprev .rname{font-size:18px;line-height:1.55}
+.ui-v2 #modal .rpslots{gap:10px;margin:16px 0}
+.ui-v2 #modal .rpslot{min-width:0;padding:12px;line-height:1.7}
+.ui-v2 #modal .rpslot span{overflow-wrap:anywhere}
+.ui-v2 #modal .bulkchk{gap:12px;min-height:44px;font-size:13px}
+.ui-v2 #modal .bulkchk input{width:20px;height:20px;accent-color:#ce3948}
+.ui-v2 #modal .bulkrow{padding:14px;min-height:72px}
+.ui-v2 #modal .inv.finv{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none;overflow:visible}
+.ui-v2 #modal .fusec{font:inherit;color:var(--ink);text-align:left;cursor:pointer;min-width:0}
+.ui-v2 #modal .fusec.pchip.ic{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:12px}
+.ui-v2 #modal .fusec.pchip.ic>.pico{position:static;width:48px;height:48px}
+.ui-v2 #modal .fusec:disabled{cursor:default}
+.ui-v2 #modal .fusec.on{border-color:#ee6670;background:#39222c;box-shadow:inset 0 0 0 1px #d74556}
+.ui-v2 #modal .fpv{padding:14px;line-height:1.8}
+.ui-v2 #modal .fpv>div{gap:20px}
+.ui-v2 #modal .fpv b{overflow-wrap:anywhere;text-align:right}
+.ui-v2 #modal .empty{padding:30px 18px;border:1px dashed #3e5664;border-radius:3px;background:#0c1d27;font-size:13px;line-height:1.8;text-align:center}
+.cv-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cv-menu button{display:flex;align-items:center;gap:14px;min-height:96px;padding:18px;border:1px solid #3a5260;border-radius:3px;background:#0e202c;color:var(--ink);text-align:left;cursor:pointer}
+.cv-menu button:hover{border-color:#c25a67;background:#20222c}
+.cv-menu button>.ui-icon:first-child{color:#9dbdce;width:26px;height:26px}
+.cv-menu button>.ui-icon:last-child{width:16px;height:16px;flex-basis:16px;margin-left:auto;color:#87a1b0}
+.cv-menu span{display:flex;flex-direction:column;gap:5px;min-width:0}
+.cv-menu b{font-size:15px}.cv-menu small{font-size:11px;color:#9bb3c1}
+.cv-guide{display:grid;grid-template-columns:220px minmax(0,1fr);gap:26px;align-items:start}
+.cv-guide-nav{position:sticky;top:0;display:flex;flex-direction:column;gap:4px;border-right:1px solid #314652;padding-right:18px;max-height:calc(100dvh - 180px);overflow:auto;scrollbar-width:thin}
+.cv-guide-nav button{display:flex;align-items:center;gap:10px;min-height:57px;width:100%;padding:8px 10px;border:1px solid transparent;border-left:3px solid transparent;border-radius:2px;background:transparent;color:#adc1ce;text-align:left;cursor:pointer}
+.cv-guide-nav button:hover{background:#162832;color:#edf4f6}
+.cv-guide-nav button[aria-current="page"]{border-color:#8a4d57;border-left-color:#f34856;background:linear-gradient(100deg,#52232d77,#19232c);color:#fff}
+.cv-guide-nav button>.ui-icon:first-child{width:19px;height:19px;flex-basis:19px}
+.cv-guide-nav button>.ui-icon:last-child{width:13px;height:13px;flex-basis:13px;margin-left:auto}
+.cv-guide-nav span{display:flex;flex-direction:column;gap:2px}
+.cv-guide-nav b{font-size:13px}.cv-guide-nav small{font-size:10px;color:#8fa9b8}
+.cv-guide-article{min-width:0;padding:12px 4px 8px}
+.cv-guide-article h3{margin:10px 0 24px;font-size:25px;line-height:1.5;letter-spacing:-.5px;color:#f3f7f8}
+.cv-guide-article p{margin:0 0 20px;font-size:14px;line-height:1.9;color:#afc2cc}
+.cv-guide-article p b{color:#edf4f6;font-weight:750}
+.cv-note{margin-top:24px;padding:16px 18px;border:1px solid #375463;border-left:3px solid #70aabd;background:#142b366b;color:#bcd5df;font-size:12px;line-height:1.85}
+.cv-steps{list-style:none;padding:0;margin:0;counter-reset:step}
+.cv-steps li{position:relative;padding:4px 0 18px 42px;counter-increment:step}
+.cv-steps li::before{content:counter(step,decimal-leading-zero);position:absolute;top:2px;left:0;color:#ee6570;font-size:14px;font-weight:800}
+.cv-steps b{display:block;margin-bottom:5px;font-size:15px;color:#e8f1f4}
+.cv-steps span{font-size:13px;color:#a6beca;line-height:1.8}
+.cv-table{margin:20px 0;overflow:auto}
+.cv-table table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.cv-table th,.cv-table td{padding:12px 9px;text-align:left;border-bottom:1px solid #334c59}
+.cv-table thead{color:#93b6c8;background:#122b37}
+.cv-table tbody{color:#d9e8ee;font-variant-numeric:tabular-nums}
+.cv-message{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:360px;padding:36px 24px;text-align:center;border:1px solid #3e5664;border-radius:4px;background:linear-gradient(140deg,#142a37aa,#09141eee)}
+.cv-message-icon{display:grid;place-items:center;width:64px;height:64px;margin-bottom:14px;border:1px solid #456371;border-radius:50%;color:#a6cddf;background:#16334288}
+.cv-message-icon .ui-icon{width:30px;height:30px}
+.cv-message-icon .spinner{margin:0}
+.cv-message h2{margin:0;font-size:21px}.cv-message p{max-width:520px;margin:14px 0 24px;font-size:14px;line-height:1.8;color:#a9c0cd}
+.cv-message .btn{min-height:44px;min-width:170px}
+@keyframes cv-arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:700px){
+ .ui-v2 #modal{padding:12px 10px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+ .ui-v2 #modal .modal-card,.ui-v2 #modal .modal-card.ui-modal-wide{max-width:100%;max-height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom)))}
+ .ui-v2 #modal .mhead{min-height:64px;padding:8px 9px 8px 14px;gap:10px}.ui-v2 #modal .mhead h2{font-size:17px;padding-left:10px}
+ .ui-modal-body{padding:16px}.cv-guide{grid-template-columns:1fr;gap:20px}
+ .cv-guide-nav{position:static;max-height:none;overflow:visible;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:0 0 14px;border-right:0;border-bottom:1px solid #314652}
+ .cv-guide-nav button{min-height:44px;padding:9px 3px;justify-content:center;border-left-width:1px;text-align:center}.cv-guide-nav button>.ui-icon,.cv-guide-nav small{display:none}.cv-guide-nav b{font-size:12px}
+ .cv-guide-article{padding:0 2px 4px}.cv-guide-article h3{font-size:21px;margin:8px 0 20px}.cv-guide-article p{font-size:13px;line-height:1.85}.cv-note{padding:14px;font-size:12px;margin-top:20px}
+ .cv-table th,.cv-table td{padding:10px 5px;font-size:12px}
+ .cv-menu{grid-template-columns:1fr;gap:10px}.cv-menu button{min-height:78px;padding:14px}.cv-menu small{font-size:12px}
+ .ui-v2 #modal .asec{padding:14px}.ui-v2 #modal .rprev{gap:12px;padding:12px}.ui-v2 #modal .rprev .sprite{width:100px;height:100px}.ui-v2 #modal .rprev .rname{font-size:15px}
+ .ui-v2 #modal .rpslots{grid-template-columns:1fr}.ui-v2 #modal .pset-h{flex-wrap:wrap}.ui-v2 #modal .pset-lns{grid-template-columns:1fr}.ui-v2 #modal .inv.finv{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ui-v2 #modal .bulkrow{gap:6px;padding:10px}.ui-v2 #modal .bulkrow .btn{padding:8px}.ui-v2 #modal .row-btns{gap:8px}.ui-v2 #modal .row-btns .btn{min-width:100px}
+ .cv-message{min-height:320px;padding:28px 18px}.cv-message h2{font-size:18px}.cv-message p{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){.ui-v2 #modal .modal-card{animation:none}}

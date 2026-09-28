@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS part (
   base        TEXT,                            -- PART_BASES 의 열쇠. 이것이 있으면 새 파츠다
   affixes     TEXT,                            -- JSON [{id,tier}]
   seed        INTEGER,                         -- 티어 안 ±12% 굴림을 재현한다
-  lv          INTEGER                          -- 주운 레벨
+  lv          INTEGER,                         -- 주운 레벨
+  bound       INTEGER REFERENCES robot(id) ON DELETE SET NULL   -- 귀속된 기체(024). NULL 은 풀림 — js/bind.js
 );
 CREATE INDEX IF NOT EXISTS ix_part_account ON part(account_id);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_part_uid ON part(account_id, uid);
@@ -108,6 +109,7 @@ CREATE TABLE IF NOT EXISTS robot (
   s_core      INTEGER UNIQUE REFERENCES part(id) ON DELETE SET NULL,
   m_lv        INTEGER,                         -- 숙련 조각을 정산한 레벨(022). NULL 은 Lv.1 부터 — js/mastery.js
   circuit     TEXT,                            -- 코어 서킷에 찍은 별(023). JSON 배열 [ 'A1', … ] · NULL 은 빈 서킷 — js/circuit.js
+  presets     TEXT,                            -- 기체마다 빌드 프리셋(024) — js/preset.js 모양. 파츠 귀속을 켠 뒤에 쓴다
   created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_robot_account ON robot(account_id);
@@ -345,7 +347,7 @@ BEGIN
 END;
 
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '23');
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '24');
 
 
 -- =========================================================

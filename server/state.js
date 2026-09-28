@@ -12,6 +12,7 @@
 import { parseCodex } from '../js/codex.js';
 import { parseItems } from '../js/shop.js';
 import { parsePresets } from '../js/preset.js';
+import { bindOn, unbindCost } from '../js/bind.js';
 import { huntWeekView } from '../js/rewards.js';
 import { settleMastery, masteryView } from '../js/mastery.js';
 import { parseCircuit } from '../js/circuit.js';
@@ -200,7 +201,7 @@ export async function loadState(env, accountId) {
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, m_lv, circuit, s_weapon, s_frame, s_booster, s_core
+    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, m_lv, circuit, presets, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
 
   /* ── 숙련 조각 정산(022) ──────────────────────────────────────
@@ -220,7 +221,7 @@ export async function loadState(env, accountId) {
     for (const g of mast.grants) { const r = robots.find(x => x.id === g.id); if (r) r.m_lv = g.to; }
   }
   const parts = (await env.DB.prepare(
-    `SELECT ${PART_COLS} FROM part WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
+    `SELECT ${PART_COLS}, bound FROM part WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
 
   const byId = new Map(parts.map(x => [x.id, x.uid]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
@@ -251,6 +252,13 @@ export async function loadState(env, accountId) {
     rcores: p.rcores | 0,
     salvage: { left: salvLeft(p.salv, Date.now()), daily: salvDaily() },
     circuit: Object.fromEntries(robots.filter(r => r.circuit).map(r => [r.uid, parseCircuit(r.circuit)])),
+    /* 024 — 파츠 귀속. on 이 꺼져 있으면 parts 는 비어 있다(아직 아무것도 귀속하지 않는다).
+       parts: { 파츠uid: 귀속 기체uid } · unbind: 풀 때 드는 정제 코어 · presets: 켜진 뒤의 기체마다 프리셋 { 기체uid: [...] } */
+    bind: {
+      on: bindOn(), unbind: unbindCost(),
+      parts: Object.fromEntries(parts.filter(x => x.bound != null).map(x => [x.uid, (robots.find(r => r.id === x.bound) || {}).uid || null])),
+      ...(bindOn() ? { presets: Object.fromEntries(robots.map(r => [r.uid, parsePresets(r.presets)])) } : {}),
+    },
     state: {
       v: 2, credits: p.credits, cores: p.cores, scrap: p.scrap,
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },

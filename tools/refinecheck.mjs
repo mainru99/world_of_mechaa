@@ -50,7 +50,7 @@ db.prepare(`INSERT INTO robot (id, account_id, type, level, uid, created_at) VAL
 db.prepare('UPDATE player SET sel_robot = 1 WHERE account_id = 1').run();
 
 console.log('== 이관 ==');
-ok(q("SELECT v FROM meta WHERE k='schema_version'").v === '23', 'schema_version 23');
+ok(+q("SELECT v FROM meta WHERE k='schema_version'").v >= 23, 'schema_version 23 이상(023 이 들어 있다)');
 ok(P().rcores === 0 && P().salv === null, '새 칸 — rcores 0 · salv NULL');
 
 console.log('== ① 합치기 ==');

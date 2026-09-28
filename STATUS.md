@@ -1,5 +1,7 @@
 # 진행 상황 — 한 것 / 남은 것
 
+- **2026-09-28 코어 서킷 외관 시안 배포 완료** — 코드 `7dcd759`, Worker `f0156f84`. [공개 미리보기](https://rowar.hun7539.workers.dev/core-circuit-preview.html). 배경·좌표·규칙 유지, 보석 노드·금속 링·금색 연결선 적용. 시안/배경 원본 해시 일치, schema 23·balance `1efvw2l` 유지. **게임 UI 연결·계정 저장은 아직 별도**. 상세: `docs/art/core-circuit-tree-2026-09-28.md`.
+
 이어서 작업할 때 여기부터 읽는다. 설치·셋업 절차는 [`server/SETUP_KO.md`](server/SETUP_KO.md),
 ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 **밸런스 작업 지시는 [`BALANCE.md`](BALANCE.md)**, 보안 점검 기록은 [`SECURITY.md`](SECURITY.md) 에 있다.

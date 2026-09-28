@@ -24,3 +24,12 @@
 프로토타입 외관 변경이다. 기존 배경에 맞춘 연결 좌표를 유지했으므로 거대한 공용 트리나 새로운 분기를 추가한 것은 아니다. 이후 사용자가 시안을 승인하고 커밋·푸시·배포를 요청했다. 빌드에 승인 HTML 하나만 공개 미리보기로 포함한다(`/core-circuit-preview.html`). 게임 UI 연결, 계정 저장, DB 변경은 포함하지 않는다.
 
 검수용 로컬 Node 서버: `127.0.0.1:8794` (저장소 루트). 페이지: `/docs/balance/core-circuit-draft-2026-09-23.html`. 로컬 서버가 종료되면 HTML 파일을 직접 열어도 된다.
+
+## 운영 배포 완료
+
+- 코드 커밋 `7dcd759`, `origin/main` 푸시 완료. 이 커밋의 `git archive` 산출물로 빌드하여 미추적 복사본 이미지는 제외했다.
+- Worker 버전 `f0156f84-54fb-45a2-ac7b-628f91c7ae25`.
+- 공개 주소: https://rowar.hun7539.workers.dev/core-circuit-preview.html
+- 변경 정적 에셋 업로드 1개(공개 시안). 시안 HTML, IGNIS·ORACLE 배경 HTTP 200 및 SHA-256 원본 일치.
+- `/api/health`: ok, DB connected, schema 23, balance_ver `1efvw2l`. 배포 전후 계정 35·아레나 35 유지. DB 이관 없음.
+- 최초 인증 오류 후 `wrangler whoami`로 기존 OAuth 정상 확인, 같은 산출물로 재시도하여 성공. 보안 설정 변경·새 자격증명 생성 없음.

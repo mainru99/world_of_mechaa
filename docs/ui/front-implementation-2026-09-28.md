@@ -60,3 +60,13 @@
 - 전체 UI 개편 완료가 아니다. 다음은 **공통 모달/작전 안내/빈·오류 상태 정리와 레거시 스타일 충돌 점검**이다.
 - 이후 실제 API 통합 검수. 현 UI 브랜치 서버 계약과 운영 main의 교대/동시 합동전, 분석, 서킷/정제 코어/기체별 프리셋/귀속을 구별해 통합할 필요가 있다.
 - main 병합과 운영 배포는 UI 전체 완성 후 사용자의 별도 지시를 따른다.
+
+## 완료 기록과 가상 병합
+
+- 구현 커밋: `1530407 feat(ui): rebuild story campaign and operation reports`.
+- 가상 검사: `git merge-tree --write-tree --name-only origin/main HEAD` (`1530407` 대 `ab45b4c`) → exit 1. 반환 tree `c3b3f55654860c0c3f840d1d30ec895821b69092`. 실제 checkout/브랜치/merge 상태는 바꾸지 않았다.
+- 충돌 파일은 `js/game.js` 하나, 충돌 블록은 6곳이다. 기존 레이드 `drawRaid`/`raidRunGo`/`renderRaidResult` 3곳은 순차 UI와 main 합동전/분석 계약 차이다.
+- 새 3곳: `_frontCh`/`setFrontCh` 인접 main의 `frontAfterState()` 블록(서버 기록 수신 후 장/초기 화면 정리), `renderFront()`(장 선택·이미 진행한 계정의 도입·서버 준비 상태), `renderFrontResult()`(main 전투 분석과 새 작전 보고 표시).
+- UI는 home에서 시작하므로 main의 과거 '대문 뒤에서 신규 전선 재생' 진입 구조와 다르다. **새 브라우저에서 이미 진행한 계정의 도입 처리, 상태 수신 이후 장/선택 재설정은 main 통합 때 양쪽 계약을 대조해야 한다.** 이 작업에서 main의 준비 플래그/진입 함수나 분석 코드를 복사하지 않았다. Git 자동 병합 구간까지 의미상 호환된다고 주장하지 않는다.
+- 위 검사는 충돌 위치 기록이며 즉시 main 병합/배포 가능 판정이 아니다. 전선 표시/이탈 검수는 UI 브랜치 자체에서 통과했다.
+- 후속 기록 커밋과 구현 커밋은 `origin/codex/ui-rebuild`로만 푸시한다. main 병합/운영 배포 없음.

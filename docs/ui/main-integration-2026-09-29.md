@@ -7,6 +7,7 @@
 - 출발 UI `29733c9`, 통합 main `ab45b4c3353386a33ef16e67657f71ab3e235adf`. 원본 `codex/ui-rebuild`와 `main`은 수정하지 않았다.
 - 범위 승인 기록 `29cdc80` 후 main을 정식 병합한다. main의 서버/공유 규칙/DB/기체·그림과 리빌드 프론트를 함께 보관한다.
 - 원격 대상도 `origin/codex/ui-integration`만 사용한다. 운영 main 반영·원격 DB 이관·배포는 하지 않는다. 이 통합은 운영 반영 또는 신규 기능 UI 전체 완성을 뜻하지 않는다.
+- 병합 커밋 **`c3870dd`**(부모 `29cdc80`, `ab45b4c`)을 생성하고 `git push -u origin codex/ui-integration` 성공. 충돌/병합 진행 상태 없음, 작업 트리 깨끗함을 확인했다. 회사에서는 기존 UI 폴더에 덮어쓰지 말고 이 통합 브랜치의 별도 폴더로 이어받는다. 원본 UI 29733c9, 운영 main ab45b4c 및 main 폴더의 미추적 아트 자료를 보존했다.
 
 ## 충돌 8곳의 해결
 

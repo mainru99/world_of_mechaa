@@ -9,7 +9,7 @@ const net=await import('../js/net.js'),good=r=>{assert.ok(r&&!r.error&&r.ok!==fa
 const connected=await net.connect({create:true});assert.ok(connected,net.state.error);good(connected);
 good(await net.pull());
 const robot={uid:'growth-api-mule',type:'mule',level:4,exp:0,fat:0,fatAt:Date.now(),skillLv:0,slots:{WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}};
-good(await net.push({v:2,credits:250000,cores:30,scrap:1000,robots:[robot],parts:[],sel:0,squad:[robot.uid],stat:{wins:0,losses:0,pulls:0}}));
+good(await net.push({v:2,credits:250000,cores:30,scrap:1000,robots:[robot,{...robot,uid:'growth-api-scarab',type:'scarab'}],parts:[],sel:0,squad:[robot.uid],stat:{wins:0,losses:0,pulls:0}}));
 good(await net.setDevelopmentGoal('bastion'));
 const initial=good(await net.growthState());assert.equal(initial.mastery.got,0,'migration levels cannot grant retroactive rewards');
 assert.equal(initial.mastery.goal,'bastion');
@@ -19,20 +19,20 @@ const manager=createDevelopmentManager({state:()=>owner,net,document:doc,commit(
 assert.equal((await net.setDevelopmentGoal('atlas')).error,'bad goal');
 assert.equal((await net.setDevelopmentGoal('mule')).error,'bad goal');
 assert.equal((await net.setDevelopmentGoal('orbit')).error,'bad goal');
-await manager.actions.openDevelopment('dune');
+await manager.actions.openDevelopment('scarab');manager.actions.developmentSelect('shrike');
 const five=good(await net.hangar('levelup',{robotUid:robot.uid}));owner.robots[0].level=five.level;owner.credits=five.credits;
 await manager.actions.developmentGoal();
 const switched=good(await net.growthState());
-assert.equal(switched.mastery.goal,'dune');
+assert.equal(switched.mastery.goal,'shrike');
 assert.equal(switched.items['shard:bastion'],1,'pending Lv.5 shard must go to the OLD goal');
-assert.equal(switched.items['shard:dune']||0,0,'goal change cannot redirect already-earned shard');
+assert.equal(switched.items['shard:shrike']||0,0,'goal change cannot redirect already-earned shard');
 assert.equal(switched.mastery.got,0,'repeat GET cannot duplicate settlement');
 assert.ok(html.includes('이전 목표 조각 +1'));
 for(let i=0;i<5;i++){const r=good(await net.hangar('levelup',{robotUid:robot.uid}));owner.robots[0].level=r.level;owner.credits=r.credits;}
 const result={};await manager.settleFor(result);
 assert.equal(result.mastery.got,1);assert.equal(result.mastery.grants[0].uid,robot.uid);
-assert.equal(owner.items['shard:bastion'],1);assert.equal(owner.items['shard:dune'],1);
+assert.equal(owner.items['shard:bastion'],1);assert.equal(owner.items['shard:shrike'],1);
 assert.ok(manager.rewardSlot(result).includes('조각 +1'));
-const reloaded=good(await net.pull());assert.equal(reloaded.items['shard:dune'],1);assert.equal(reloaded.mastery.goal,'dune');assert.equal(reloaded.mastery.got,0);
+const reloaded=good(await net.pull());assert.equal(reloaded.items['shard:shrike'],1);assert.equal(reloaded.mastery.goal,'shrike');assert.equal(reloaded.mastery.got,0);
 assert.equal(reloaded.state.credits,owner.credits,'partial UI settlement preserves latest credits');
 console.log(`Development HTTP passed (${http} requests): isolated guest; no migration backpay; invalid/owned/gacha targets; UI manager's pre-POST old-goal settlement; future rewards to new goal; UID grants; no repeated awards; reload persistence; authoritative credits.`);

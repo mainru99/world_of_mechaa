@@ -1,0 +1,43 @@
+// Disposable guest, loopback Worker/D1 only. No live credentials or production.
+import assert from 'node:assert/strict';
+import {ROBOT_TYPES,CONST} from '../data/balance.js';
+import {runSalvage} from '../js/salvage.js';
+import {applySynth} from '../js/shardsynth.js';
+import {createShardManager} from '../js/ui/shard-manager.js';
+const base=new URL(process.argv[2]||'http://127.0.0.1:8841');assert.equal(base.hostname,'127.0.0.1');assert.equal(base.protocol,'http:');assert.ok(base.port&&base.pathname==='/');
+const store=new Map();globalThis.localStorage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,String(v)),removeItem:k=>store.delete(k)};
+const native=globalThis.fetch;let http=0;globalThis.fetch=(path,args)=>{http++;return native(new URL(path,base),args);};
+const net=await import('../js/net.js'),good=r=>{assert.ok(r&&!r.error&&r.ok!==false,r?.error||'no response');return r;};
+good(await net.connect({create:true}));good(await net.pull());
+const types=['mule','rust','scarab','grit','chalk','husk','mortar','static','ranger','specter','aquila'];
+const robots=types.map((type,i)=>({uid:`shard-api-${type}`,type,level:i<9?4:1,exp:0,fat:0,fatAt:Date.now(),skillLv:0,slots:{WEAPON:null,FRAME:null,BOOSTER:null,CORE:null},circuit:[]}));
+good(await net.push({v:2,credits:250000,cores:30,scrap:2000,robots,parts:[],sel:0,squad:[robots[0].uid],stat:{wins:0,losses:0,pulls:0}}));
+good(await net.setDevelopmentGoal('dune'));const initial=good(await net.growthState());assert.equal(initial.mastery.got,0);
+for(const r of robots.slice(0,6))good(await net.hangar('levelup',{robotUid:r.uid}));
+const six=good(await net.growthState());assert.equal(six.items['shard:dune'],6);
+good(await net.setDevelopmentGoal('lens'));
+for(const r of robots.slice(6,9))good(await net.hangar('levelup',{robotUid:r.uid}));
+const before=good(await net.growthState());assert.equal(before.items['shard:lens'],3);
+for(const mats of [{dune:5},{dune:11},{dune:4,ranger:2},{ignis:6}]){const r=await net.synthesize(mats);assert.ok(r.error);}
+assert.deepEqual(good(await net.growthState()).items,before.items,'invalid requests do not consume shards');
+let owner={...before.state,items:before.items},meta=before.mastery,html='',result=null,replay=null;
+const doc={activeElement:{id:''},getElementById:()=>null,querySelector:s=>s==='#modal[open] .sr-app'&&html.includes('sr-app')?{}:null};
+const manager=createShardManager({document:doc,state:()=>owner,robot:()=>owner.robots[0],net,goal:()=>meta,onRemote:r=>meta=r.mastery,openModal:h=>html=h,closeModal:()=>html='',commit(){},paint(){},toast(){},returnTo:()=> 'hunt',applyShop:r=>{result=r;Object.assign(owner,{items:r.items,credits:r.credits,cores:r.cores,scrap:r.scrap});},replay:async r=>replay=r});
+await manager.actions.openShardSynth();manager.actions.shardCount('dune',4);manager.actions.shardCount('lens',2);manager.actions.shardReview();await manager.actions.shardSubmit();
+assert.ok(result?.synth);assert.equal(result.synth.used,6);assert.equal(result.synth.spent,120);assert.equal(owner.scrap,before.state.scrap-120);
+assert.deepEqual(owner.items,applySynth(before.items,{dune:4,lens:2},result.synth));if(result.synth.rarity==='C')assert.equal(result.synth.type,'lens','matching result rarity goes to goal');
+assert.deepEqual(good(await net.growthState()).items,owner.items,'synthesis persists across a new state read');
+good(await net.setDevelopmentGoal('ignis'));const ep=good(await net.growthState());assert.equal(ep.mastery.goal,'ignis');
+const recovery=good(await net.salvage());assert.notEqual(recovery.goal.type,'ignis');assert.ok(['C','UC','R'].includes(ROBOT_TYPES[recovery.goal.type].rarity));assert.equal(recovery.left,2);assert.equal((recovery.endsAt/86400000)%1,0);
+assert.equal((await net.salvage({tier:4,uid:robots[0].uid})).error,'bad tier');assert.ok((await net.salvage({tier:0,uid:'missing-owned-uid'})).error);assert.equal(good(await net.salvage()).left,2);
+await manager.actions.openSalvage();manager.actions.salvageRobot(robots[1].uid);manager.actions.salvageTier(0);manager.actions.salvageReview();await manager.actions.salvageSubmit();
+assert.ok(replay);assert.equal(replay.robot.uid,robots[1].uid);assert.equal(replay.foe.level,owner.robots.find(r=>r.uid===robots[1].uid).level);assert.equal(replay.left,1);
+const out=runSalvage(replay.stats,replay.foe,replay.seed);assert.equal(out.win,replay.win);assert.deepEqual(out.foe,replay.foe.stats);assert.equal(replay.got,replay.win?1:0);
+const after1=good(await net.growthState());assert.equal(after1.salvage.left,1);assert.deepEqual(owner.items,after1.items,'manager confirms inventory by GET rather than POST goal count');
+assert.equal(after1.state.credits,ep.state.credits);assert.equal(after1.state.scrap,ep.state.scrap);assert.equal(after1.mastery.goal,'ignis');
+for(const r of after1.state.robots){const old=ep.state.robots.find(x=>x.uid===r.uid);assert.equal(r.level,old.level);assert.equal(r.exp,old.exp);assert.equal(r.fat,old.fat);}
+const second=good(await net.salvage({tier:2,uid:robots[0].uid}));assert.equal(second.left,0);assert.equal(runSalvage(second.stats,second.foe,second.seed).win,second.win);
+const exhausted=await net.salvage({tier:0,uid:robots[0].uid});assert.equal(exhausted.error,'no tries left');assert.ok(exhausted.endsAt);
+const final=good(await net.growthState());assert.equal(final.salvage.left,0);assert.equal((final.items[`shard:${second.goal.type}`]||0),(ep.items[`shard:${second.goal.type}`]||0)+replay.got+second.got);
+assert.equal(CONST.PART_BIND.on,false);assert.equal(CONST.LINEAGE.gate,false);
+console.log(`Shard HTTP passed (${http} requests): invalid material/UID/tier safety; 6 mixed C shards/120 scrap consumed by UI manager; server result/reload; EP mastery with actual C~R fallback; exact deterministic replay; UID/same level; authoritative inventory; no EXP/currency/fat changes; daily quota/exhaustion persistence.`);

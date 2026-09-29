@@ -280,6 +280,14 @@ async function developmentRequest(path,body){
 export const circuit=(action,uid,stars)=>developmentRequest('/api/circuit',{action,uid,...(stars?{stars}:{})});
 export const refine=n=>developmentRequest('/api/refine',{n});
 export const setDevelopmentGoal=type=>developmentRequest('/api/shop',{action:'goal',type});
+export const synthesize=mats=>developmentRequest('/api/shop',{action:'synth',mats});
+export async function salvage(body){
+  if(body)return developmentRequest('/api/salvage',body);
+  if(!state.online)return {error:'offline'};
+  const account=state.accountId,r=await call('/api/salvage');
+  if(account!==state.accountId)return {error:'account changed'};
+  return r.ok&&r.data?.ok?r.data:{...(r.data||{}),error:r.data?.error||r.error||'request failed',status:r.status};
+}
 // UI reads only mastery/items; do not advance sync rev for a partial snapshot.
 export async function growthState(){
   if(!state.online)return null;

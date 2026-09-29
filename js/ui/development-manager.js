@@ -1,5 +1,6 @@
 import {ROBOT_TYPES} from '../../data/balance.js';
 import {goalOk} from '../mastery.js';
+import {developmentVisibility} from './development-visibility.js';
 import {parentsOf,siblingStd} from '../lineage.js';
 import {developmentView,goalCard,masteryReward} from './development-view.js';
 
@@ -60,14 +61,15 @@ export function createDevelopmentManager(ctx){
  }
  async function openDevelopment(type){
   if(busy()||ctx.blocked?.())return;
-  const selected=ROBOT_TYPES[type]&&!ROBOT_TYPES[type].story?type:info().goal||Object.keys(ROBOT_TYPES).find(t=>goalOk(t,ctx.state().robots.map(r=>r.type)))||'mule';
+  const owned=ctx.state().robots.map(r=>r.type),base=info().goal||owned[0]||'mule';
+  const selected=developmentVisibility(owned,base,info().goal)(type)?type:base;
   session={owner:ctx.state(),account:ctx.net.state.accountId,selected,mode:ctx.mobile?.()?'list':'map',filter:'all',query:''};
   // First open has no old dg-app; establish it, then use the guarded replacement.
   ctx.openModal(developmentView({state:ctx.state(),...info(),...session,online:ctx.net.state.online}));
   if(ctx.net.state.online)await refresh();else draw('오프라인 · 마지막 기체/조각 기록을 표시합니다.',true);
  }
  function developmentSelect(type){
-  if(!visible()||!ROBOT_TYPES[type]||ROBOT_TYPES[type].story)return;session.selected=type;draw();
+  if(!visible()||!developmentVisibility(ctx.state().robots.map(r=>r.type),session.selected,info().goal)(type))return;session.selected=type;draw();
   if(ctx.mobile?.()){const detail=doc.querySelector('.dg-detail');detail?.scrollIntoView({block:'start',behavior:'instant'});detail?.querySelector('h3')?.focus({preventScroll:true});}
  }
  function developmentMode(mode){if(!visible()||!['map','list'].includes(mode))return;session.mode=mode;draw('',true);}
@@ -110,5 +112,5 @@ export function createDevelopmentManager(ctx){
   if(report?.got)ctx.toast(`${ROBOT_TYPES[report.goal]?.name||'개발 목표'} 조각 +${report.got}`);
   if(visible())draw();
  }
- return {adopt,card,busy,paintCards,settleFor,rewardSlot,actions:{openDevelopment,developmentSelect,developmentMode,developmentFilter,developmentSearch,developmentGoal,developmentRefresh:refresh}};
+ return {adopt,card,busy,info,paintCards,settleFor,rewardSlot,actions:{openDevelopment,developmentSelect,developmentMode,developmentFilter,developmentSearch,developmentGoal,developmentRefresh:refresh}};
 }

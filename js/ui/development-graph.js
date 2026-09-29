@@ -27,16 +27,17 @@ export function relatedTypes(id){
  for(const [a,b] of LINEAGE_SIBS)if(a===id||b===id){out.add(a);out.add(b);visit(a,1);visit(b,0);}
  return out;
 }
-export function graphView({states,selected,goal,need,match}){
+export function graphView({states,selected,goal,need,match,revealed=id=>states[id]?.state==='owned'}){
  const L=graphLayout(),on=relatedTypes(selected);
  const edges=LINEAGE.map(([a,b,reason])=>{const A=L.pos[a],B=L.pos[b];if(!A||!B)return '';
   const x=A.x+L.nodeWidth,y=A.y+32,m=(x+B.x)/2;
-  return `<path class="dg-edge ${on.has(a)&&on.has(b)?'on':''}" data-from="${a}" data-to="${b}" d="M${x},${y} C${m},${y} ${m},${B.y+32} ${B.x},${B.y+32}"><title>${esc(ROBOT_TYPES[a].name)} → ${esc(ROBOT_TYPES[b].name)} · ${esc(reason)}</title></path>`;}).join('');
+  return `<path class="dg-edge ${on.has(a)&&on.has(b)?'on':''}" data-from="${a}" data-to="${b}" d="M${x},${y} C${m},${y} ${m},${B.y+32} ${B.x},${B.y+32}"><title>${revealed(a)&&revealed(b)?`${esc(ROBOT_TYPES[a].name)} → ${esc(ROBOT_TYPES[b].name)} · ${esc(reason)}`:'?? → ??'}</title></path>`;}).join('');
  const siblings=LINEAGE_SIBS.map(([a,b,reason])=>{const A=L.pos[a],B=L.pos[b];if(!A||!B)return '';
   const x=A.x+L.nodeWidth-16;
-  return `<path class="dg-edge dg-sibling ${on.has(a)&&on.has(b)?'on':''}" data-from="${a}" data-to="${b}" d="M${x},${A.y+L.nodeHeight} C${x+24},${A.y+80} ${x+24},${B.y-16} ${x},${B.y}"><title>${esc(reason)}</title></path>`;}).join('');
+  return `<path class="dg-edge dg-sibling ${on.has(a)&&on.has(b)?'on':''}" data-from="${a}" data-to="${b}" d="M${x},${A.y+L.nodeHeight} C${x+24},${A.y+80} ${x+24},${B.y-16} ${x},${B.y}"><title>${revealed(a)&&revealed(b)?esc(reason):'?? · 분화'}</title></path>`;}).join('');
  const heads=RARITIES.map((r,i)=>`<div class="dg-col rr-${r}" style="left:${20+i*232}px">${r} <small>${L.cols[i].length}기 · 조각 ${need(r)}개</small></div>`).join('');
  const nodes=Object.entries(L.pos).map(([id,p])=>{const T=ROBOT_TYPES[id],s=states[id],tags=s.parents.length>1?`모두 ${s.parents.length}기`:s.std?'표준형 필요':statusLabel[s.state];
+  if(!revealed(id))return `<button type="button" id="dg-node-${id}" class="dg-node dg-unknown ${match(id)?'':'filtered'}" style="left:${p.x}px;top:${p.y}px" disabled aria-label="미공개 기체 ${T.rarity}"><span class="dg-mystery">??</span><span><b>??</b><small>미공개 기체</small><em>선행 연구 · 경로 확인 필요</em></span><strong class="rr-${T.rarity}">${T.rarity}</strong></button>`;
   return `<button type="button" id="dg-node-${id}" class="dg-node ${id===selected?'selected':''} ${on.has(id)?'related':''} ${match(id)?'':'filtered'}" data-state="${s.state}" style="left:${p.x}px;top:${p.y}px" aria-pressed="${id===selected}" onclick="ROWAR.developmentSelect('${id}')" aria-label="${esc(T.name)} ${T.rarity} ${statusLabel[s.state]}"><img src="${assetPath(id)}" alt="" loading="lazy"><span><b>${esc(T.name)}</b><small>${esc(T.role)}</small><em>${goal===id?'현재 목표':tags}</em></span><strong class="rr-${T.rarity}">${T.rarity}</strong></button>`;}).join('');
- return `<div class="dg-map" id="dg-map" tabindex="0" aria-label="등급별 개발 계보도, 상하좌우로 이동 가능"><div class="dg-board" style="width:${L.width}px;height:${L.height}px"><div class="dg-columns">${heads}</div><svg aria-hidden="true" width="${L.width}" height="${L.height}" viewBox="0 0 ${L.width} ${L.height}">${edges}${siblings}</svg>${nodes}</div></div><p class="dg-map-help">실선: 선행 기체 · 점선: 표준형에서 분화 · 선택한 기체의 계보가 강조됩니다. 검색·표시 조건에 맞는 기체를 밝게 표시합니다.</p>`;
+ return `<div class="dg-map" id="dg-map" tabindex="0" aria-label="등급별 개발 계보도, 상하좌우로 이동 가능"><div class="dg-board" style="width:${L.width}px;height:${L.height}px"><div class="dg-columns">${heads}</div><svg aria-hidden="true" width="${L.width}" height="${L.height}" viewBox="0 0 ${L.width} ${L.height}">${edges}${siblings}</svg>${nodes}</div></div><p class="dg-map-help">실선: 선행 기체 · 점선: 표준형에서 분화. 보유 기체와 현재 경로에서 조건이 열린 후보만 공개하며, 미공개 기체는 ??로 표시합니다.</p>`;
 }

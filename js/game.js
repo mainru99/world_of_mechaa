@@ -46,6 +46,9 @@ import { territoryView, territoryResultView, bindTerritory } from './ui/territor
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
 import { createCircuitManager } from './ui/circuit-manager.js';
 import { createDevelopmentManager } from './ui/development-manager.js';
+import { createShardManager } from './ui/shard-manager.js';
+import { salvageResultView } from './ui/shard-view.js';
+import { runSalvage } from './salvage.js';
 import { nextMastery } from './ui/development-view.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
@@ -1210,6 +1213,7 @@ async function renderShop(){
   if(_shopOwner!==net.state.accountId){ _shop=null; _shopAt=0; }
   const stale = !_shop || Date.now()-_shopAt > SHOP_TTL || (_shop.endsAt && Date.now() >= _shop.endsAt);
   if(stale){
+    if(typeof shards!=='undefined'&&shards.busy()){el.innerHTML=message('조각 기록 확인 중','조각 작업을 마치면 상점을 다시 표시합니다.');return;}
     if(typeof growth!=='undefined'&&growth.busy()){el.innerHTML=message('개발 기록 확인 중','기록 확인을 마치면 상점을 다시 표시합니다.');return;}
     const owner=S, account=net.state.accountId, seq=++_shopViewSeq;
     el.innerHTML = message('진열을 불러오는 중','이번 주기의 상품과 가격을 확인하고 있습니다.');
@@ -1263,10 +1267,11 @@ async function renderBag(){
     const gain=CONST.DUPE_GAIN[T.rarity]||{cr:0,sc:0,co:0};
     return `<article class="sv-bag-card ${b.ready?'ready':''}"><div class="sv-bag-art">${sprite(b.type,false)}</div><div class="sv-bag-copy"><div class="sv-bag-title">${robRarTag(b.type)}<h3>${esc(T.name)}</h3></div><div class="sv-progress"><span>조립 진행</span><b>${b.have} / ${b.need}</b><div role="progressbar" aria-label="${esc(T.name)} 조각" aria-valuenow="${Math.min(b.have,b.need)}" aria-valuemin="0" aria-valuemax="${b.need}"><i style="width:${pct}%"></i></div></div>${b.owned?`<p>보유 기체 · 조립 시 크레딧 ${fmt(gain.cr)}, 스크랩 ${fmt(gain.sc)}${gain.co?`, 코어 ${fmt(gain.co)}`:''} 획득</p>`:'<p>미보유 기체 · 조립하면 격납고에 추가됩니다.</p>'}</div><button class="btn sv-action ${b.ready?'gold':''}" ${b.ready&&net.state.online&&!_shopPending?'':'disabled'} onclick="ROWAR.shopAssemble('${b.type}')">${b.ready?'조립하기':'조각 부족'}</button></article>`;
   };
-  el.innerHTML = `${shopTabs()}<div class="sv-page"><header class="sv-hero sv-bag-hero"><span class="ui-eyebrow">SUPPLY DEPOT / COLLECTION</span><h1>기체 조각 보관함</h1><p>모은 조각을 확인하고, 기준 수량이 되면 기체를 조립하세요.</p><div class="sv-hero-meta"><span>보유 조각 <b>${fmt(collected)}개</b></span><span>조립 가능 <b>${ready}기</b></span></div></header>${typeof growth!=='undefined'?growth.card():''}<div class="sv-layout"><section class="sv-stock ui-surface"><div class="sv-section-head"><div><span class="ui-eyebrow">COLLECTED SHARDS</span><h2>보유 목록</h2></div><span>${bag.length}종</span></div>${bag.length?`<div class="sv-bag-grid">${bag.map(row).join('')}</div>`:`<div class="sv-empty"><h3>아직 모은 조각이 없습니다</h3><p>보급 상점의 기체 조각을 구매하면 이곳에 표시됩니다.</p><button class="btn" onclick="ROWAR.setShopTab('shop')">상점 살펴보기</button></div>`}</section><aside class="sv-side"><div class="sv-note ui-surface"><h3>조립 기준</h3><div class="sv-need-list">${Object.entries(CONST.SHARD_NEED).map(([k,v])=>`<div><span>${k}</span><b>${v}개</b></div>`).join('')}</div><p>이미 보유한 기체를 조립하면 기체 대신 등급에 맞는 자원을 받습니다.</p><button class="ui-text-button" onclick="ROWAR.setShopTab('shop')">보급 상점 ${icon('chevron')}</button></div></aside></div></div>`;
+  el.innerHTML = `${shopTabs()}<div class="sv-page"><header class="sv-hero sv-bag-hero"><span class="ui-eyebrow">SUPPLY DEPOT / COLLECTION</span><h1>기체 조각 보관함</h1><p>모은 조각을 확인하고, 기준 수량이 되면 기체를 조립하세요.</p><div class="sv-hero-meta"><span>보유 조각 <b>${fmt(collected)}개</b></span><span>조립 가능 <b>${ready}기</b></span></div></header>${typeof growth!=='undefined'?growth.card():''}<div class="sr-entry"><div><strong>조각의 다음 단계</strong><p>일일 회수로 모으고, 같은 등급 조각을 합성해 상위 등급에 도전하세요.</p></div><div class="row-btns"><button class="btn" onclick="ROWAR.openSalvage()">일일 회수</button><button class="btn gold" onclick="ROWAR.openShardSynth()">조각 합성</button></div></div><div class="sv-layout"><section class="sv-stock ui-surface"><div class="sv-section-head"><div><span class="ui-eyebrow">COLLECTED SHARDS</span><h2>보유 목록</h2></div><span>${bag.length}종</span></div>${bag.length?`<div class="sv-bag-grid">${bag.map(row).join('')}</div>`:`<div class="sv-empty"><h3>아직 모은 조각이 없습니다</h3><p>보급 상점의 기체 조각을 구매하면 이곳에 표시됩니다.</p><button class="btn" onclick="ROWAR.setShopTab('shop')">상점 살펴보기</button></div>`}</section><aside class="sv-side"><div class="sv-note ui-surface"><h3>조립 기준</h3><div class="sv-need-list">${Object.entries(CONST.SHARD_NEED).map(([k,v])=>`<div><span>${k}</span><b>${v}개</b></div>`).join('')}</div><p>이미 보유한 기체를 조립하면 기체 대신 등급에 맞는 자원을 받습니다.</p><button class="ui-text-button" onclick="ROWAR.setShopTab('shop')">보급 상점 ${icon('chevron')}</button></div></aside></div></div>`;
 }
 
 async function shopBuy(i){
+  if(typeof shards!=='undefined'&&shards.busy())return;
   if(typeof growth!=='undefined'&&growth.busy())return;
   if(typeof development!=='undefined'&&development.busy())return;
   if(_shopPending||!net.state.online)return;
@@ -1291,6 +1296,7 @@ async function shopBuy(i){
       : b.kind==='scrap' ? `스크랩 +${b.qty}` : `코어 +${b.qty}`);
 }
 async function shopRefresh(){
+  if(typeof shards!=='undefined'&&shards.busy())return;
   if(typeof growth!=='undefined'&&growth.busy())return;
   if(typeof development!=='undefined'&&development.busy())return;
   if(_shopPending||!net.state.online||!_shop||S.credits<_shop.refresh||_shopOwner!==net.state.accountId)return;
@@ -1306,6 +1312,7 @@ async function shopRefresh(){
   toast(`진열을 새로 굴렸습니다 · −${fmt(r.spent)} 크레딧`);
 }
 async function shopAssemble(type){
+  if(typeof shards!=='undefined'&&shards.busy())return;
   if(typeof growth!=='undefined'&&growth.busy())return;
   if(typeof development!=='undefined'&&development.busy())return;
   if(_shopPending||!net.state.online||!bagView(S.items||{},S.robots.map(r=>r.type)).some(b=>b.type===type&&b.ready))return;
@@ -1337,6 +1344,7 @@ function renderGacha(){
    결과를 조작할 수 없다. 대신 연결이 없으면 뽑을 수 없다 — 오프라인에서 로컬로
    굴리게 두면 끊고 굴린 뒤 올리면 그만이라 서버 판정의 의미가 사라진다. */
 async function doPull(count){
+  if(typeof shards!=='undefined'&&shards.busy())return;
   if(typeof growth!=='undefined'&&growth.busy())return;
   if(_pullPending||![1,10].includes(count))return;
   if(typeof development!=='undefined'&&development.busy())return;
@@ -1958,6 +1966,7 @@ function renderDispatch(){
   _dispatchWeekReset=huntNow().resetAt;
   $('#sc-hunt').innerHTML=dispatchView({missions,selected:_dispatchSelected,filter:_dispatchFilter,tab:_dispatchTab,robot:rb,robotPower:power(rb),inSquad:S.squad.includes(rb.uid),
     expedition:S.expd,expeditionRobot:S.robots.find(r=>r.uid===S.expd?.uid),online:net.state.online,pending:!!_dispatchPending,canSend:S.robots.length>1&&rb.uid!==S.expd?.uid,weeklyReset:huntResetTxt(_dispatchWeekReset)});
+  $('#sc-hunt .dv-heading').insertAdjacentHTML('afterend','<div class="sr-entry"><div><strong>일일 조각 회수</strong><p>하루 2회 · C~R 기체 조각 확보 · 실제 지급 대상과 남은 횟수는 작전에서 확인하세요.</p></div><button class="btn gold" onclick="ROWAR.openSalvage()">회수 작전</button></div>');
 }
 function setDispatchFilter(filter){
   if(!['all','exped','hunt'].includes(filter))return;
@@ -3808,7 +3817,7 @@ function guard(fn, coolMs = 0){
     /* 하나가 도는 동안 들어온 것은 버린다. 끝난 뒤에도 coolMs 동안은 다시 받지 않는다 —
        동작이 짧게 끝나는 조작(상대 찾기 같은)은 그 사이에 남은 클릭이 도착할 수 있다. */
     const key = fn.name || String(_cool.size);
-    if(_busy || (typeof growth!=='undefined'&&growth.busy()) || Date.now() < (_cool.get(key) || 0)) return;
+    if(_busy || (typeof shards!=='undefined'&&shards.busy()) || (typeof growth!=='undefined'&&growth.busy()) || Date.now() < (_cool.get(key) || 0)) return;
     _busy = true;
     document.body.classList.add('busy');
     /* 예외를 반드시 드러낸다. 예전에는 그냥 던졌는데, onclick 에서 부르는 async 함수라
@@ -3827,11 +3836,27 @@ function guard(fn, coolMs = 0){
 /* 속도 토글·화면 이동·모달 닫기는 문지기를 지나지 않는다 —
    전투가 재생되는 동안에도 눌러야 하는 것들이다. */
 
-const development=createCircuitManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,onRemote:r=>growth.adopt(r),blocked:()=>!!_pullPending||!!_shopPending||_busy||growth.busy()});
-const growth=createDevelopmentManager({state:()=>S,net,openModal,commit:commitLocal,toast,mobile:()=>matchMedia('(max-width:700px)').matches,onRemote:r=>{development.adopt(r);development.wallet();},blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()});
+const development=createCircuitManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,onRemote:r=>growth.adopt(r),blocked:()=>!!_pullPending||!!_shopPending||_busy||growth.busy()||shards.busy()});
+const growth=createDevelopmentManager({state:()=>S,net,openModal,commit:commitLocal,toast,mobile:()=>matchMedia('(max-width:700px)').matches,onRemote:r=>{development.adopt(r);development.wallet();},blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||shards.busy()});
+let _salvageReturnTo='hunt';
+async function replaySalvage(r,returnTo,same,checked){
+ if(!same())return;
+ const request=++_battleRequest;_salvageReturnTo=returnTo;beginReplay();
+ const out=runSalvage(r.stats,r.foe,r.seed),M=MONSTER_TYPES[r.foe.type];
+ if(out.win===r.win){
+  renderArena(r.robot.type,r.foe.type,ROBOT_TYPES[r.robot.type].name,M.name,`일일 회수 · ${r.foe.ko}`,null,null,returnTo==='gacha'?'gacha':'hunt');
+  const P=makeUnit('나',r.robot.type,r.stats,'none'),E=makeUnit(M.name,r.foe.type,r.foe.stats,'none');
+  if(!await playBattle(out.ev,P,E,{})||!same()||request!==_battleRequest||arenaGone())return;
+ }else{toBattle(null,returnTo);toast('재생 규칙이 달라 서버의 확정 결과를 표시합니다.');}
+ if(!same()||request!==_battleRequest)return;
+ _fight=null;shield();toBattle(null,returnTo);
+ $('#sc-battle').innerHTML=salvageResultView(r,returnTo,checked);
+}
+const shards=createShardManager({state:()=>S,robot:selRobot,net,openModal,closeModal,commit:commitLocal,toast,goal:()=>growth.info(),onRemote:r=>{growth.adopt(r);development.adopt(r);development.wallet();},paint:()=>growth.paintCards(),applyShop:shopApply,replay:replaySalvage,returnTo:()=>cur==='battle'?_salvageReturnTo:cur==='gacha'?'gacha':'hunt',blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||growth.busy()});
 window.ROWAR = {
   ...development.actions,
   ...growth.actions,
+  ...shards.actions,
   enterTerritory, enterFront, prepareTerritory, returnTerritory, uiMore, uiGo,
   inspectRobot, cycleHangar, setHangarTab, setHangarSort, openHangarInventory,
   go,

@@ -131,4 +131,10 @@ UI 브랜치의 현행 기능을 로컬에서 검수한 단계는 완료다. 다
 
 ## 완료 기록
 
-구현/검수 기록을 UI 브랜치에만 커밋·푸시한다. 커밋과 최신 가상 충돌 확인은 아래 후속 기록으로 확정한다.
+- 구현 커밋: `6e346d0 fix(ui): complete integration review and preserve operation routing`.
+- 최종 fetch: main `ab45b4c` 그대로, 작업 시작 UI 원격과 로컬은 `8b61f56`로 일치했다. UI의 변경만 커밋했다.
+- `git merge-tree --write-tree 6e346d0 origin/main`: exit 1, 가상 tree `445f9888afeca098b0aa06670806da401073c65b`. 실제 작업 폴더/index/브랜치를 합치지 않았다.
+- `js/game.js` 충돌은 **8블록**이다. 기존 레이드 3곳(`drawRaid`/`raidRunGo`/`renderRaidResult`), 전선 3곳(초기 진입/`renderFront`/`renderFrontResult`)에 더해 `startBattle`의 교대 시뮬/출발 메뉴, `renderBreachResult`의 점령 결과/분석 슬롯이 겹친다.
+- 가상 파일의 marker 시작 줄은 1551/1615/1683/2438/3316/3357/3552/3890이다. 실제 소스 줄과 혼동하지 않는다. 위 tree는 충돌 자료이며 실행 가능한 앱이나 통합 완료본이 아니다.
+- 새 충돌 2곳은 main의 교대 기체 배열을 유지하며 토벌의 `navAs`를 전달하고, 새 점령 결과에 main의 분석 표시 계약을 연결해야 하는 지점이다. 해결을 위해 main 엔진·분석 코드를 지금 반입하지 않는다. 같은 계약 조율 후 재생/보상/분석·복귀를 함께 검증한다.
+- 후속 검수 기록과 구현을 `origin/codex/ui-rebuild`에만 푸시한다. main 통합·운영 배포 없음.

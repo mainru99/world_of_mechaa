@@ -27,7 +27,7 @@ import {createModal} from '../js/ui/modal.js';
 
 const sections=guideSections(),by=id=>sections.find(x=>x.id===id).body;
 assert.equal(new Set(sections.map(x=>x.id)).size,sections.length);
-for(const kind of ['core','credit']){
+for(const kind of ['core','credit','rcore']){
  const pool=recruitmentPool(kind),ep=pool.rarities.find(r=>r.k==='EP').percent;
  assert.ok(by('recruitment').includes(percentText(ep)));
  assert.ok(by('recruitment').includes(percentText(pool.robotPercent)));

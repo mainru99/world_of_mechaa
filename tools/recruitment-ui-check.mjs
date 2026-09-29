@@ -4,7 +4,7 @@ import {MONSTER_TYPES,ROBOT_TYPES} from '../data/balance.js';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,`${a} != ${b}`);
-for(const currency of ['core','credit']){
+for(const currency of ['core','credit','rcore']){
   const pool=recruitmentPool(currency);
   near(pool.outcomes.reduce((n,x)=>n+x.percent,0),100);
   near(pool.robots.reduce((n,x)=>n+x.percent,0),pool.robotPercent);
@@ -82,3 +82,22 @@ for(const result of [null,{error:'not enough cores'}]){
   await assert.rejects(t.ctx.doPull(1),/test disconnect/);assert.equal(t.animation.hidden,true);assert.equal(t.ctx._pullPending,null);
 }
 console.log('Recruitment actions passed: single request; currency capture; navigation rewards; account isolation; failure cleanup; insufficient funds/offline; thrown error cleanup.');
+
+// Refined pulls capture their own balance/channel and retain authoritative rewards.
+{
+ const t=setup();let balance=3;
+ t.ctx.development={balance:()=>balance,setBalance:v=>balance=v,busy:()=>false};
+ t.ctx.PULL_CUR.rcore={cost:1,ko:'정제 코어'};t.ctx.gCur='rcore';
+ const p=t.ctx.doPull(1);t.ctx.gCur='core';t.resolve({...response,rcores:2});await p;
+ assert.equal(t.events.find(e=>e[0]==='request')[2],'rcore');assert.equal(balance,2);
+}
+{
+ const t=setup();t.ctx.development={busy:()=>true};await t.ctx.doPull(1);
+ assert.ok(!t.events.some(e=>e[0]==='request'),'refining and pulls cannot overlap');
+}
+for(const name of ['shopBuy','shopRefresh','shopAssemble']){
+ const s=source.indexOf(`async function ${name}(`),end=source.indexOf('\n}',s)+2;let calls=0;
+ const c=vm.createContext({_shopPending:false,_shop:{stock:[{i:0,price:1}],refresh:1},_shopOwner:'A',S:{credits:100,items:{},robots:[]},development:{busy:()=>true},net:{state:{online:true,accountId:'A'},shop:async()=>{calls++;return {error:'blocked'};}},bagView:()=>[{type:'ignis',ready:true}],$:()=>({querySelectorAll:()=>[]}),cur:'home',toast(){}});
+ vm.runInContext(source.slice(s,end),c);await c[name](name==='shopAssemble'?'ignis':0);
+ assert.equal(calls,0,'shop spending cannot overlap circuit/refining settlement');
+}

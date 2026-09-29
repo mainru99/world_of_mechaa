@@ -52,7 +52,7 @@ export function createModal(root) {
     head.replaceChildren(title,dismiss);
     const body=doc.createElement('div');body.className='ui-modal-body';
     body.append(...card.childNodes);card.append(head,body);
-    card.classList.toggle('ui-modal-wide',!!body.querySelector('.cv-guide, .gv-catalog'));
+    card.classList.toggle('ui-modal-wide',!!body.querySelector('.cv-guide, .gv-catalog, .cv-app'));
     card.classList.toggle('ui-modal-replacing',replacing);
     root.setAttribute('aria-labelledby',title.id);
     root.classList.add('on');doc.documentElement.classList.add('ui-modal-open');

@@ -6,6 +6,12 @@ import {computeStats,power} from '../js/stats.js';
 import {MONSTER_TYPES} from '../data/balance.js';
 const unit=type=>{const r={type,level:32,slots:{},fat:0};return {...r,stats:computeStats(r,[]),power:power(r,[])};};
 const boss=Object.values(MONSTER_TYPES).find(t=>t.rarity==='BOSS').id;
+{
+ const html=battleView({allies:[unit('ignis')],enemies:[{...unit('ranger'),statsKnown:false}],powerKnown:false,powerUnavailableLabel:'상대 서킷 미확인'});
+ assert.ok(html.includes('상대 서킷 미확인'));assert.ok(!html.includes('적군 우세')&&!html.includes('아군 우세'));
+ const foe=html.slice(html.indexOf('data-unit="ranger"'),html.indexOf('</article>',html.indexOf('data-unit="ranger"')));
+ assert.equal((foe.match(/<dd>—<\/dd>/g)||[]).length,6,'no fabricated opponent stats when circuit input is missing');
+}
 for(const allies of [[unit('ignis')],[unit('ignis'),unit('ranger')]]){
  const html=battleView({allies,enemies:[unit(boss)],playerName:'<script>bad()</script>',playerMeta:'48승',enemyName:'A&B'});
  assert.equal((html.match(/data-unit=/g)||[]).length,allies.length+1);

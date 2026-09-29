@@ -39,6 +39,14 @@ const pull=good(await net.pullServer(1,'core'));assert.equal(pull.results.length
 state=good(await net.pull()).state;assert.equal(state.cores,pull.cores);assert.equal(state.stat.pulls,1);
 const credit=good(await net.pullServer(1,'credit'));assert.equal(credit.results.length,1);
 state=good(await net.pull()).state;assert.equal(state.credits,credit.credits);
+const refined=good(await net.refine(2));assert.equal(refined.spent,20);assert.equal(refined.made,2);assert.equal(refined.rcores,2);
+const stars=['A*','A1','A2','A3','A4','A5','A6','A7','A8']; // server's canonical order
+const circuit=good(await net.circuit('take',robots[0].uid,stars));assert.deepEqual(circuit.taken,stars);assert.equal(circuit.left,0);
+let remote=good(await net.pull());assert.deepEqual(remote.state.robots.find(r=>r.uid===robots[0].uid).circuit,stars);assert.equal(remote.rcores,2);
+assert.ok((await net.circuit('take',robots[0].uid,['B1'])).error,'cannot exceed level-earned circuit points');
+const reset=good(await net.circuit('reset',robots[0].uid));assert.deepEqual(reset.taken,[]);assert.equal(reset.spent,1);assert.equal(reset.rcores,1);
+const refinedPull=good(await net.pullServer(1,'rcore'));assert.equal(refinedPull.rcores,0);assert.equal(refinedPull.results.length,1);
+remote=good(await net.pull());assert.equal(remote.rcores,0);assert.equal(remote.state.cores,refinedPull.cores);assert.deepEqual(remote.state.robots.find(r=>r.uid===robots[0].uid).circuit||[],[]);assert.deepEqual(remote.circuit?.[robots[0].uid]||[],[]);
 const shop=good(await net.shop()),item=shop.stock.find(s=>!s.sold);assert.ok(item);
 good(await net.shop('buy',{slot:item.i,sig:item.sig}));assert.ok((await net.shop('buy',{slot:item.i,sig:item.sig})).error);
 const front=good(await net.front('c1-1'));assert.equal(front.win,true);assert.equal(front.first,true);
@@ -77,4 +85,4 @@ const restored=good(await net.pull()).state;
 assert.equal(restored.credits,saved.credits);assert.equal(restored.campaign,saved.campaign);
 assert.equal(restored.robots.length,saved.robots.length);assert.deepEqual(restored.parts,saved.parts);assert.deepEqual(restored.expd,saved.expd);
 await net.logout();
-console.log(JSON.stringify({ok:true,schema:24,requests:requests.length,checks:['guest','migration-once','equip-rejection','preset-transfer','fusion','core/credit-pull','shop-double-buy-rejection','front-first/repeat','trial-determinism','raid-2-units/damage-replay','battle-replay','hunt/joint-order-and-replay','territory/rewards','expedition/premature-claim','ranking/codex','register/login/logout','save-restoration']},null,2));
+console.log(JSON.stringify({ok:true,schema:24,requests:requests.length,checks:['guest','migration-once','equip-rejection','preset-transfer','fusion','core/credit/refined-pull','refine/circuit-save/point-rejection/reset/persistence','shop-double-buy-rejection','front-first/repeat','trial-determinism','raid-2-units/damage-replay','battle-replay','hunt/joint-order-and-replay','territory/rewards','expedition/premature-claim','ranking/codex','register/login/logout','save-restoration']},null,2));

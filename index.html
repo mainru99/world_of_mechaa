@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="themes/ui-v2.css?v=20260928-1">
 <link rel="stylesheet" href="themes/territory-v2.css?v=20260929-2">
 <link rel="stylesheet" href="themes/hangar-v2.css?v=20260920-1">
-<link rel="stylesheet" href="themes/recruitment-v2.css?v=20260920-1">
+<link rel="stylesheet" href="themes/recruitment-v2.css?v=20260929-circuit1">
 <link rel="stylesheet" href="themes/supply-v2.css?v=20260927-1">
 <link rel="stylesheet" href="themes/challenge-v2.css?v=20260928-1">
 <link rel="stylesheet" href="themes/front-v2.css?v=20260928-1">
@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="themes/ranking-v2.css?v=20260927-1">
 <link rel="stylesheet" href="themes/login-v2.css?v=20260927-1">
 <link rel="stylesheet" href="themes/common-v2.css?v=20260928-1">
+<link rel="stylesheet" href="themes/circuit-v2.css?v=20260929-circuit1">
 </head>
 <body class="ui-v2" data-scene="hangar">
 <!-- 화면별 배경 연출 레이어. 전부 pointer-events:none 이라 조작을 막지 않는다 -->
@@ -76,6 +77,7 @@
     <div class="wallet">
       <span class="coin" data-tip="크레딧 · 레벨업과 정비에 사용" title="크레딧"><i class="ic ic-credit"></i><b id="w-credit">0</b></span>
       <span class="coin" data-tip="코어 · 뽑기 1회에 1개" title="코어"><i class="ic ic-core"></i><b id="w-core">0</b></span>
+      <button class="coin cv-refine-wallet" onclick="ROWAR.openRefine()" data-tip="정제 코어 · 코어 정제, 서킷 비우기와 캡슐에 사용" title="정제 코어"><span class="cv-rcore-icon" aria-hidden="true">◆</span><b id="w-rcore">—</b><span class="sr-only">정제 코어 정제하기</span></button>
       <span class="coin" data-tip="스크랩 · 파츠 강화에 사용" title="스크랩"><i class="ic ic-scrap"></i><b id="w-scrap">0</b></span>
       <span class="coin acct" id="acct" data-tip="확인 중">···</span>
       <button class="coin help" id="helpbtn" data-tip="게임 설명" title="게임 설명"
@@ -109,6 +111,6 @@
 
 <!-- ES 모듈이라 file:// 로 직접 열면 동작하지 않는다. README 의 로컬 서버 안내 참고.
      인라인 onclick="ROWAR.x()" 는 js/game.js 가 window.ROWAR 를 대입하므로 그대로 동작한다. -->
-<script type="module" src="js/game.js?v=20260929-merged-integration"></script>
+<script type="module" src="js/game.js?v=20260929-circuit1"></script>
 </body>
 </html>

@@ -10,6 +10,7 @@ const trial={week,trial:trialOf(week),endsAt:weekEnd(week),winBase:TRIAL_WIN_BAS
 const raid={...rules,name:MONSTER_TYPES[rules.boss].name,endsAt:weekEnd(week),left:rules.maxHp,daily:3,triesLeft:3,top:[],joined:0};
 const robot={uid:'a',type:'ignis',level:32};
 assert.ok(trialChallengeView(trial,{robot,power:6000}).includes('기록 없음'));
+assert.match(trialChallengeView(trial,{robot,power:6000}),/--tv-scene:url\('\/assets\/terrain\/[^']+\.webp'\)/,'CSS variable background must resolve outside the theme folder');
 for(const html of [trialChallengeView({...trial,top:[{rank:1,nickname:'<img src=x onerror=bad()>',score:50}]},{robot,power:6000}),raidChallengeView({...raid,killed:true,killer:'<script>bad()</script>',triesLeft:0},{team:[{...robot,power:6000}]})]){
  assert.ok(!html.includes('<script>'));assert.ok(!html.includes('<img src=x'));
  assert.ok(!html.includes('ignis-idle'),'challenge sprites remain still PNGs');

@@ -267,6 +267,19 @@ export async function raid(run, joint) {
   return { error: (r.data && r.data.error) || r.error || 'raid failed' };
 }
 
+/* Existing server contracts, frontend transport only. A late response cannot
+   advance the new account's sync revision. */
+async function developmentRequest(path,body){
+  if(!state.online)return {error:'offline'};
+  const account=state.accountId;
+  const r=await call(path,{method:'POST',body});
+  if(account!==state.accountId)return {error:'account changed'};
+  if(r.ok&&r.data?.ok){if(r.data.rev!=null)setSyncedRev(r.data.rev);return r.data;}
+  return {...(r.data||{}),error:r.data?.error||r.error||'request failed',status:r.status};
+}
+export const circuit=(action,uid,stars)=>developmentRequest('/api/circuit',{action,uid,...(stars?{stars}:{})});
+export const refine=n=>developmentRequest('/api/refine',{n});
+
 /* 주간 시련. 읽기는 GET, 도전은 POST — 도전은 기록을 바꾸므로 GET 이면 안 된다. */
 export async function trial(run) {
   const r = await call('/api/trial', run ? { method: 'POST', body: {} } : {});

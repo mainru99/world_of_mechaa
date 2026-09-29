@@ -44,6 +44,7 @@ import { guideView, operationMenu, commonMessage } from './ui/common.js';
 import { battleView, BATTLE_MODES } from './ui/battle.js';
 import { territoryView, territoryResultView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
+import { createCircuitManager } from './ui/circuit-manager.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
@@ -580,7 +581,7 @@ function renderTicker(){
 
 /* 재화가 움직이는 자리마다 불린다 — 새 파츠 점도 여기에 얹는다.
    파츠를 얻는 다섯 길(뽑기·대전·파견·점령·합성)이 전부 이 함수를 지난다. */
-function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); navDot(); renderTicker(); }
+function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core').textContent=fmt(S.cores); $('#w-scrap').textContent=fmt(S.scrap); if(typeof development!=='undefined')development.wallet(); navDot(); renderTicker(); }
 /* 대전 화면은 자체 흐름(상대 찾기 → 발견 → 아레나 → 결과)을 갖는다.
    여기서 renderBattleHome() 을 부르면 재생 중인 전투나 방금 뜬 결과 화면이 날아간다.
    그래서 renderAll 은 대전 화면을 건드리지 않는다. 대전 화면은 go() 가 그린다. */
@@ -885,7 +886,7 @@ function renderHangar(){
     <div class="hv-layout">
       <aside class="hv-roster ui-surface"><div class="hv-roster-head"><h2>보유 기체 <small>${S.robots.length}</small></h2><select aria-label="기체 정렬" onchange="ROWAR.setHangarSort(this.value)">${[['power','전투력 순'],['level','레벨 순'],['rarity','등급 순']].map(([k,v])=>`<option value="${k}" ${hangarSort===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="hv-roster-list">${roster}</div><button class="hv-acquire" onclick="ROWAR.go('gacha')"><span>＋</span><span><b>새 기체 획득</b><small>더 넓은 전술을 준비하세요.</small></span></button></aside>
       <section class="hv-center"><div class="hg-stage hv-stage"><div class="hv-stage-top"><span>UNIT / ${String(ri+1).padStart(2,'0')}</span><span>${status(rb)} · Lv.${rb.level}</span></div><div class="hg-hero" data-t="${T.rarity}">${sprite(rb.type,false,{idle:true})}</div><button class="hv-cycle prev" onclick="ROWAR.cycleHangar(-1)" aria-label="이전 기체">${icon('chevron')}</button><button class="hv-cycle next" onclick="ROWAR.cycleHangar(1)" aria-label="다음 기체">${icon('chevron')}</button><div class="hv-caption"><span class="ui-eyebrow">${esc(T.role)}</span><h2>${esc(T.name)}</h2><div><span class="hv-rarity rr-${T.rarity}">${RR[T.rarity].ko} / ${T.rarity}</span><span class="hv-status">${status(rb)}</span></div><p>${esc(T.skill.name)} <span>· SKILL +${slv}</span></p></div><button class="hv-inspect" onclick="ROWAR.openRobot(${ri})" aria-label="${esc(T.name)} 상세 정보">${icon('expand')}</button></div><div class="hv-strip">${thumbstrip}</div></section>
-      <aside class="hv-dock ui-surface" id="hv-dock" data-tab="${hangarTab}"><div class="hv-tabs" role="tablist" aria-label="기체 관리">${[['info','기체 정보'],['gear','장비'],['tune','튜닝']].map(([k,v])=>`<button role="tab" id="hv-tab-${k}" aria-controls="hv-pane" aria-selected="${hangarTab===k}" onclick="ROWAR.setHangarTab('${k}')">${v}</button>`).join('')}<button onclick="ROWAR.openPresets()">프리셋</button></div><div class="hv-profile"><span class="hv-profile-icon">${emblem}</span><div><small>Lv.${rb.level} · ${status(rb)}</small><b>${esc(T.name)}</b><div class="hv-exp"><i style="width:${rb.level>=MAXLV?100:clamp((rb.exp||0)/expNeed(rb.level)*100,0,100)}%"></i></div><small class="hv-exp-label">${rb.level>=MAXLV?'MAX LEVEL':`${fmt(rb.exp||0)} / ${fmt(expNeed(rb.level))} EXP`}</small></div></div><div id="hv-pane" role="tabpanel" aria-labelledby="hv-tab-${hangarTab}">${detail}</div><div class="hv-actions"><button class="btn" onclick="ROWAR.openRobot(${ri})">편성 관리</button><button class="btn" onclick="ROWAR.setHangarTab('gear')">장비 변경</button><button class="btn gold" onclick="ROWAR.setHangarTab('tune')">튜닝 / 강화</button></div>${!net.state.online?'<p class="hv-offline">서버 연결 후 장착·강화·정비를 사용할 수 있습니다.</p>':''}</aside>
+      <aside class="hv-dock ui-surface" id="hv-dock" data-tab="${hangarTab}"><div class="hv-tabs" role="tablist" aria-label="기체 관리">${[['info','기체 정보'],['gear','장비'],['tune','튜닝']].map(([k,v])=>`<button role="tab" id="hv-tab-${k}" aria-controls="hv-pane" aria-selected="${hangarTab===k}" onclick="ROWAR.setHangarTab('${k}')">${v}</button>`).join('')}<button onclick="ROWAR.openCircuit()">코어 서킷</button><button onclick="ROWAR.openPresets()">프리셋</button></div><div class="hv-profile"><span class="hv-profile-icon">${emblem}</span><div><small>Lv.${rb.level} · ${status(rb)}</small><b>${esc(T.name)}</b><div class="hv-exp"><i style="width:${rb.level>=MAXLV?100:clamp((rb.exp||0)/expNeed(rb.level)*100,0,100)}%"></i></div><small class="hv-exp-label">${rb.level>=MAXLV?'MAX LEVEL':`${fmt(rb.exp||0)} / ${fmt(expNeed(rb.level))} EXP`}</small></div></div><div id="hv-pane" role="tabpanel" aria-labelledby="hv-tab-${hangarTab}">${detail}</div><div class="hv-actions"><button class="btn" onclick="ROWAR.openRobot(${ri})">편성 관리</button><button class="btn" onclick="ROWAR.setHangarTab('gear')">장비 변경</button><button class="btn gold" onclick="ROWAR.setHangarTab('tune')">튜닝 / 강화</button></div><button class="btn cv-hangar-mobile" onclick="ROWAR.openCircuit()">코어 서킷 관리</button>${!net.state.online?'<p class="hv-offline">서버 연결 후 장착·강화·정비를 사용할 수 있습니다.</p>':''}</aside>
     </div>${inventory}`;
   $('.hv-roster-list').scrollTop=rosterScroll;
   $('#hv-inventory').ontoggle=e=>{if(e.currentTarget.isConnected)hangarInventory=e.currentTarget.open;};
@@ -1127,7 +1128,7 @@ function openSlot(slot){
 /* ------------------------------- 뽑기 화면 ------------------------------- */
 /* 지금 보고 있는 뽑기 창구. 코어와 크레딧이 확률표를 따로 쓴다. */
 let gCur = 'core', _pullPending=null;
-const gFeatured={core:'ignis',credit:'azure'};
+const gFeatured={core:'ignis',credit:'azure',rcore:'solaris'};
 const setGacha = c => { if(_pullPending)return; gCur = PULL_CUR[c] ? c : 'core'; renderGacha(); };
 function setRecruitmentHero(id){
   if(_pullPending||!recruitmentPool(gCur).robots.some(r=>r.id===id))return;
@@ -1145,10 +1146,10 @@ function openRecruitmentDetails(id){
 }
 
 function gachaStageHtml(){
-  const core = gCur === 'core';
+  const core = gCur !== 'credit';
   const mode = core ? 'core' : 'credit';
-  const title = core ? 'CORE VAULT' : 'CREDIT VAULT';
-  const state = core ? '코어 동기화 대기' : '크레딧 변환 대기';
+  const title = gCur==='rcore'?'REFINED CORE VAULT':core ? 'CORE VAULT' : 'CREDIT VAULT';
+  const state = gCur==='rcore'?'정제 코어 동기화 대기':core ? '코어 동기화 대기' : '크레딧 변환 대기';
   const sparks = Array.from({length:14},(_,i)=>`<i style="--spark:${i}"></i>`).join('');
   return `<div class="gacha-stage ${mode}" id="stage" role="img" aria-label="${core?'코어':'크레딧'} 캡슐 대기 중">
     <div class="gacha-grid" aria-hidden="true"></div>
@@ -1260,6 +1261,7 @@ async function renderBag(){
 }
 
 async function shopBuy(i){
+  if(typeof development!=='undefined'&&development.busy())return;
   if(_shopPending||!net.state.online)return;
   const x = _shop && _shop.stock.find(s=>s.i===i);
   if(!x||x.sold||S.credits<x.price||_shopOwner!==net.state.accountId) return;
@@ -1282,6 +1284,7 @@ async function shopBuy(i){
       : b.kind==='scrap' ? `스크랩 +${b.qty}` : `코어 +${b.qty}`);
 }
 async function shopRefresh(){
+  if(typeof development!=='undefined'&&development.busy())return;
   if(_shopPending||!net.state.online||!_shop||S.credits<_shop.refresh||_shopOwner!==net.state.accountId)return;
   const owner=S,account=net.state.accountId;_shopPending=true;
   $('#sc-gacha').querySelectorAll('.sv-action').forEach(b=>b.disabled=true);
@@ -1295,6 +1298,7 @@ async function shopRefresh(){
   toast(`진열을 새로 굴렸습니다 · −${fmt(r.spent)} 크레딧`);
 }
 async function shopAssemble(type){
+  if(typeof development!=='undefined'&&development.busy())return;
   if(_shopPending||!net.state.online||!bagView(S.items||{},S.robots.map(r=>r.type)).some(b=>b.type===type&&b.ready))return;
   const owner=S,account=net.state.accountId;_shopPending=true;
   $('#sc-gacha').querySelectorAll('.sv-action').forEach(b=>b.disabled=true);
@@ -1315,7 +1319,7 @@ function renderGacha(){
   if(_pullPending)return;
   if(_gTab==='shop') return renderShop();
   if(_gTab==='bag') return renderBag();
-  $('#sc-gacha').innerHTML=recruitmentView({currency:gCur,featured:gFeatured[gCur],cores:S.cores,credits:S.credits,online:net.state.online,stageHtml:gachaStageHtml()});
+  $('#sc-gacha').innerHTML=recruitmentView({currency:gCur,featured:gFeatured[gCur],cores:S.cores,credits:S.credits,rcores:typeof development!=='undefined'?development.balance():null,online:net.state.online,stageHtml:gachaStageHtml()});
 }
 
 /* 뽑기는 서버가 판정한다.
@@ -1324,8 +1328,9 @@ function renderGacha(){
    굴리게 두면 끊고 굴린 뒤 올리면 그만이라 서버 판정의 의미가 사라진다. */
 async function doPull(count){
   if(_pullPending||![1,10].includes(count))return;
+  if(typeof development!=='undefined'&&development.busy())return;
   const currency=gCur, C=PULL_CUR[currency]||PULL_CUR.core;
-  const have=currency==='credit'?S.credits:S.cores;
+  const have=currency==='rcore'?(development.balance()??0):currency==='credit'?S.credits:S.cores;
   if(have<C.cost*count){toast(C.ko+'가 부족합니다');return;}
   if(!net.state.online){toast('뽑기는 서버 연결이 필요합니다');return;}
   const owner=S,account=net.state.accountId,token={};_pullPending=token;
@@ -1342,7 +1347,7 @@ async function doPull(count){
     const r=await net.pullServer(count,currency);
     await sleep(Math.max(0,(reduced?120:760)-(performance.now()-started)));
     if(!stillOwner())return;
-    if(!r||r.error){toast(!r?'뽑기는 서버 연결이 필요합니다':r.error==='not enough cores'?'코어가 부족합니다':r.error==='not enough credits'?'크레딧이 부족합니다':'뽑기 실패: '+r.error);return;}
+    if(!r||r.error){toast(!r?'뽑기는 서버 연결이 필요합니다':r.error==='not enough cores'?'코어가 부족합니다':r.error==='not enough credits'?'크레딧이 부족합니다':r.error==='not enough rcores'?'정제 코어가 부족합니다':'뽑기 실패: '+r.error);return;}
     stage?.classList.remove('charging');
     stage?.classList.add('rolling','prize-'+bestPrize(r.results));
     await sleep(reduced?100:520);
@@ -1352,6 +1357,7 @@ async function doPull(count){
     // Completed server rewards survive navigation; only the result modal is scene-scoped.
     for(const res of r.results)applyPull(res);
     S.credits=r.credits;S.cores=r.cores;S.scrap=r.scrap;
+    if(typeof development!=='undefined')development.setBalance(r.rcores);
     S.stat.pulls+=r.results.length;
     try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}
     net.cancelSync();renderWallet();
@@ -1882,7 +1888,7 @@ async function findMatch(opts){
 
 function setPending(o, cost, rescue, tier, mode, duel){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
-    robot:{ uid:'E', type:o.type, level:o.level, skillLv:o.skillLv|0, fat:0, slots:o.slots },
+    robot:{ uid:'E', type:o.type, level:o.level, skillLv:o.skillLv|0, fat:0, slots:o.slots, ...(Array.isArray(o.circuit)?{circuit:o.circuit}:{}) },
     parts:o.parts, bench:o.bench||[], band:o.band||null, bandTotal:o.bandTotal||null, bandGoal:o.bandGoal||null,
     cost:cost|0, rescue:!!rescue, tier:tier||null, mode:mode||null,
     joint:o.joint||null,                 // 합동전(토벌 보스) — 조준과 요구 조건. 있으면 편성 화면이 뜬다
@@ -2178,6 +2184,7 @@ function showOpponent(opp, practice){
   shield();
   const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];
   const my=selRobot(), myst=computeStats(my), est=computeStats(opp.robot, opp.parts||[]);
+  const enemyKnown=practice||opp.kind!=='player'||Array.isArray(opp.robot.circuit);
   const num=(k,v)=> isPct(k) ? (v*100).toFixed(0)+'%' : fmt(Math.round(v));
   /* 상대가 더 높은 값은 붉게, 내가 높으면 푸르게. 눈으로 훑어서 바로 읽히게 한다. */
   const cmp=k=>{ const a=est[k], b=myst[k], hi=a>b*1.02, lo=a<b*0.98;
@@ -2187,15 +2194,16 @@ function showOpponent(opp, practice){
 
   /* 대항 관계를 한 줄로. 기체마다 다른 스킬이 여기서 의미를 갖는다. */
   const myFx=(COMBAT_TYPES[my.type].skill.fx)||{}, notes=[];
-  if(est.eva >= myst.eva + 0.06)
+  if(!enemyKnown)notes.push('상대 서킷 정보가 아직 확인되지 않았습니다. 능력치는 전투 시작 시 확정됩니다.');
+  if(enemyKnown && est.eva >= myst.eva + 0.06)
     notes.push(myFx.noMiss ? '상대 회피가 높지만 <b>내 스킬은 빗나가지 않습니다</b>'
                            : '상대 <b>회피가 높습니다</b> — 빗나가지 않는 스킬이 유리합니다');
-  if(est.def >= myst.def * 1.25)
+  if(enemyKnown && est.def >= myst.def * 1.25)
     notes.push(myFx.ignoreDef ? '장갑이 두껍지만 <b>내 스킬이 관통합니다</b>'
                               : '<b>장갑이 두껍습니다</b> — 관통 스킬이 유리합니다');
   const myPow=power(my), oPow=power(opp.robot,opp.parts||[]);
-  if(oPow > myPow*1.10) notes.push('전투력이 밀립니다 — 공격력 <b>구간이 넓은</b> 편성이 뒤집을 여지가 큽니다');
-  else if(oPow < myPow*0.90) notes.push('전투력이 앞섭니다 — 구간이 <b>좁을수록</b> 확실합니다');
+  if(enemyKnown && oPow > myPow*1.10) notes.push('전투력이 밀립니다 — 공격력 <b>구간이 넓은</b> 편성이 뒤집을 여지가 큽니다');
+  else if(enemyKnown && oPow < myPow*0.90) notes.push('전투력이 앞섭니다 — 구간이 <b>좁을수록</b> 확실합니다');
 
   const mode=practice?'practice':opp.mode==='duel'?'duel':'arena';
   _battleMode=mode;
@@ -2204,9 +2212,9 @@ function showOpponent(opp, practice){
     const CT=COMBAT_TYPES[c.type]; if(!CT)return '';
     return `<button class="btn tacbtn${c.i===opp.pick?' on':''}" aria-pressed="${c.i===opp.pick}" onclick="ROWAR.duelPick(${c.i|0})"><b>${CT.name} · Lv.${c.level}</b><span>전투력 ${fmt(c.power)}</span></button>`;
   }).join('')}</div></div>`:'';
-  const intel=`<details class="bv-intel"><summary>기체 분석 · 스킬과 장비 비교</summary><div class="oppstats">${['def','eva','spd'].map(cmp).join('')}</div>${oppGear(opp)}<div class="monster-skill"><strong>${T.skill.name}</strong><span class="fxrow">${fxTags(opp.robot.type)}</span><span>${T.skill.desc}</span></div><div class="my-skill"><strong>내 스킬 · ${COMBAT_TYPES[my.type].skill.name}</strong><span class="fxrow">${fxTags(my.type)}</span><span>${COMBAT_TYPES[my.type].skill.desc}</span></div></details>`;
+  const intel=`<details class="bv-intel"><summary>기체 분석 · 스킬과 장비 비교</summary><div class="oppstats">${enemyKnown?['def','eva','spd'].map(cmp).join(''):'<p>상대 능력치는 전투 시작 시 확인할 수 있습니다.</p>'}</div>${oppGear(opp)}<div class="monster-skill"><strong>${T.skill.name}</strong><span class="fxrow">${fxTags(opp.robot.type)}</span><span>${T.skill.desc}</span></div><div class="my-skill"><strong>내 스킬 · ${COMBAT_TYPES[my.type].skill.name}</strong><span class="fxrow">${fxTags(my.type)}</span><span>${COMBAT_TYPES[my.type].skill.desc}</span></div></details>`;
   const brief=practice?'연습 대전 · 경험치·재화·피로도·전적은 변하지 않습니다.':opp.mode==='duel'?'친선 대전 · 출격비·보상·전적·레이팅 변동이 없습니다.':opp.rescue?'비상 출격 · 출격비 없이 전투합니다. 보상은 크레딧만 지급됩니다.':opp.tier?`토벌 ${HUNT_KO[opp.tier]||opp.tier} · 상대를 확인하고 전술을 선택하세요.`:'기체와 전술을 확인하세요. 전투는 자동으로 진행됩니다.';
-  $('#sc-battle').innerHTML=battleView({mode,allies:[battleUnit(my)],enemies:[battleUnit(opp.robot,opp.parts||[])],...battleIdentity(),
+  $('#sc-battle').innerHTML=battleView({mode,allies:[battleUnit(my)],enemies:[{...battleUnit(opp.robot,opp.parts||[]),statsKnown:enemyKnown}],powerKnown:enemyKnown,powerUnavailableLabel:'상대 서킷 미확인',...battleIdentity(),
     enemyName:opp.callsign,enemyMeta:`${monster?'몬스터 · 위험도 '+T.rarity:opp.kind==='player'?'플레이어':'훈련 기체'}${opp.band?' · 구간 '+opp.band+'/'+(opp.bandTotal||12):''}`,
     brief:`<p>${esc(brief)}</p>${bandLine(opp.bandGoal)}`,costLabel:practice||opp.mode==='duel'||opp.rescue?'무료':fmt(opp.cost)+' 크레딧',rewardLabel:practice||opp.mode==='duel'?'보상 없음':opp.rescue?'크레딧':'상대·승패에 따라 결정',
     actions:`<button class="bv-launch" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작 ${icon('chevron')}</button><button class="btn ghost" onclick="ROWAR.battleRetry(${!!practice})">다시 찾기</button>`,
@@ -3803,7 +3811,9 @@ function guard(fn, coolMs = 0){
 /* 속도 토글·화면 이동·모달 닫기는 문지기를 지나지 않는다 —
    전투가 재생되는 동안에도 눌러야 하는 것들이다. */
 
+const development=createCircuitManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,blocked:()=>!!_pullPending||!!_shopPending});
 window.ROWAR = {
+  ...development.actions,
   enterTerritory, enterFront, prepareTerritory, returnTerritory, uiMore, uiGo,
   inspectRobot, cycleHangar, setHangarTab, setHangarSort, openHangarInventory,
   go,
@@ -3890,6 +3900,7 @@ async function syncOnConnectInner(){
     if(remote.hunt) _huntWk = remote.hunt;
     S.items = remote.items || {};
     S.presets = parsePresets(remote.presets);
+    if(typeof development!=='undefined')development.adopt(remote);
     save();
     net.cancelSync();                        // 방금 받은 걸 도로 올릴 필요는 없다
     renderAll();
@@ -4021,6 +4032,7 @@ async function afterLogin(r){
   _gateNeedsPull=false;
   S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex;
   S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync();
+  if(typeof development!=='undefined')development.adopt(remote);
   renderAcct(); renderGate(); renderAll();
   frontAfterState();                             // 그 계정의 진행으로 전선을 다시 정한다(2026-09-24)
   toast(r.loginId+' 으로 로그인했습니다');

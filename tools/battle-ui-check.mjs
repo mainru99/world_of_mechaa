@@ -83,3 +83,21 @@ console.log('Battle UI passed: 1:1/2:1 rosters and power; static sprites; escapi
  result.resolve({error:'failed'});await run;assert.equal(button.disabled,false);assert.equal(button.innerHTML,'전투 시작');
  console.log('Battle request feedback passed: immediate loading; disabled launch; failure restores retry.');
 }
+// The shared battle surface keeps the operation that launched it selected.
+{
+ const t=findSetup();let nav;
+ t.c.toBattle=(bg,origin)=>{t.c.cur='battle';nav=origin;};
+ const run=t.c.findMatch({mode:'hunt',tier:'C'});t.result.resolve({opponent:{type:'ignis'}});await run;
+ assert.equal(nav,'hunt');
+}
+for(const hunt of [null,{tier:'C',done:false},{tier:'EP',done:true}]){
+ const el={innerHTML:''};let nav;
+ const c=vm.createContext({shield(){},toBattle:(bg,origin)=>nav=origin,$:()=>el,renderWallet(){},sprite:()=>'',esc:String,fmt:String,FAT_MAX:100,
+  huntNow:()=>({tiers:{},resetAt:0}),HUNT_KO:{},huntResetTxt:()=>'',bandText:()=>''});
+ vm.runInContext(fn('renderResult'),c);
+ c.renderResult(true,{hunt,lv:{amt:5,from:1,to:1},cr:1,sc:0,fat:{add:0}},{name:'A',type:'ignis'},{name:'B',type:'ranger'},{});
+ assert.equal(nav,hunt?'hunt':'battle');
+ assert.equal(el.innerHTML.includes("ROWAR.go('hunt')"),!!hunt,'all hunt results offer a return to missions');
+ assert.equal(el.innerHTML.includes('ROWAR.nextMatch()'),!hunt?.done,'capped hunts never start an arena by accident');
+}
+console.log('Operation routing passed: hunt search/replay results preserve origin and offer mission return.');

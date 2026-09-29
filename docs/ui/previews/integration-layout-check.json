@@ -1,0 +1,280 @@
+{
+  "date": "2026-09-29",
+  "environment": "localhost memory preview; real API screens described in integration review",
+  "observations": [
+    {
+      "label": "PC 홈",
+      "broken": [],
+      "heading": "지휘실",
+      "nav": [
+        "홈"
+      ],
+      "overflow": false,
+      "scene": "sc-home",
+      "width": 1440
+    },
+    {
+      "label": "PC 격납고",
+      "broken": [],
+      "heading": "격납고",
+      "nav": [
+        "격납고"
+      ],
+      "overflow": false,
+      "scene": "sc-hangar",
+      "width": 1440
+    },
+    {
+      "label": "PC 뽑기",
+      "broken": [],
+      "heading": "뽑기",
+      "nav": [
+        "뽑기"
+      ],
+      "overflow": false,
+      "scene": "sc-gacha",
+      "width": 1440
+    },
+    {
+      "label": "PC 대전",
+      "broken": [],
+      "nav": [
+        "대전"
+      ],
+      "overflow": false,
+      "scene": "sc-battle",
+      "width": 1440
+    },
+    {
+      "label": "PC 파견",
+      "broken": [],
+      "heading": "파견 임무 목록",
+      "nav": [
+        "파견"
+      ],
+      "overflow": false,
+      "scene": "sc-hunt",
+      "width": 1440
+    },
+    {
+      "label": "PC 점령",
+      "broken": [],
+      "heading": "점령",
+      "nav": [
+        "점령"
+      ],
+      "overflow": false,
+      "scene": "sc-terr",
+      "width": 1440
+    },
+    {
+      "label": "PC 시련",
+      "broken": [],
+      "heading": "주간 도전",
+      "nav": [
+        "시련"
+      ],
+      "overflow": false,
+      "scene": "sc-trial",
+      "width": 1440
+    },
+    {
+      "label": "PC 랭킹",
+      "broken": [],
+      "heading": "랭킹",
+      "nav": [
+        "랭킹"
+      ],
+      "overflow": false,
+      "scene": "sc-rank",
+      "width": 1440
+    },
+    {
+      "label": "360 보급 상점",
+      "broken": [],
+      "heading": "보급 상점",
+      "nav": [
+        "더보기"
+      ],
+      "overflow": false,
+      "scene": "sc-gacha",
+      "width": 360
+    },
+    {
+      "label": "360 파견",
+      "broken": [],
+      "heading": "파견 임무 목록",
+      "nav": [
+        "더보기"
+      ],
+      "overflow": false,
+      "scene": "sc-hunt",
+      "width": 360
+    },
+    {
+      "label": "360 시련",
+      "broken": [],
+      "heading": "주간 도전",
+      "nav": [
+        "더보기"
+      ],
+      "overflow": false,
+      "scene": "sc-trial",
+      "width": 360
+    },
+    {
+      "label": "360 랭킹",
+      "broken": [],
+      "heading": "랭킹",
+      "nav": [
+        "더보기"
+      ],
+      "overflow": false,
+      "scene": "sc-rank",
+      "width": 360
+    },
+    {
+      "label": "360 전선",
+      "broken": [],
+      "heading": "전선",
+      "nav": [
+        "점령"
+      ],
+      "overflow": false,
+      "scene": "sc-terr",
+      "width": 360
+    },
+    {
+      "label": "360 홈",
+      "broken": [],
+      "heading": "지휘실",
+      "nav": [
+        "홈"
+      ],
+      "overflow": false,
+      "scene": "sc-home",
+      "width": 360
+    },
+    {
+      "label": "360 격납고",
+      "broken": [],
+      "heading": "격납고",
+      "nav": [
+        "격납고"
+      ],
+      "overflow": false,
+      "scene": "sc-hangar",
+      "width": 360
+    },
+    {
+      "label": "360 대전",
+      "broken": [],
+      "nav": [
+        "대전"
+      ],
+      "overflow": false,
+      "scene": "sc-battle",
+      "width": 360
+    },
+    {
+      "label": "360 점령",
+      "broken": [],
+      "heading": "점령",
+      "nav": [
+        "점령"
+      ],
+      "overflow": false,
+      "scene": "sc-terr",
+      "width": 360
+    },
+    {
+      "label": "360 뽑기",
+      "broken": [],
+      "heading": "뽑기",
+      "nav": [
+        "더보기"
+      ],
+      "overflow": false,
+      "scene": "sc-gacha",
+      "width": 360
+    },
+    {
+      "label": "360 점령 최종",
+      "broken": [],
+      "heading": "점령",
+      "nav": [
+        "점령"
+      ],
+      "overflow": false,
+      "scene": "sc-terr",
+      "width": 360
+    },
+    {
+      "label": "360 시련 결과",
+      "width": 360,
+      "scene": "sc-battle",
+      "nav": [
+        "더보기"
+      ],
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "label": "360 레이드 결과",
+      "width": 360,
+      "scene": "sc-battle",
+      "nav": [
+        "더보기"
+      ],
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "label": "1280 레이드",
+      "width": 1280,
+      "scene": "sc-trial",
+      "heading": "주간 도전",
+      "nav": [
+        "시련"
+      ],
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "label": "1280 격납고",
+      "width": 1280,
+      "scene": "sc-hangar",
+      "heading": "격납고",
+      "nav": [
+        "격납고"
+      ],
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "label": "1280 점령",
+      "width": 1280,
+      "scene": "sc-terr",
+      "heading": "점령",
+      "nav": [
+        "점령"
+      ],
+      "overflow": false,
+      "broken": []
+    }
+  ],
+  "browserErrors": {
+    "desktop": [],
+    "mobile": [],
+    "localWorker": []
+  },
+  "motion": {
+    "hangarHero": "ignis-idle-10f.webp",
+    "hangarCards": "PNG"
+  },
+  "notes": [
+    "PC hidden mobile More is omitted from nav observations.",
+    "Image failures include only loaded img elements, not a complete asset/link audit.",
+    "Motion verified with currentSrc; initial src-only animation observations removed."
+  ]
+}

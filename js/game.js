@@ -40,7 +40,7 @@ import { frontCampaignView, frontStoryView, frontResultView } from './ui/front.j
 import { createModal } from './ui/modal.js';
 import { guideView, operationMenu, commonMessage } from './ui/common.js';
 import { battleView, BATTLE_MODES } from './ui/battle.js';
-import { territoryView, bindTerritory } from './ui/territory.js';
+import { territoryView, territoryResultView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
@@ -469,6 +469,7 @@ function toBattle(bg, navAs){
      아직 열리지도 않은 탭이다. navAs 를 주면 그 탭에 불이 남는다. */
   const lit = navAs || 'battle';
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.s===lit));
+  document.querySelector('.nav-more')?.classList.toggle('active',['gacha','hunt','trial','rank'].includes(lit));
 }
 /* 격납고를 떠나면 '새 파츠' 표를 지운다 — 인벤토리를 볼 기회가 한 번 있었다는 뜻이다.
    계속 반짝이게 두면 그 반짝임이 곧 배경이 되어 아무것도 알려 주지 못한다. */
@@ -1439,6 +1440,7 @@ function battleIdentity(){return {playerName:net.state.loginId||net.state.accoun
 function setBattleMode(mode){
   if(!BATTLE_MODES[mode])return;
   _battleMode=mode; _battleRequest++;
+  toBattle();
   renderBattleHome();
 }
 function battleRetry(practice=false){
@@ -1565,7 +1567,7 @@ async function raidRunGo(){
     for(let i=0;i<out.rounds.length;i++){
       if(!sameChallengeOwner(token)||replayRequest!==_battleRequest)return;
       const rd=out.rounds[i],M=mechs[rd.mi];
-      renderArena(M.type,foe.type,M.name,r.name,`보스 레이드 · ${r.name}`);
+      renderArena(M.type,foe.type,M.name,r.name,`보스 레이드 · ${r.name}`,null,null,'trial');
       if(arenaGone())return;
       if(i>0&&rd.mi!==out.rounds[i-1].mi)blog(`<b style="color:var(--bad)">선봉 격추</b> — <span class="k">${M.name}</span> 투입`);
       const P=makeUnit(M.name,M.type,M.stats);P.hp=rd.pHp;P.sp=rd.pSp;
@@ -1581,7 +1583,7 @@ async function raidRunGo(){
   finally{if(_challengeAction===token){_challengeAction=null;if(sameChallengeOwner(token)&&cur==='trial')renderTrial();}}
 }
 function renderRaidResult(r){
-  shield();toBattle();
+  shield();toBattle(null,'trial');
   $('#sc-battle').innerHTML=`<section class="tv-result ui-surface"><span class="ui-eyebrow">RAID REPORT</span><h2>${r.kill?'보스 격파':'공동 체력에 피해 반영'}</h2><p>${esc(r.name)} · 오늘 남은 도전 ${r.triesLeft} / ${r.daily}</p><div class="tv-result-grid"><div><span>이번에 반영된 피해</span><b>${fmt(r.damage)}</b></div><div><span>내 누적 피해</span><b>${fmt(r.me?.damage??r.damage)}</b></div><div><span>공동 보스 남은 체력</span><b>${r.killed?'격파됨':fmt(r.left)}</b></div></div>${r.raw>r.damage?`<p>공동 체력보다 많은 피해를 입혀, 남아 있던 ${fmt(r.damage)}만 반영했습니다.</p>`:''}<div class="tv-result-reward"><span>획득 보상</span><b>크레딧 +${fmt(r.reward.cr)}</b><b>스크랩 +${fmt(r.reward.sc)}</b></div><div class="row-btns"><button class="btn gold" onclick="ROWAR.go('trial')">레이드로 돌아가기</button><button class="btn" onclick="ROWAR.go('hangar')">출격 편성 확인</button></div></section>`;
 }
 async function trialRunGo(){
@@ -1598,7 +1600,7 @@ async function trialRunGo(){
     beginReplay();
     const replayRequest=_battleRequest;
     const out=runTrial(r.stats,r.trial,'none'),M=MONSTER_TYPES[r.trial.type]||{};
-    renderArena(r.robot.type,r.trial.type,ROBOT_TYPES[r.robot.type].name,M.name||r.trial.type,`주간 시련 · ${(TERRAIN[r.trial.terrain]||{}).ko||r.trial.terrain}`);
+    renderArena(r.robot.type,r.trial.type,ROBOT_TYPES[r.robot.type].name,M.name||r.trial.type,`주간 시련 · ${(TERRAIN[r.trial.terrain]||{}).ko||r.trial.terrain}`,null,null,'trial');
     if(arenaGone())return;
     const P=makeUnit('나',r.robot.type,out.mine),E=makeUnit(M.name||r.trial.type,r.trial.type,out.foe);
     if(!await playBattle(out.ev,P,E,{}))return;
@@ -1608,7 +1610,7 @@ async function trialRunGo(){
   finally{if(_challengeAction===token){_challengeAction=null;if(sameChallengeOwner(token)&&cur==='trial')renderTrial();}}
 }
 function renderTrialResult(r){
-  shield();toBattle();
+  shield();toBattle(null,'trial');
   const best=r.me?.score??r.score;
   $('#sc-battle').innerHTML=`<section class="tv-result ui-surface"><span class="ui-eyebrow">TRIAL REPORT</span><h2>${r.win?'시련 클리어':'시련 기록 완료'}</h2><p>${r.win?'상대를 넘어선 빌드입니다.':'이번 빌드가 남긴 피해를 점수로 기록했습니다.'}</p><div class="tv-result-grid"><div><span>이번 점수</span><b>${fmt(r.score)}</b></div><div><span>내 최고 기록</span><b>${fmt(best)}</b></div><div><span>현재 순위</span><b>${r.me?.rank?`${r.me.rank} / ${fmt(r.total)}`:'—'}</b></div></div>${r.score<best?'<p>최고 기록은 유지됩니다. 낮은 점수로 이전 기록이 지워지지 않습니다.</p>':''}<p>같은 빌드에서는 결과가 같습니다. 기체나 파츠를 바꿔 다시 도전해 보세요.</p><div class="row-btns"><button class="btn gold" onclick="ROWAR.go('trial')">시련으로 돌아가기</button><button class="btn" onclick="ROWAR.go('hangar')">격납고에서 빌드 변경</button></div></section>`;
 }
@@ -1850,7 +1852,7 @@ async function codexTitle(id){
 /* 상대는 서버가 고른다. 상대 레벨이 보상에 들어가므로 클라가 고르게 두면
    만렙 상대만 잡아 경험치를 부풀릴 수 있다. */
 async function findMatch(opts){
-  toBattle();
+  toBattle(null,opts?.mode==='hunt'?'hunt':'battle');
   const request=++_battleRequest,account=net.state.accountId,state=S;
   _battleFindOpts=opts?{...opts}:undefined;
   _battleMode=opts?.mode==='duel'?'duel':'arena';
@@ -2138,7 +2140,7 @@ function huntResetTxt(at){
    미리 받은 게 없거나 만료됐으면 그때만 다시 찾는다. */
 function nextMatch(){
   if(!_pendingOpp) return findMatch(_battleFindOpts);
-  toBattle();
+  toBattle(null,_pendingOpp.mode==='hunt'?'hunt':'battle');
   showOpponent(_pendingOpp);
 }
 /* 연습 대전의 상대. 예전에는 여기에 상대 생성 규칙이 따로 한 벌 있었는데,
@@ -2305,7 +2307,7 @@ async function startBattle(){
   const P=makeUnit(r.nameP, my.type, r.statP, r.tacticP);
   const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE, r.tacticE);
   const events=simulate(P,E,r.seed);
-  renderArena(my.type, r.opponent.type, P.name, E.name, null, r.tacticP, r.tacticE);
+  renderArena(my.type, r.opponent.type, P.name, E.name, null, r.tacticP, r.tacticE,opp.mode==='hunt'?'hunt':'battle');
 
   /* **재생이 끝날 때까지 기다린다.** 예전에는 여기서 바로 함수가 끝나, 재생이 도는 동안
      전투 시작을 또 누를 수 있었다(문지기가 이미 풀린 뒤라 막지 못한다). */
@@ -2536,7 +2538,7 @@ async function playBattle(events,P,E,o){
 }
 function renderResult(win,rw,P,E,opp){
   shield();
-  toBattle();                   // 전투가 끝나면 야간작전으로 돌아온다
+  toBattle(null,rw.hunt?'hunt':'battle');
   const rewards = [];
   if(rw.duel){
     rewards.push(`<div class="r" style="color:var(--acc2)">친선전 · 주고받은 것 없음</div>`);
@@ -2573,6 +2575,7 @@ function renderResult(win,rw,P,E,opp){
           /* 이번 판으로 그 등급의 주간 한도를 다 썼다 — 서버가 다음 상대를 안 잡았다. '한 판 더' 를 두면 아레나로 빠진다 */
           ? `<button class="btn big gold" onclick="ROWAR.go('hunt')">사냥터로</button>`
           : `<button class="btn big gold" onclick="ROWAR.nextMatch()">한 판 더</button>`}
+        ${rw.hunt&&!rw.hunt.done?'<button class="btn big ghost" onclick="ROWAR.go(\'hunt\')">사냥터로</button>':''}
         <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
     </div>`;
@@ -3149,24 +3152,30 @@ async function attackTerr(id, raid){
   closeModal();
   if(!net.state.online){ toast('점령전은 서버 연결이 필요합니다'); return; }
   const n=NODE_BY[id];
+  if(!n)return;
+  const owner=S,account=net.state.accountId,request=_battleRequest;
+  const sameOwner=()=>S===owner&&net.state.accountId===account;
+  const active=()=>sameOwner()&&request===_battleRequest&&cur==='battle';
+  _territorySelected=id;
   setTerrain(n && n.terrain);      // 이 칸의 지형이 전투 배경이 된다
   toBattle(null, 'terr');
-  $('#sc-battle').innerHTML = `<h2 class="title">점령전</h2><div class="panel"><div class="mm">
-    <div class="spinner"></div><div style="font-weight:800">${n?n.ko:'점령지'} ${raid?'강행 진입':'진입'} 중...</div>
-    <div class="hint">${raid?'점령자의 편성까지 확인하고 있습니다.':'방어선을 확인하고 있습니다.'}</div></div></div>`;
+  $('#sc-battle').innerHTML=commonMessage({title:`${n.ko} · ${raid?'강행 진입':'진입'} 중`,description:raid?'점령자의 편성까지 확인하고 있습니다.':'방어선을 확인하고 있습니다.',loading:true});
   const [r]=await Promise.all([net.territory('attack',{node:id, raid:!!raid}), sleep(700)]);
+  if(!sameOwner())return;
   if(!r || r.error){
+    if(!active())return;
     /* 보호 거절은 남은 시간을 함께 준다. 그냥 '실패'라고만 하면 왜 막혔는지 알 수 없다. */
     if(r && r.error==='locked')
-      toast(`Lv.${r.minLv} 이상이어야 들어갈 수 있습니다 (지금 Lv.${r.myLv})`);
+      toast(`Lv.${r.minLv??n.minLv} 이상이어야 들어갈 수 있습니다${r.myLv!=null?` (지금 Lv.${r.myLv})`:''}`);
     else if(r && r.error==='protected' && r.protectUntil)
       toast(`점령 직후 보호 중입니다 · ${dur(Math.max(0,r.protectUntil-Date.now()))} 남음`);
     else toast(ERR_KO[r&&r.error]||('공격하지 못했습니다'+(r&&r.error?': '+r.error:'')));
-    dropTerrCache(); go('terr'); return;
+    dropTerrCache(); enterTerritory(); return;
   }
   dropTerrCache();
   applyTerrAttack(r);
-  await playBreach(r);   // 재생이 끝날 때까지 문지기를 붙든다
+  if(!active()){if(cur==='terr'&&_frontTab==='terr')renderTerr();return;}
+  await playBreach(r,active);   // 재생이 끝날 때까지 문지기를 붙든다
 }
 const raidTerr = id => attackTerr(id, true);
 
@@ -3189,9 +3198,9 @@ function applyTerrAttack(r){
 /* 돌파 재생.
    서버가 준 편성·방어선·시드로 **같은 함수를 다시 돌려** 판별을 그대로 얻는다.
    전투마다 결과를 따로 받아 오지 않는 이유가 이것이다 — 그러면 재생과 결과가 갈린다. */
-async function playBreach(r){
-  const ok = await replayBreach(r, (NODE_BY[r.node] || {}).ko || '점령지');
-  if(ok) renderBreachResult(r);
+async function playBreach(r,active=()=>true){
+  const ok = await replayBreach(r, (NODE_BY[r.node] || {}).ko || '점령지',active);
+  if(ok&&active()) renderBreachResult(r);
 }
 
 /* 방어선 재생만 하는 부분. 점령전과 전선이 같이 쓴다 — 결과 화면은 서로 다르지만
@@ -3254,25 +3263,19 @@ function renderBreachResult(r){
   }
   lines.push(`<div class="r" style="color:var(--dim)">출격비 −${fmt(r.cost)} 크레딧</div>`);
 
-  $('#sc-battle').innerHTML = `
-    <div class="panel result">
-      <div class="big ${r.win?'win':'lose'}">${r.win?'점령 성공':'돌파 실패'}</div>
-      <div class="hint">${node?node.ko:''} · ${r.win?'이 칸은 이제 내 것입니다':'다음에 이어서 칠 수 있습니다'}</div>
-      <div class="reward">${lines.join('')}</div>
-      <div class="row-btns">
-        <button class="btn big gold" onclick="ROWAR.go('terr')">지도로</button>
-        <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
-      </div>
-    </div>`;
+  $('#sc-battle').innerHTML=territoryResultView(r,node,lines.join(''));
 }
 
 async function claimTerr(){
+  const owner=S,account=net.state.accountId;
   const r=await net.territory('claim');
+  if(S!==owner||account!==net.state.accountId)return;
   if(!r) return;
   if(r.error){ toast(ERR_KO[r.error]||('실패: '+r.error)); return; }
   S.credits=r.player.credits; S.scrap=r.player.scrap;
   if(r.player.cores!=null) S.cores=r.player.cores;
-  commitLocal(); dropTerrCache(); renderWallet(); renderTerrHome();
+  commitLocal(); dropTerrCache(); renderWallet();
+  if(cur==='terr'&&_frontTab==='terr')renderTerr();
   toast(`점령지 ${r.nodes}칸 · 크레딧 +${fmt(r.cr)} · 스크랩 +${fmt(r.sc)}${r.core?` · 코어 +${r.core}`:''}`);
 }
 
@@ -3575,7 +3578,7 @@ function renderGate(){
   const toggle=$('#gate-login-toggle');
   const saveNote=$('#gate-save-note');
   if(toggle)toggle.textContent=s.online&&!s.guest?'계정 관리':'계정 · 로그인';
-  if(saveNote)saveNote.textContent=_gateNeedsPull?'계정 기록을 받을 때까지 게임을 열지 않습니다.':!s.checkedAt?'연결 상태를 확인하고 있습니다.':s.online?(s.guest?'게스트 기록은 이 브라우저에 연결됩니다.':'진행 상황은 서버에 저장됩니다.'):'오프라인 진행은 이 브라우저에 저장됩니다.';
+  if(saveNote)saveNote.textContent=_gateNeedsPull?'계정 기록을 받을 때까지 게임을 열지 않습니다.':!s.checkedAt?'연결 상태를 확인하고 있습니다.':s.needGuest?'시작하면 게스트 계정을 만들고 진행을 서버에 저장합니다.':s.online?(s.guest?'게스트 기록은 이 브라우저에 연결됩니다.':'진행 상황은 서버에 저장됩니다.'):'오프라인 진행은 이 브라우저에 저장됩니다.';
   if(_gateNeedsPull){ el.textContent='계정 기록을 불러오지 못했습니다. 시작하기로 다시 시도하세요'; el.className='gate-who off'; }
   else if(!s.checkedAt){ el.textContent='연결 상태를 확인하는 중입니다'; el.className='gate-who off'; }
   else if(s.needGuest){ el.textContent='시작하면 게스트로 접속합니다 · 브라우저를 지우면 복구할 수 없습니다'; el.className='gate-who guest'; }

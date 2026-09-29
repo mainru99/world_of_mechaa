@@ -1,5 +1,12 @@
 import { TERRITORY, TERRAIN, CONST } from '../../data/balance.js';
 import { icon, escapeHtml as esc } from './icons.js';
+import { sprite } from '../sprites.js?v=20260912-hangar10-recovery';
+
+/* Presentation only; the authoritative reward rows are supplied by game.js. */
+export function territoryResultView(r,node,rewards){
+  const terrain=node?.terrain||'plain',title=node?.ko||'점령지';
+  return `<section class="tc-result ui-surface ${r.win?'win':'lose'}"><div class="tc-result-banner" style="background-image:url('assets/terrain/${esc(terrain)}.webp')"><small>TERRITORY ${r.win?'CAPTURED':'REPORT'}</small><h1>${r.win?'점령 성공':'돌파 실패'}</h1><p>${esc(title)} · ${esc(TERRAIN[terrain]?.ko||terrain)}</p></div><div class="tc-result-body"><p>${r.win?'확보한 거점에서 수입이 쌓입니다. 지도에서 한꺼번에 받을 수 있습니다.':'깎아 둔 방어선은 남습니다. 기체를 정비하고 다시 도전하세요. 방어선은 시간이 지나면 회복됩니다.'}</p><div class="tc-result-team" aria-label="출격 기체">${(r.mechs||[]).map(m=>`<div>${sprite(m.type,false)}<span><b>${esc(m.name)}</b><small>Lv.${m.level}</small></span></div>`).join('')}</div><div class="tc-result-rewards"><h2>전과 보고</h2><div class="reward">${rewards}</div></div><div class="row-btns"><button class="btn gold" onclick="ROWAR.enterTerritory()">선택 거점으로 돌아가기 ${icon('terr')}</button><button class="btn" onclick="ROWAR.prepareTerritory()">기체 정비 · 편성 변경 ${icon('hangar')}</button></div></div></section>`;
+}
 
 /* Display geometry only: these borders introduce no adjacency/attack rules. */
 export const MAP_POSITIONS = {

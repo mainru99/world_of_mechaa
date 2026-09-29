@@ -279,6 +279,13 @@ async function developmentRequest(path,body){
 }
 export const circuit=(action,uid,stars)=>developmentRequest('/api/circuit',{action,uid,...(stars?{stars}:{})});
 export const refine=n=>developmentRequest('/api/refine',{n});
+export const setDevelopmentGoal=type=>developmentRequest('/api/shop',{action:'goal',type});
+// UI reads only mastery/items; do not advance sync rev for a partial snapshot.
+export async function growthState(){
+  if(!state.online)return null;
+  const account=state.accountId,r=await call('/api/state');
+  return account===state.accountId&&r.ok&&r.data?.ok?r.data:null;
+}
 
 /* 주간 시련. 읽기는 GET, 도전은 POST — 도전은 기록을 바꾸므로 GET 이면 안 된다. */
 export async function trial(run) {

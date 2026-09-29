@@ -60,7 +60,7 @@ export function createCircuitManager(ctx){
       // Refresh after a rejection or ambiguous connection failure, never guess a deduction.
       let remote;try{remote=await ctx.net.pull();}catch{}
       if(!same(token)){if(pending===token)pending=null;return;}pending=null;
-      if(remote?.state){Object.assign(token.owner,remote.state);token.owner.items=remote.items||{};adopt(remote);}
+      if(remote?.state){Object.assign(token.owner,remote.state);token.owner.items=remote.items||{};adopt(remote);ctx.onRemote?.(remote);}
       ctx.commit();if(visible()&&session===view){view.draft=[];draw(message);}else ctx.toast(message);return;
     }
     pending=null;const robot=token.owner.robots.find(m=>m.uid===uid);

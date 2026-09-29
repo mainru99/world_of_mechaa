@@ -45,6 +45,8 @@ import { battleView, BATTLE_MODES } from './ui/battle.js';
 import { territoryView, territoryResultView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
 import { createCircuitManager } from './ui/circuit-manager.js';
+import { createDevelopmentManager } from './ui/development-manager.js';
+import { nextMastery } from './ui/development-view.js';
 
 const { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, DUPE_GAIN, SQUAD_MAX } = CONST;
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
@@ -420,6 +422,7 @@ async function levelUp(){
   const r=await srvHangar('levelup',{robotUid:rb.uid}); if(!r) return;
   S.credits=r.credits; rb.level=r.level; rb.exp=0; commitLocal();
   toast(ROBOT_TYPES[rb.type].name+' Lv.'+rb.level);
+  if(typeof growth!=='undefined')await growth.settleFor({});
 }
 
 /* 출격 편성에 넣고 뺀다. 상대를 잡아 둔 상태면 서버가 그 상대를 놓는다(dropped). */
@@ -880,13 +883,14 @@ function renderHangar(){
                </div>`}
 </section>
     <section class="hv-equipped-tune"><h3>장착 파츠 강화</h3>${SLOTS.map(slot=>{const p=findPart(rb.slots[slot],S.parts);return p?`<button class="hv-enhance" onclick="ROWAR.enhance('${p.uid}')" ${!net.state.online||S.scrap<enhCost(p.enh||0)||(p.enh|0)>=enhMax()?'disabled':''}>${partIco(p,'xs')}<span><b>${esc(p.name)} +${p.enh||0}</b><small>${(p.enh|0)>=enhMax()?'최대 강화':`스크랩 ${fmt(enhCost(p.enh||0))} · 성공 ${Math.round(enhRate(p.enh||0)*100)}%`}</small></span>${icon('chevron')}</button>`:'';}).join('')||'<p class="hint">장착한 파츠가 없습니다.</p>'}<p class="hint">강화 실패 시에도 재화는 소모됩니다.</p></section></div>`;
+  const growthPanel=typeof growth!=='undefined'?`<div class="hv-growth">${growth.card()}<p class="hv-mastery">${nextMastery(rb)} · 기체별 숙련 보상</p></div>`:'';
   const detail=hangarTab==='info'?`${stats}${gear}<details class="hv-details"><summary>기체 특성 · 스킬</summary><p>${esc(T.role)}</p><b>${esc(T.skill.name)}${slv?' +'+slv:''}</b><div class="fxrow">${fxTags(rb.type)}</div><p>${esc(T.skill.desc)}</p><p>공격력 변동 폭 ±${Math.round(st.spread*100)}% · 피로 ${fat}/${FAT_MAX}${fat?` · 최대 내구 −${fat}%`:''}</p></details>`:hangarTab==='gear'?`${gear}<div class="hv-build"><h3>빌드 프리셋</h3>${presetBar()||'<p class="hint">현재 장착 조합을 저장해 빠르게 교체하세요.</p>'}<button class="btn" onclick="ROWAR.openPresets()">프리셋 관리</button>${setPanel(rb)}</div>`:tune;
   const inventory=`<details class="hv-inventory ui-surface" id="hv-inventory" ${hangarInventory?'open':''}><summary>파츠 보관함 <span>${invAll.length}개 ${icon('chevron')}</span></summary><div class="hv-inventory-body"><div class="hv-section-head"><span class="hint">${invHit.length}개 표시 · 파츠를 눌러 강화 · 장착은 장비 슬롯에서</span><button class="btn" onclick="ROWAR.openFuse()">파츠 합성</button></div>${invBar(invAll)}<div class="inv">${inv}</div>${invMoreBtn}</div></details>`;
   $('#sc-hangar').innerHTML=`<div class="ui-pagehead hv-pagehead"><div><span class="ui-eyebrow">HANGAR / MECH MANAGEMENT</span><h1>격납고</h1><p>기체를 완성하고, 다음 전장을 준비하세요.</p></div><span class="hv-squad-count">출전 편성 <b>${S.squad.length} / ${SQUAD_MAX}</b></span></div>
     <div class="hv-layout">
       <aside class="hv-roster ui-surface"><div class="hv-roster-head"><h2>보유 기체 <small>${S.robots.length}</small></h2><select aria-label="기체 정렬" onchange="ROWAR.setHangarSort(this.value)">${[['power','전투력 순'],['level','레벨 순'],['rarity','등급 순']].map(([k,v])=>`<option value="${k}" ${hangarSort===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="hv-roster-list">${roster}</div><button class="hv-acquire" onclick="ROWAR.go('gacha')"><span>＋</span><span><b>새 기체 획득</b><small>더 넓은 전술을 준비하세요.</small></span></button></aside>
       <section class="hv-center"><div class="hg-stage hv-stage"><div class="hv-stage-top"><span>UNIT / ${String(ri+1).padStart(2,'0')}</span><span>${status(rb)} · Lv.${rb.level}</span></div><div class="hg-hero" data-t="${T.rarity}">${sprite(rb.type,false,{idle:true})}</div><button class="hv-cycle prev" onclick="ROWAR.cycleHangar(-1)" aria-label="이전 기체">${icon('chevron')}</button><button class="hv-cycle next" onclick="ROWAR.cycleHangar(1)" aria-label="다음 기체">${icon('chevron')}</button><div class="hv-caption"><span class="ui-eyebrow">${esc(T.role)}</span><h2>${esc(T.name)}</h2><div><span class="hv-rarity rr-${T.rarity}">${RR[T.rarity].ko} / ${T.rarity}</span><span class="hv-status">${status(rb)}</span></div><p>${esc(T.skill.name)} <span>· SKILL +${slv}</span></p></div><button class="hv-inspect" onclick="ROWAR.openRobot(${ri})" aria-label="${esc(T.name)} 상세 정보">${icon('expand')}</button></div><div class="hv-strip">${thumbstrip}</div></section>
-      <aside class="hv-dock ui-surface" id="hv-dock" data-tab="${hangarTab}"><div class="hv-tabs" role="tablist" aria-label="기체 관리">${[['info','기체 정보'],['gear','장비'],['tune','튜닝']].map(([k,v])=>`<button role="tab" id="hv-tab-${k}" aria-controls="hv-pane" aria-selected="${hangarTab===k}" onclick="ROWAR.setHangarTab('${k}')">${v}</button>`).join('')}<button onclick="ROWAR.openCircuit()">코어 서킷</button><button onclick="ROWAR.openPresets()">프리셋</button></div><div class="hv-profile"><span class="hv-profile-icon">${emblem}</span><div><small>Lv.${rb.level} · ${status(rb)}</small><b>${esc(T.name)}</b><div class="hv-exp"><i style="width:${rb.level>=MAXLV?100:clamp((rb.exp||0)/expNeed(rb.level)*100,0,100)}%"></i></div><small class="hv-exp-label">${rb.level>=MAXLV?'MAX LEVEL':`${fmt(rb.exp||0)} / ${fmt(expNeed(rb.level))} EXP`}</small></div></div><div id="hv-pane" role="tabpanel" aria-labelledby="hv-tab-${hangarTab}">${detail}</div><div class="hv-actions"><button class="btn" onclick="ROWAR.openRobot(${ri})">편성 관리</button><button class="btn" onclick="ROWAR.setHangarTab('gear')">장비 변경</button><button class="btn gold" onclick="ROWAR.setHangarTab('tune')">튜닝 / 강화</button></div><button class="btn cv-hangar-mobile" onclick="ROWAR.openCircuit()">코어 서킷 관리</button>${!net.state.online?'<p class="hv-offline">서버 연결 후 장착·강화·정비를 사용할 수 있습니다.</p>':''}</aside>
+      <aside class="hv-dock ui-surface" id="hv-dock" data-tab="${hangarTab}"><div class="hv-tabs" role="tablist" aria-label="기체 관리">${[['info','기체 정보'],['gear','장비'],['tune','튜닝']].map(([k,v])=>`<button role="tab" id="hv-tab-${k}" aria-controls="hv-pane" aria-selected="${hangarTab===k}" onclick="ROWAR.setHangarTab('${k}')">${v}</button>`).join('')}<button onclick="ROWAR.openCircuit()">코어 서킷</button><button onclick="ROWAR.openPresets()">프리셋</button></div><div class="hv-profile"><span class="hv-profile-icon">${emblem}</span><div><small>Lv.${rb.level} · ${status(rb)}</small><b>${esc(T.name)}</b><div class="hv-exp"><i style="width:${rb.level>=MAXLV?100:clamp((rb.exp||0)/expNeed(rb.level)*100,0,100)}%"></i></div><small class="hv-exp-label">${rb.level>=MAXLV?'MAX LEVEL':`${fmt(rb.exp||0)} / ${fmt(expNeed(rb.level))} EXP`}</small></div></div><div id="hv-pane" role="tabpanel" aria-labelledby="hv-tab-${hangarTab}">${detail}</div><div class="hv-actions"><button class="btn" onclick="ROWAR.openRobot(${ri})">편성 관리</button><button class="btn" onclick="ROWAR.setHangarTab('gear')">장비 변경</button><button class="btn gold" onclick="ROWAR.setHangarTab('tune')">튜닝 / 강화</button></div><button class="btn cv-hangar-mobile" onclick="ROWAR.openCircuit()">코어 서킷 관리</button>${growthPanel}${!net.state.online?'<p class="hv-offline">서버 연결 후 장착·강화·정비를 사용할 수 있습니다.</p>':''}</aside>
     </div>${inventory}`;
   $('.hv-roster-list').scrollTop=rosterScroll;
   $('#hv-inventory').ontoggle=e=>{if(e.currentTarget.isConnected)hangarInventory=e.currentTarget.open;};
@@ -1195,6 +1199,7 @@ function shopApply(r){
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();
   renderWallet();
+  if(typeof growth!=='undefined')growth.paintCards();
 }
 
 async function renderShop(){
@@ -1205,6 +1210,7 @@ async function renderShop(){
   if(_shopOwner!==net.state.accountId){ _shop=null; _shopAt=0; }
   const stale = !_shop || Date.now()-_shopAt > SHOP_TTL || (_shop.endsAt && Date.now() >= _shop.endsAt);
   if(stale){
+    if(typeof growth!=='undefined'&&growth.busy()){el.innerHTML=message('개발 기록 확인 중','기록 확인을 마치면 상점을 다시 표시합니다.');return;}
     const owner=S, account=net.state.accountId, seq=++_shopViewSeq;
     el.innerHTML = message('진열을 불러오는 중','이번 주기의 상품과 가격을 확인하고 있습니다.');
     let r;try{r=await net.shop();}catch(e){r={error:'연결 오류'};}
@@ -1257,10 +1263,11 @@ async function renderBag(){
     const gain=CONST.DUPE_GAIN[T.rarity]||{cr:0,sc:0,co:0};
     return `<article class="sv-bag-card ${b.ready?'ready':''}"><div class="sv-bag-art">${sprite(b.type,false)}</div><div class="sv-bag-copy"><div class="sv-bag-title">${robRarTag(b.type)}<h3>${esc(T.name)}</h3></div><div class="sv-progress"><span>조립 진행</span><b>${b.have} / ${b.need}</b><div role="progressbar" aria-label="${esc(T.name)} 조각" aria-valuenow="${Math.min(b.have,b.need)}" aria-valuemin="0" aria-valuemax="${b.need}"><i style="width:${pct}%"></i></div></div>${b.owned?`<p>보유 기체 · 조립 시 크레딧 ${fmt(gain.cr)}, 스크랩 ${fmt(gain.sc)}${gain.co?`, 코어 ${fmt(gain.co)}`:''} 획득</p>`:'<p>미보유 기체 · 조립하면 격납고에 추가됩니다.</p>'}</div><button class="btn sv-action ${b.ready?'gold':''}" ${b.ready&&net.state.online&&!_shopPending?'':'disabled'} onclick="ROWAR.shopAssemble('${b.type}')">${b.ready?'조립하기':'조각 부족'}</button></article>`;
   };
-  el.innerHTML = `${shopTabs()}<div class="sv-page"><header class="sv-hero sv-bag-hero"><span class="ui-eyebrow">SUPPLY DEPOT / COLLECTION</span><h1>기체 조각 보관함</h1><p>모은 조각을 확인하고, 기준 수량이 되면 기체를 조립하세요.</p><div class="sv-hero-meta"><span>보유 조각 <b>${fmt(collected)}개</b></span><span>조립 가능 <b>${ready}기</b></span></div></header><div class="sv-layout"><section class="sv-stock ui-surface"><div class="sv-section-head"><div><span class="ui-eyebrow">COLLECTED SHARDS</span><h2>보유 목록</h2></div><span>${bag.length}종</span></div>${bag.length?`<div class="sv-bag-grid">${bag.map(row).join('')}</div>`:`<div class="sv-empty"><h3>아직 모은 조각이 없습니다</h3><p>보급 상점의 기체 조각을 구매하면 이곳에 표시됩니다.</p><button class="btn" onclick="ROWAR.setShopTab('shop')">상점 살펴보기</button></div>`}</section><aside class="sv-side"><div class="sv-note ui-surface"><h3>조립 기준</h3><div class="sv-need-list">${Object.entries(CONST.SHARD_NEED).map(([k,v])=>`<div><span>${k}</span><b>${v}개</b></div>`).join('')}</div><p>이미 보유한 기체를 조립하면 기체 대신 등급에 맞는 자원을 받습니다.</p><button class="ui-text-button" onclick="ROWAR.setShopTab('shop')">보급 상점 ${icon('chevron')}</button></div></aside></div></div>`;
+  el.innerHTML = `${shopTabs()}<div class="sv-page"><header class="sv-hero sv-bag-hero"><span class="ui-eyebrow">SUPPLY DEPOT / COLLECTION</span><h1>기체 조각 보관함</h1><p>모은 조각을 확인하고, 기준 수량이 되면 기체를 조립하세요.</p><div class="sv-hero-meta"><span>보유 조각 <b>${fmt(collected)}개</b></span><span>조립 가능 <b>${ready}기</b></span></div></header>${typeof growth!=='undefined'?growth.card():''}<div class="sv-layout"><section class="sv-stock ui-surface"><div class="sv-section-head"><div><span class="ui-eyebrow">COLLECTED SHARDS</span><h2>보유 목록</h2></div><span>${bag.length}종</span></div>${bag.length?`<div class="sv-bag-grid">${bag.map(row).join('')}</div>`:`<div class="sv-empty"><h3>아직 모은 조각이 없습니다</h3><p>보급 상점의 기체 조각을 구매하면 이곳에 표시됩니다.</p><button class="btn" onclick="ROWAR.setShopTab('shop')">상점 살펴보기</button></div>`}</section><aside class="sv-side"><div class="sv-note ui-surface"><h3>조립 기준</h3><div class="sv-need-list">${Object.entries(CONST.SHARD_NEED).map(([k,v])=>`<div><span>${k}</span><b>${v}개</b></div>`).join('')}</div><p>이미 보유한 기체를 조립하면 기체 대신 등급에 맞는 자원을 받습니다.</p><button class="ui-text-button" onclick="ROWAR.setShopTab('shop')">보급 상점 ${icon('chevron')}</button></div></aside></div></div>`;
 }
 
 async function shopBuy(i){
+  if(typeof growth!=='undefined'&&growth.busy())return;
   if(typeof development!=='undefined'&&development.busy())return;
   if(_shopPending||!net.state.online)return;
   const x = _shop && _shop.stock.find(s=>s.i===i);
@@ -1284,6 +1291,7 @@ async function shopBuy(i){
       : b.kind==='scrap' ? `스크랩 +${b.qty}` : `코어 +${b.qty}`);
 }
 async function shopRefresh(){
+  if(typeof growth!=='undefined'&&growth.busy())return;
   if(typeof development!=='undefined'&&development.busy())return;
   if(_shopPending||!net.state.online||!_shop||S.credits<_shop.refresh||_shopOwner!==net.state.accountId)return;
   const owner=S,account=net.state.accountId;_shopPending=true;
@@ -1298,6 +1306,7 @@ async function shopRefresh(){
   toast(`진열을 새로 굴렸습니다 · −${fmt(r.spent)} 크레딧`);
 }
 async function shopAssemble(type){
+  if(typeof growth!=='undefined'&&growth.busy())return;
   if(typeof development!=='undefined'&&development.busy())return;
   if(_shopPending||!net.state.online||!bagView(S.items||{},S.robots.map(r=>r.type)).some(b=>b.type===type&&b.ready))return;
   const owner=S,account=net.state.accountId;_shopPending=true;
@@ -1313,6 +1322,7 @@ async function shopAssemble(type){
   shopApply(r); if(cur==='gacha')renderGacha();
   toast(a.dupe ? `${ROBOT_TYPES[type].name} — 이미 가진 기체라 자원으로 바뀌었습니다 (크레딧 +${fmt(a.gain.cr)} · 스크랩 +${a.gain.sc}${a.gain.co?` · 코어 +${a.gain.co}`:''})`
                : `${ROBOT_TYPES[type].name} 조립 완료! 격납고에 들어갔습니다`);
+  if(!a.dupe&&typeof growth!=='undefined')await growth.settleFor({});
 }
 
 function renderGacha(){
@@ -1327,6 +1337,7 @@ function renderGacha(){
    결과를 조작할 수 없다. 대신 연결이 없으면 뽑을 수 없다 — 오프라인에서 로컬로
    굴리게 두면 끊고 굴린 뒤 올리면 그만이라 서버 판정의 의미가 사라진다. */
 async function doPull(count){
+  if(typeof growth!=='undefined'&&growth.busy())return;
   if(_pullPending||![1,10].includes(count))return;
   if(typeof development!=='undefined'&&development.busy())return;
   const currency=gCur, C=PULL_CUR[currency]||PULL_CUR.core;
@@ -1364,6 +1375,7 @@ async function doPull(count){
     _pullPending=null;
     if(cur==='gacha'&&_gTab==='pull'){renderGacha();showReveal(r.results);}
     else{renderAll();toast('뽑기 완료 · 획득한 보상을 보관했습니다');}
+    if(typeof growth!=='undefined'&&r.results.some(x=>x.kind==='robot'))await growth.settleFor({});
   }finally{
     stage?.classList.remove('charging','rolling','opening');
     if(animation)animation.hidden=true;
@@ -2354,7 +2366,7 @@ async function startBattle(){
    (점령전은 applyTerrAttack 이 재생 전에 불려 출격비가 바로 반영된다 —
     대전만 재생이 끝난 뒤에 반영돼서, 거기만 출격비를 따로 먼저 깎아 준다) */
 let _lastReward=null;
-function applyServerBattle(r, rb){
+function applyServerBattle(r, rb, deferMastery=false){
   S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;
   S.stat.wins=r.player.wins; S.stat.losses=r.player.losses;
   rb.level=r.robot.level; rb.exp=r.robot.exp; rb.fat=r.robot.fat; rb.fatAt=r.robot.fatAt;
@@ -2374,6 +2386,7 @@ function applyServerBattle(r, rb){
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();                              // 서버가 이미 최신이다
   renderWallet();
+  if(!deferMastery&&typeof growth!=='undefined'&&(r.reward.lv?.to>r.reward.lv?.from||r2?.lv?.to>r2?.lv?.from))growth.settleFor(_lastReward);
 }
 /* 더 이상 쓰이지 않는다 — 보상은 서버(server/battle.js)가 확정한다.
    오프라인 연습 모드를 붙이게 되면 이 함수를 다시 쓸 수 있어 남겨 둔다. */
@@ -2670,7 +2683,7 @@ function renderResult(win,rw,P,E,opp){
     <div class="panel result bv-result">
       <div class="big ${win?'win':'lose'}">${win?'VICTORY':'DEFEAT'}</div>
       <div class="hint">${esc(P.name)} vs ${esc(E.name)}</div><div class="bv-result-art">${sprite(P.type,true)}<span>VS</span>${sprite(E.type,false)}</div>
-      <div class="reward">${rewards.join('')}</div>
+      <div class="reward">${rewards.join('')}${typeof growth!=='undefined'?growth.rewardSlot(rw):''}</div>
       <div class="row-btns">
         ${rw.hunt && rw.hunt.done
           /* 이번 판으로 그 등급의 주간 한도를 다 썼다 — 서버가 다음 상대를 안 잡았다. '한 판 더' 를 두면 아레나로 빠진다 */
@@ -3030,7 +3043,7 @@ async function startJointBattle(opp){
 }
 function applyJointBattle(r){
   const lead=S.robots.find(x=>x.uid===r.robot.uid) || selRobot();
-  applyServerBattle(r, lead);
+  applyServerBattle(r, lead, true);
   for(const x of (r.robots||[])){
     const rb=S.robots.find(y=>y.uid===x.uid);
     if(rb){ rb.level=x.level; rb.exp=x.exp; rb.fat=x.fat; rb.fatAt=x.fatAt; }
@@ -3038,6 +3051,7 @@ function applyJointBattle(r){
   _lastReward.robots=(r.reward.robots||[]).map(x=>({ ...x,
     name:(ROBOT_TYPES[(S.robots.find(y=>y.uid===x.uid)||{}).type]||{}).name||'' }));
   commitLocal();
+  if(typeof growth!=='undefined'&&(r.reward.robots||[]).some(x=>x.lv?.to>x.lv?.from))growth.settleFor(_lastReward);
 }
 
 /* 레이드 — '보스 공격' 을 누르면 먼저 이 편성 화면이 뜬다 */
@@ -3391,6 +3405,7 @@ function applyFront(r){
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   if(!r.local) net.cancelSync();          // 서버가 이미 최신이다
   renderWallet();
+  if(!r.local&&typeof growth!=='undefined'&&(r.exp||[]).some(e=>e.to>e.from))growth.settleFor(r);
 }
 
 function renderFrontResult(r, c){
@@ -3413,7 +3428,7 @@ function renderFrontResult(r, c){
     lines.push(`<div class="r" style="color:var(--bad)">${ROBOT_TYPES[rb.type].name} 피로도 +${f.add} (${f.now})</div>`); }
 
   _fight=fightBreach(r);
-  $('#sc-battle').innerHTML=frontResultView(r,c,{rewards:lines.join(''),repair:frontFixHtml((r.fat||[]).map(f=>f.uid))})+analysisSlot();
+  $('#sc-battle').innerHTML=frontResultView(r,c,{rewards:lines.join('')+(typeof growth!=='undefined'?growth.rewardSlot(r):''),repair:frontFixHtml((r.fat||[]).map(f=>f.uid))})+analysisSlot();
   fillAnalysis();
 }
 
@@ -3665,6 +3680,7 @@ function applyTerrAttack(r){
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
   net.cancelSync();                 // 서버가 이미 최신이다
   renderWallet();
+  if(typeof growth!=='undefined'&&(r.reward.exp||[]).some(e=>e.to>e.from))growth.settleFor(r);
 }
 
 /* 돌파 재생.
@@ -3736,7 +3752,7 @@ function renderBreachResult(r){
   lines.push(`<div class="r" style="color:var(--dim)">출격비 −${fmt(r.cost)} 크레딧</div>`);
 
   _fight=fightBreach(r);
-  $('#sc-battle').innerHTML=territoryResultView(r,node,lines.join(''))+analysisSlot();
+  $('#sc-battle').innerHTML=territoryResultView(r,node,lines.join('')+(typeof growth!=='undefined'?growth.rewardSlot(r):''))+analysisSlot();
   fillAnalysis();
 }
 
@@ -3792,7 +3808,7 @@ function guard(fn, coolMs = 0){
     /* 하나가 도는 동안 들어온 것은 버린다. 끝난 뒤에도 coolMs 동안은 다시 받지 않는다 —
        동작이 짧게 끝나는 조작(상대 찾기 같은)은 그 사이에 남은 클릭이 도착할 수 있다. */
     const key = fn.name || String(_cool.size);
-    if(_busy || Date.now() < (_cool.get(key) || 0)) return;
+    if(_busy || (typeof growth!=='undefined'&&growth.busy()) || Date.now() < (_cool.get(key) || 0)) return;
     _busy = true;
     document.body.classList.add('busy');
     /* 예외를 반드시 드러낸다. 예전에는 그냥 던졌는데, onclick 에서 부르는 async 함수라
@@ -3811,9 +3827,11 @@ function guard(fn, coolMs = 0){
 /* 속도 토글·화면 이동·모달 닫기는 문지기를 지나지 않는다 —
    전투가 재생되는 동안에도 눌러야 하는 것들이다. */
 
-const development=createCircuitManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,blocked:()=>!!_pullPending||!!_shopPending});
+const development=createCircuitManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,onRemote:r=>growth.adopt(r),blocked:()=>!!_pullPending||!!_shopPending||_busy||growth.busy()});
+const growth=createDevelopmentManager({state:()=>S,net,openModal,commit:commitLocal,toast,mobile:()=>matchMedia('(max-width:700px)').matches,onRemote:r=>{development.adopt(r);development.wallet();},blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()});
 window.ROWAR = {
   ...development.actions,
+  ...growth.actions,
   enterTerritory, enterFront, prepareTerritory, returnTerritory, uiMore, uiGo,
   inspectRobot, cycleHangar, setHangarTab, setHangarSort, openHangarInventory,
   go,
@@ -3901,6 +3919,7 @@ async function syncOnConnectInner(){
     S.items = remote.items || {};
     S.presets = parsePresets(remote.presets);
     if(typeof development!=='undefined')development.adopt(remote);
+    if(typeof growth!=='undefined')growth.adopt(remote);
     save();
     net.cancelSync();                        // 방금 받은 걸 도로 올릴 필요는 없다
     renderAll();
@@ -4033,6 +4052,7 @@ async function afterLogin(r){
   S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex;
   S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync();
   if(typeof development!=='undefined')development.adopt(remote);
+  if(typeof growth!=='undefined')growth.adopt(remote);
   renderAcct(); renderGate(); renderAll();
   frontAfterState();                             // 그 계정의 진행으로 전선을 다시 정한다(2026-09-24)
   toast(r.loginId+' 으로 로그인했습니다');

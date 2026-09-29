@@ -11,6 +11,7 @@
  * 읽는 행 — player 1 + robot N + part N. 점령전 한 번과 같다.
  * 진행은 `player.campaign` 한 칸이라 **표가 늘지 않는다**(마이그레이션 016).
  */
+import { parseCircuit } from '../js/circuit.js';
 import { codexMonsterStmt } from './codex.js';
 import { codexLines } from '../js/breach.js';
 import { CONST, ROBOT_TYPES, SLOTS } from '../data/balance.js';
@@ -34,7 +35,7 @@ async function loadSquad(env, acc) {
        FROM player WHERE account_id = ?1`).bind(acc).first();
   if (!p) return null;
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, ${Object.values(SLOT_COL).join(', ')}
+    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, circuit, ${Object.values(SLOT_COL).join(', ')}
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(acc).all()).results || [];
   if (!robots.length) return { p, mechs: [], robots: [] };
   const parts = (await env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`)
@@ -56,7 +57,7 @@ async function loadSquad(env, acc) {
       if (q) used.push(partOf(q));
     }
     return { row, robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp,
-                           fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots }, parts: used };
+                           fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit) }, parts: used };
   });
   return { p, mechs, robots };
 }

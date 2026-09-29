@@ -13,6 +13,7 @@ import { scrapGain, fusePart, fuseCheck, fuseCost } from '../js/gacha.js';
 import { registerArena } from './arena.js';
 import { partOf, insertPart } from './parts.js';
 import { parsePresets, cleanName, presetCheck, PRESET_MAX } from '../js/preset.js';
+import { bindOn, unbindCost, equipCheck, fuseBind, presetBindFilter } from '../js/bind.js';
 
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 const err = (status, error) => ({ ok: false, status, error });
@@ -21,6 +22,9 @@ const getRobot = (env, acc, uid) => env.DB
   .prepare('SELECT * FROM robot WHERE account_id = ?1 AND uid = ?2').bind(acc, uid).first();
 const getPart = (env, acc, uid) => env.DB
   .prepare('SELECT * FROM part WHERE account_id = ?1 AND uid = ?2').bind(acc, uid).first();
+/* 귀속된 기체의 uid — 오류 응답이 '어느 기체 것인지' 를 알려 준다 */
+const boundUid = async (env, id) => id == null ? null
+  : ((await env.DB.prepare('SELECT uid FROM robot WHERE id = ?1').bind(id).first()) || {}).uid || null;
 const getPlayer = (env, acc) => env.DB
   .prepare('SELECT credits, cores, scrap, rev, sel_robot, squad1, squad2, pending_match, expd_robot, presets FROM player WHERE account_id = ?1')
   .bind(acc).first();
@@ -59,6 +63,9 @@ export async function hangarAction(env, acc, body, now) {
     const col = SLOT_COL[body.slot];
     if (!col) return err(400, 'bad slot');
     if (pt.slot !== body.slot) return err(400, 'slot mismatch');   // WEAPON 파츠를 CORE 에 못 넣는다
+    /* 파츠 귀속(js/bind.js) — 다른 기체에 귀속된 파츠는 못 낀다. 스위치가 꺼져 있으면 보지 않는다 */
+    const bindErr = equipCheck(pt.bound ?? null, rb.id);
+    if (bindErr) return { ...err(400, bindErr), boundTo: await boundUid(env, pt.bound) };
 
     /* 다른 기체(또는 다른 슬롯)가 물고 있으면 먼저 떼어 낸다 */
     const stmts = [];
@@ -67,11 +74,34 @@ export async function hangarAction(env, acc, body, now) {
         .bind(acc, pt.id));
     }
     stmts.push(env.DB.prepare(`UPDATE robot SET ${col} = ?1 WHERE id = ?2`).bind(pt.id, rb.id));
+    /* 처음 끼는 순간 귀속한다 */
+    if (bindOn()) stmts.push(env.DB.prepare('UPDATE part SET bound = ?1 WHERE id = ?2 AND bound IS NULL').bind(rb.id, pt.id));
     stmts.push(env.DB.prepare('UPDATE player SET rev = ?1, updated_at = ?2 WHERE account_id = ?3')
       .bind(p.rev + 1, now, acc));
     await env.DB.batch(stmts);
     await registerArena(env, acc, now);   // 방어 편성이 바뀌었다
-    return { ok: true, rev: p.rev + 1 };
+    return { ok: true, rev: p.rev + 1, ...(bindOn() ? { bound: rb.uid } : {}) };
+  }
+
+  /* ── 귀속 풀기 (2026-09-28) ── 정제 코어를 치르고 파츠를 풀린 상태로 돌린다. 끼고 있던 것은 낀 채다
+     (다른 기체가 끼면 그때 떼어 가고 그 기체에 귀속된다). 서킷 비우기와 같은 한 묶음 — 풀었는데 안 치름 · 치렀는데 안 풂이 없다 */
+  if (action === 'unbind') {
+    if (!bindOn()) return err(400, 'bind off');
+    const pt = await getPart(env, acc, body.partUid);
+    if (!pt) return err(404, 'part not found');
+    if (pt.bound == null) return err(400, 'not bound');
+    const cost = unbindCost();
+    const q = await env.DB.prepare('SELECT rcores FROM player WHERE account_id = ?1').bind(acc).first();
+    const have = q ? q.rcores | 0 : 0;
+    if (have < cost) return { ...err(400, 'not enough rcores'), need: cost, rcores: have };
+    const out = await env.DB.batch([
+      env.DB.prepare(`UPDATE part SET bound = NULL WHERE id = ?1 AND bound = ?2
+                        AND (SELECT rcores FROM player WHERE account_id = ?3) >= ?4`).bind(pt.id, pt.bound, acc, cost),
+      env.DB.prepare(`UPDATE player SET rcores = rcores - ?2, rev = rev + 1, updated_at = ?3
+                       WHERE account_id = ?1 AND rcores >= ?2 AND changes() = 1`).bind(acc, cost, now),
+    ]);
+    if (((out && out[1] && out[1].meta && out[1].meta.changes) ?? 0) !== 1) return err(409, 'part changed, retry');
+    return { ok: true, spent: cost, rcores: have - cost, uid: pt.uid, rev: p.rev + 1 };
   }
 
   /* ── 빌드 프리셋 (5순위 I) ─────────────────────────────
@@ -80,17 +110,22 @@ export async function hangarAction(env, acc, body, now) {
   if (action === 'presetSave' || action === 'presetDelete' || action === 'presetApply') {
     const i = body.i | 0;
     if (i < 0 || i >= PRESET_MAX) return err(400, 'bad preset slot');
-    const list = parsePresets(p.presets);
+    /* 파츠 귀속이 켜지면 프리셋은 **기체마다**(robot.presets). 꺼져 있으면 예전처럼 계정 하나(player.presets) */
+    const perRobot = bindOn();
+    /* 계정 프리셋 지우기는 기체를 받지 않는다(예전 요청 모양) — 기체가 필요할 때만 찾는다 */
+    const needRobot = perRobot || action !== 'presetDelete';
+    const rb = needRobot && typeof body.robotUid === 'string' ? await getRobot(env, acc, body.robotUid) : null;
+    if (needRobot && !rb) return err(404, 'robot not found');
+    const list = parsePresets(perRobot ? rb.presets : p.presets);
+    const savePresets = l => perRobot
+      ? env.DB.prepare('UPDATE robot SET presets = ?1 WHERE id = ?2').bind(JSON.stringify(l), rb.id)
+      : env.DB.prepare('UPDATE player SET presets = ?1, updated_at = ?2 WHERE account_id = ?3').bind(JSON.stringify(l), now, acc);
 
     if (action === 'presetDelete') {
       list[i] = null;
-      await env.DB.prepare('UPDATE player SET presets = ?1, updated_at = ?2 WHERE account_id = ?3')
-        .bind(JSON.stringify(list), now, acc).run();
-      return { ok: true, presets: list };
+      await savePresets(list).run();
+      return { ok: true, presets: list, ...(perRobot ? { robotUid: rb.uid } : {}) };
     }
-
-    const rb = await getRobot(env, acc, body.robotUid);
-    if (!rb) return err(404, 'robot not found');
 
     if (action === 'presetSave') {
       const ids = Object.values(SLOT_COL).map(c => rb[c]).filter(v => v != null);
@@ -101,18 +136,20 @@ export async function hangarAction(env, acc, body, now) {
       const slots = {};
       for (const [sl, c] of Object.entries(SLOT_COL)) slots[sl] = rb[c] != null ? (uidOf.get(rb[c]) || null) : null;
       list[i] = { n: cleanName(body.name, i), s: slots };
-      await env.DB.prepare('UPDATE player SET presets = ?1, updated_at = ?2 WHERE account_id = ?3')
-        .bind(JSON.stringify(list), now, acc).run();
-      return { ok: true, presets: list };
+      await savePresets(list).run();
+      return { ok: true, presets: list, ...(perRobot ? { robotUid: rb.uid } : {}) };
     }
 
     /* 적용 */
     const pre = list[i];
     if (!pre) return err(400, 'empty preset');
     const want = Object.values(pre.s).filter(Boolean);
-    const rows = want.length ? ((await env.DB.prepare(
-      `SELECT id, uid, slot FROM part WHERE account_id = ?1 AND uid IN (${want.map((_, k) => '?' + (k + 2)).join(',')})`)
+    const rows0 = want.length ? ((await env.DB.prepare(
+      `SELECT id, uid, slot, bound FROM part WHERE account_id = ?1 AND uid IN (${want.map((_, k) => '?' + (k + 2)).join(',')})`)
       .bind(acc, ...want).all()).results || []) : [];
+    /* 다른 기체에 귀속된 파츠는 건너뛴다(그 칸은 분해된 칸처럼 손대지 않는다) */
+    const bf = presetBindFilter(rows0, rb.id);
+    const rows = rows0.filter(r => bf.use.has(r.uid));
     const chk = presetCheck(pre, rows);
     const idOf = new Map(rows.map(r => [r.uid, r.id]));
     const stmts = [];
@@ -122,6 +159,7 @@ export async function hangarAction(env, acc, body, now) {
       for (const c of Object.values(SLOT_COL))
         stmts.push(env.DB.prepare(`UPDATE robot SET ${c} = NULL WHERE account_id = ?1 AND ${c} = ?2`).bind(acc, pid));
       stmts.push(env.DB.prepare(`UPDATE robot SET ${SLOT_COL[sl]} = ?1 WHERE id = ?2`).bind(pid, rb.id));
+      if (bindOn()) stmts.push(env.DB.prepare('UPDATE part SET bound = ?1 WHERE id = ?2 AND bound IS NULL').bind(rb.id, pid));
     }
     /* 프리셋에서 비워 둔 칸은 뗀다. 분해로 없어진 칸(missing)은 **손대지 않는다** —
        지금 끼고 있는 것까지 벗기면 적용 한 번에 기체가 맨몸이 된다. */
@@ -129,7 +167,8 @@ export async function hangarAction(env, acc, body, now) {
     stmts.push(env.DB.prepare('UPDATE player SET rev = ?1, updated_at = ?2 WHERE account_id = ?3').bind(p.rev + 1, now, acc));
     await env.DB.batch(stmts);
     await registerArena(env, acc, now);   // 방어 편성이 바뀌었다
-    return { ok: true, rev: p.rev + 1, applied: chk.ok, emptied: chk.empty, missing: chk.missing };
+    return { ok: true, rev: p.rev + 1, applied: chk.ok, emptied: chk.empty, missing: chk.missing,
+             ...(bindOn() ? { bound: bf.blocked } : {}) };
   }
 
   /* ── 해제 ── */
@@ -300,6 +339,10 @@ export async function hangarAction(env, acc, body, now) {
       'SELECT s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1').bind(acc).all();
     if (rows.some(r => wornIds(worn.results || []).has(r.id))) return err(400, 'part equipped');
 
+    /* 귀속 — 재료가 서로 다른 기체에 귀속돼 있으면 못 합친다. 결과는 그 귀속을 이어받는다(합성으로 푸는 길을 막는다) */
+    const fb = fuseBind(rows.map(r => r.bound ?? null));
+    if (!fb.ok) return err(400, 'bound mismatch');
+
     const cost = fuseCost(mats[0].rarity);
     if (p.scrap < cost) return err(400, 'not enough scrap');
 
@@ -317,6 +360,7 @@ export async function hangarAction(env, acc, body, now) {
     await env.DB.batch([
       ...rows.map(r => env.DB.prepare('DELETE FROM part WHERE id = ?1').bind(r.id)),
       insertPart(env.DB, acc, out.part, now, 0),
+      ...(fb.bound != null ? [env.DB.prepare('UPDATE part SET bound = ?1 WHERE account_id = ?2 AND uid = ?3').bind(fb.bound, acc, out.part.uid)] : []),
       env.DB.prepare('UPDATE player SET scrap = ?1, rev = ?2, updated_at = ?3 WHERE account_id = ?4')
         .bind(left, rev, now, acc),
     ]);

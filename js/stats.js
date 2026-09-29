@@ -4,9 +4,11 @@
 import { CONST, SLOT_COST, RARITY, PART_BASES, AFFIXES, AFFIX_TIER, AFFIX_ROLL }
   from '../data/balance.js';
 import { COMBAT_TYPES, rarOf } from './units.js';
+import { POWER_K } from '../data/powercal.js';
 /* 인챈트의 티어 안 굴림을 seed 에서 재현하는 데만 쓴다. sim.js 는 stats.js 를
    부르지 않으므로 순환이 아니다. */
 import { mulberry32 } from './sim.js';
+import { withCircuit } from './circuit.js';
 
 const { ATK_SCALE, FAT_MAX, MAXLV, SERVICE_RATE } = CONST;
 
@@ -249,7 +251,12 @@ export function setActive(counts) {
 export function computeStats(robot, parts) {
   parts = parts || [];
   const T = COMBAT_TYPES[robot.type], lv = robot.level, s = {};
-  for (const k of ['hp', 'atk', 'def', 'spd']) s[k] = T.base[k] + (T.grow[k] || 0) * (lv - 1);
+  /* 성장은 기본이 직선이다. `curve` 가 있는 기체만 2차 항이 붙는다(2026-09-23 세트 04) —
+     같은 등급 안에서도 '조숙형(-)' 과 '대기만성(+)' 이 생긴다. 단위는 grow 와 같고
+     Lv.MAXLV 에서 정확히 grow + curve 만큼 오른 값이 된다. curve 가 없으면 예전과 한 자리도 다르지 않다. */
+  const q = (lv - 1) * (lv - 1) / ((CONST.MAXLV || 60) - 1);
+  for (const k of ['hp', 'atk', 'def', 'spd'])
+    s[k] = T.base[k] + (T.grow[k] || 0) * (lv - 1) + (T.curve ? (T.curve[k] || 0) * q : 0);
   s.atk *= ATK_SCALE;                     // 기체 공격력 배율
   s.crit = T.base.crit; s.eva = T.base.eva;
   /* 기체 고유 구간을 먼저 깔아 두면 아래 파츠 합산이 그대로 얹힌다 */
@@ -296,7 +303,13 @@ export function computeStats(robot, parts) {
   /* 스킬 강화는 스탯이 아니라 **스킬 배수**에 붙는다. 여기에 실어 두면
      makeUnit → doSkill 로 그대로 따라가므로 sim 의 전투 규칙은 손대지 않아도 된다. */
   s.skillMul = skillMul(robot.skillLv);
-  return s;
+  /* 전투력 보정 배수(data/powercal.js) — powerOf 만 읽는다. 전투(sim.js)는 이 값을 보지 않는다.
+     1 이면 키를 만들지 않는다 — 몬스터 · 예전 스냅샷은 예전 전투력 그대로다 */
+  const pk = POWER_K[robot.type];
+  if (pk && pk !== 1) s.pwK = pk;
+  /* 코어 서킷(2026-09-25) — robot.circuit(찍은 별 id 목록)이 있으면 맨 마지막에 얹는다. 없으면 s 그대로다.
+     서버는 기체 행의 robot.circuit 을, 화면은 /api/state 의 기체에 실린 circuit 을 넘긴다 — 같은 함수라 판정과 재생이 갈리지 않는다 */
+  return withCircuit(s, robot);
 }
 
 /* 표시용 공격력 구간. 피해는 최종적으로 (1±spread) 배가 되므로
@@ -318,7 +331,7 @@ export function atkRange(st) {
  * 매칭도 이 값의 ±15% 로 상대를 찾으므로 이게 맞아야 대전이 공정해진다.
  *
  * K 는 눈금일 뿐이다 — 커먼 Lv.30 이 대략 3100 으로 보이게 맞춰 두었다. */
-const POWER_K = 0.115;
+const POWER_SCALE = 0.115;
 /* 계산된 스탯 하나로 전투력. 점령전 방어자처럼 robot+parts 원본이 없는 쪽이 쓴다. */
 export function powerOf(s) {
   /* Skill upgrades affect a periodic skill, not every hit. Count only the skill's
@@ -331,7 +344,8 @@ export function powerOf(s) {
     ? Math.max(1, s.spd * (1 + s.stackSpd * s.stackMax)) : s.spd;
   const off = s.atk * (1 + s.crit * (CONST.CRIT_MULT - 1)) * sustainedSpd * skillOff;
   const sur = s.hp * (1 + s.def / 100) / Math.max(0.4, 1 - s.eva);
-  return Math.round(Math.sqrt(off * sur) * POWER_K);
+  /* 기체마다 실제로 싸운 강함에 맞춘 배수(2026-09-23, tools/powercal.mjs). 없으면 1 */
+  return Math.round(Math.sqrt(off * sur) * POWER_SCALE * (s.pwK > 0 ? s.pwK : 1));
 }
 export const power = (robot, parts) => powerOf(computeStats(robot, parts));
 
@@ -351,6 +365,19 @@ export const enhRate   = e => {
   if (!r) return 1;
   return e >= r.length ? 0 : r[e];
 };
+
+/* 숙련 — 그 기체의 **특성 포인트**(2026-09-23 사용자 결정). 레벨에서 바로 나오므로 저장하지 않는다.
+   5레벨마다 1 · 10레벨마다 1 더 · 최고 레벨에 2 더 → Lv.60 에 12 + 6 + 2 = 20.
+   특성(코어 서킷, ChatGPT 담당)이 이 포인트를 쓴다. 다음 기체는 숙련이 아니라 조각으로 얻는다.
+   수치는 CONST.MASTERY 에 있다. */
+export function traitPoints(level) {
+  const M = CONST.MASTERY || { every: [[5, 1], [10, 1]], maxBonus: 2 };
+  const lv = Math.max(0, Math.min(CONST.MAXLV || 60, level | 0));
+  let pts = 0;
+  for (const [step, n] of M.every) pts += Math.floor(lv / step) * n;
+  if (lv >= (CONST.MAXLV || 60)) pts += M.maxBonus | 0;
+  return pts;
+}
 
 /* 스킬 강화 — 비용과 성공 확률. 서버(판정)와 클라(표시)가 같은 함수를 쓴다.
    두 벌로 두면 화면에 적힌 확률과 실제로 굴리는 확률이 갈린다. */

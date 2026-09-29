@@ -74,19 +74,19 @@ console.log('\n== ①-3 600턴 안전장치로 공짜 격파를 얻을 수 없�
                  stats: { hp: 900000, atk: 1, def: 9999, spd: 100, crit: 0, eva: 0, spread: 0.2, hpFull: 900000 } };
   const r = { week: 0, boss: BOSSES[0], level: 60, stats: soft, baseHp: soft.hp, battleHp: soft.hp };
   const out = runRaid([tank], r, [12345]);
-  ok(out.rounds[0].events.length >= 600, `600턴 안전장치에 걸린 판을 만들었다 (${out.rounds[0].events.length} 이벤트)`);
+  ok(out.turns >= 600, `600턴 안전장치에 걸린 판을 만들었다 (${out.turns}턴 · ${out.events.length} 이벤트)`);
   ok(out.damage < r.battleHp, `전부 깎은 것으로 치지 않는다 (${out.damage} / ${r.battleHp})`);
   ok(out.win === false, '격파로도 치지 않는다');
 }
 
-console.log('\n== ② 한 판 — 편성 둘이 차례로 들어간다 ==');
+console.log('\n== ② 한 판 — 편성 둘이 한꺼번에(합동전) ==');
 {
   const r = raidOf(weekOf(Date.now()));
   const mechs = [mech('azure', 60, 'SR'), mech('mule', 60, 'SR')];
   const seeds = raidSeeds(r.week, 1, 1, mechs.length);
   const out = runRaid(mechs, r, seeds);
   ok(out.damage >= 0 && out.damage <= r.battleHp, `피해 ${out.damage} (0~${r.battleHp})`);
-  ok(out.rounds.length >= 1, `판 ${out.rounds.length}회`);
+  ok(out.events.some(e => e.t === 'hit' && e.side === 'P' && e.i === 1), '후위도 보스를 친다');
   /* 같은 시드면 같은 결과여야 서버 기록과 클라 재생이 안 갈린다 */
   const again = runRaid(mechs, r, seeds);
   ok(again.damage === out.damage, '같은 시드 → 같은 피해 (재생이 기록과 일치)');
@@ -189,8 +189,9 @@ console.log('\n== ⑤ 서버 — 가짜 env.DB ==');
      기록한 뒤라 '도전 횟수만 줄고 창이 안 뜨는' 증상이 됐다. */
   ok(a1.foe && a1.foe.type && a1.foe.stats, '응답이 재생용 상대(foe)를 담고 있다');
   ok(typeof a1.boss === 'string', 'boss 는 화면용 id 문자열 그대로다');
-  const replay = runRaid(a1.mechs.map(m => ({ name: m.type, type: m.type, stats: m.stats })),
-    { boss: a1.foe.type, level: a1.foe.level, stats: a1.foe.stats, battleHp: a1.battleHp }, a1.seeds);
+  const replay = runRaid(a1.mechs.map(m => ({ name: m.type, type: m.type, stats: m.stats, tactic: m.tactic })),
+    { boss: a1.foe.type, level: a1.foe.level, stats: a1.foe.stats, battleHp: a1.battleHp,
+      aim: a1.foe.aim, traits: a1.foe.traits }, a1.seeds);
   ok(replay.damage === a1.raw, `응답만으로 재생한 결과가 서버 기록과 같다 (${replay.damage})`);
 
   /* 하루 횟수를 다 쓰면 거절한다 */

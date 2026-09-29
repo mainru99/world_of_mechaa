@@ -1,4 +1,4 @@
-/* Presentation only. Arrays allow a future two-allies / one-boss adapter;
+/* Presentation only. Arrays support the two-allies / one-boss adapter;
  * this module never selects a squad, simulates combat or grants rewards. */
 import {COMBAT_TYPES} from '../units.js';
 import {sprite} from '../sprites.js?v=20260912-hangar10-recovery';
@@ -26,18 +26,20 @@ function team({units,side,name,meta,searching}){
     <div class="bv-units" data-count="${units.length}">${units.length?units.map(u=>unitCard(u,side)).join(''):`<div class="bv-unknown" role="status"><div class="${searching?'spinner':'bv-radar'}">${searching?'':icon('target')}</div><strong>${searching?'상대 신호 탐색 중':'다음 상대를 기다립니다'}</strong><p>${searching?'잠시 후 상대 정보를 표시합니다.':'상대를 찾으면 기체와 전력을\n비교할 수 있습니다.'}</p></div>`}</div>
   </section>`;
 }
-export function battleView({mode='arena',allies,enemies=[],playerName,playerMeta,enemyName='신호 미확인',enemyMeta='매칭 대기',searching=false,brief='',actions='',details='',costLabel='',rewardLabel=''}){
+export function battleView({mode='arena',allies,enemies=[],playerName,playerMeta,enemyName='신호 미확인',enemyMeta='매칭 대기',searching=false,brief='',actions='',details='',costLabel='',rewardLabel='',powerKnown=true}){
+  const operation=mode==='raid'?{en:'WEEKLY RAID',ko:'보스 레이드',poster:'BREAK<br>THE LIMIT.',desc:'함께 깎아내는 거대한 위협.',origin:'trial'}:mode==='hunt'?{en:'BOSS HUNT',ko:'보스 토벌',poster:'HUNT<br>AS A TEAM.',desc:'전위와 후위, 하나의 전술.',origin:'hunt'}:null;
+  const rail=operation?`<div class="bv-rail-title"><b>${operation.en}</b><span>${operation.ko}</span></div><button class="bv-mode" onclick="ROWAR.go('${operation.origin}')">${icon('chevron')}<span><b>작전 목록으로</b><small>RETURN TO OPERATIONS</small></span></button>`:`<div class="bv-rail-title"><b>PVP BATTLE</b><span>대전</span></div><nav aria-label="대전 모드">${Object.entries(BATTLE_MODES).map(([key,m])=>`<button class="bv-mode ${mode===key?'selected':''}" aria-pressed="${mode===key}" onclick="ROWAR.setBattleMode('${key}')">${icon(m.icon)}<span><b>${m.name}</b><small>${m.en}</small></span>${icon('chevron')}</button>`).join('')}</nav>`;
   const a=allies.reduce((n,u)=>n+u.power,0),e=enemies.reduce((n,u)=>n+u.power,0);
-  const ratio=e?Math.max(5,Math.min(95,a/(a+e)*100)):50;
-  const verdict=!enemies.length?'상대 확인 후 비교':a>e*1.1?'아군 우세':e>a*1.1?'적군 우세':'접전 예상';
+  const ratio=powerKnown&&e?Math.max(5,Math.min(95,a/(a+e)*100)):50;
+  const verdict=!powerKnown?'레이드 전력은 별도 규칙':!enemies.length?'상대 확인 후 비교':a>e*1.1?'아군 우세':e>a*1.1?'적군 우세':'접전 예상';
   return `<div class="bv-layout">
-    <aside class="bv-rail"><div class="bv-rail-title"><b>PVP BATTLE</b><span>대전</span></div><nav aria-label="대전 모드">${Object.entries(BATTLE_MODES).map(([key,m])=>`<button class="bv-mode ${mode===key?'selected':''}" aria-pressed="${mode===key}" onclick="ROWAR.setBattleMode('${key}')">${icon(m.icon)}<span><b>${m.name}</b><small>${m.en}</small></span>${icon('chevron')}</button>`).join('')}</nav><div class="bv-poster"><strong>FIGHT<br>FOR YOUR PRIDE.</strong><p>당신의 기체, 당신의 전술.</p></div><div class="bv-links"><button onclick="ROWAR.go('hunt')">${icon('hunt')} 토벌 · 원정 ${icon('chevron')}</button><button onclick="ROWAR.go('trial')">${icon('trial')} 시련 · 레이드 ${icon('chevron')}</button></div></aside>
+    <aside class="bv-rail">${rail}<div class="bv-poster"><strong>${operation?.poster||'FIGHT<br>FOR YOUR PRIDE.'}</strong><p>${operation?.desc||'당신의 기체, 당신의 전술.'}</p></div><div class="bv-links"><button onclick="ROWAR.go('hunt')">${icon('hunt')} 토벌 · 원정 ${icon('chevron')}</button><button onclick="ROWAR.go('trial')">${icon('trial')} 시련 · 레이드 ${icon('chevron')}</button></div></aside>
     <div class="bv-main"><div class="bv-matchup">
       ${team({units:allies,side:'ally',name:playerName,meta:playerMeta})}
       <div class="bv-versus" aria-hidden="true"><b>VS</b><span>${allies.length}:${enemies.length||1}</span></div>
       ${team({units:enemies,side:'enemy',name:enemyName,meta:enemyMeta,searching})}
     </div>
-    <section class="bv-power" aria-label="전투력 비교"><div><small>아군 전투력</small><b>${fmt(a)}</b></div><div class="bv-comparison"><span>전력 비교</span><div class="bv-power-track" style="--ally-share:${ratio}%"><i></i></div><small>${verdict}</small></div><div><small>적군 전투력</small><b>${enemies.length?fmt(e):'—'}</b></div></section>
+    <section class="bv-power" aria-label="전투력 비교"><div><small>아군 전투력</small><b>${powerKnown?fmt(a):'—'}</b></div><div class="bv-comparison"><span>전력 비교</span><div class="bv-power-track" style="--ally-share:${ratio}%"><i></i></div><small>${verdict}</small></div><div><small>적군 전투력</small><b>${powerKnown&&enemies.length?fmt(e):'—'}</b></div></section>
     ${details?`<div class="bv-details">${details}</div>`:''}
     <div class="bv-bottom"><section class="bv-brief"><div class="bv-battlefield" aria-hidden="true"></div><div><h3>${mode==='duel'?'지목한 상대와 대결':mode==='practice'?'전술 시뮬레이션':'다음 전투를 준비하세요'}</h3><div>${brief}</div></div></section><section class="bv-deploy"><div class="bv-terms"><span>출격비 <b>${esc(costLabel)}</b></span><span>${esc(rewardLabel)}</span></div><div class="bv-actions">${actions}</div></section></div>
     </div></div>`;

@@ -25,8 +25,20 @@
  *     생성 상대가 대부분이라, 초·중반 감각에는 이쪽이 가깝다.
  *   · 세계 평균 전투력(점령전 난이도)은 그 계정의 전투력으로 본다. 혼자 도는
  *     시뮬이라 그것이 가장 보수적인 가정이다.
- *   · 계정은 스킬 강화를 사지 않는다. 생성 상대는 레이팅 표의 스킬 단계를 쓰므로
- *     이 결과는 스킬 육성을 무시한 플레이어 쪽에 보수적이다. 비용 자체는 tools/skill.mjs가 잰다.
+ *   · 스킬 강화는 '집중' 정책만 산다(크레딧이 넉넉할 때 주력 기체). 비용 자체는 tools/skill.mjs 가 잰다.
+ *
+ * ── 2026-09-23 최신화 — 그 사이 들어온 시스템 ─────────────
+ *   · 대전 구간(MON_BAND) — 아레나 몬스터 판 승패로 구간이 오르내린다(bandStep). 서버와 같은 규칙
+ *   · 토벌 주간 한도(HUNT_WEEK) · 보스 토벌 = 합동전(js/joint.js, 편성 두 기가 한꺼번에)
+ *   · 전선(js/front.js) — 첫 클리어 보상 · 뽑기 문(gateOpen('gacha'))이 여기서 열린다
+ *   · 상점(js/shop.js) — 6시간 진열. 없는 기체의 조각 · 코어를 산다. 조각이 차면 조립한다
+ *   · 도감(js/codex.js) — 모은 칸을 켜고(크레딧 · 코어) 이정표에서 돌려받는다
+ *   · 레이드(js/raid.js) — 하루 3번, 편성 두 기, 출격비 · 경험치 없음
+ *   · 파츠 강화가 실패한다(enhRate) · 스킬 강화(집중 정책)
+ *   · 주력 교체 — 더 높은 등급을 얻으면 주력으로 삼아 크레딧으로 레벨을 따라잡는다(사람이 하는 일).
+ *     레벨이 기체마다라(마이그레이션 007) 새 기체는 Lv.1 에서 시작한다
+ *   · **기체별 전투 수(숙련 기초 자료)** — 개발 계보 · 숙련 수치를 정하는 데 쓴다(mastery.csv)
+ *     세는 판: 아레나 · 비상 · 토벌(합동전은 두 기 모두) · 전선 · 점령 · 레이드. 연습 · 친선 · 시련은 안 센다
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -35,7 +47,16 @@ import { ROBOT_TYPES, MONSTER_TYPES, TERRITORY, RARITY, ROBOT_RARITY, ROBOT_RARI
 import { computeStats, power, powerOf, gainExp, addFat, fatOf, decayFat,
          sortieCost, rescueCredits, serviceCost, lvCost, enhCost, findPart } from '../js/stats.js';
 import { rollPull, rollPart, BY_RARITY, PULL_CUR, scrapValue } from '../js/gacha.js';
-import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards } from '../js/rewards.js';
+import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards,
+         bandStart, bandStep, huntCap } from '../js/rewards.js';
+import { enhRate, skillCost, skillRate, skillMax, battleExp } from '../js/stats.js';
+import { runJoint, jointOf, jointBossStats } from '../js/joint.js';
+import { FRONT_CELLS, buildLines, rewardOf, gateOpen } from '../js/front.js';
+import { codexLines } from '../js/breach.js';
+import { shardsAt, autoGoal } from '../js/mastery.js';
+import { shopState, rollShop, shardNeed, shardKey } from '../js/shop.js';
+import { parseCodex, codexView, codexActivatable, codexRewards } from '../js/codex.js';
+import { raidOf, runRaid, raidReward, raidDaily } from '../js/raid.js';
 import { ratingDelta } from '../server/arena.js';
 import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
 import { applyTerrain, runBreach, regenLines, maxRounds, rarAllowed } from '../js/breach.js';
@@ -76,11 +97,18 @@ const rarOf = t => (COMBAT[t] || {}).rarity || 'C';
      crPull     크레딧이 이만큼 남아 있을 때만 크레딧 뽑기 (0 이면 안 돌린다)
      lvKeep     레벨업·정비에 쓰고도 남겨 둘 크레딧 (출격비가 마르지 않게)
      terr/exped 점령전·원정을 하는가 */
+/*   shop       상점에서 조각 · 코어를 사는가 · codex 도감을 켜는가 · raid 레이드를 하는가
+     skillUp    크레딧이 lvKeep × 이 배수를 넘으면 주력 기체 스킬을 강화한다(0 = 안 한다) */
 const POLICIES = [
-  { id: 'light',  ko: '라이트',   acts:  6, huntShare: 0.2, pullAt: 10, crPull: 0,     lvKeep: 1500, terr: false, exped: true },
-  { id: 'steady', ko: '꾸준',     acts: 14, huntShare: 0.4, pullAt: 10, crPull: 0,     lvKeep: 2500, terr: true,  exped: true },
-  { id: 'hard',   ko: '집중',     acts: 28, huntShare: 0.5, pullAt: 10, crPull: 20000, lvKeep: 4000, terr: true,  exped: true },
+  { id: 'light',  ko: '라이트',   acts:  6, huntShare: 0.2, pullAt: 10, crPull: 0,     lvKeep: 1500, terr: false, exped: true,
+    shop: false, codex: true,  raid: false, skillUp: 0 },
+  { id: 'steady', ko: '꾸준',     acts: 14, huntShare: 0.4, pullAt: 10, crPull: 0,     lvKeep: 2500, terr: true,  exped: true,
+    shop: true,  codex: true,  raid: true,  skillUp: 0 },
+  { id: 'hard',   ko: '집중',     acts: 28, huntShare: 0.5, pullAt: 10, crPull: 20000, lvKeep: 4000, terr: true,  exped: true,
+    shop: true,  codex: true,  raid: true,  skillUp: 4 },
 ];
+const HUNT_TIERS = ['C', 'UC', 'R', 'UQ', 'EP', 'BOSS'];
+const weekOfDay = day => Math.floor((day - 1) / 7);
 
 let _uid = 0;
 const uid = () => 'x' + (_uid++).toString(36);
@@ -89,15 +117,33 @@ function newAccount(pol, rnd) {
   const type = BY_RARITY.C[Math.floor(rnd() * BY_RARITY.C.length)];
   const rb = { uid: uid(), type, level: 1, exp: 0, fat: 0, fatAt: 0, skillLv: 0,
                slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null } };
-  return { pol, credits: 600, cores: 12, scrap: 30,
-           robots: [rb], parts: [], sel: rb.uid, squad: [rb.uid],
+  const P = { pol, credits: 600, cores: 12, scrap: 30,
+           robots: [rb], parts: [], sel: rb.uid, squad: [rb.uid], main: rb.uid,
            rating: 1000,        // 아레나 성적. 상대 장비가 이 값을 따라온다
+           band: bandStart(null, 1000), bandPts: 0, bandMax: 1,
+           hw: { w: -1, n: {} },            // 토벌 주간 입장 수
+           front: new Array(FRONT_CELLS.length).fill(0), frontDay: {},
+           cx: parseCodex(null), codexSpent: { cr: 0, co: 0 }, codexBack: { cr: 0, co: 0 },
+           shopSt: null, items: {}, shopLog: [], assembled: [],
+           raid: { day: -1, today: 0 },
+           mast: {},            // 기체 uid → { type, n: 전투 수, w: 승리, byDay: { day: n } }
+           gachaDay: null,
            expd: null,          // { uid, tier, lv, endsAt }
            terr: {},            // nodeId -> { hp, hpAt, takenAt, claimedAt }
            ev: [], pulls: [], firstRar: {}, firstLv: {},
            blocked: 0, blockedByDay: {}, skipped: 0, skippedByDay: {},
            rescued: 0, rescuedByDay: {} };
+  P.cx.r[type] = 1;
+  return P;
 }
+
+/* 숙련 기초 자료 — 이 기체가 한 판 싸웠다 */
+function mastery(P, rb, win, day) {
+  const m = P.mast[rb.uid] || (P.mast[rb.uid] = { type: rb.type, n: 0, w: 0, byDay: {} });
+  m.n++; if (win) m.w++;
+  m.byDay[day] = (m.byDay[day] || 0) + 1;
+}
+const rarRank = t => RARS.indexOf(rarOf(t));
 
 function markBlocked(P, day) {
   P.blocked++;
@@ -141,8 +187,9 @@ function reequip(P) {
       if (best) used.add(best.uid);
     }
   }
-  const sorted = [...P.robots].sort((a, b) => pwOf(P, b) - pwOf(P, a));
-  P.squad = sorted.slice(0, CONST.SQUAD_MAX).map(r => r.uid);
+  /* 편성 — 주력 + 나머지 중 가장 센 기체. 주력은 등급이 가장 높은 기체다(addRobot) */
+  const others = P.robots.filter(r => r.uid !== P.main).sort((a, b) => pwOf(P, b) - pwOf(P, a));
+  P.squad = [P.main, ...others.map(r => r.uid)].filter(u => rbOf(P, u)).slice(0, CONST.SQUAD_MAX);
   P.sel = P.squad[0];
 }
 
@@ -151,6 +198,7 @@ function reequip(P) {
    '치우는 판단'이 실제로 플레이의 일부가 됐다. */
 function takePart(P, p) {
   P.parts.push(p);
+  if (p.base) P.cx.p[p.base + ':' + p.rarity] = 1;      // 도감 — 한 번 가진 파츠는 칸이 남는다(서버 트리거)
   const equipped = new Set(P.robots.flatMap(r => SLOTS.map(s => r.slots[s])));
   let same = P.parts.filter(x => x.slot === p.slot);
   while (same.length > 3) {
@@ -164,10 +212,20 @@ function takePart(P, p) {
   }
 }
 
-function applyPull(P, r) {
+function addRobot(P, type, day) {
+  const rb = { uid: uid(), type, level: 1, exp: 0, fat: 0, fatAt: 0, skillLv: 0,
+               slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null } };
+  P.robots.push(rb);
+  P.cx.r[type] = 1;
+  if (!P.firstRar[rarOf(type)]) P.firstRar[rarOf(type)] = day;
+  /* 주력 교체 — 더 높은 등급이 들어오면 그것을 키운다. 레벨은 grow() 가 크레딧으로 따라잡는다 */
+  const main = rbOf(P, P.main);
+  if (!main || rarRank(type) > rarRank(main.type)) P.main = rb.uid;
+  return rb;
+}
+function applyPull(P, r, day) {
   if (r.kind === 'robot') {
-    P.robots.push({ uid: uid(), type: r.type, level: 1, exp: 0, fat: 0, fatAt: 0,
-                    slots: { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null } });
+    addRobot(P, r.type, day);
   } else if (r.kind === 'dupe') { P.credits += r.gain.cr; P.scrap += r.gain.sc; P.cores += r.gain.co; }
   else if (r.kind === 'core')   P.cores += r.n;
   else if (r.kind === 'credit') P.credits += r.cr;
@@ -183,11 +241,10 @@ function doPull(P, n, cur, rnd, day) {
   for (let i = 0; i < n; i++) {
     const r = rollPull(owned, overallLv(P), rnd, uid, cur);
     if (r.kind === 'robot') owned.add(r.type);
-    applyPull(P, r);
+    applyPull(P, r, day);
     P.pulls.push({ day, cur, kind: r.kind,
                    rar: (r.kind === 'robot' || r.kind === 'dupe') ? rarOf(r.type)
                       : r.kind === 'part' ? r.part.rarity : null });
-    if (r.kind === 'robot' && !P.firstRar[rarOf(r.type)]) P.firstRar[rarOf(r.type)] = day;
   }
   reequip(P);
   return n;
@@ -205,12 +262,62 @@ function pickFighter(P, now) {
                       .filter(r => r.uid !== (P.expd && P.expd.uid));
   if (!cand.length) return selRb(P);
   for (const r of cand) decayFat(r, now);
+  /* 주력을 먼저 낸다(키우는 기체). 피로가 절반을 넘으면 교대 — 사람이 하는 판단이다.
+     예전처럼 '지금 가장 센 기체' 만 내면 새로 얻은 Lv.1 고등급은 영영 출전하지 않는다. */
+  const main = cand.find(r => r.uid === P.main);
+  if (main && fatOf(main) <= CONST.FAT_MAX * 0.5) { P.sel = main.uid; return main; }
   cand.sort((a, b) => pwOf(P, b) - pwOf(P, a));
   P.sel = cand[0].uid;
   return cand[0];
 }
 
+function huntWeek(P, day) {
+  const w = weekOfDay(day);
+  if (P.hw.w !== w) P.hw = { w, n: {} };
+  return P.hw;
+}
+const huntLeftP = (P, tier, day) => huntCap(tier) ? huntCap(tier) - (huntWeek(P, day).n[tier] | 0) : Infinity;
+function codexSeen(P, type, win) {
+  if (!MONSTER_TYPES[type]) return;
+  P.cx.ms[type] = (P.cx.ms[type] | 0) + 1;
+  if (win) P.cx.mk[type] = (P.cx.mk[type] | 0) + 1;
+}
+
+/* 보스 토벌 = 합동전. 편성 두 기가 한꺼번에(server/battle.js startJoint 와 같은 정산) */
+function fightJoint(P, now, rnd, tier, day) {
+  const fs = P.squad.map(u => rbOf(P, u)).filter(Boolean).filter(r => r.uid !== (P.expd && P.expd.uid));
+  if (fs.length < 2) return null;
+  for (const r of fs) decayFat(r, now);
+  const lead = fs.reduce((a, b) => (b.level > a.level ? b : a));
+  const cost = Math.ceil(sortieCost(lead) * CONST.HUNT[tier].costX);
+  if (P.credits < cost) { markSkipped(P, day); return null; }
+  P.credits -= cost;
+  huntWeek(P, day).n[tier] = (P.hw.n[tier] | 0) + 1;
+  const opp = makeHuntTarget(tier, lead.level, rnd, uid);
+  const J = jointOf(opp.type);
+  const raw = computeStats({ type: opp.type, level: opp.level, skillLv: opp.skillLv | 0, fat: 0, slots: opp.slots }, opp.parts);
+  const team = fs.map(r => ({ uid: r.uid, name: ROBOT_TYPES[r.type].name, type: r.type,
+                              stats: computeStats(r, P.parts), tactic: 'none' }));
+  const res = runJoint({ seed: (Math.floor(rnd() * 0xffffffff)) >>> 0, aim: J.aim, team,
+    boss: { name: opp.callsign, type: opp.type, stats: jointBossStats(raw, J.traits, opp.type), tactic: 'none', traits: J.traits } });
+  const win = res.win;
+  const rw = rollHuntRewards(win, tier, opp.level, rnd, uid);
+  for (const r of fs) { gainExp(r, rw.expGain || 0); addFat(r, rw.fatAdd || 0); mastery(P, r, win, day); }
+  P.credits += rw.cr; P.scrap += rw.sc; P.cores += rw.core || 0;
+  if (rw.part) takePart(P, rw.part);
+  codexSeen(P, opp.type, win);
+  const secs = res.events.length * 0.25 + 15;
+  P.ev.push({ day, mode: 'hunt', tier, win, cost, cr: rw.cr, sc: rw.sc, core: rw.core || 0,
+              part: rw.part ? rw.part.rarity : null, secs, myLv: lead.level, oppLv: opp.level,
+              fat: fatOf(lead), rating: P.rating, myPw: Math.round(pwOf(P, lead)), oppPw: Math.round(powerOf(raw)) });
+  return { win, secs, mode: 'hunt' };
+}
+
 function fight(P, now, rnd, mode, tier, day) {
+  if (mode === 'hunt' && tier === 'BOSS') {
+    const r = fightJoint(P, now, rnd, tier, day);
+    return r || fight(P, now, rnd, 'arena', null, day);
+  }
   const rb = pickFighter(P, now);
   decayFat(rb, now);
   const worn = wornOf(P, rb);
@@ -227,10 +334,11 @@ function fight(P, now, rnd, mode, tier, day) {
     rescue = true; markRescued(P, day);
   }
   if (!rescue) P.credits -= cost;
+  if (mode === 'hunt' && huntCap(tier)) huntWeek(P, day).n[tier] = (P.hw.n[tier] | 0) + 1;
 
   const opp = mode === 'hunt'
     ? makeHuntTarget(tier, rb.level, rnd, uid)                       // 내 파츠를 보지 않는다
-    : makeOpponent(ownedRars(P), rb.level, rnd, uid, rescue, P.rating);
+    : makeOpponent(ownedRars(P), rb.level, rnd, uid, rescue, P.rating, P.band);
   if (!opp) { markBlocked(P, day); return null; }
 
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
@@ -256,6 +364,13 @@ function fight(P, now, rnd, mode, tier, day) {
     dRating = ratingDelta(P.rating, P.rating, win, CONST.RATING_K.pve);
     P.rating = Math.max(0, P.rating + dRating);
   }
+  /* 대전 몬스터 구간 — 아레나 정상 출격의 몬스터 판만 센다(server/battle.js 와 같다) */
+  if (mode === 'arena' && !rescue && opp.kind === 'monster') {
+    const st = bandStep(P.band, P.bandPts, win);
+    P.band = st.band; P.bandPts = st.pts; P.bandMax = Math.max(P.bandMax, st.band);
+  }
+  if (opp.kind === 'monster') codexSeen(P, opp.type, win);
+  mastery(P, rb, win, day);
 
   P.credits += rw.cr; P.scrap += rw.sc; P.cores += rw.core || 0;
   if (rw.part) takePart(P, rw.part);
@@ -270,7 +385,7 @@ function fight(P, now, rnd, mode, tier, day) {
               cost: rescue ? 0 : cost, cr: rw.cr, sc: rw.sc, core: rw.core || 0,
               part: rw.part ? rw.part.rarity : null, secs,
               myLv: rb.level, oppLv: opp.level, fat: fatOf(rb), rating: P.rating,
-              myPw: Math.round(powerOf(statP)), oppPw: Math.round(powerOf(statE)) });
+              myPw: Math.round(powerOf(statP)), oppPw: Math.round(powerOf(statE)), band: P.band });
   return { win, secs, mode: rescue ? 'rescue' : mode };
 }
 
@@ -308,6 +423,7 @@ function terrAttack(P, node, now, rnd, day, avgPower) {
     const tried = r.rounds.filter(x => x.mi === i).length;
     const g = gainExp(ok[i], perLine * won + Math.round(perLine * 0.30) * (tried - won));
     addFat(ok[i], i < r.downed ? T.FAT_DOWN : T.FAT_LIVE);
+    mastery(P, ok[i], r.win, day);
     if (g.to > g.from) for (let L = g.from + 1; L <= g.to; L++) if (!P.firstLv[L]) P.firstLv[L] = day;
   }
   let bonus = { cr: 0, sc: 0 };
@@ -369,7 +485,7 @@ function expedTick(P, now, rnd, day) {
 /* day 를 받는 이유 — 크레딧으로 올린 레벨도 마일스톤에 남겨야 한다.
    예전에는 경험치로 오른 것만 기록해서 'Lv.20 이 Lv.10 보다 먼저'가 나왔다. */
 function grow(P, day) {
-  const rb = selRb(P);
+  const rb = rbOf(P, P.main) || selRb(P);
   /* 레벨업은 '남겨 둘 크레딧' 위로만 쓴다. 다 쓰면 출격비가 없어 다음 판을 못 한다. */
   let n = 0;
   while (rb.level < CONST.MAXLV && P.credits - lvCost(rb.level) >= P.pol.lvKeep && n < 5) {
@@ -382,8 +498,10 @@ function grow(P, day) {
     for (const sl of SLOTS) {
       const p = r.slots[sl] && findPart(r.slots[sl], P.parts); if (!p) continue;
       let g = 0;
+      /* 강화는 실패할 수 있다(enhRate). 실패해도 단계는 안 내려가고 스크랩만 나간다 — 서버와 같다 */
       while ((p.enh || 0) < 10 && P.scrap >= enhCost(p.enh || 0) * 2 && g < 3) {
-        P.scrap -= enhCost(p.enh || 0); p.enh = (p.enh || 0) + 1; g++;
+        P.scrap -= enhCost(p.enh || 0); g++;
+        if (Math.random() < enhRate(p.enh || 0)) p.enh = (p.enh || 0) + 1;
       }
     }
   }
@@ -394,6 +512,18 @@ function grow(P, day) {
     if (fatOf(r) <= CONST.FAT_MAX * 0.55) continue;
     const c = serviceCost(r);
     if (c > 0 && P.credits - c >= P.pol.lvKeep) { P.credits -= c; r.fat = 0; }
+  }
+  /* 스킬 강화 — 넉넉할 때만, 주력 기체 */
+  if (P.pol.skillUp) {
+    const m = rbOf(P, P.main);
+    let k = 0;
+    while (m && (m.skillLv | 0) < skillMax() && k < 2) {
+      const c = skillCost(m.skillLv | 0);
+      if (P.credits - c.cr < P.pol.lvKeep * P.pol.skillUp || P.scrap < c.sc) break;
+      P.credits -= c.cr; P.scrap -= c.sc; k++;
+      P.skillSpent = (P.skillSpent || 0) + c.cr;
+      if (Math.random() < skillRate(m.skillLv | 0)) m.skillLv = (m.skillLv | 0) + 1;
+    }
   }
   if (n) reequip(P);
 }
@@ -408,27 +538,27 @@ function huntTier(P) {
   if (recent.length >= 6) {
     const wr = recent.filter(Boolean).length / recent.length;
     if (wr < 0.40 && P.hTier > 0) { P.hTier--; P.hRecent = []; }
-    else if (wr > 0.75 && P.hTier < RARS.length - 1) { P.hTier++; P.hRecent = []; }
+    else if (wr > 0.75 && P.hTier < HUNT_TIERS.length - 1) { P.hTier++; P.hRecent = []; }
   }
-  return RARS[P.hTier];
+  return HUNT_TIERS[P.hTier];
 }
 
 /* 목표 등급의 비용이 부족하면 현재 크레딧으로 갈 수 있는 가장 높은 하위 등급을
    고른다. 실제 UI는 등급별 버튼을 따로 보여 주므로, 비싼 등급 하나가 잠겼다고
    토벌 전체를 포기하는 것보다 이 행동이 사람의 선택에 가깝다. 비용 때문에 등급을
    내렸다면 이전 고등급 전적은 새 난이도 판단에 섞지 않는다. */
-function affordableHuntTier(P, now) {
+function affordableHuntTier(P, now, day) {
   const desired = huntTier(P);
   const rb = pickFighter(P, now);
   const base = sortieCost(rb);
-  let idx = RARS.indexOf(desired);
-  while (idx >= 0 && P.credits < Math.ceil(base * CONST.HUNT[RARS[idx]].costX)) idx--;
+  const squadN = P.squad.filter(u => rbOf(P, u) && u !== (P.expd && P.expd.uid)).length;
+  let idx = HUNT_TIERS.indexOf(desired);
+  /* 비용 · 주간 한도 · 보스는 두 기가 있어야 — 안 되면 한 칸씩 내린다. 한도로 내린 것은 성적 판단에 섞지 않는다 */
+  const ok = i => { const t = HUNT_TIERS[i];
+    return P.credits >= Math.ceil(base * CONST.HUNT[t].costX) && huntLeftP(P, t, day) > 0 && (t !== 'BOSS' || squadN >= 2); };
+  while (idx >= 0 && !ok(idx)) idx--;
   if (idx < 0) return null;
-  if (idx < P.hTier) {
-    P.hTier = idx;
-    P.hRecent = [];
-  }
-  return RARS[idx];
+  return HUNT_TIERS[idx];
 }
 
 let _npw = {}, _npwAvg = -1;
@@ -442,6 +572,121 @@ function nodePw(node, avgPower) {
   return _npw[node.id];
 }
 
+/* ── 전선 ── 다음 칸을 한 세션에 두 번까지 민다. 출격비 없음 · 첫 클리어만 보상(server/front.js) */
+function frontTick(P, now, rnd, day) {
+  for (let tries = 0; tries < 2; tries++) {
+    const i = P.front.findIndex(v => !v);
+    if (i < 0) return;
+    const cell = FRONT_CELLS[i];
+    const squad = P.squad.map(u => rbOf(P, u)).filter(Boolean).filter(r => r.uid !== (P.expd && P.expd.uid));
+    if (!squad.length) return;
+    for (const r of squad) decayFat(r, now);
+    const lines = buildLines(cell);
+    const mechs = squad.map(r => ({ name: ROBOT_TYPES[r.type].name, type: r.type,
+                                    stats: applyTerrain(computeStats(r, P.parts), cell.terrain) }));
+    const seeds = Array.from({ length: maxRounds(lines.length, mechs.length) }, () => (Math.floor(rnd() * 0xffffffff)) >>> 0);
+    const r = runBreach({ mechs, lines, seeds });
+    const perLine = Math.max(1, Math.round(battleExp(cell.lv) * (CONST.TERR.EXP_LINE || 0.5)));
+    const fought = new Set(r.rounds.map(x => x.mi));
+    for (let k = 0; k < squad.length; k++) {
+      if (!fought.has(k)) continue;
+      const won = r.rounds.filter(x => x.mi === k && x.win).length, tried = r.rounds.filter(x => x.mi === k).length;
+      const g = gainExp(squad[k], perLine * won + Math.round(perLine * 0.30) * (tried - won));
+      addFat(squad[k], k < r.downed ? CONST.TERR.FAT_DOWN : CONST.TERR.FAT_LIVE);
+      mastery(P, squad[k], r.win, day);
+      if (g.to > g.from) for (let L = g.from + 1; L <= g.to; L++) if (!P.firstLv[L]) P.firstLv[L] = day;
+    }
+    for (const c of codexLines(lines, r.rounds)) codexSeen(P, c.type, c.win);
+    let gain = null;
+    if (r.win) {
+      gain = rewardOf(cell, false);
+      P.front[i] = 1; P.frontDay[i] = day;
+      if (gain) {
+        P.credits += gain.credits; P.scrap += gain.scrap;
+        if (gain.part) takePart(P, rollPart(overallLv(P), rnd, uid(), gain.part));
+      }
+    }
+    P.ev.push({ day, mode: 'front', tier: cell.id, win: r.win, cost: 0, cr: gain ? gain.credits : 0, sc: gain ? gain.scrap : 0,
+                core: 0, part: gain && gain.part ? gain.part : null, secs: r.rounds.length * 9 + 15,
+                myLv: squad[0].level, oppLv: cell.lv, fat: fatOf(squad[0]), myPw: 0, oppPw: 0 });
+    reequip(P);
+    if (!r.win) return;
+  }
+}
+
+/* ── 상점 ── 없는 기체의 조각(높은 등급부터)과 코어를 산다. 조각이 차면 조립한다(server/shop.js) */
+const ACC_SEED = { light: 11, steady: 22, hard: 33 };
+function shopTick(P, now, day) {
+  if (!P.pol.shop) return;
+  const st = shopState(P.shopSt, now, overallLv(P));
+  if (!P.shopSt || P.shopSt.p !== st.p) P.shopSt = st;
+  const stock = rollShop(ACC_SEED[P.pol.id] * 1000 + P.seedN, P.shopSt);
+  const owned = new Set(P.robots.map(r => r.type));
+  const want = stock.filter(x => !P.shopSt.b.includes(x.i))
+    .filter(x => (x.kind === 'shard' && !owned.has(x.type)) || x.kind === 'core')
+    .sort((a, b) => (b.kind === 'core') - (a.kind === 'core') || RARS.indexOf(b.rarity) - RARS.indexOf(a.rarity));
+  for (const x of want) {
+    if (P.credits - x.price < P.pol.lvKeep * 2) continue;
+    P.credits -= x.price; P.shopSt.b.push(x.i);
+    if (x.kind === 'shard') P.items[shardKey(x.type)] = (P.items[shardKey(x.type)] | 0) + x.qty;
+    else P.cores += x.qty;
+    P.shopLog.push({ day, kind: x.kind, rar: x.rarity || null, qty: x.qty, price: x.price });
+    P.ev.push({ day, mode: 'shop', tier: x.kind, win: true, cost: x.price, cr: 0, sc: 0, core: x.kind === 'core' ? x.qty : 0,
+                part: null, secs: 4, myLv: 0, oppLv: 0, fat: 0, myPw: 0, oppPw: 0 });
+  }
+  for (const [k, v] of Object.entries(P.items)) {
+    const type = k.slice(6), need = shardNeed(type);
+    if (!need || v < need) continue;
+    P.items[k] = v - need;
+    if (P.robots.some(r => r.type === type)) {
+      const g = CONST.DUPE_GAIN[rarOf(type)]; P.credits += g.cr; P.scrap += g.sc; P.cores += g.co;
+    } else { addRobot(P, type, day); P.assembled.push({ day, type, rar: rarOf(type) }); reequip(P); }
+  }
+}
+
+/* ── 도감 ── 모은 칸을 켜고(값이 남을 때만) 넘은 이정표를 받는다(server/codex.js) */
+function codexTick(P, day) {
+  if (!P.pol.codex) return;
+  let view = codexView(P.cx, P.robots, P.parts);
+  const act = codexActivatable(view);
+  /* 코어가 드는 칸은 뽑기 한 번분(pullAt)을 넘길 때만 — 코어는 뽑기가 먼저다 */
+  for (const x of act.list.sort((a, b) => a.cost.cr - b.cost.cr)) {
+    if (P.credits - x.cost.cr < P.pol.lvKeep * 2) break;
+    if (x.cost.co && P.cores - x.cost.co < P.pol.pullAt) continue;
+    P.credits -= x.cost.cr; P.cores -= x.cost.co; P.cx.a[x.key] = 1;
+    P.codexSpent.cr += x.cost.cr; P.codexSpent.co += x.cost.co;
+  }
+  view = codexView(P.cx, P.robots, P.parts);
+  const due = codexRewards(view);
+  if (due.items.length) {
+    for (const it of due.items) P.cx.c[it.key] = 1;
+    for (const k of due.refundKeys) P.cx.rf[k] = 1;
+    P.credits += due.total.cr; P.cores += due.total.co;
+    P.codexBack.cr += due.total.cr; P.codexBack.co += due.total.co;
+    P.ev.push({ day, mode: 'codex', tier: null, win: true, cost: 0, cr: due.total.cr, sc: 0, core: due.total.co,
+                part: null, secs: 5, myLv: 0, oppLv: 0, fat: 0, myPw: 0, oppPw: 0 });
+  }
+}
+
+/* ── 레이드 ── 하루 3번 · 편성 두 기 · 출격비 · 경험치 없음(server/raid.js) */
+function raidTick(P, now, day) {
+  if (!P.pol.raid) return;
+  if (P.raid.day !== day) P.raid = { day, today: 0 };
+  const fs = P.squad.map(u => rbOf(P, u)).filter(Boolean).filter(r => r.uid !== (P.expd && P.expd.uid));
+  if (fs.length < 2 || overallLv(P) < 20) return;               // 초반에는 깎을 것이 없다
+  const r = raidOf(weekOfDay(day));
+  while (P.raid.today < raidDaily()) {
+    P.raid.today++;
+    const team = fs.map(x => ({ name: ROBOT_TYPES[x.type].name, type: x.type, stats: computeStats(x, P.parts), tactic: 'none' }));
+    const res = runRaid(team, r, (day * 7919 + P.raid.today * 131 + P.seedN) >>> 0);
+    const rw = raidReward(res.damage, r.baseHp || r.battleHp, r.level);
+    P.credits += rw.cr; P.scrap += rw.sc;
+    for (const x of fs) mastery(P, x, res.win, day);
+    P.ev.push({ day, mode: 'raid', tier: r.boss, win: res.win, cost: 0, cr: rw.cr, sc: rw.sc, core: 0,
+                part: null, secs: res.events.length * 0.25 + 15, myLv: fs[0].level, oppLv: r.level, fat: 0, myPw: 0, oppPw: 0 });
+  }
+}
+
 /* ── 하루 ────────────────────────────────────────────── */
 function playDay(P, day, dayStart, rnd, avgPower) {
   const pol = P.pol;
@@ -450,6 +695,8 @@ function playDay(P, day, dayStart, rnd, avgPower) {
     expedTick(P, t, rnd, day);
     terrClaim(P, t, day);
     grow(P, day);
+    frontTick(P, t, rnd, day);
+    shopTick(P, t, day);
 
     /* 점령전은 세션마다 한 칸. 지금 전력으로 될 만한 칸 중 값진 것부터 고른다. */
     if (pol.terr) {
@@ -469,7 +716,7 @@ function playDay(P, day, dayStart, rnd, avgPower) {
     const acts = Math.round(pol.acts / 2);
     for (let i = 0; i < acts; i++) {
       if (rnd() < pol.huntShare) {
-        const tier = affordableHuntTier(P, t);
+        const tier = affordableHuntTier(P, t, day);
         if (tier) {
           const r = fight(P, t, rnd, 'hunt', tier, day);
           if (r && r.mode === 'hunt') P.hRecent.push(r.win);
@@ -480,17 +727,37 @@ function playDay(P, day, dayStart, rnd, avgPower) {
       } else fight(P, t, rnd, 'arena', null, day);
     }
 
-    while (P.cores >= pol.pullAt) doPull(P, 10, 'core', rnd, day);
-    if (pol.crPull) while (P.credits >= pol.crPull + CONST.PULL_CR_COST * 10) doPull(P, 10, 'credit', rnd, day);
+    raidTick(P, t, day);
+
+    /* 뽑기는 전선이 문을 열어야 한다(전선 5칸 또는 Lv.3 — js/front.js gateOpen) */
+    if (gateOpen('gacha', P.front, overallLv(P))) {
+      if (P.gachaDay == null) P.gachaDay = day;
+      while (P.cores >= pol.pullAt) doPull(P, 10, 'core', rnd, day);
+      if (pol.crPull) while (P.credits >= pol.crPull + CONST.PULL_CR_COST * 10) doPull(P, 10, 'credit', rnd, day);
+    }
+    codexTick(P, day);
     grow(P, day);
   }
+}
+
+/* 숙련 조각(2026-09-23 사용자 결정) — 기체를 키우면 **개발 목표의 조각**이 쌓인다.
+   규칙은 js/mastery.js(서버와 같은 함수). 목표는 계정에 하나이고, 어느 기체를 키우든 그리로 모인다.
+   여기서는 고르는 화면이 없으니 autoGoal 과 같은 규칙(열 수 있는 것 중 가장 높은 등급)으로 흉내 낸다.
+   이 계정은 조각을 **쓰지 않는다** — 얼마나 모이는지만 재는 칸이다. */
+function masteryShards(P) {
+  const owned = new Set(P.robots.map(r => r.type));
+  const goal = autoGoal(owned);
+  const all = goal ? P.robots.reduce((s, r) => s + shardsAt(r.level), 0) : 0;
+  return { all, ep: goal && rarOf(goal) === 'EP' ? all : 0,
+           open: goal && all >= (CONST.SHARD_NEED || {})[rarOf(goal)] ? 1 : 0 };
 }
 
 function snapshot(P, day) {
   const rb = selRb(P);
   const todays = P.ev.filter(e => e.day === day);
   const bat = todays.filter(e => ['arena', 'hunt', 'rescue', 'terr'].includes(e.mode));
-  const o = { day, lv: rb.level, pw: Math.round(pwOf(P, rb)), rating: Math.round(P.rating),
+  const o = { day, lv: rb.level, pw: Math.round(pwOf(P, rb)), rating: Math.round(P.rating), band: P.band,
+              front: P.front.filter(Boolean).length,
               credits: P.credits, cores: P.cores, scrap: P.scrap,
               robots: P.robots.length, parts: P.parts.length,
               nodes: Object.values(P.terr).filter(t => t.takenAt).length,
@@ -499,13 +766,18 @@ function snapshot(P, day) {
               crIn: todays.reduce((s, e) => s + e.cr, 0),
               crOut: todays.reduce((s, e) => s + e.cost, 0) };
   for (const r of RARS)  o['rob' + r] = P.robots.filter(x => rarOf(x.type) === r).length;
+  o.mainRar = RARS.indexOf(rarOf((rbOf(P, P.main) || rb).type));
+  o.mainLv = (rbOf(P, P.main) || rb).level;
   for (const r of PRARS) o['prt' + r] = P.parts.filter(x => x.rarity === r).length;
+  const ms = masteryShards(P);                      // 숙련 조각(아직 게임에 없다 — 수치를 재는 칸)
+  o.mShd = ms.all; o.mEP = ms.ep; o.mOpen = ms.open;
   return o;
 }
 
 function runOnce(pol, seed) {
   const rnd = mulberry32(seed >>> 0);
   const P = newAccount(pol, rnd);
+  P.seedN = seed >>> 0;
   const snaps = [];
   for (let day = 1; day <= DAYS; day++) {
     /* 세계 평균 전투력 — 실제 서버는 등록자 전체의 평균을 쓴다.
@@ -550,7 +822,7 @@ function main() {
   /* ② 콘텐츠별 — 시도·승률·재화·시간 */
   const cont = [['policy', 'content', 'attempts_per_run', 'winrate', 'cr_in', 'cr_out', 'cr_net',
                  'scrap', 'cores', 'parts', 'minutes', 'cr_per_min', 'sec_per_try']];
-  const MODES = ['arena', 'hunt', 'rescue', 'terr', 'terr-income', 'exped'];
+  const MODES = ['arena', 'hunt', 'rescue', 'front', 'terr', 'terr-income', 'exped', 'raid', 'shop', 'codex'];
   for (const pol of POLICIES) {
     for (const m of MODES) {
       const per = runs[pol.id].map(r => r.P.ev.filter(e => e.mode === m));
@@ -622,12 +894,44 @@ function main() {
     }
     const nd = runs[pol.id].map(r => Object.values(r.P.terr).filter(t => t.takenAt).length);
     ms.push([pol.id, '점령 칸 수(마지막 날)', r1(mean(nd)), RUNS, RUNS]);
+    const gd = runs[pol.id].map(r => r.P.gachaDay).filter(x => x != null);
+    ms.push([pol.id, '뽑기 문 열림', gd.length ? r1(mean(gd)) : '', gd.length, RUNS]);
+    for (const k of [5, FRONT_CELLS.length]) {
+      const d = runs[pol.id].map(r => { const ds = Object.values(r.P.frontDay).sort((a, b) => a - b); return ds.length >= k ? ds[k - 1] : null; }).filter(Boolean);
+      ms.push([pol.id, `전선 ${k}칸`, d.length ? r1(mean(d)) : '', d.length, RUNS]);
+    }
+    ms.push([pol.id, '대전 구간(마지막 날)', r1(mean(runs[pol.id].map(r => r.P.band))), RUNS, RUNS]);
+    ms.push([pol.id, '상점 조립 기체 수', r1(mean(runs[pol.id].map(r => r.P.assembled.length))), RUNS, RUNS]);
+    ms.push([pol.id, '상점 조각 구입 크레딧', Math.round(mean(runs[pol.id].map(r => r.P.shopLog.filter(x => x.kind === 'shard').reduce((s, x) => s + x.price, 0)))), RUNS, RUNS]);
+    ms.push([pol.id, '도감 활성화 지출 크레딧', Math.round(mean(runs[pol.id].map(r => r.P.codexSpent.cr))), RUNS, RUNS]);
+    ms.push([pol.id, '도감 환급 크레딧', Math.round(mean(runs[pol.id].map(r => r.P.codexBack.cr))), RUNS, RUNS]);
+    ms.push([pol.id, '스킬 강화 지출 크레딧', Math.round(mean(runs[pol.id].map(r => r.P.skillSpent || 0))), RUNS, RUNS]);
   }
   fs.writeFileSync(path.join(OUT, 'milestones.csv'), csv(ms));
 
+  /* ⑥ 숙련 기초 자료 — 기체마다 몇 판 싸웠나. 개발 계보의 '숙련 단계 · 조각' 수치를 이것으로 정한다 */
+  const mt = [['policy', 'day', 'robots_owned', 'fought_robots', 'top1', 'top2', 'top3', 'median_fought',
+               'ge50', 'ge100', 'ge200', 'ge400', 'total_battles', 'per_day_top1']];
+  for (const pol of POLICIES)
+    for (const D of [7, 14, 21, 30].filter(d => d <= DAYS)) {
+      const per = runs[pol.id].map(r => {
+        const ns = Object.values(r.P.mast).map(m => Object.entries(m.byDay).filter(([d]) => +d <= D).reduce((s, [, n]) => s + n, 0))
+          .filter(n => n > 0).sort((a, b) => b - a);
+        const owned = r.snaps[D - 1].robots;
+        return { owned, ns };
+      });
+      const q = f => r1(mean(per.map(f)));
+      const med = a => a.length ? a[Math.floor(a.length / 2)] : 0;
+      mt.push([pol.id, D, q(x => x.owned), q(x => x.ns.length), q(x => x.ns[0] || 0), q(x => x.ns[1] || 0), q(x => x.ns[2] || 0),
+               q(x => med(x.ns)), q(x => x.ns.filter(n => n >= 50).length), q(x => x.ns.filter(n => n >= 100).length),
+               q(x => x.ns.filter(n => n >= 200).length), q(x => x.ns.filter(n => n >= 400).length),
+               q(x => x.ns.reduce((s, n) => s + n, 0)), q(x => (x.ns[0] || 0) / D)]);
+    }
+  fs.writeFileSync(path.join(OUT, 'mastery.csv'), csv(mt));
+
   writeReport(runs);
   console.log(`${DAYS}일 × ${RUNS}회 × ${POLICIES.length}정책 → ${OUT}`);
-  for (const f of ['progress.csv', 'content.csv', 'difficulty.csv', 'gacha.csv', 'milestones.csv', 'REPORT.md'])
+  for (const f of ['progress.csv', 'content.csv', 'difficulty.csv', 'gacha.csv', 'milestones.csv', 'mastery.csv', 'REPORT.md'])
     console.log('  ' + path.join('tools', 'out', f));
 }
 
@@ -691,6 +995,18 @@ function writeReport(runs) {
   }
   L.push('', '토벌은 살 수 있는 가장 높은 하위 등급을 고르고, C급도 감당할 수 없을 때만 아레나로 전환한다. 점령 비용 부족은 그 선택 행동만 건너뛴다. 연속 3일 이상 비상 출격을 실제 경제 붕괴로 본다.', '');
 
+  L.push('## 숙련 기초 자료 — 기체마다 몇 판 싸웠나 (30일)', '');
+  L.push('개발 계보의 숙련 단계 · 조각 수치를 이것으로 정한다. 세는 판: 아레나 · 비상 · 토벌(합동전은 두 기 모두) · 전선 · 점령 · 레이드.', '');
+  L.push('| 정책 | 보유 기체 | 싸운 기체 | 1위 기체 | 2위 | 3위 | 100판↑ 기체 | 200판↑ | 전체 판 |');
+  L.push('|---|---:|---:|---:|---:|---:|---:|---:|---:|');
+  for (const p of P0) {
+    const per = runs[p.id].map(r => Object.values(r.P.mast).map(m => m.n).sort((a, b) => b - a));
+    const q = f => r1(mean(per.map(f)));
+    L.push(`| ${p.ko} | ${r1(mean(runs[p.id].map(r => r.P.robots.length)))} | ${q(x => x.length)} | ${q(x => x[0] || 0)} | ${q(x => x[1] || 0)} | `
+      + `${q(x => x[2] || 0)} | ${q(x => x.filter(n => n >= 100).length)} | ${q(x => x.filter(n => n >= 200).length)} | ${q(x => x.reduce((s, n) => s + n, 0))} |`);
+  }
+  L.push('', '자세한 날짜별 값은 `mastery.csv`.', '');
+
   /* 자동으로 잡히는 이상 — 사람이 표를 다 읽지 않아도 눈에 띄게 한다 */
   L.push('## 자동 점검', '');
   const issues = [];
@@ -748,7 +1064,8 @@ function writeReport(runs) {
   L.push('| `content.csv` | 콘텐츠별 시도·승률·재화 수지·분당 크레딧·1회 소요 초 |');
   L.push('| `difficulty.csv` | 10일 구간별 승률과 내 전력/상대 전력 비 |');
   L.push('| `gacha.csv` | 창구별 실측 확률·등급별 획득 수·최장 미획득 연속 |');
-  L.push('| `milestones.csv` | 레벨·등급 첫 획득까지 걸린 일수 |');
+  L.push('| `milestones.csv` | 레벨·등급 첫 획득 · 뽑기 문 · 전선 · 구간 · 상점 · 도감 · 스킬 강화 |');
+  L.push('| `mastery.csv` | 7 · 14 · 21 · 30일에 기체마다 싸운 판 수(숙련 기초 자료) |');
   fs.writeFileSync(path.join(OUT, 'REPORT.md'), L.join('\n') + '\n');
 }
 

@@ -45,7 +45,7 @@ for(const opp of [{mode:'duel',target:'TEST',pick:1},{mode:'hunt',tier:'BOSS'}])
 }
 function startSetup(){
  const result=deferred(),replay=deferred(),events=[];
- const c=vm.createContext({_pendingOpp:{mode:'duel'},_battleRequest:0,_battleFindOpts:{mode:'duel',target:'TEST'},_tactic:'none',S:{credits:1000},cur:'battle',net:{state:{online:true,accountId:'a'},battleStart:()=>result.promise},beginReplay(){},selRobot:()=>({type:'ignis'}),toast:x=>events.push(['toast',x]),findMatch:opts=>events.push(['find',opts]),setPending:()=>events.push(['pending']),applyServerBattle:()=>events.push(['reward']),renderAll:()=>events.push(['all']),renderWallet(){},makeUnit:(name,type)=>({name,type}),simulate:()=>[],renderArena:()=>events.push(['arena']),rarOf:()=> 'EP',playBattle:()=>replay.promise,renderResult:()=>events.push(['result']),_lastReward:{}});
+ const c=vm.createContext({_pendingOpp:{mode:'duel'},_battleRequest:0,_battleFindOpts:{mode:'duel',target:'TEST'},_tactic:'none',S:{credits:1000},cur:'battle',net:{state:{online:true,accountId:'a'},battleStart:()=>result.promise},beginReplay(){},selRobot:()=>({type:'ignis'}),toast:x=>events.push(['toast',x]),findMatch:opts=>events.push(['find',opts]),setPending:()=>events.push(['pending']),applyServerBattle:()=>events.push(['reward']),renderAll:()=>events.push(['all']),renderWallet(){},fight1:()=>({}),makeUnit:(name,type)=>({name,type}),simulate:()=>[],renderArena:()=>events.push(['arena']),rarOf:()=> 'EP',playBattle:()=>replay.promise,renderResult:()=>events.push(['result']),_lastReward:{}});
  c.requestBattleStart=tactic=>c.net.battleStart(tactic);
  vm.runInContext(fn('playBattleForAccount'),c);
  vm.runInContext(fn('startBattle'),c);return {c,result,replay,events};
@@ -71,6 +71,17 @@ for(const phase of ['request','replay']){
  assert.equal(t.events.filter(x=>x[0]==='reward').length,1);assert.equal(t.events.filter(x=>x[0]==='result').length,1);
 }
 {
+ const t=startSetup();let bench;
+ t.c.simulate=(P,E,seed,relays)=>{bench=relays;return [];};
+ const run=t.c.startBattle();t.result.resolve({...response,relay:{nameP2:'RANGER',typeP2:'ranger',statP2:{},nameE2:'DUNE',typeE2:'dune',statE2:{}}});t.replay.resolve('P');await run;
+ assert.equal(bench.P[0].type,'ranger');assert.equal(bench.E[0].type,'dune');
+}
+for(const mode of ['raid','hunt']){
+ const html=battleView({mode,allies:[unit('ignis'),unit('ranger')],enemies:[unit(boss)],playerName:'QA',playerMeta:'',powerKnown:mode!=='raid'});
+ assert.ok(!html.includes('PVP BATTLE'));assert.ok(!html.includes('ROWAR.setBattleMode'));
+ assert.ok(html.includes(mode==='raid'?'WEEKLY RAID':'BOSS HUNT'));
+}
+{
  const t=startSetup(),run=t.c.startBattle();t.result.resolve({error:'expired'});await run;
  assert.equal(t.events.find(x=>x[0]==='find')[1].mode,'duel');assert.ok(!t.events.some(x=>x[0]==='reward'));
 }
@@ -92,7 +103,7 @@ console.log('Battle UI passed: 1:1/2:1 rosters and power; static sprites; escapi
 }
 for(const hunt of [null,{tier:'C',done:false},{tier:'EP',done:true}]){
  const el={innerHTML:''};let nav;
- const c=vm.createContext({shield(){},toBattle:(bg,origin)=>nav=origin,$:()=>el,renderWallet(){},sprite:()=>'',esc:String,fmt:String,FAT_MAX:100,
+ const c=vm.createContext({analysisSlot:()=>'',fillAnalysis(){},shield(){},toBattle:(bg,origin)=>nav=origin,$:()=>el,renderWallet(){},sprite:()=>'',esc:String,fmt:String,FAT_MAX:100,
   huntNow:()=>({tiers:{},resetAt:0}),HUNT_KO:{},huntResetTxt:()=>'',bandText:()=>''});
  vm.runInContext(fn('renderResult'),c);
  c.renderResult(true,{hunt,lv:{amt:5,from:1,to:1},cr:1,sc:0,fat:{add:0}},{name:'A',type:'ignis'},{name:'B',type:'ranger'},{});

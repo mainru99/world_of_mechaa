@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>별자리 편집기</title>
+<style>
+/* 로컬 도구 화면 — node tools/circuit_editor.mjs 가 내준다. 한 가지(어두운) 테마로 고정: 판이 남색 흑철이라 둘레도 맞췄다 */
+:root{
+  color-scheme:dark;
+  --bg:#0c1117; --panel:#131b24; --line:#243140; --ink:#e3ebf2; --sub:#9aabbb; --dim:#667788;
+  --iron:#0b1118; --steel:#2b3a48; --steel2:#44586b; --teal:#3fd0c4; --brass:#d3aa5e; --bad:#ff6b5b; --ok:#4fcf8a; --warn:#f0a35c;
+  --body:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif; --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);display:grid;grid-template-columns:220px minmax(0,1fr) 300px;grid-template-rows:auto minmax(0,1fr);height:100vh}
+header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.02em}
+header .who{font-size:13px;color:var(--sub)}
+header .dirty{margin-left:auto;font-size:12.5px;color:var(--warn)}
+button{font:600 13px var(--body);padding:7px 12px;border-radius:7px;border:1px solid var(--line);background:#1a2430;color:var(--ink);cursor:pointer}
+button.pri{background:var(--teal);color:#062421;border-color:var(--teal)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,.item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+/* 왼쪽 — 기체 목록 */
+aside.list{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.lf{display:flex;gap:6px;padding:8px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.lf label{font-size:12.5px;color:var(--sub);display:flex;gap:4px;align-items:center}
+.lf input[type=search]{width:100%;font:13px var(--body);padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:#0f161e;color:var(--ink)}
+.items{overflow:auto;flex:1;padding:4px}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+.item:hover{background:#18222d}
+.item[aria-current="true"]{background:#1c2a36;outline:1px solid var(--teal)}
+.item .st{width:9px;height:9px;border-radius:50%}
+.st.ok{background:var(--ok)} .st.bad{background:var(--bad)}
+.item .hand{font-size:11px;color:var(--brass)}
+.item .rar{font:11px var(--mono);color:var(--dim)}
+
+/* 가운데 — 판 */
+main{display:flex;flex-direction:column;min-height:0;padding:12px;gap:8px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--sub)}
+.bar label{display:flex;gap:6px;align-items:center}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+svg#board{max-width:100%;max-height:100%;aspect-ratio:520/430;background:radial-gradient(110% 80% at 50% 60%,#131d28,#0b1118);border-radius:10px;border:1px solid #1d2935;touch-action:none;user-select:none}
+.pt{cursor:grab}
+.pt.drag{cursor:grabbing}
+.lbl{cursor:move}
+
+/* 오른쪽 — 검사 · 선택 */
+aside.side{border-left:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.card h2{font-size:13px;margin:0;color:var(--sub);font-weight:600;letter-spacing:.04em}
+.verdict{font-weight:700;font-size:15px}
+.verdict.ok{color:var(--ok)} .verdict.bad{color:var(--bad)}
+.issues{margin:0;padding-left:18px;font-size:13px;display:flex;flex-direction:column;gap:3px}
+.issues li.warn{color:var(--warn)}
+.sel{font:13px var(--mono)}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.card.help{display:block;font-size:12.5px;color:var(--sub);line-height:1.7}   /* 글 사이의 kbd 가 flex 칸으로 쪼개지지 않게 */
+.card.help b:first-child{display:block;margin-bottom:4px;color:var(--ink)}
+.help kbd{font:11.5px var(--mono);padding:1px 5px;border:1px solid var(--line);border-radius:4px;background:#0f161e}
+.toast{font-size:13px;min-height:1.3em}
+.toast.ok{color:var(--ok)} .toast.bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>별자리 편집기</h1>
+  <span class="who" id="who"></span>
+  <span class="dirty" id="dirty" hidden>저장하지 않은 변경이 있다</span>
+</header>
+
+<aside class="list">
+  <div class="lf">
+    <input type="search" id="q" placeholder="기체 이름으로 찾기" aria-label="기체 찾기">
+    <label><input type="checkbox" id="onlyBad"> 실패만</label>
+    <label><input type="checkbox" id="onlyHand"> 손으로 고친 것</label>
+  </div>
+  <div class="items" id="items" role="listbox" aria-label="기체"></div>
+</aside>
+
+<main>
+  <div class="bar">
+    <label>그림 밝기 <input type="range" id="bright" min="0.5" max="3" step="0.1" value="1.4"></label>
+    <label><input type="checkbox" id="showNum" checked> 별 번호</label>
+    <label><input type="checkbox" id="showGuide" checked> 가장자리 선(24)</label>
+    <span id="coord" class="sel"></span>
+  </div>
+  <div class="stage"><svg id="board" viewBox="0 0 520 430" aria-label="별자리 판"></svg></div>
+</main>
+
+<aside class="side">
+  <div class="card">
+    <h2>검사</h2>
+    <div class="verdict" id="verdict"></div>
+    <ul class="issues" id="issues"></ul>
+  </div>
+  <div class="card">
+    <h2>고른 점</h2>
+    <div class="sel" id="selInfo">점을 누르거나 끌어 옮긴다</div>
+  </div>
+  <div class="card">
+    <div class="row">
+      <button class="pri" id="bSave">저장 (Ctrl+S)</button>
+      <button id="bUndo">되돌리기 (Ctrl+Z)</button>
+      <button id="bRevert">저장본으로</button>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+  <div class="card help">
+    <b>쓰는 법</b>
+    코어(흰 점) · 별(작은 원) · 전문 별(★) · 갈래 이름 칸을 끌어 옮긴다.
+    고른 점은 <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> 로 1 씩, <kbd>Shift</kbd> 와 함께 5 씩.
+    빨간 줄은 너무 붙은 두 별(다른 갈래 22 · 같은 갈래 이웃 14), 굵은 빨간 선은 교차, 빨간 고리는 가장자리 밖이다.
+    저장하면 <code>data/circuit_layout.js</code> 의 그 기체 줄만 바뀌고 <b>손으로 고침</b> 표시가 붙는다 — 자동 좌표 도구가 다시 돌아도 덮지 않는다.
+  </div>
+</aside>
+
+<script type="module">
+import { ROBOT_TYPES } from '/data/balance.js';
+import { themesOf } from '/js/circuit.js';
+import { CIRCUIT_THEMES } from '/data/circuit.js';
+import { checkLayout, BR, W, H, EDGE, LBL } from '/js/circuitlayout.js';
+
+const RAR = ['C', 'UC', 'R', 'UQ', 'EP'];
+const COL = { A: '#ff8a64', B: '#5ec8ff', C: '#8ff07a', D: '#ffd25a' };
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+const el = (t, a = {}, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const clone = o => JSON.parse(JSON.stringify(o));
+
+let DATA = { layout: {}, labels: {} }, SAVED = {}, cur = null, L = null, LB = null, sel = null, hist = [], dirty = false;
+
+async function load() {
+  const r = await fetch('/api/layout', { cache: 'no-store' });
+  DATA = await r.json();
+  SAVED = clone(DATA);
+  const ids = Object.keys(DATA.layout).filter(id => ROBOT_TYPES[id])
+    .sort((a, b) => RAR.indexOf(ROBOT_TYPES[a].rarity) - RAR.indexOf(ROBOT_TYPES[b].rarity) || a.localeCompare(b));
+  DATA.order = ids;
+  const want = location.hash.slice(1);
+  pick(ids.includes(want) ? want : (ids.find(id => !checkLayout(DATA.layout[id], DATA.labels[id]).ok) || ids[0]));
+}
+
+function statusOf(id) { return checkLayout(DATA.layout[id], DATA.labels[id]); }
+function renderList() {
+  const q = $('#q').value.trim().toLowerCase(), onlyBad = $('#onlyBad').checked, onlyHand = $('#onlyHand').checked;
+  const box = $('#items'); box.textContent = '';
+  for (const id of DATA.order) {
+    const T = ROBOT_TYPES[id], ok = statusOf(id).ok, hand = !!DATA.layout[id].hand;
+    if (q && !(id.includes(q) || T.name.toLowerCase().includes(q))) continue;
+    if (onlyBad && ok) continue;
+    if (onlyHand && !hand) continue;
+    const it = document.createElement('div');
+    it.className = 'item'; it.tabIndex = 0; it.setAttribute('role', 'option'); it.setAttribute('aria-current', id === cur ? 'true' : 'false');
+    it.innerHTML = `<span class="st ${ok ? 'ok' : 'bad'}" title="${ok ? '통과' : '실패'}"></span><span>${T.name}${hand ? ' <span class="hand">손</span>' : ''}</span><span class="rar">${T.rarity}</span>`;
+    it.onclick = () => pick(id);
+    it.onkeydown = e => { if (e.key === 'Enter') pick(id); };
+    box.appendChild(it);
+  }
+}
+
+function pick(id) {
+  if (dirty && cur && cur !== id && !window.confirm(`${ROBOT_TYPES[cur].name} 에 저장하지 않은 변경이 있다. 버리고 넘어갈까?`)) return;
+  if (dirty && cur) { DATA.layout[cur] = clone(SAVED.layout[cur]); DATA.labels[cur] = clone(SAVED.labels[cur] || null); }
+  cur = id; L = DATA.layout[id]; LB = DATA.labels[id] ? clone(DATA.labels[id]) : null; sel = null; hist = []; setDirty(false);
+  history.replaceState(null, '', '#' + id);
+  const T = ROBOT_TYPES[id];
+  $('#who').textContent = `${T.name} · ${T.rarity} · ${T.role} · 스킬 ${T.skill.name}`;
+  renderList(); draw();
+}
+function setDirty(v) { dirty = v; $('#dirty').hidden = !v; }
+function snapshot() { hist.push({ L: clone(L), LB: clone(LB) }); if (hist.length > 200) hist.shift(); }
+
+/* ── 판 ── */
+function getPt(key) { if (key === 'core') return L.core; const b = key[0], k = key.slice(1) === '*' ? 8 : +key.slice(1) - 1; return L[b][k]; }
+function setPt(key, p) { if (key === 'core') L.core = p; else { const b = key[0], k = key.slice(1) === '*' ? 8 : +key.slice(1) - 1; L[b][k] = p; } }
+const clampP = p => [Math.round(Math.min(W - 1, Math.max(1, p[0])) * 10) / 10, Math.round(Math.min(H - 1, Math.max(1, p[1])) * 10) / 10];
+
+function draw() {
+  const svg = $('#board'); svg.textContent = '';
+  const res = checkLayout(L, LB || undefined);
+  const defs = el('defs', {}, svg);
+  const f = el('filter', { id: 'br' }, defs); const ct = el('feComponentTransfer', {}, f);
+  el('feFuncA', { type: 'linear', slope: $('#bright').value }, ct);
+  el('image', { href: `/${L.art || 'assets/circuit/' + cur + '.webp'}`, x: 0, y: 0, width: W, height: H, filter: 'url(#br)', preserveAspectRatio: 'xMidYMid meet' }, svg);
+  if ($('#showGuide').checked) el('rect', { x: EDGE, y: EDGE, width: W - 2 * EDGE, height: H - 2 * EDGE, fill: 'none', stroke: '#2e4052', 'stroke-dasharray': '4 5' }, svg);
+  const crossSet = new Set(res.cross.flatMap(([a, b]) => [a.b + a.k, b.b + b.k]));
+  for (const b of BR) {
+    let prev = L.core;
+    L[b].forEach((p, k) => {
+      const bad = crossSet.has(b + k);
+      el('line', { x1: prev[0], y1: prev[1], x2: p[0], y2: p[1], stroke: bad ? 'var(--bad)' : COL[b], 'stroke-width': bad ? 3 : 1.6, opacity: bad ? 1 : .8, 'stroke-dasharray': k === 8 ? '4 3' : '' }, svg);
+      prev = p;
+    });
+  }
+  for (const [a, b, g] of res.near) el('line', { x1: a.p[0], y1: a.p[1], x2: b.p[0], y2: b.p[1], stroke: 'var(--bad)', 'stroke-width': 2, 'stroke-dasharray': '2 2' }, svg);
+  /* 이름 칸 */
+  const themes = themesOf(cur);
+  for (const b of BR) {
+    /* 정해 둔 칸 → 그 칸, 없으면 찾은 자리, 그것도 없으면 ★ 위에 빨갛게 — 끌어서 놓을 수 있게 늘 그린다 */
+    const st = L[b][8], lost = !res.label[b];
+    const box = (LB && LB[b]) || res.label[b] || [Math.min(W - LBL[0], Math.max(0, st[0] - 45)), Math.max(0, st[1] - 34), LBL[0], LBL[1]];
+    const given = !!(LB && LB[b]);
+    const g = el('g', { class: 'lbl', 'data-key': 'L' + b }, svg);
+    el('rect', { x: box[0], y: box[1], width: box[2], height: box[3], rx: 3, fill: '#0b1118cc', stroke: lost ? 'var(--bad)' : given ? COL[b] : '#3a4b5c', 'stroke-width': lost ? 1.6 : 1, 'stroke-dasharray': given || lost ? '' : '3 3' }, g);
+    const t = el('text', { x: box[0] + 5, y: box[1] + 14, 'font-size': 11.5, fill: COL[b], 'font-family': 'IBM Plex Sans KR, sans-serif' }, g);
+    t.textContent = `${b} · ${CIRCUIT_THEMES[themes[BR.indexOf(b)]]?.ko || ''}`;
+  }
+  /* 점 */
+  const outSet = new Set(res.out.map(x => x.id)), nearSet = new Set(res.near.flatMap(([a, b]) => [a.id, b.id]));
+  const pts = [['core', L.core], ...BR.flatMap(b => L[b].map((p, k) => [b + (k === 8 ? '*' : k + 1), p]))];
+  for (const [key, p] of pts) {
+    const g = el('g', { class: 'pt', 'data-key': key }, svg);
+    el('circle', { cx: p[0], cy: p[1], r: 11, fill: 'transparent' }, g);
+    if (outSet.has(key) || nearSet.has(key)) el('circle', { cx: p[0], cy: p[1], r: 9, fill: 'none', stroke: 'var(--bad)', 'stroke-width': 1.6 }, g);
+    if (sel === key) el('circle', { cx: p[0], cy: p[1], r: 11, fill: 'none', stroke: '#fff', 'stroke-width': 1.4 }, g);
+    if (key === 'core') el('circle', { cx: p[0], cy: p[1], r: 6.5, fill: '#fff' }, g);
+    else if (key.endsWith('*')) el('path', { d: star(p[0], p[1], 8, 3.4), fill: '#171a14', stroke: 'var(--brass)', 'stroke-width': 1.6 }, g);
+    else el('circle', { cx: p[0], cy: p[1], r: 4.5, fill: COL[key[0]], stroke: '#0b1118', 'stroke-width': 1 }, g);
+    if ($('#showNum').checked && key !== 'core') { const t = el('text', { x: p[0] + 7, y: p[1] - 6, 'font-size': 9, fill: '#c9d6e2', 'font-family': 'JetBrains Mono, monospace', 'pointer-events': 'none' }, g); t.textContent = key; }
+  }
+  /* 검사 칸 */
+  $('#verdict').textContent = res.ok ? '통과' : '실패'; $('#verdict').className = 'verdict ' + (res.ok ? 'ok' : 'bad');
+  $('#issues').innerHTML = res.bad.map(x => `<li>${x}</li>`).join('') + res.warn.map(x => `<li class="warn">경고 — ${x}</li>`).join('') || '<li style="list-style:none;margin-left:-18px;color:var(--sub)">문제 없음</li>';
+  $('#selInfo').textContent = sel ? `${sel}  x ${(sel[0] === 'L' ? LB[sel[1]][0] : getPt(sel)[0]).toFixed(1)}  y ${(sel[0] === 'L' ? LB[sel[1]][1] : getPt(sel)[1]).toFixed(1)}` : '점을 누르거나 끌어 옮긴다';
+}
+function star(x, y, R, r) { let d = ''; for (let i = 0; i < 8; i++) { const a = -Math.PI / 2 + i * Math.PI / 4, q = i % 2 ? r : R; d += (i ? 'L' : 'M') + (x + q * Math.cos(a)).toFixed(1) + ' ' + (y + q * Math.sin(a)).toFixed(1); } return d + 'Z'; }
+
+/* ── 끌기 ── */
+const svg = $('#board');
+function svgPoint(e) { const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const m = svg.getScreenCTM().inverse(); const q = pt.matrixTransform(m); return [q.x, q.y]; }
+let drag = null;
+svg.addEventListener('pointerdown', e => {
+  const g = e.target.closest('[data-key]'); if (!g) { sel = null; draw(); return; }
+  const key = g.dataset.key, p = svgPoint(e);
+  snapshot();
+  if (key[0] === 'L') {
+    const b = key[1], res = checkLayout(L, LB || undefined);
+    const st = L[b][8];
+    LB = LB || {}; LB[b] = LB[b] || [...(res.label[b] || [Math.min(W - LBL[0], Math.max(0, st[0] - 45)), Math.max(0, st[1] - 34), LBL[0], LBL[1]])];
+    drag = { key, off: [p[0] - LB[b][0], p[1] - LB[b][1]] };
+  } else { const q = getPt(key); drag = { key, off: [p[0] - q[0], p[1] - q[1]] }; }
+  sel = key; svg.setPointerCapture(e.pointerId); draw();
+});
+svg.addEventListener('pointermove', e => {
+  const p = svgPoint(e);
+  $('#coord').textContent = `x ${p[0].toFixed(0)}  y ${p[1].toFixed(0)}`;
+  if (!drag) return;
+  const np = [p[0] - drag.off[0], p[1] - drag.off[1]];
+  if (drag.key[0] === 'L') { const b = drag.key[1]; LB[b] = [Math.round(Math.min(W - LBL[0], Math.max(0, np[0])) * 10) / 10, Math.round(Math.min(H - LBL[1], Math.max(0, np[1])) * 10) / 10, LBL[0], LBL[1]]; }
+  else setPt(drag.key, clampP(np));
+  setDirty(true); draw();
+});
+svg.addEventListener('pointerup', () => { drag = null; renderListStatus(); });
+function renderListStatus() { DATA.layout[cur] = L; DATA.labels[cur] = LB; renderList(); }
+
+/* ── 키 · 단추 ── */
+window.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); doSave(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+  if (!sel || e.target.tagName === 'INPUT') return;
+  const step = e.shiftKey ? 5 : 1, mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+  if (!mv) return;
+  e.preventDefault(); snapshot();
+  if (sel[0] === 'L') { const b = sel[1]; LB[b] = [LB[b][0] + mv[0], LB[b][1] + mv[1], LBL[0], LBL[1]]; }
+  else { const q = getPt(sel); setPt(sel, clampP([q[0] + mv[0], q[1] + mv[1]])); }
+  setDirty(true); draw(); renderListStatus();
+});
+function undo() { const h = hist.pop(); if (!h) return; L = h.L; LB = h.LB; DATA.layout[cur] = L; DATA.labels[cur] = LB; setDirty(hist.length > 0 || dirty); draw(); renderList(); }
+async function doSave() {
+  const t = $('#toast');
+  try {
+    const r = await fetch('/api/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: cur, layout: { core: L.core, A: L.A, B: L.B, C: L.C, D: L.D }, labels: LB }) });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.error || r.status);
+    L = DATA.layout[cur] = j.layout; SAVED.layout[cur] = clone(j.layout); SAVED.labels[cur] = clone(LB); DATA.labels[cur] = LB;
+    setDirty(false); hist = [];
+    t.className = 'toast ok'; t.textContent = `저장했다 — ${ROBOT_TYPES[cur].name} ${j.check.ok ? '(통과)' : '(아직 실패: ' + j.check.bad.join(' · ') + ')'}`;
+    draw(); renderList();
+  } catch (e) { t.className = 'toast bad'; t.textContent = '저장하지 못했다 — ' + e.message; }
+}
+$('#bSave').onclick = doSave;
+$('#bUndo').onclick = undo;
+$('#bRevert').onclick = () => { snapshot(); L = DATA.layout[cur] = clone(SAVED.layout[cur]); LB = SAVED.labels[cur] ? clone(SAVED.labels[cur]) : null; DATA.labels[cur] = LB; setDirty(false); draw(); renderList(); };
+for (const id of ['q', 'onlyBad', 'onlyHand']) $('#' + id).addEventListener('input', renderList);
+for (const id of ['bright', 'showNum', 'showGuide']) $('#' + id).addEventListener('input', draw);
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+load();
+</script>
+</body>
+</html>

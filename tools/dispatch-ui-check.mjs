@@ -16,7 +16,7 @@ for(const [tier,t] of Object.entries(CONST.EXPED)){
  assert.equal(got.sc,Math.round(t.scH*t.h*24));
 }
 assert.equal(missions.find(m=>m.key==='hunt:BOSS').cost,1200);
-assert.equal(missions.find(m=>m.key==='hunt:BOSS').level,Math.min(CONST.MAXLV,62));
+assert.equal(missions.find(m=>m.key==='hunt:BOSS').level,Math.min(CONST.MAXLV+(CONST.OPP_LV_OVER||0),62));
 const capped=dispatchMissions({...input,credits:0,weekly:{resetAt:weekly.resetAt,tiers:{...weekly.tiers,UQ:{used:21,cap:21}}}});
 assert.equal(capped.find(m=>m.key==='hunt:UQ').blocked,'이번 주 한도 소진');
 assert.equal(capped.find(m=>m.key==='hunt:EP').blocked,'크레딧 부족');

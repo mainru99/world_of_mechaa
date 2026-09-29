@@ -16,6 +16,8 @@
  *   ⑦ 응답만으로 전투를 다시 돌리면 서버 판정과 같다 (재생이 갈리지 않는다)
  *   ⑧ 토벌 주간 한도 — 한도만큼 들어가고 · 넘으면 찾기·시작 둘 다 막고 · 입장료는 막힌 판에 안 걷고 ·
  *      마지막 판 뒤 다음 상대를 안 잡고 · 한도 없는 등급은 안 세고 · 일요일 0시(KST)에 풀린다 (2026-09-19)
+ *   ⑨ 합동전 토벌 보스 — 편성 두 기 · 요청한 자리와 전술 · 걸러 받기 · 두 기 모두 정산 ·
+ *      기준 기체(높은 레벨)로 보스 레벨과 출격비 · 응답만으로 재생 (2026-09-21)
  *
  * node --no-warnings tools/battlecheck.mjs */
 import { DatabaseSync } from 'node:sqlite';
@@ -25,6 +27,7 @@ import { findMatch, startBattle } from '../server/battle.js';
 import { loadState } from '../server/state.js';
 import { bandStart, bandStep, bandRow, readHuntWeek, huntCap, huntResetAt } from '../js/rewards.js';
 import { makeUnit, simulate } from '../js/sim.js';
+import { runJoint } from '../js/joint.js';
 
 let bad = 0;
 const ok = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if (!c) bad++; };
@@ -186,6 +189,53 @@ console.log('\n== ⑧ 토벌 주간 입장 한도 (2026-09-19) ==');
 
   const s = await loadState(env, 1);
   ok(s.hunt && s.hunt.tiers.BOSS && s.hunt.tiers.UQ && s.hunt.resetAt > 0, '/api/state 가 이번 주 입장 수를 내린다');
+}
+
+console.log('\n== ⑨ 합동전 토벌 보스 (2026-09-21) ==');
+{
+  let t = T0 + 90 * 86400e3;
+  db.prepare(`INSERT INTO robot (id, account_id, type, level, uid, created_at) VALUES (2, 1, 'howitzer', 50, 'r2', ?)`).run(T0);
+  db.prepare(`INSERT INTO robot (id, account_id, type, level, uid, created_at) VALUES (3, 1, 'mule', 60, 'r3', ?)`).run(T0);
+  db.prepare('UPDATE player SET squad1 = 1, squad2 = 2, sel_robot = 1, hunt_wk = NULL, credits = 999999 WHERE account_id = 1').run();
+  db.prepare('UPDATE robot SET fat = 0, level = 30 WHERE id = 1').run();
+
+  const f = await findMatch(env, 1, t, { mode: 'hunt', tier: 'BOSS' }); t += 1000;
+  const lv = Math.min(CONST.MAXLV + (CONST.OPP_LV_OVER || 0), 50 + CONST.HUNT.BOSS.lv);
+  ok(f.ok && f.opponent.joint && f.opponent.joint.aim && Array.isArray(f.opponent.joint.traits),
+     `상대 카드에 합동전 조준·요구 조건 — ${f.opponent && JSON.stringify(f.opponent.joint)}`);
+  ok(f.opponent.level === lv, `보스 레벨은 편성 중 높은 쪽(HOWITZER Lv.50) 기준 — Lv.${f.opponent.level} (선봉은 Lv.30)`);
+
+  const exp0 = q('SELECT exp, fat FROM robot WHERE id=1'), exp2 = q('SELECT exp, fat FROM robot WHERE id=2');
+  const r = await startBattle(env, 1, t, { tactic: 'none', order: ['r2', 'r1'], tactics: { r1: 'guard', r2: 'rush' } }); t += 1000;
+  ok(r.ok && r.joint, '합동전 응답');
+  ok(r.team && r.team.map(x => x.uid).join() === 'r2,r1', `요청한 자리 그대로 — 전위 ${r.team && r.team[0].uid} · 후위 ${r.team && r.team[1].uid}`);
+  ok(r.team && r.team[0].tactic === 'rush' && r.team[1].tactic === 'guard', '기체별 전술 그대로');
+  const rp = runJoint({ seed: r.seed, aim: r.boss.aim, team: r.team,
+    boss: { name: r.boss.callsign, type: r.boss.type, stats: r.boss.stats, tactic: r.boss.tactic, traits: r.boss.traits } });
+  ok(rp.win === r.win, `응답만으로 재생한 승패가 서버와 같다 (${r.win ? '승' : '패'})`);
+  const e1 = q('SELECT exp, fat FROM robot WHERE id=1'), e2 = q('SELECT exp, fat FROM robot WHERE id=2');
+  ok(e1.fat > exp0.fat && e2.fat > exp2.fat, `두 기 모두 피로도가 쌓였다 (${exp0.fat}→${e1.fat} · ${exp2.fat}→${e2.fat})`);
+  ok(r.robots && r.robots.length === 2 && r.reward.robots.length === 2, '응답에 두 기의 정산이 모두 있다');
+  ok(q('SELECT fat FROM robot WHERE id=3').fat === 0, '편성 밖 기체(MULE)는 싸우지 않았다');
+  ok(r.hunt.tiers.BOSS.used === 1, `주간 한도에 센다 (${r.hunt.tiers.BOSS.used})`);
+  ok(r.next && r.next.opponent && r.next.opponent.joint, '다음 상대도 합동전 보스로 미리 잡는다');
+
+  /* 손댄 요청 — 편성 밖 기체 · 없는 전술 */
+  const r2 = await startBattle(env, 1, t, { order: ['r3', 'zzz'], tactics: { r1: 'nuke', r3: 'rush' } }); t += 1000;
+  ok(r2.ok && r2.team.map(x => x.uid).join() === 'r1,r2', `편성 밖 uid 는 무시하고 편성 순서로 — ${r2.team && r2.team.map(x => x.uid).join()}`);
+  ok(r2.team.every(x => x.tactic === 'none'), '표에 없는 전술은 균형으로');
+
+  /* 한 기만 편성 — 전위 하나로 싸운다 */
+  db.prepare('UPDATE player SET squad2 = NULL WHERE account_id = 1').run();
+  await findMatch(env, 1, t, { mode: 'hunt', tier: 'BOSS' }); t += 1000;
+  const r3 = await startBattle(env, 1, t, {}); t += 1000;
+  ok(r3.ok && r3.team.length === 1, '편성이 한 기뿐이면 한 기로 싸운다');
+  db.prepare('UPDATE player SET squad2 = 2, hunt_wk = NULL WHERE account_id = 1').run();
+
+  /* 일반 토벌은 그대로 1:1 */
+  await findMatch(env, 1, t, { mode: 'hunt', tier: 'EP' }); t += 1000;
+  const r4 = await startBattle(env, 1, t, { tactic: 'none', order: ['r2', 'r1'] }); t += 1000;
+  ok(r4.ok && !r4.joint && r4.statP && !r4.team, 'EP 토벌은 예전처럼 1:1');
 }
 
 console.log(bad ? `\n✗ ${bad}건 실패` : '\n전부 통과');

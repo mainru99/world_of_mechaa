@@ -25,6 +25,8 @@ import { raidView, raidRun } from './raid.js';
 import { frontState, frontRun } from './front.js';
 import { codexRun, codexGet } from './codex.js';
 import { shopView, shopRun } from './shop.js';
+import { refineRun, circuitRun } from './refine.js';
+import { salvageView, salvageRun } from './salvage.js';
 import { sendExped, claimExped } from './expedition.js';
 import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion, migrateArena } from './arena.js';
@@ -34,7 +36,7 @@ import { hashPassword, verifyPassword, checkCredentials,
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
    두 군데 적어 두면 반드시 어긋나므로 여기서는 넘기지 않는다. */
-const COMMON_IDS = Object.values(ROBOT_TYPES).filter(r => r.rarity === 'C').map(r => r.id);
+const COMMON_IDS = Object.values(ROBOT_TYPES).filter(r => r.rarity === 'C' && !r.story).map(r => r.id);   // 스토리 기체로 시작하지 않는다
 
 const SESSION_DAYS = 90;
 const DAY_MS = 86400000;
@@ -310,9 +312,9 @@ async function handleApi(request, env, url) {
     let body; try { body = await request.json(); } catch { body = {}; }
     /* cur 은 창구(코어/크레딧)다. 값 검증은 serverPull 이 한다 — 모르는 값이면 코어로 떨어진다. */
     const r = await serverPull(env, sess.account_id, body && body.count, Date.now(), body && body.cur);
-    if (!r.ok) return json({ ok: false, error: r.error, cores: r.cores, credits: r.credits }, r.status || 500);
+    if (!r.ok) return json({ ok: false, error: r.error, cores: r.cores, credits: r.credits, rcores: r.rcores }, r.status || 500);
     return json({ ok: true, cur: r.cur, spent: r.spent, results: r.results, rev: r.rev,
-                  credits: r.credits, cores: r.cores, scrap: r.scrap, wrote: r.wrote });
+                  credits: r.credits, cores: r.cores, rcores: r.rcores, scrap: r.scrap, wrote: r.wrote });
   }
 
   /* 전투 — 상대 선택도 시드도 승패도 서버가 정한다. 클라는 재생만 한다. */
@@ -370,6 +372,36 @@ async function handleApi(request, env, url) {
     return json(r, r.ok ? 200 : (r.status || 400));
   }
 
+  /* 정제 코어(023) — 코어 10개 → 1개. 코어 서킷 — 별 찍기 · 비우기(정제 코어 1개). 화면은 UI 개편 뒤 */
+  if (path === '/refine' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let rbody; try { rbody = await request.json(); } catch { rbody = {}; }
+    const r = await refineRun(env, sess.account_id, Date.now(), rbody);
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  if (path === '/circuit' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let cbody; try { cbody = await request.json(); } catch { cbody = {}; }
+    const r = await circuitRun(env, sess.account_id, Date.now(), cbody);
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  /* 조각 회수 작전(023) — 하루 두 번 · 개발 목표의 조각. 보기(GET) · 한 판(POST) */
+  if (path === '/salvage' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await salvageView(env, sess.account_id, Date.now());
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  if (path === '/salvage' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let vbody; try { vbody = await request.json(); } catch { vbody = {}; }
+    const r = await salvageRun(env, sess.account_id, Date.now(), vbody);
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+
   if (path === '/codex' && method === 'GET') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -399,8 +431,8 @@ async function handleApi(request, env, url) {
   }
 
   /* 보스 레이드. 조회는 GET, 도전은 POST.
-     도전 요청에는 아무것도 안 실린다 — 무엇으로 싸울지, 몇 번째인지, 시드가 무엇인지
-     전부 서버가 정한다. 클라가 보내는 것은 '도전한다' 는 사실뿐이다. */
+     도전 요청에 실리는 것은 편성 두 기의 **자리와 전술**뿐이다(2026-09-21 합동전) —
+     몇 번째인지, 시드가 무엇인지, 무엇과 싸우는지는 전부 서버가 정한다. */
   if (path === '/raid' && method === 'GET') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -409,7 +441,9 @@ async function handleApi(request, env, url) {
   if (path === '/raid' && method === 'POST') {
     const sess = await auth(request, env);
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
-    const r = await raidRun(env, sess.account_id, Date.now());
+    /* 본문은 합동전 편성뿐이다 — { order:[uid,uid], tactics:{uid:전술} }. 서버가 걸러서 받는다 */
+    let rbody; try { rbody = await request.json(); } catch { rbody = null; }
+    const r = await raidRun(env, sess.account_id, Date.now(), rbody);
     return json(r, r.ok ? 200 : (r.status || 400));
   }
 

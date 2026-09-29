@@ -10,6 +10,7 @@
  * 만렙 상대만 잡아 경험치를 부풀릴 수 있다.
  * 시드를 서버가 정하는 이유: 결정적 시뮬이라 시드가 곧 결과다.
  */
+import { parseCircuit } from '../js/circuit.js';
 import { ROBOT_TYPES, MONSTER_TYPES, CONST } from '../data/balance.js';
 import { computeStats, power, gainExp, addFat, fatOf, decayFat,
          sortieCost, rescueCredits } from '../js/stats.js';
@@ -18,7 +19,20 @@ import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickT
          readHuntWeek, huntLeft, huntCap, huntResetAt, huntWeekView } from '../js/rewards.js';
 import { codexMonsterStmt } from './codex.js';
 import { registerArena, pickOpponentFromArena, pickOpponentByNickname, ratingDelta } from './arena.js';
-import { makeUnit, simulate, mulberry32 } from '../js/sim.js';
+import { makeUnit, simulate, mulberry32, relayOut } from '../js/sim.js';
+
+/* 교대 전투(CONST.RELAY · 2026-09-25) — 켜져 있을 때만. 대전(아레나 · 비상 출격 · 친선전)만 해당하고 토벌은 그대로다 */
+const relayOn = () => !!(CONST.RELAY && CONST.RELAY.on);
+const relayShare = () => (CONST.RELAY && CONST.RELAY.share) || [0.6, 0.4];
+/* 만들어 낸 상대의 두 번째 기체 — 첫째와 같은 종류(로봇 / 몬스터)로. makeOpponent 가 종류를 확률로 고르므로 몇 번 굴린다 */
+function secondOpponent(first, me, rnd, uid, rescue) {
+  for (let k = 0; k < 12; k++) {
+    const o = makeOpponent(me.allRarities, me.robot.level, rnd, uid, first.kind === 'monster' || rescue, me.rating, me.band);
+    if (o.kind === first.kind) return { type: o.type, level: o.level, skillLv: o.skillLv | 0, slots: o.slots, parts: o.parts, callsign: o.callsign };
+  }
+  return null;
+}
+import { runJoint, jointOf, jointBossStats, jointOrder, jointTactics } from '../js/joint.js';
 import { PART_COLS, partOf, insertPart } from './parts.js';
 
 function cryptoRnd() {
@@ -37,7 +51,7 @@ async function loadFighter(env, accountId) {
     'SELECT sel_robot, credits, rating, mband, mband_pts, squad1, squad2, hunt_wk FROM player WHERE account_id = ?1')
     .bind(accountId).first();
   const robots = (await env.DB.prepare(
-    'SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
+    'SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, circuit, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(accountId).all()).results || [];
   if (!robots.length) return null;
   const squad = [p && p.squad1, p && p.squad2].filter(Boolean);
@@ -51,13 +65,26 @@ async function loadFighter(env, accountId) {
   const byId = new Map(parts.map(x => [x.id, x]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 
-  const slots = {}, used = [];
-  for (const sl of Object.keys(col)) {
-    const p2 = byId.get(row[col[sl]]);
-    slots[sl] = p2 ? p2.uid : null;
-    if (p2) used.push(partOf(p2));
-  }
+  /* 기체 한 대를 전투용 모양으로. 합동전은 편성 두 기를 모두 이렇게 읽는다 */
+  const fighterOf = r => {
+    const slots = {}, used = [];
+    for (const sl of Object.keys(col)) {
+      const p2 = byId.get(r[col[sl]]);
+      slots[sl] = p2 ? p2.uid : null;
+      if (p2) used.push(partOf(p2));
+    }
+    return { row: r, parts: used,
+             robot: { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at, skillLv: r.skill_lv, slots, circuit: parseCircuit(r.circuit) } };
+  };
+  const { robot: { slots }, parts: used } = fighterOf(row);
+  /* 합동전 편성 — 선봉(sel_robot)이 먼저, 그다음 편성 순서. 편성이 비었으면 선봉 하나다 */
+  const squadRows = [row, ...squad.map(id => robots.find(r => r.id === id)).filter(r => r && r !== row)].slice(0, 2);
+  const squadF = squadRows.map(fighterOf);
   return {
+    squad: squadF,
+    /* 합동전의 기준 기체 — 편성 중 레벨이 가장 높은 쪽. 출격비와 보스 레벨을 여기에 맞춘다.
+       선봉만 보면 낮은 기체를 선봉에 두고 높은 기체로 싸워 보스를 약하게 부르는 길이 생긴다 */
+    lead: squadF.reduce((a, b) => (b.robot.level > a.robot.level ? b : a), squadF[0]).robot,
     row,
     credits: p ? p.credits : 0,
     rating: p && p.rating != null ? p.rating : 1000,   // 상대 장비를 여기에 맞춘다
@@ -65,7 +92,7 @@ async function loadFighter(env, accountId) {
     band: bandStart(p && p.mband, p && p.rating != null ? p.rating : 1000),
     bandPts: (p && p.mband_pts) | 0,
     huntWk: p ? p.hunt_wk : null,         // 토벌 주간 입장 수(021) — 원문 그대로. readHuntWeek 로 읽는다
-    robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots },
+    robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp, fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit) },
     parts: used,
     /* 상대 등급 보정은 '보유한' 기체 전부를 본다 — 편성에 없어도 내 전력이다 */
     allRarities: robots.map(r => (COMBAT[r.type] || ROBOT_TYPES.mule).rarity),
@@ -84,6 +111,10 @@ async function loadFighter(env, accountId) {
    '다시 찾기'는 그대로 find 를 부르면 되므로 기능이 죽지 않는다.
    (find 와 start 를 한 요청으로 아예 합치면 상대를 보기 전에 승패가 확정되어
     다시 찾기가 성립하지 않는다. 그래서 합치지 않고 미리 잡는 쪽을 택했다.) */
+/* 합동전(편성 두 기가 한꺼번에)으로 치르는 토벌 등급. 2026-09-21 — 보스만 */
+export const JOINT_TIERS = ['BOSS'];
+export const isJointTier = t => JOINT_TIERS.includes(t);
+
 /* 토벌 한 판의 출격비. 등급이 오를수록 비싸다. */
 export const huntCost = (robot, tier) =>
   Math.ceil(sortieCost(robot) * (CONST.HUNT[tier] || CONST.HUNT.C).costX);
@@ -104,18 +135,24 @@ async function preparePending(env, accountId, me, now, credits, opts) {
 
   const tier = opts && opts.mode === 'hunt' && CONST.HUNT[opts.tier] ? opts.tier : null;
   if (tier) {
-    const hcost = huntCost(me.robot, tier);
+    /* 토벌 보스는 합동전이다 — 기준 기체(편성 중 가장 높은 레벨)로 출격비와 보스 레벨을 정한다 */
+    const joint = isJointTier(tier);
+    const base = joint ? me.lead : me.robot;
+    const hcost = huntCost(base, tier);
     if (have >= hcost) {
-      const hopp = makeHuntTarget(tier, me.robot.level, rnd, uid);
+      const hopp = makeHuntTarget(tier, base.level, rnd, uid);
       const hseed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
       const HT = COMBAT[hopp.type];
+      const J = joint ? jointOf(hopp.type) : null;
       return {
-        json: JSON.stringify({ opp: hopp, seed: hseed, at: now, rescue: false, cost: hcost, mode: 'hunt', tier }),
+        json: JSON.stringify({ opp: hopp, seed: hseed, at: now, rescue: false, cost: hcost, mode: 'hunt', tier, joint }),
         cost: hcost, rescue: false, mode: 'hunt', tier,
         opponent: {
           kind: hopp.kind, type: hopp.type, level: hopp.level, skillLv: hopp.skillLv | 0, callsign: hopp.callsign,
           rating: null, name: HT.name, role: HT.role, rarity: HT.rarity,
           skill: HT.skill, parts: hopp.parts, slots: hopp.slots,
+          /* 합동전 — 화면이 편성 칸과 요구 조건을 그린다 */
+          joint: joint ? { aim: J.aim, traits: J.traits } : null,
         },
       };
     }
@@ -149,6 +186,7 @@ async function preparePending(env, accountId, me, now, credits, opts) {
         callsign: dopp.callsign, rating: dopp.rating ?? null,
         name: DT.name, role: DT.role, rarity: DT.rarity,
         skill: DT.skill, parts: dopp.parts, slots: dopp.slots,
+        bench: relayOn() ? (dopp.bench || []).map(b => ({ type: b.type, level: b.level, name: (COMBAT[b.type] || {}).name })) : undefined,
       },
     };
   }
@@ -166,6 +204,8 @@ async function preparePending(env, accountId, me, now, credits, opts) {
   /* 상대 장비는 **내 레이팅**에 맞춘다. 내가 낀 파츠를 따라가면 좋은 파츠를 껴도
      상대가 같이 세져 이득이 즉시 상쇄된다(data/balance.js 의 RATING_GEAR 주석 참고). */
   if (!opp) opp = makeOpponent(me.allRarities, me.robot.level, rnd, uid, rescue, me.rating, me.band);
+  /* 교대 전투 — 사람 상대는 편성의 다른 기체(rowToOpponent 가 bench 로 준다), 만든 상대는 같은 종류로 하나 더 */
+  if (relayOn() && opp.kind !== 'player') { const b = secondOpponent(opp, me, rnd, uid, rescue); opp.bench = b ? [b] : []; }
   const seed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
 
   const T = COMBAT[opp.type];
@@ -183,6 +223,8 @@ async function preparePending(env, accountId, me, now, credits, opts) {
       band: opp.band ?? null, bandTotal: (CONST.MON_BAND || []).length || null,
       /* 승급까지 몇 승 · 강등까지 몇 패. 몬스터일 때만 뜻이 있다 — 비상 출격은 안 움직인다. */
       bandGoal: opp.kind === 'monster' && !rescue ? bandGoal(me.band, me.bandPts) : null,
+      /* 교대 전투 — 상대의 두 번째 기체(켜져 있을 때만) */
+      bench: relayOn() ? (opp.bench || []).map(b => ({ type: b.type, level: b.level, name: (COMBAT[b.type] || {}).name })) : undefined,
     },
   };
 }
@@ -195,7 +237,7 @@ export async function findMatch(env, accountId, now, opts) {
      (아레나는 고른 게 아니라 기본 경로라서 비상 출격으로 알아서 구제한다) */
   if (opts && opts.mode === 'hunt') {
     if (!CONST.HUNT[opts.tier]) return { ok: false, status: 400, error: 'unknown tier' };
-    const need = huntCost(me.robot, opts.tier);
+    const need = huntCost(isJointTier(opts.tier) ? me.lead : me.robot, opts.tier);
     if (me.credits < need)
       return { ok: false, status: 400, error: 'not enough credits for hunt', need, have: me.credits };
     /* 주간 한도(UQ · EP · BOSS). 상대를 보여 주기 전에 막는다 — 보여 주고 시작에서 막으면 헛걸음이다.
@@ -269,8 +311,9 @@ export async function startBattle(env, accountId, now, body) {
   const tier = mode === 'hunt' ? pend.tier : null;
   const duel = mode === 'duel';                 // 친선전 — 오가는 것이 하나도 없다
   const rescue = !!pend.rescue && !duel;
+  const joint = mode === 'hunt' && isJointTier(tier);
   const cost = duel || rescue ? 0
-             : mode === 'hunt' ? huntCost(me.robot, tier)
+             : mode === 'hunt' ? huntCost(joint ? me.lead : me.robot, tier)
              : sortieCost(me.robot);
   /* 여기 오면 pending 은 이미 비워 둔 상태다(위 선점). 다시 비울 필요가 없다.
      클라는 이 오류를 받으면 상대를 새로 찾는다 — 그때 비상 출격이 잡힌다. */
@@ -288,6 +331,9 @@ export async function startBattle(env, accountId, now, body) {
     huntW.n[tier] = (huntW.n[tier] | 0) + 1;
   }
   const huntRaw = huntW ? JSON.stringify(huntW) : prow.hunt_wk;
+
+  /* 합동전은 따로 정산한다 — 싸우는 기체가 둘이라 경험치·피로도·응답 모양이 다르다 */
+  if (joint) return startJoint(env, accountId, now, body, { prow, pend, me, cost, tier, huntW, huntRaw });
 
   /* 피로도 자연 회복을 서버 시각으로 먼저 정산한다. 클라 시계는 믿지 않는다. */
   decayFat(me.robot, now);
@@ -310,8 +356,27 @@ export async function startBattle(env, accountId, now, body) {
   const tacE = pickTactic(opp.type, mulberry32((seed ^ 0x9e3779b9) >>> 0));
   const P = makeUnit(ROBOT_TYPES[me.robot.type].name, me.robot.type, statP, tacP);
   const E = makeUnit(opp.callsign, opp.type, statE, tacE);
-  const events = simulate(P, E, seed);
+
+  /* ── 교대 전투(CONST.RELAY) — 양쪽이 모두 두 기일 때만. 한쪽이 한 기면 1:1 이다(두 기 대 한 기는 공평하지 않다).
+     둘째 기체의 전술 — 내 것은 요청의 tactic2(없으면 첫째와 같다), 상대 것은 시드를 다르게 섞어 뽑는다 */
+  const me2 = relayOn() && (mode === 'arena' || mode === 'duel') ? me.squad.find(f => f.robot.uid !== me.robot.uid) : null;
+  const ob0 = me2 && Array.isArray(opp.bench) ? opp.bench[0] : null;
+  const ob = ob0 && COMBAT[ob0.type] ? ob0 : null;
+  let relay = null;
+  if (me2 && ob) {
+    decayFat(me2.robot, now);
+    const statP2 = computeStats(me2.robot, me2.parts);
+    const statE2 = ob.stats || computeStats({ type: ob.type, level: ob.level, skillLv: ob.skillLv | 0, fat: 0, slots: ob.slots, circuit: ob.circuit }, ob.parts);
+    const tacP2 = body && body.tactic2 != null ? validTactic(body.tactic2) : tacP;
+    const tacE2 = pickTactic(ob.type, mulberry32((seed ^ 0x85ebca6b) >>> 0));
+    const nameE2 = ob.callsign || (COMBAT[ob.type] || {}).name || opp.callsign;
+    relay = { me: me2, statP2, statE2, tacP2, tacE2,
+              P2: makeUnit(ROBOT_TYPES[me2.robot.type].name, me2.robot.type, statP2, tacP2),
+              E2: makeUnit(nameE2, ob.type, statE2, tacE2), ob, nameE2 };
+  }
+  const events = relay ? simulate(P, E, seed, { P: [relay.P2], E: [relay.E2] }) : simulate(P, E, seed);
   const win = events[events.length - 1].winner === 'P';
+  const outN = relay ? relayOut(events) : { P: 1, E: 1 };
 
   /* 보상 확정 */
   const rnd = cryptoRnd();
@@ -332,9 +397,16 @@ export async function startBattle(env, accountId, now, body) {
      '누가 이기나 보자'만 남는다. */
   if (duel) rw = { win, cr: 0, sc: 0, core: 0, part: null, expGain: 0, fatAdd: 0 };
 
-  /* 경험치는 싸운 기체가 받는다. 키우는 과정이 곧 보상이다. */
-  const lv = gainExp(me.robot, rw.expGain);
+  /* 경험치는 싸운 기체가 받는다. 키우는 과정이 곧 보상이다.
+     교대 전투면 **나온 기체끼리 나눈다** — 첫째 60% · 둘째 40%(CONST.RELAY.share). 둘째가 안 나왔으면 첫째가 다 받는다.
+     피로도는 나온 기체마다 한 판치(나눠 받지 않는다 — 싸운 만큼 지친다) */
+  const two = !!relay && outN.P >= 2;
+  const [s1, s2] = relayShare();
+  const exp1 = two ? Math.round(rw.expGain * s1) : rw.expGain;
+  const lv = gainExp(me.robot, exp1);
   const fatAdd = addFat(me.robot, rw.fatAdd);
+  let lv2 = null, fatAdd2 = 0;
+  if (two) { lv2 = gainExp(relay.me.robot, rw.expGain - exp1); fatAdd2 = addFat(relay.me.robot, rw.fatAdd); }
 
   const credits = prow.credits - cost + rw.cr;
   const scrap = prow.scrap + rw.sc;
@@ -370,6 +442,8 @@ export async function startBattle(env, accountId, now, body) {
   }
   stmts.push(env.DB.prepare('UPDATE robot SET level=?1, exp=?2, fat=?3, fat_at=?4 WHERE id=?5')
     .bind(me.robot.level, me.robot.exp, me.robot.fat, me.robot.fatAt, me.row.id));
+  if (two) stmts.push(env.DB.prepare('UPDATE robot SET level=?1, exp=?2, fat=?3, fat_at=?4 WHERE id=?5')
+    .bind(relay.me.robot.level, relay.me.robot.exp, relay.me.robot.fat, relay.me.robot.fatAt, relay.me.row.id));
   stmts.push(env.DB.prepare(
     `UPDATE player SET credits=?1, cores=?2, scrap=?3, wins=?4, losses=?5, rev=?6,
        pending_match=?7, updated_at=?8, mband=?10, mband_pts=?11, hunt_wk=?12 WHERE account_id=?9`)
@@ -400,20 +474,22 @@ export async function startBattle(env, accountId, now, body) {
       `INSERT INTO battle (attacker_id, def_kind, defender_id, seed, atk_snap, def_snap, winner_id, atk_delta, created_at)
        VALUES (?1,'player',?2,?3,?4,?5,?6,?7,?8)`)
       .bind(accountId, opp.accountId, String(seed),
-            JSON.stringify(statP), JSON.stringify(statE),
+            JSON.stringify(relay ? [statP, relay.statP2] : statP), JSON.stringify(relay ? [statE, relay.statE2] : statE),
             win ? accountId : opp.accountId, delta, now));
   }
 
   /* 도감 — 몬스터와 싸웠으면 만난 수·처치 수를 적는다(대전·토벌·비상 출격 모두). */
   if (opp.kind === 'monster') {
-    const cs = codexMonsterStmt(env.DB, accountId, [{ type: opp.type, win }]);
+    /* 교대 전투면 둘째 몬스터도 — 첫째는 둘째가 나왔으면 쓰러진 것이다 */
+    const seen = relay && outN.E >= 2 ? [{ type: opp.type, win: true }, { type: relay.ob.type, win }] : [{ type: opp.type, win }];
+    const cs = codexMonsterStmt(env.DB, accountId, seen);
     if (cs) stmts.push(cs);
   }
 
   await env.DB.batch(stmts);
 
   /* 내 편성은 그대로지만 레벨이 올랐을 수 있다. 올랐을 때만 아레나를 갱신한다. */
-  if (lv.to > lv.from) await registerArena(env, accountId, now);
+  if (lv.to > lv.from || (lv2 && lv2.to > lv2.from)) await registerArena(env, accountId, now);
 
   return {
     ok: true,
@@ -436,6 +512,103 @@ export async function startBattle(env, accountId, now, body) {
     hunt: huntWeekView(huntRaw, now), huntDone,
     player: { credits, cores, scrap, wins, losses },
     robot: { uid: me.robot.uid, level: me.robot.level, exp: me.robot.exp, fat: me.robot.fat, fatAt: me.robot.fatAt },
+    /* 교대 전투 — 재생에 필요한 둘째 기체들과, 둘째 기체가 받은 것. 켜져 있지 않거나 한쪽이 한 기면 null.
+       재생: simulate(makeUnit(P) , makeUnit(E), seed, { P: [makeUnit(nameP2, typeP2, statP2, tacticP2)], E: [makeUnit(nameE2, typeE2, statE2, tacticE2)] }) */
+    relay: relay ? {
+      nameP2: ROBOT_TYPES[relay.me.robot.type].name, typeP2: relay.me.robot.type, statP2: relay.statP2, tacticP2: relay.tacP2,
+      nameE2: relay.nameE2, typeE2: relay.ob.type, statE2: relay.statE2, tacticE2: relay.tacE2,
+      out: outN, share: two ? [exp1, rw.expGain - exp1] : [exp1, 0],
+      robot2: two ? { uid: relay.me.robot.uid, level: relay.me.robot.level, exp: relay.me.robot.exp, fat: relay.me.robot.fat, fatAt: relay.me.robot.fatAt,
+                      lv: { amt: lv2.amt, from: lv2.from, to: lv2.to }, fatGain: { add: fatAdd2, now: fatOf(relay.me.robot) } } : null,
+    } : null,
+    rev,
+  };
+}
+
+/* ── 합동전 토벌 (2026-09-21) ────────────────────────────
+   편성 두 기가 **한꺼번에** 보스와 싸운다. 자리(전위·후위)와 기체별 전술은 요청에서 받되
+   걸러서 받는다(js/joint.js 의 jointOrder · jointTactics). 나머지는 startBattle 과 같다 —
+   선점 · 출격비 · 주간 한도는 이미 거기서 끝났다. 레이팅 · 구간 · 전투 기록은 토벌이라 없다. */
+async function startJoint(env, accountId, now, body, ctx) {
+  const { prow, pend, me, cost, tier, huntW, huntRaw } = ctx;
+  const { opp, seed } = pend;
+
+  const byUid = new Map(me.squad.map(f => [f.robot.uid, f]));
+  const order = jointOrder(me.squad.map(f => f.robot.uid), body && body.order);
+  const tacs = jointTactics(order, body && body.tactics);
+  const fs = order.map(u => byUid.get(u));
+  for (const f of fs) decayFat(f.robot, now);
+
+  const team = fs.map((f, i) => ({ uid: f.robot.uid, name: ROBOT_TYPES[f.robot.type].name, type: f.robot.type,
+                                   stats: computeStats(f.robot, f.parts), tactic: tacs[i] }));
+  const J = jointOf(opp.type);
+  const raw = computeStats({ type: opp.type, level: opp.level, skillLv: opp.skillLv | 0, fat: 0, slots: opp.slots }, opp.parts);
+  const statE = jointBossStats(raw, J.traits, opp.type);
+  const tacE = pickTactic(opp.type, mulberry32((seed ^ 0x9e3779b9) >>> 0));
+  const res = runJoint({ seed, aim: J.aim, team,
+    boss: { name: opp.callsign, type: opp.type, stats: statE, tactic: tacE, traits: J.traits } });
+  const win = res.win;
+
+  const rnd = cryptoRnd();
+  let seq = 0;
+  const uid = () => 'b' + now.toString(36) + (seq++).toString(36);
+  const rw = rollHuntRewards(win, tier, opp.level, rnd, uid);
+
+  /* 경험치 · 피로도는 **싸운 두 기가 각자** 받는다. 토벌 경험치는 원래 작다(HUNT_EXP_X) */
+  const robots = fs.map(f => {
+    const lv = gainExp(f.robot, rw.expGain);
+    const add = addFat(f.robot, rw.fatAdd);
+    return { f, lv, add };
+  });
+
+  const credits = prow.credits - cost + rw.cr;
+  const scrap = prow.scrap + rw.sc;
+  const cores = prow.cores + rw.core;
+  const wins = prow.wins + (win ? 1 : 0);
+  const losses = prow.losses + (win ? 0 : 1);
+  const rev = prow.rev + 1;
+
+  const huntDone = !!huntW && huntLeft(huntW, tier) <= 0;
+  const next = huntDone
+    ? { json: null, opponent: null, cost: 0, rescue: false, mode: null, tier: null }
+    : await preparePending(env, accountId, me, now, credits, { mode: 'hunt', tier });
+
+  const stmts = [];
+  if (rw.part) stmts.push(insertPart(env.DB, accountId, rw.part, now, 0));
+  for (const x of robots)
+    stmts.push(env.DB.prepare('UPDATE robot SET level=?1, exp=?2, fat=?3, fat_at=?4 WHERE id=?5')
+      .bind(x.f.robot.level, x.f.robot.exp, x.f.robot.fat, x.f.robot.fatAt, x.f.row.id));
+  stmts.push(env.DB.prepare(
+    `UPDATE player SET credits=?1, cores=?2, scrap=?3, wins=?4, losses=?5, rev=?6,
+       pending_match=?7, updated_at=?8, hunt_wk=?10 WHERE account_id=?9`)
+    .bind(credits, cores, scrap, wins, losses, rev, next.json, now, accountId, huntRaw ?? null));
+  const cs = codexMonsterStmt(env.DB, accountId, [{ type: opp.type, win }]);
+  if (cs) stmts.push(cs);
+  await env.DB.batch(stmts);
+
+  if (robots.some(x => x.lv.to > x.lv.from)) await registerArena(env, accountId, now);
+
+  const lead = robots[0];
+  return {
+    ok: true, joint: true, seed, win,
+    /* 재생 입력 — 서버가 쓴 값 그대로. 클라는 이것으로 runJoint 를 다시 돌린다 */
+    team: team.map(t => ({ uid: t.uid, name: t.name, type: t.type, stats: t.stats, tactic: t.tactic })),
+    boss: { type: opp.type, level: opp.level, callsign: opp.callsign, stats: statE, tactic: tacE,
+            traits: J.traits, aim: J.aim },
+    opponent: { kind: opp.kind, type: opp.type, level: opp.level, skillLv: 0,
+                callsign: opp.callsign, parts: opp.parts, slots: opp.slots },
+    ratingDelta: 0, band: null,
+    reward: { cr: rw.cr, sc: rw.sc, core: rw.core, part: rw.part,
+              lv: { amt: lead.lv.amt, from: lead.lv.from, to: lead.lv.to },
+              fat: { add: lead.add, now: fatOf(lead.f.robot) },
+              robots: robots.map(x => ({ uid: x.f.robot.uid, lv: { amt: x.lv.amt, from: x.lv.from, to: x.lv.to },
+                                         fat: { add: x.add, now: fatOf(x.f.robot) } })) },
+    cost, rescue: false, mode: 'hunt', tier,
+    next: { opponent: next.opponent, cost: next.cost, rescue: next.rescue, mode: next.mode, tier: next.tier },
+    hunt: huntWeekView(huntRaw, now), huntDone,
+    player: { credits, cores, scrap, wins, losses },
+    robot: { uid: lead.f.robot.uid, level: lead.f.robot.level, exp: lead.f.robot.exp, fat: lead.f.robot.fat, fatAt: lead.f.robot.fatAt },
+    robots: robots.map(x => ({ uid: x.f.robot.uid, level: x.f.robot.level, exp: x.f.robot.exp, fat: x.f.robot.fat, fatAt: x.f.robot.fatAt })),
     rev,
   };
 }

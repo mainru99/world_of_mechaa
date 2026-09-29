@@ -1,0 +1,122 @@
+/* 개발 계보 (2026-09-23 사용자 결정) — 데이터만. 규칙은 js/lineage.js.
+
+   계보는 **조립해도 되는가**를 가르는 문이다. 다음 기체는 조각(뽑기 · 상점 · 대전 등)으로 모으고,
+   조각이 차도 계보의 앞 기체를 다 갖지 않았으면 조립하지 못한다. 숙련은 특성 포인트다(js/stats.js traitPoints).
+     · 합류(앞 기체가 여럿) — **모두** 가져야 열린다
+     · 갈림(다음 기체가 여럿) — 플레이어가 개발 목표로 하나를 고른다(목표 조각이 그쪽으로 모인다)
+     · 분화 — 같은 차체 아종은 표준형을 가지면 열린다(SIBS)
+     · 뽑기 입구 — C 가 아닌데 앞 기체도 분화도 없는 기체. 조각으로 조립할 수 없고 뽑기로만 얻는다
+   계보도 — docs/balance/lineage-draft-2026-09-23.html · 결정 — docs/balance/lineage-plan-2026-09-22.md 첫 절.
+   **기체 id 를 바꾸거나 지우지 않는다.** 선을 고칠 때는 lineagecheck 를 돌린다. */
+
+/* [앞, 뒤, 잇는 이유] — 앞은 한 등급 아래 */
+export const LINEAGE = [
+  ['dune', 'ranger', '확정 치명 1.45배 → 치명에 관통을 얹은 저격'],
+  ['chalk', 'tracer', '회피 기동 3연타 → 회피 추적 유도 2연'],
+  ['static', 'tracer', '전파 교란 → 전자 유도탄'],
+  ['grit', 'kestrel', '장갑 관통 35% → 극관통 75%'],
+  ['mortar', 'mantis', '파쇄 포격 → 중장 파쇄'],
+  ['rust', 'vanguard', '한 방 2.05배 → 대구경 2.2배'],
+  ['mule', 'bastion', '초중량 생존 → 초중량 요새'],
+  ['husk', 'patch', '방벽 지원 → 수리 지원'],
+  ['scarab', 'shrike', '4연격 → 4연 참격 + 파쇄'],
+  ['ranger', 'azure', '치명 저격 → 초고속 확정 치명 3연참'],
+  ['ranger', 'polaris', '치명 저격 → 관통 확정 치명 저격'],
+  ['kestrel', 'polaris', '극관통 정밀 → 관통 저격'],
+  ['tracer', 'tempest', '회피 추적 → 극회피 4연 난사'],
+  ['tracer', 'cipher', '전자 유도 → 전파 교란(게이지 −40)'],
+  ['swift', 'zephyr', '고기동 마무리 → 조숙 고기동 4연'],
+  ['swift', 'vega', '처형 0.75 → 처형 1.0 결전 저격'],
+  ['kestrel', 'cobalt', '극관통 포격 → 필중 돌파'],
+  ['kestrel', 'pike', '관통 포격 → 관통 창 2연'],
+  ['mantis', 'quake', '중장 파쇄 → 파쇄 포격'],
+  ['mantis', 'verdict', '중장 파쇄 → 중장 처형'],
+  ['vanguard', 'howitzer', '2.2배 → 2.35배 시즈 포격'],
+  ['vanguard', 'longbow', '대구경 → 대기만성 장사정 2.5배'],
+  ['bastion', 'glacier', '요새 → 빙벽 가디언'],
+  ['bastion', 'aegis', '요새 → 방패 방벽'],
+  ['patch', 'anvil', '수리 14% → 수리 17%'],
+  ['shrike', 'lancer', '4연 참격 → 연속 관통 3연'],
+  ['shrike', 'vesper', '참격 → 흡혈 참격'],
+  ['azure', 'oracle', '확정 치명 연참 → 확정 치명 + 필중'],
+  ['azure', 'ronin', '초고속 치명 참격 → 광검 확정 치명 일섬'],
+  ['polaris', 'osprey', '확정 치명 저격 → 처형 저격'],
+  ['polaris', 'hydra_s', '관통 저격 → 관통 50% 필중 저격(HYDRA 표준형)'],
+  ['longbow', 'hydra_s', '장사정 포 → 미사일 백팩 저격'],
+  ['vega', 'osprey', '처형 1.0 저격 → 처형 0.9 + 관통 필중'],
+  ['vega', 'halo', '필중 결전 저격 → 초정밀 관통'],
+  ['tempest', 'specter', '극회피 4연 → 극회피 비트 + 확정 치명'],
+  ['tempest', 'aquila', '극회피 난사 → 비익 5연'],
+  ['zephyr', 'aquila', '조숙 고기동 → 조숙 비익 기동'],
+  ['cipher', 'zealot', '교란 40 → 교란 50 제압'],
+  ['cipher', 'quasar', '전자 교란 → 대기만성 중력 교란'],
+  ['orbit', 'sentry', '표적 비트 → 표적 18% 정찰'],
+  ['cobalt', 'halo', '필중 관통 65% → 75%'],
+  ['cobalt', 'nimbus_c', '필중 돌파 → 관통 55% 광선(NIMBUS 표준형)'],
+  ['pike', 'umbra', '관통 창 → 관통 흡수 블레이드'],
+  ['lancer', 'halberd', '연속 관통 창 3연 → 미늘창 처형 2연'],   // 2026-09-23 LANCER→UMBRA 를 끊어 막다른 길이 되어 PIKE→HALBERD 를 옮겼다
+  ['verdict', 'halberd', '처형 65% → 처형 70% + 관통'],
+  ['quake', 'auger', '파쇄 포격 → 굴착 파쇄 12%'],
+  ['quake', 'salvo', '파쇄 포격 → 연사 파쇄 5연'],
+  ['howitzer', 'hex', '포격 → 불안정 폭딜 2.75배'],
+  ['aegis', 'goliath_s', '방패 요새 → 중해머 요새(GOLIATH 표준형)'],
+  ['aegis', 'nebula', '방벽 14% → 방벽 15% + 흡수'],
+  ['glacier', 'nebula', '가디언 → 오브 가디언'],
+  ['glacier', 'paladin', '빙벽 가디언 → 성기사 가디언'],
+  ['anvil', 'paladin', '수리 17% → 수리 18%'],
+  ['vesper', 'wraith', '흡혈 30% → 흡혈 50%'],
+  ['vesper', 'gyre', '흡혈 참격 → 사슬 흡혈 연격'],
+  ['oracle', 'auric', '확정 치명 + 필중에 장갑을 얹는다'],
+  ['ronin', 'auric', '확정 치명 일섬 → 확정 치명 강타'],
+  ['specter', 'ignis', '확정 치명 연타 → 초고속 확정 치명 5연'],
+  ['aquila', 'ignis', '비익 5연 → 5연 확정 치명'],
+  ['zealot', 'tyrant', '교란 제압 → 필중 5연 제압'],
+  ['sentry', 'tyrant', '표적 정찰 → 제압 연사'],
+  ['hydra_g', 'tyrant', '표적 6연 → 필중 5연'],
+  ['halo', 'atlas', '필중 관통 → 관통 70% 2.8배 결전'],
+  ['osprey', 'atlas', '처형 저격 → 스킬 결전'],
+  ['hydra_s', 'atlas', '관통 필중 저격 → 관통 결전'],
+  ['nimbus_c', 'atlas', '관통 광선 → 관통 결전'],
+  ['goliath_r', 'atlas', '대기만성 2.6배 → 2.8배 결전'],
+  ['hex', 'nemesis', '불안정 폭딜 → 불안정 관통 4연포'],
+  ['quasar', 'nemesis', '불안정 중력 → 불안정 연포'],
+  ['salvo', 'nemesis', '연사 파쇄 → 관통 연포'],
+  ['nebula', 'behemoth', '방벽 15% → 방벽 22% + 표적'],
+  ['paladin', 'behemoth', '성기사 → 요새 수호'],
+  ['goliath_s', 'behemoth', '중해머 요새 → 요새 수호'],
+  ['goliath_c', 'behemoth', '방벽 해머 → 방벽 요새'],
+  ['wraith', 'seraph', '흡혈 생존 → 고화력 흡혈'],
+  ['gyre', 'seraph', '사슬 흡혈 → 흡혈 랜스'],
+  ['goliath_v', 'seraph', '수정 흡혈 해머 → 고화력 흡혈'],
+  ['nimbus_f', 'seraph', '흡혈 권격 → 고화력 흡혈'],
+  ['umbra', 'sovereign', '관통 흡수 → 파쇄 결전'],
+  ['halberd', 'sovereign', '처형 미늘창 → 파쇄 + 처형 결전'],
+  ['auger', 'sovereign', '굴착 파쇄 → 파쇄 결전'],
+  /* 세트 06 (2026-09-23) — EP 다섯. 기존 EP 의 앞 기체는 한 줄도 건드리지 않았다.
+     대신 UQ 에서 **갈림길**을 늘렸다(같은 앞 기체에서 기존 EP 와 새 EP 중 하나를 고른다).
+     필요한 앞 기체 수가 곧 세기다 — MONARCH 4 · SOLARIS 3 · LIONHEART 3 · SHOGUN 2 · REVENANT 2. */
+  ['halo', 'solaris', '초정밀 관통 광선 → 광익 6연 참격'],
+  ['nimbus_c', 'solaris', '관통 광선 → 빛의 날개 다중검'],
+  ['aquila', 'solaris', '비익 5연 → 광익 6연'],
+  ['goliath_r', 'monarch', '대기만성 관통 중타 → 대기만성 대검 결전'],
+  ['umbra', 'monarch', '관통 흡수 블레이드 → 대검 처형'],
+  ['goliath_s', 'monarch', '표준 해머 강타 2.2배 → 대검 강타 2.6배'],   // 2026-09-23 사용자 지시 — 밀리 계열을 새 EP 로
+  ['halberd', 'monarch', '미늘창 처형 2연 → 대검 처형 한 방'],
+  ['paladin', 'lionheart', '성기사 수리 18% → 수리 + 방벽'],
+  ['goliath_c', 'lionheart', '조숙 방벽 → 방패 방벽 20%'],
+  ['nebula', 'lionheart', '오브 방벽 → 사자 방패'],
+  ['ronin', 'shogun', '광검 일섬 → 발도 일섬'],
+  ['halberd', 'shogun', '처형 베기 2연 → 관통 확정 치명 발도'],
+  ['wraith', 'revenant', '흡혈 생존 → 그림자 흡혈 3연'],
+  ['specter', 'revenant', '극회피 비트 → 그림자 처형'],
+  ['ronin', 'revenant', '광검 일섬 → 쌍검 그림자 3연'],                  // 2026-09-23 사용자 지시 — RONIN 은 SHOGUN · REVENANT 둘로 갈린다
+];
+
+/* 분화 — [표준형, 아종, 무엇이 달라지나]. 같은 등급 · 같은 family */
+export const LINEAGE_SIBS = [
+  ['nimbus_c', 'nimbus_f', '빔 캐논 → 권격 · 흡혈 연타'],
+  ['hydra_s', 'hydra_g', '저격 → 표적 6연 개틀링'],
+  ['goliath_s', 'goliath_r', '표준 파쇄 → 대기만성 관통 중타'],
+  ['goliath_s', 'goliath_c', '표준 파쇄 → 조숙 방벽'],
+  ['goliath_s', 'goliath_v', '표준 파쇄 → 수정 흡혈'],
+];

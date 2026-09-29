@@ -4,6 +4,10 @@
 
 사용자: “리빌드 된 것들로 맞춰서 합치면 되지 않나?” 리빌드의 표시/조작을 기준으로 main의 최신 교대/합동전·분석·서킷·정제 코어·조각·저장 계약을 연결하는 별도 `codex/ui-integration`을 만든다. 원본 UI/운영 브랜치와 운영 배포는 보존한다. 화면은 GPT 담당이며 main의 서버/DB/공유 규칙을 기준으로 사용한다. backend 수정이 필요한 발견은 이 문서에 파일 단위로 남긴다. 현재 main의 꺼진 기능 스위치를 임의 활성화하지 않는다.
 
+1차 통합 완료: main ab45b4c와 UI 29733c9의 game.js 충돌 8곳을 리빌드 표시 + main 전투 계약으로 정리했다. 교대/동시 합동전, 분석, UID 정산, 로그인 진행, 토벌 레벨/비용 및 늦은 응답 격리를 연결했다. `server/*`, `data/*`, 공유 전투/통신/스탯 모듈은 main과 동일하며 구현 변경 없음. 서버까지만 있던 서킷·정제 코어·회수·목표/합성 UI와 꺼진 귀속/계보 제한 활성화는 미완료 후속 범위로 구분한다. 검사와 재개 순서: `docs/ui/main-integration-2026-09-29.md`. 원래 UI/main에 병합하거나 운영 배포하지 않는다.
+
+후속 API 요청(미구현): 게임 안 서킷 저장 화면을 연결하기 전에 Claude 담당 `server/battle.js`의 find/next opponent 응답에 서버 확정 stats 또는 circuit 입력을 포함할 계약이 필요하다. 현재 준비 카드에는 parts/slots/level만 있어 서킷을 찍은 플레이어 상대의 수치 미리보기가 달라질 수 있다. 현재 start 응답 재생은 서버 stats로 일치하며 통합 작업에서 서버 파일은 수정하지 않았다.
+
 > **밸런스 작업은 [`BALANCE.md`](BALANCE.md) 를 먼저 읽는다.**
 > 담당 경계 · 작업 순서 · 지금 열려 있는 과제 · 손잡이 사전 · 측정 도구와 건강한 값 ·
 > 하지 말 것이 한곳에 정리되어 있다. 이 문서(CONTRACT.md)는 **무엇을 왜 바꿨는지의 기록**이다.
@@ -145,6 +149,33 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 이번 작업은 계획 문서 작성까지이며 게임 코드·에셋·운영 서버 변경, 커밋·푸시·배포는 하지 않았다.
 
 ### → ChatGPT
+
+- **(2026-09-25 밤, Claude → `codex/ui-rebuild`) 작업 지시서 — [`docs/handoff/2026-09-25-main-to-ui.md`](docs/handoff/2026-09-25-main-to-ui.md). 내일부터 이어 받을 때 이것부터 읽을 것.**
+  - **최우선** — 대전이 **교대 전투**가 됐고 운영에서 켜져 있다. 새 대전 화면이 1:1 로 재생하면 승패가 어긋난다(지시서 0절)
+  - 새로 만들 화면 — 코어 서킷(2절) · 정제 코어(3절) · 조각 회수 작전(4절) · 조각 합성(5절) · 개발 목표 고르기(6절)
+  - 동결 예외 두 건(1장 도입 · 교대 재생)은 통합 때 새 화면에 다시 넣는다(8절). 서버 · 규칙 · 수치 파일은 UI 브랜치에서 고치지 않는다
+
+- **(2026-09-25, Claude · `assets/` 를 고쳤다 · 사용자 지시) 기체 그림 35기를 배경 없앤 판으로 바꿨다(31 + LENS · MANTIS · STATIC · VALKEN-4).** 사용자가 가져온 그림을 기존 그림과 견줘 짝을 찾고
+  `tools/robot_art.py` 로 규격만 맞췄다(그림 자체는 손대지 않았다). 목록 · 원본 해시 [`docs/art/robot-bg-removed-2026-09-25.csv`](docs/art/robot-bg-removed-2026-09-25.csv) · 기록 `STATUS.md` '2026-09-25 (3)'.
+  IGNIS 대기 모션은 옛 그림 그대로다
+
+- **(2026-09-25, Claude) 코어 서킷 별자리 76기 적용 — 파일럿 좌표 파일을 한 번 덮어썼다가 되살렸다.** 먼저 [지시서 '받은 것 · 적용'](docs/art/circuit-constellations-2026-09-24.md).
+  - 사용자가 나머지 70기 그림을 가져왔다(좌표 없음). Claude 가 **그림 실루엣에서 좌표를 뽑고**(`tools/circuit_layout.py`) **파일럿과 같은 톤**을 입혔다
+  - 도구의 첫 판이 커밋 전의 `data/circuit_layout.js`(당신의 파일럿 좌표)를 덮어써서, 당신의 `layout.json` 덤프에서 되살렸다(머리 주석만 잃음). 도구는 이제 입력 폴더에 없는 기체를 덮지 않는다
+  - **그 뒤 사용자가 파일럿 자리 6기도 70기와 같은 화풍으로 다시 그려 와서 바꿨다** — 76기 모두 한 벌. 당신의 파일럿 판은 `docs/art/circuit-pilot-2026-09-24/` 에 원본 · 좌표 · 검수 자료째 남아 있다
+  - 도구로 71기가 통과했고(촘촘한 갈래는 S 자 · 물결로 휘어 늘렸다 · 이름 칸끼리 겹침도 본다), **나머지는 사용자가 별자리 편집기**(`node tools/circuit_editor.mjs`)**로 직접 고쳐 76기 모두 통과**했다.
+    사용자가 손본 13기는 `hand:true` — 좌표 도구가 덮지 않는다. 다시 그리거나 좌표를 손보고 싶으면 그 기체만 알려 달라
+  - `circuit-remaining-2026-09-24.md`(70기 제작 중지 기록)은 대체됐다. 남은 그림 작업 없음
+  - 당신의 `docs/art/circuit-pilot-2026-09-24/verify.mjs` 는 키가 정확히 6기인지 단언해서 **이제 실패한다**(파일이 76기다). 76기 검사는 `node tools/circuitlayoutcheck.mjs` — 고치든 그대로 두든 당신 판단
+
+- **(2026-09-24, Claude · 사용자 지시) 코어 서킷 별자리 — 76기 모두 다른 형태와 그림을 그려 달라.**
+  작업 지시서 **[`docs/art/circuit-constellations-2026-09-24.md`](docs/art/circuit-constellations-2026-09-24.md)**.
+  사용자 말 그대로 — "모든 다른 별자리 형태와 별자리 그림을 가지라고 해줘. 그래봤자 88가지 정도뿐이 안 되긴 하지만 최대한 다르게 그려 달라."
+  - 만들 것 — 기체마다 **좌표**(`data/circuit_layout.js`, 코어 1 + 갈래 4 × 9점 = 37점)와 **별자리 그림**(`assets/circuit/<id>.webp`, 1040 × 860 투명 · 별 · 선 · 글자 없이 그림만)
+  - 실제 별자리(88개)를 참고해도 되지만 **한 별자리는 한 기체에만**, 기체 모양 · 성격에 맞게 고쳐서. 맞는 게 없으면 기체 실루엣에서 새로 만든다
+  - 별 개수 · 이어짐 · 갈래 배정(A~D)은 전투 값과 묶여 있어 바꾸지 못한다 — 지시서 §1 · §6 표
+  - 파일럿 6기(IGNIS · DUNE · MULE · BASTION · PATCH · SOLARIS) 먼저 → 사용자 확인 → 나머지 70기. main 에서, 화면 동결 파일은 건드리지 않는다
+  - 특성 정의(노드 · 값)는 이번에 사용자가 Claude 에게 맡겼다(`CONTRACT.md` '코어 서킷 시안 2'). ChatGPT 몫은 **그림과 형태**다
 
 - **(2026-09-16, Claude · `data/balance.js` 를 고쳤다 · 사용자 지시)**
   사용자가 잡아낸 경제 구멍과 레이드 난이도 때문에 **값 세 개를 넣거나 고쳤다.**
@@ -358,6 +389,242 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
   기체를 추가하실 때 프론트 파일은 건드리실 필요가 없습니다 — 스프라이트 id 목록과
   등급별 풀을 전부 데이터에서 파생하도록 바꿨습니다. `assets/<id>.png`(기체) /
   `assets/monsters/<id>.png`(몬스터) 규칙만 지켜 주세요.
+
+### Claude 기록 (master) — 2026-09-21
+
+> 이 두 절은 **UI 브랜치(`codex/ui-rebuild`)가 게시판 맨 위를 고쳐 둔 자리와 겹치지 않게** 여기 둔다.
+> 같은 줄을 양쪽이 고치면 합칠 때 충돌한다 — 위치를 옮긴 것은 그 때문이다.
+
+#### 교대 전투 — 2026-09-25 · Claude (master · `data/balance.js` 에 넣기만 · 사용자 결정) → `codex/ui-rebuild` 가 재생을 만들 것
+
+- `CONST.RELAY` **(새)** `{ on: true, share: [0.6, 0.4] }` — 2026-09-25 켰다(사용자가 동결 예외를 줘 main 화면 재생을 고쳤다 · '화면 파일 동결' 기록). UI 브랜치 대전 화면도 아래대로 재생해야 한다
+- `POST /api/battle/start` 요청 — `tactic2`(둘째 기체 전술 · 없으면 `tactic` 과 같다). `/api/battle/find` 의 `opponent.bench` = `[{ type, level, name }]`(켜져 있을 때만)
+- 응답 `relay` — 켜져 있고 양쪽이 두 기면 `{ nameP2, typeP2, statP2, tacticP2, nameE2, typeE2, statE2, tacticE2, out:{P,E}, share:[첫째 경험치, 둘째 경험치], robot2 }`, 아니면 `null`.
+  `robot2` = `{ uid, level, exp, fat, fatAt, lv:{amt,from,to}, fatGain:{add,now} }`(둘째가 나왔을 때만 · `fat` 은 피로도 숫자)
+- **재생** — `simulate(makeUnit(nameP, typeP, statP, tacticP), makeUnit(callsign, type, statE, tacticE), seed, { P: [makeUnit(nameP2, typeP2, statP2, tacticP2)], E: [makeUnit(nameE2, typeE2, statE2, tacticE2)] })`.
+  새 사건 `{ t:'swap', side, i, name, type, hp, maxhp }` — 그 쪽 기체 그림 · 이름 · 체력 막대를 바꾼다(체력 막대의 최대치는 **이 사건의 maxhp** 로. 유닛 객체의 maxhp 는 전투가 끝난 뒤의 값이다)
+- 경험치 — 첫째 60% · 둘째 40%(둘째가 안 나왔으면 첫째 100%). 피로도 — 나온 기체마다 한 판치. 결과 창은 `reward`(첫째)와 `relay.robot2`(둘째)를 같이 보여 준다
+
+#### 코어 서킷 전투 반영 · 전문 별 — 2026-09-25 · Claude (master · 사용자 결정) → `codex/ui-rebuild` · ChatGPT 읽을 것
+
+- **공용 모듈이 바뀌었다(화면 파일은 안 건드렸다)** — `js/stats.js computeStats(robot, parts)` 가 `robot.circuit`(찍은 별 id 배열)이 있으면 서킷을 얹는다.
+  `/api/state` 의 `state.robots[i].circuit` 에 실려 오므로 **기체 객체를 그대로 넘기면 된다.** 결과에 `regenT`(턴마다 회복) · `nb`(열린 전문 별)가 붙을 수 있다 — `makeUnit` 이 받는다
+- 전투 사건 두 가지가 새로 나올 수 있다 — `heal` 에 `src: 'circuit'`(서킷 재생) · `hit` 에 `counter: true`('회피 기동' 반격 — 맞던 쪽이 친다). 모르면 평범한 회복 · 타격으로 그려도 된다
+- `POST /api/circuit` 응답에 `open: ['A*', …]` — 효과가 켜진 전문 별. 전문 별도 **찍는다** — 그 갈래 8칸을 다 찍은 뒤 `stars` 에 `'A*'` 를 넣으면 포인트 1 을 쓴다(사용자 결정 · `blockOf` 가 이유를 준다)
+- 비우기 단추 — `circuitResetWarn()` 문구로 **주의만 띄우고** 확인하면 `{ action: 'reset' }`(사용자 결정). 값은 처음부터 정제 코어 1
+- `data/circuit.js` — `CIRCUIT_NOTABLE` **(새)** · `CIRCUIT.unit.regen` 이 '턴마다 회복' 값으로 바뀌었다(.00282 → .000137) · `CIRCUIT_FIT` 재생 장갑 칸을 다시 쟀다.
+  이제 전투에 쓰이므로 `balance_ver` 에 들어간다. 재생 장갑 뜻이 바뀌어 **12기의 갈래 구성이 달라졌다**(STATUS '2026-09-25 (5)')
+- 전문 별 규칙 · 값 설명 — `js/sim.js` 머리 '코어 서킷 전문 별'. 값 맞추기 `node tools/circuitnotable.mjs [--only …] --write`
+- `CIRCUIT_FIT_HAND` **(새)** — 값어치 배수를 손으로 덮는 칸(ORACLE · ANVIL 재생 장갑 절반). `circuitfit --write` 가 안 덮는다. 배수를 읽을 때는 `fitOf(type)` 를 쓴다
+
+#### 조각 합성 — 2026-09-25 · Claude (master · `data/balance.js` 에 넣기만 했다 · 사용자 결정) → `codex/ui-rebuild` 가 화면을 만들 것
+
+- `CONST.SHARD_SYNTH` **(새)** `{ min: 6, max: 10, base: 0.25, step: 0.07, master: 0.01, qty: { same: ½, up: ⅓, master: ⅕ }, scrap: { C: 120, UC: 200, R: 320, UQ: 500 } }`
+- `POST /api/shop { action: 'synth', mats: { 기체 id: 개수 } }` → 상점 보기와 같은 모양 + `synth: { grade: 'same'|'up'|'master', rarity, type, qty, goal, from, used, spent, rates }`.
+  **결과 기체는 개발 목표 우선** — 결과 등급이 목표 등급과 같으면 목표(`goal: true`), 아니면 그 등급 무작위(사용자 결정)
+  거절 `bad synth { why }`(문장 그대로 보여 주면 된다) · `not enough scrap { need, have }` · 경합 409
+- 화면이 미리 보여 줄 확률 · 값은 `js/shardsynth.js synthCheck(mats, items)` → `{ rar, n, cost, rates:{ up, master, same } }` — 서버와 같은 함수
+- 규칙 전문 `STATUS.md` '2026-09-25 (4)'
+
+#### 정제 코어 · 정제 코어 뽑기 · 서킷 비우기 · 조각 회수 작전 — 2026-09-25 · Claude (master · `data/balance.js` 를 고쳤다 · 사용자 지시) → `codex/ui-rebuild` 가 화면을 만들 것 · ChatGPT 읽을 것
+
+**서버 · 규칙 · DB(이관 023)까지만 넣었다.** 화면 파일은 건드리지 않았다. 기록 전문 `STATUS.md` '2026-09-25 (2)'.
+
+`data/balance.js` 에 **넣기만 했다**(기존 값은 하나도 안 바꿨다) — `balance_ver` 가 바뀐다
+
+| 키 | 값 | 뜻 |
+|---|---|---|
+| `PULL_TABLE_RC` · `ROBOT_RARITY_RC` (새 export) | 기체 15 · 코어 1.5 · 크레딧 20 · 파츠 47.5 · 꽝 16 / C 40 · UC 27.5 · R 18 · UQ 10 · EP 4.5 | 정제 코어 뽑기 — 코어 뽑기보다 **소폭** 높게(사용자 지시) |
+| `CONST.REFINE` | `{ need: 10, pull: 1, circuitReset: 1 }` | 코어 10 → 정제 1 · 뽑기 1회 값 · 서킷 비우기 값 |
+| `CONST.SALVAGE` | `{ daily: 2, rar: ['C','UC','R'], tiers: [정찰 ×0.7 조각 1 · 회수 ×1.0 조각 2 · 강습 ×1.3 조각 3] }` | 조각 회수 작전. mul 은 상대 체력 · 공격 배수 · rar 은 조각을 받을 수 있는 기체 등급 |
+
+API (모두 로그인 필요 · 실패는 `{ ok:false, error, status }`)
+
+| 길 | 보내는 것 | 받는 것 |
+|---|---|---|
+| `POST /api/refine` | `{ n }` (1 ~ 999) | `{ made, spent, cores, rcores, rev }` · 모자라면 `not enough cores {need, cores, rcores}` |
+| `POST /api/pull` | `{ count, cur: 'rcore' }` | 기존과 같은 모양 + `rcores`. 모자라면 `not enough rcores {rcores}` |
+| `POST /api/circuit` | `{ action:'take', uid, stars:['A1', …] }` | `{ uid, type, level, points, taken, left, resetCost, rcores }` · 규칙 위반은 `bad stars {why}` |
+| `POST /api/circuit` | `{ action:'reset', uid }` | 위와 같은 모양 + `spent` · `nothing to reset` · `not enough rcores {need, rcores}` · 경합 `409` |
+| `GET /api/salvage` | — | `{ day, endsAt, daily, left, tiers:[{tier, ko, shard, type, level, mul}], goal:{type, have, need} }` — tiers 의 level 은 **고른 기체** 기준 |
+| `POST /api/salvage` | `{ tier, uid? }` (uid 없으면 고른 기체) | `{ win, got, tier, foe:{…, stats}, seed, robot, parts, stats, left, goal }` — 재생은 `js/salvage.js runSalvage(stats, foe, seed)` · `no tries left {endsAt}` · `no goal` |
+| `GET /api/state` | — | 새 칸 셋이 **state 밖에** — `rcores` · `salvage:{left, daily}` · `circuit:{ [uid]: ['A1', …] }` |
+
+- 정제 코어 뽑기 창구는 `js/gacha.js PULL_CUR.rcore`(값 `cost` · 표 · `ko:'정제 코어'`) · 창구별 잔액 칸은 `PULL_COL`. **지금 화면(`js/game.js`)은 이 창구를 모른다** — 버튼이 없으니 영향 없다
+- 작전 조각은 **C ~ R 기체만**(사용자 결정) — 개발 목표가 C ~ R 이면 목표로, 유니크 · 에픽이면 열 수 있는 C ~ R 중 가장 높은 등급으로(`js/salvage.js salvTarget`).
+  응답의 `goal` 이 **작전 조각이 갈 기체**다(개발 목표와 다를 수 있다 — 화면에 따로 적을 것). C ~ R 을 다 가지면 `no goal`. 유니크 · 에픽 조각은 앞으로 조각 합성으로
+- 서킷은 **전투에 아직 안 붙었다.** 찍은 별 효과는 `circuitFx` · `applyCircuit`(`js/circuit.js`) — 붙이는 것은 STATUS 할 일 3번
+- 정제 뽑기가 코어 10 값에 확률만 소폭 높은 것은 **기획 의도다**(사용자 확인)
+
+#### 코어 서킷 시안 2 — 별자리 · 2026-09-23 · Claude (master · 특성 정의를 맡았다 · 사용자 지시) → ChatGPT · `codex/ui-rebuild` 읽을 것
+
+GPT 계획서(`docs/balance/mech-traits-plan-2026-09-22.md`)를 사용자가 보고 바꿨다 — **판을 키운다(3갈래 × 2 가 아니다) · 별에 + 와 − 를 섞는다 ·
+특성은 기체마다 다르게 · 모양은 별자리 · 전문 노드는 잠근 채 보인다.** "나머진 너한테 권한 줄테니 임의로 맞춰" — 그래서 특성 정의(계획서 §10 에서 ChatGPT 몫)를
+이번에는 Claude 가 짰다. 계획서의 §4 단위표 · §5 파일럿 표 · §6 47종 테마 표는 이 절로 대체된다. 시각 방향(§7)과 검증 원칙(§9)은 그대로다.
+
+| 파일 | 무엇 | 합칠 때 |
+|---|---|---|
+| `data/circuit.js` **(새 파일)** | `CIRCUIT`(갈래 4 · 별 8 · 별 모양 · 가격표 `unit`) · `CIRCUIT_THEMES`(갈래 14종) · `CIRCUIT_PICK`(손 고정, 비어 있음) · `CIRCUIT_FIT`(기체 × 갈래 값어치 배수, 도구가 쓴다) | 데이터라 그대로 |
+| `js/circuit.js` **(새 파일)** | `themesOf` · `constellation` · `blockOf` · `checkTaken` · `circuitFx` · `applyCircuit` · `branchFx`. DOM 없음 | 그대로 |
+| `tools/circuitfit.mjs` · `tools/circuitcheck.mjs` **(새 파일)** | 값어치 맞추기(`--write`) · 규칙 단언 + 빌드 균형 | 도구 |
+
+- **전투에는 아직 안 붙어 있다** — `computeStats` · `sim.js` 는 한 글자도 안 바꿨다. 저장 칸 · API 도 없다. `CONST` 가 아니라 `balanceVersion` 도 그대로다
+- **모양** — 기체마다 별 36: 4갈래 × 작은 별 8 + 갈래 끝 전문 별 4. 별 하나 = 특성 포인트 1(`traitPoints`, Lv.60 에 20) → 32 개 중 20 개. 갈래 안에서 안쪽부터 이어서 찍고, 빼기는 바깥부터
+- **± 섞기** — 별 모양 넷(a 올리기만 · x 둘을 반씩 · b '+2 −1' · c '+3 −2'), 갈래 안 순서 `a a b x b c b c`. **어느 모양이든 값어치 합은 1u** — 모양은 세기가 아니라 뾰족함이다
+- **가격표** — 효과 10종(내구 · 공격 · 방어 · 속도 · 치명 · 회피 · 스킬 배수 · 관통 확률 · 회피 뒤 회복 · 가속 스택). 전부 엔진이 이미 아는 값이다.
+  '같은 기체 0점을 60% 로 이기는 크기' 를 실측해 1/20 을 u 로 삼았다. 계획서 단위는 내구 +0.5% 와 치명 +0.1%p 를 같은 1랭크로 쳤는데 실제 값어치는 10배 차이였다
+- **기체마다 다르게** — 갈래 14종 중 넷. 그 기체의 능력치 · 스킬 점수를 76종 중 백분위로 바꿔 고르고, 비슷한 갈래(묶음 7)는 한 기체에 하나만.
+  기체마다 14종을 전부 재서(`circuitfit`) 값어치가 그 기체 중앙값의 0.5 ~ 2.0 배 밖인 갈래는 고르지 않는다(1,064 중 238). 76기에 조합 61가지
+- **실측(Lv.60 맨몸)** — 대표 빌드 29개끼리 가장 센 것과 약한 것의 차 **중앙 6.1%p · 최대 10.6%p**(계획서 수치 그대로 22%p) · 20점 대 0점 평균 59% ·
+  같은 등급 상대 승률 변화 평균 1.5 ~ 2.0%p, 전부 35 ~ 65% 안(BASTION 32% → 36 ~ 40%)
+- **남은 것** — 전문 별 효과(엔진) · IGNIS 처럼 대표 성격(속도 · 치명)이 값어치 1/5 이라 빠진 기체의 손 고정 여부 · Lv.30 · 파츠 낀 측정 · 저장 · API · 화면 · 별 이름 · 아이콘
+- **UI 브랜치가 그릴 것** — 시안 페이지 `docs/balance/core-circuit-draft-2026-09-23.html`(별자리 · 찍기 · 능력치 미리보기). 별자리 좌표는 페이지가 기체 id 로 흔들어 만든다 — 규칙이 아니라 그림이다
+
+#### 숙련 조각 — 2026-09-23 · Claude (master) → `codex/ui-rebuild` 가 화면을 만들 것
+
+사용자 결정 — **기체를 키우면 개발 목표의 조각이 쌓인다.** 하위 등급 기체를 굴릴 이유를 만드는 장치다(기체를 녹이지 않는다).
+
+| 파일 | 바뀐 것 | 합칠 때 |
+|---|---|---|
+| `js/mastery.js` **(새 파일)** | `shardsAt` · `shardGain` · `goalOk` · `autoGoal` · `settleMastery` · `masteryView`. DOM 없음 | 그대로 가져가면 된다 |
+| `data/balance.js` | `CONST.MASTERY.shard`(5레벨마다 1 · 만렙 2 더 = Lv.60 에 14) | 밸런스는 브랜치가 안 건드린다 |
+| `server/state.js` | 상태를 읽을 때 정산 · 응답에 `mastery` | 서버라 겹치지 않는다 |
+| `server/shop.js` | `{ action:'goal', type }` — 개발 목표를 고른다 | 〃 |
+| `server/migrations/022_mastery.sql` · `schema.sql` | `player.m_goal` · `robot.m_lv` · schema **22** | 〃 |
+
+**화면이 이어받을 것** — ① 개발 목표 고르기(계보도에서 기체 하나를 누르면 `/api/shop {action:'goal'}`),
+② 보관함 · 결과 창의 '조각 +n'(`state.mastery.got` · `grants`), ③ 기체 칸에 '다음 조각까지 남은 레벨'(`mastery.robots[].nextAt`).
+조각 자체는 예전처럼 `items['shard:<id>']` 다.
+
+#### 세트 06 — EP 기체 5기 · 2026-09-23 · Claude (master · `data/balance.js` · `data/lineage.js` · `assets/` 를 고쳤다 · 사용자 지시)
+
+사용자가 그림 5장을 줬다(Downloads/add). **기체 스펙은 원래 ChatGPT 담당이지만 세트 03 부터 사용자가 Claude 에게 맡겼다.**
+기존 71종의 수치는 **한 글자도 안 바꿨다.** EP 8 → 13종 · 뽑을 수 있는 기체 **76종**.
+
+- `data/balance.js` — `solaris` `monarch` `lionheart` `shogun` `revenant` 다섯 + `CODEX.steps.robot` 에 76 이정표.
+  MONARCH 는 `curve` 양수(대기만성) · REVENANT 는 음수(조숙)
+- `data/lineage.js` — 선 14개 추가. **기존 EP 의 앞 기체는 그대로 두고 UQ 에서 갈림길만 늘렸다**(합칠 때 충돌할 줄이 없다)
+- `data/powercal.js` — `tools/powercal.mjs --write` 로 다시 만들었다(80기). **전투는 한 판도 안 바뀐다** — 표시 · 매칭 · 방어 기록만
+- `assets/solaris.png` 외 4장 — 440×420 · 발끝 y=408 · EP 키 382. 원본이 투명 배경이라 배경을 깎지 않았다
+- **화면 동결 파일은 건드리지 않았다.** 새 기체는 데이터라서 화면이 할 일이 없다 — 다만 EP 목록이 13칸이 된다
+
+#### 화면 파일 동결 — 2026-09-21 · 사용자 결정 → 두 브랜치 모두 읽을 것
+
+사용자가 합칠 때의 충돌을 막는 방법 셋(마지막에 한 번 합치기 · **main 화면 동결** · main→브랜치 한 방향으로 자주 합치기) 중 **main 화면 동결**을 골랐다.
+규칙 전문은 `AGENTS.md` 'main 작업 원칙'.
+
+- UI 개편이 끝날 때까지 main 은 `index.html` · `style.css` · `themes/` · `js/game.js` 를 고치지 않는다(`js/ui/` 도 만들지 않는다).
+  급한 버그는 사용자 지시가 있을 때만 — 고치면 이 절 맨 아래에 파일 · 함수 · 줄을 적는다
+- main 에서 계속 하는 것 — `server/*` · DB · `data/balance.js` · `assets/` · DOM 없는 공용 모듈 · `tools/` · 문서. 인자 · 응답 모양이 바뀌면 여기에 입출력을 적는다
+- 두 브랜치는 그동안 합치지 않는다(어느 방향이든)
+- **동결 전에 main 에 들어간 화면은 통합 때 UI 브랜치 화면에 다시 넣어야 한다** — 합동전 편성 · 세 기 무대 · 결과 창 전투 분석 ·
+  실시간 재생(흘려내기 · 후위 사격) · 특화기술 딱지 · 토벌 보스 줄 · 레이드 편성. 파일 · 함수 표는 아래 '전투 분석' · '실시간 재생' · '세트 03' · '합동전' 절.
+  UI 브랜치가 대전 화면(`fight.png`)을 설계할 때 이 자리를 비워 두면 통합이 가벼워진다(다른 브랜치를 읽고 참고하는 것은 규칙이 허용한다)
+- 동결 시점 확인 — `main` `5c3ceff` · `codex/ui-rebuild` `57deeaa` 를 시험으로 합치면(`git merge-tree`) **충돌 0**,
+  합친 결과로 `hangar-ui-check` · `recruitment-ui-check` · `specialcheck` · `jointcheck` · `insightcheck` · `frontcheck` 통과
+
+동결 중 main 이 화면 파일을 고친 기록
+
+- **2026-09-24 · 이미 깬 1장 도입이 로그인할 때마다 뜬다 · 사용자 지시(급한 버그)** — `js/game.js` 만.
+  원인 셋 — ① `boot()` 가 **서버에 붙기 전에** 이 브라우저 저장본으로 첫 화면을 고른다(새 브라우저 · 다른 PC 는 '신규 계정' 으로 보여 전선으로 간다),
+  ② 전적 `wins · losses` 는 대전 · 토벌만 세서 **전선만 한 계정은 같은 브라우저에서도 매번** 전선으로 간다,
+  ③ '봤다' 표(`rowar.seen.v1`)는 브라우저에만 있다. 그래서 대문 뒤에서 1장 도입이 먼저 흘렀다(`renderAll` 은 전선을 다시 그리지 않아 로그인 뒤에도 남았다).
+  | 자리 | 바뀐 것 |
+  |---|---|
+  | `setFrontCh` 바로 아래 **(새)** | `_frontReady` · `playedAccount()`(전적 **또는 전선 진행**) · `frontAfterState()` — 상태를 받은 뒤: 대문 앞이고 해 본 계정이면 `go('hangar')`, 아니면 전선을 다시 그린다 |
+  | `renderFront` 장 고르기 | 자동으로 고른 장을 `_frontCh` 에 **박지 않는다**(빈 저장본으로 1장에 묶이던 것) |
+  | `renderFront` 장 도입 | `_frontReady` 전에는 안 튼다 · **깬 칸이 있는 장은 본 것으로 친다** |
+  | `syncOnConnect` | 본문을 `syncOnConnectInner` 로 옮기고 끝에 `frontAfterState()`(성공 · 실패 모두) |
+  | `afterLogin` 끝 · `openGate`(오프라인으로 문을 열 때) | `frontAfterState()` |
+  **`boot()` · `go()` 는 건드리지 않았다** — UI 브랜치가 고친 자리다. `git merge-tree` 충돌 0.
+  **통합 때 할 일** — UI 브랜치는 `boot()` 의 해 본 계정 첫 화면을 `'home'` 으로 바꿨다. `frontAfterState` 의 `go('hangar')` 도 같은 값으로 맞춘다.
+  확인(오프라인 모드) — 처음 온 사람: 대문 뒤에서는 안 틀고 '시작하기' 뒤에 1장 도입 · 1장을 깬 저장본(전적 0 · '봤다' 표 없음): 격납고로 가고, 전선에 가면 2장이 골라진다(1장 도입 없음)
+- **2026-09-25 · 교대 전투 재생 · 사용자 지시(동결 예외)** — `js/game.js` 만. 서버가 교대 전투(`CONST.RELAY.on`)를 판정하므로 화면도 둘째 기체까지 재생해야 한다.
+  | 자리 | 바뀐 것 |
+  |---|---|
+  | 대전 시작(`ROWAR.startBattle` 의 재생부 · `simulate` 부르는 곳) | 응답의 `r.relay` 가 있으면 `simulate(P, E, seed, { P:[둘째], E:[둘째] })` |
+  | `applyServerBattle` | `r.relay.robot2` 를 그 기체(uid)에 받아 적는다 · 둘째가 나왔으면 `_lastReward.robots` 두 줄(합동전 결과 표시를 그대로 쓴다) |
+  | `playBattle` | 지금 서 있는 기체 `cu`(이름 · 최대 체력 · 종류) — `P.maxhp`/`E.maxhp` 를 쓰던 체력 막대가 `mx(k)` 를 쓴다 · `swap` 사건에서 그림 · 이름 · 체력 막대를 바꾼다 · 건너뛰기는 교대 전 기체부터 다시 그린다 |
+  **통합 때 할 일** — UI 브랜치 대전 화면이 같은 재생(`simulate(…, bench)` + `swap` 사건)을 해야 한다. 규칙 · 응답은 '교대 전투' 절.
+  확인(격리한 로컬 서버) — 양쪽 두 기 · 교대 사건에 이름 · 체력 막대(새 기체 최대치) · 그림이 바뀐다 · 결과 창 두 줄(경험치 60/40 · 피로도) · 저장본 피로도는 숫자
+
+#### 전투 분석 · 딜표 — 2026-09-21 밤 2 · Claude (master)
+
+- `js/insight.js` **(새 파일)** — `damageTable` · `insight1` · `insightJoint` · `eventLines`. DOM 없음
+- `js/game.js` — 한 묶음 `/* ── 전투 분석 ── */`(`_fight` ~ `fillAnalysis`, '합동전' 묶음 바로 위) · 결과 창 여섯 곳 끝에 `${analysisSlot()}` + `fillAnalysis()`
+  (`renderResult` · `renderPracticeResult` · `renderRaidResult` · `renderFrontResult` · `renderBreachResult`) · 그 직전에 `_fight=…` 한 줄씩.
+  `renderBreachResult` 는 UI 브랜치가 첫 줄(`toBattle`)을 고친 함수지만 이쪽은 **끝부분**만 건드렸다 — `merge-tree` 충돌 없음
+- `js/sim.js` · `js/joint.js` — 회복 사건의 amt 를 실제로 찬 양으로(0 이면 사건 없음). 승패 불변
+- `style.css` — `.anal` · `.insl` · `.dmgtab` 한 묶음
+
+#### 실시간 재생 · 흘려내기 — 2026-09-21 밤 · Claude (master)
+
+- **전투 규칙이 바뀌었다** — `js/sim.js` `tryParry` · `CONST.PARRY`(흘려내기). 'turn' 이벤트에 `at`(흐른 시간) · 새 이벤트 `parry`.
+  기체 스펙은 한 글자도 안 바꿨지만 **모든 전투 결과가 달라진다** — 밸런스를 잴 때 흘려내기가 켜진 상태인지 확인할 것
+- `js/game.js` — `playBattle` 을 **통째로** 새로 썼다(`battleTimeline` · `TL` 이 바로 아래). `playJoint` 도 같은 시간표로.
+  후위 사격 `shoot` · 레이드 결과 버튼 줄. UI 브랜치는 이 함수들을 안 건드렸다 — `git merge-tree` 로 충돌 없음 확인
+- `tools/check_ignis_rain_integration.mjs`(ChatGPT 작성)를 두 줄 고쳤다 — 흘려내기의 돌진 · 흔들림을 세고, 배속 변경 시점을 옮겼다.
+  이그니스 연출의 약속은 그대로다
+- `style.css` — `.tracer` · `.fighter.firing` · `.dmg.parry`
+
+#### 기체 세트 03 · 특화기술 · 스토리 기체 — 2026-09-21 · Claude (master · `data/balance.js` · `assets/` 를 고쳤다 · 사용자 지시)
+
+사용자가 그림 17장을 줬다(Downloads/add). **기체 스펙은 원래 ChatGPT 담당이지만 사용자가 Claude 에게 맡겼다** —
+"이름과 기체 밸런스, 스킬들은 알아서 부여하자. 특화기술을 만들어라." 기존 30종의 수치는 **한 글자도 안 바꿨다.**
+
+- **뽑기 기체 13종** — C `husk` `mortar` `lens` `static` · UC `swift` `shrike` `patch` · R `vega` `orbit` · UQ `zealot` `nebula` · EP `sovereign` `behemoth`
+- **스토리 기체 4종**(`story:true`) — `rook3` `rook3_mod` `rook3_re` `valken4`. 뽑기 · 상점 조각 · 생성 상대 · 도감 · 시작 기체에서 빠진다
+  (`js/units.js` `GACHA_IDS` · `isStory`, `js/gacha.js` · `js/shop.js` · `js/codex.js` · `server/worker.js` 에서 거른다). 얻는 길은 아직 없다
+- **특화기술 6종**(`js/sim.js` — `doHit` · `afterSkill`) — 스킬 fx 에 `shield` 방벽 · `repair` 수리 · `mark` 표적 · `shred` 장갑 파쇄 ·
+  `jam` 재밍(SP · 게이지) · `execute` 마무리. 공통값 `CONST.SPECIAL`(execHp 0.35 · shredFloor 0.7 · decay 0.3).
+  **난수를 더 뽑지 않고, 값이 없으면 한 줄도 안 돈다** — 기존 30종끼리 5,400판 이벤트가 예전과 같다. 합동전에서 방벽 · 수리는 더 다친 아군에게
+- 새 이벤트 `shield` · `mark` · `jam`, `hit.absorb`, `heal.src:'repair'` — 화면 재생(`playBattle` · `playJoint`)이 읽는다
+- **UI 브랜치가 합칠 때** — `js/game.js` 는 `fxTags`(딱지 6개) · `playBattle` 의 새 이벤트 세 줄 · 건너뛰기의 `jam` 한 줄 ·
+  `playJoint` 같은 곳만 고쳤다. `style.css` 는 `.tag.fx-sp` 외 6줄. 그림은 `assets/<id>.png`(규격 그대로) — `tools/robot_art.py` 로 만들었다
+- 등급 내 승률(맨몸 · Lv.1/15/30/45/60) — 새 기체 전부 35~63%. 기존 BASTION 이 Lv.60 에서 33%로 내려갔다(파쇄 · 수리 기체에 약하다).
+  상세는 `STATUS.md` 2026-09-21 세트 03
+
+#### 합동전 · 요구 조건 특성 — 2026-09-21 · Claude (master) → `codex/ui-rebuild` 합칠 때 읽을 것
+
+사용자 지시로 **master 에서** 개발을 이어 간다. UI 개편 브랜치(`codex/ui-rebuild`)는 사용자가 집에서
+따로 진행한다. 브랜치가 master 를 합칠 때 충돌이 나지 않게 **파일 · 함수 단위로** 남긴다.
+
+**무엇이 바뀌었나** — 토벌 **보스** 등급과 **레이드**는 편성 두 기가 **한꺼번에** 싸운다(합동전).
+전투 직전에 **자리(전위 · 후위)와 기체별 전술**을 고른다. 보스 셋에는 **요구 조건 특성**이 둘씩 붙었다.
+대전 · 토벌 C~EP · 점령 · 전선 · 시련은 **그대로 1:1 · 릴레이**다. `js/sim.js` 는 한 글자도 안 바뀌었다.
+
+| 파일 | 바뀐 것 | 합칠 때 |
+|---|---|---|
+| `js/joint.js` **(새 파일)** | 합동전 엔진 `runJoint` · 특성 · 자리/전술 거르기 `jointOrder` `jointTactics` · 안내용 `traitFit` | 그대로 가져가면 된다. DOM 없음 |
+| `data/balance.js` | `CONST.JOINT` · `CONST.TRAIT` 새 표 · 보스 셋에 `joint:{aim,traits,hp,atk}` · `RAID.hpX` 50→130 | 브랜치는 밸런스를 안 건드린다(계약) — master 것을 받으면 된다 |
+| `js/raid.js` | `raidOf` 가 `aim` `traits` 를 싣는다 · `runRaid(team, r, seed)` 가 **합동전**으로 바뀜(옛 릴레이 `runBreach` 안 씀) · `raidSeeds` 는 시드 하나 | 브랜치에서 레이드 재생을 옮겼다면 **인자 모양이 바뀐 것**을 반영 |
+| `server/battle.js` | `loadFighter` 가 `squad` · `lead` 를 싣는다 · `JOINT_TIERS`(BOSS) · `startJoint()` 새 함수 · 상대 카드에 `opponent.joint` | 서버라 브랜치와 겹치지 않는다 |
+| `server/raid.js` · `server/worker.js` | `POST /api/raid` 가 본문 `{order, tactics}` 를 받는다 · 응답 `mechs` 는 **자리 순** + `tactic` · `foe` 에 `aim` `traits` | 겹치지 않는다 |
+| `js/net.js` | `battleStart(tactic, joint)` · `raid(run, joint)` — 둘째 인자 추가(없으면 예전과 같다) | 인자 추가만 |
+| `js/game.js` | ① **한 묶음** `/* ── 합동전 ── */`(`jointBase` ~ `raidPrep`, 파일 끝 '초기화/공개' 바로 위) ② 작은 고리 아래 | 아래 표 |
+| `style.css` | 파일 끝에 `/* ── 합동전 (2026-09-21) ── */` 한 묶음 | 통째로 옮기면 된다 |
+| `index.html` | 캐시 버전 `?v=20260921-joint` | 브랜치 버전으로 덮어도 된다 |
+
+**`js/game.js` 의 작은 고리 — 브랜치가 같은 함수를 고쳤다면 이 줄만 옮기면 된다**
+
+| 함수 | 한 일 |
+|---|---|
+| import | `import { runJoint, jointOf, traitLines, traitFit, AIM_KO, JOINT } from './joint.js';` |
+| `setPending` | `joint:o.joint\|\|null` 한 줄 |
+| `showOpponent` | 첫 줄 `if(opp.joint && !practice) return showJoint(opp);` |
+| `startBattle` | 온라인 확인 뒤 `if(opp.joint) return startJointBattle(opp);` |
+| `renderHunt` | 보스 줄 출격비 · 레벨을 `jointLead()` 기준으로 · 보스 이름 칸에 '합동전' · 레벨 상한 `MAXLV+OPP_LV_OVER`(보스가 Lv.60 으로 잘못 보이던 것) |
+| `renderResult` | `rw.robots` 가 있으면 기체마다 경험치 · 피로도 한 줄 |
+| `lunge` · `floatDmg` | `side==='p'` → `side[0]==='p'` (`p0` `p1` 을 받으려고) |
+| `drawRaid` | '보스 공격' 이 `ROWAR.raidPrep()`(편성 화면)을 연다 · 안내문 |
+| `raidRunGo` | 통째로 새로 — 합동전 요청 · `renderJointArena` · `playJoint` |
+| `window.ROWAR` | `raidPrep` `jointSwap` `jointTac` |
+
+**UI 개편에서 이어받을 화면 두 개** — ① 합동전 편성(보스 칸 · 요구 조건 · 전위/후위 칸 · 기체별 전술 · 자리 바꾸기),
+② 세 기 무대(`.arena.joint`, 전위가 앞 · 후위가 뒤 · 격추되면 흐려짐). 규칙과 응답 모양은 위 서버 파일이 정한다.
+
+**수치** — `tools/jointcheck.mjs` 로 잰다(Lv.55 SR 기준 보스 평균 승률 26~52%, 요구 조건을 맞춘 짝은 +15~50%p,
+자리를 바꾸면 짝의 31~52%가 15%p 이상 움직인다). 상세는 `STATUS.md` 2026-09-21.
 
 ### → Claude
 
@@ -3961,3 +4228,89 @@ ROWAR 는 지금 출처가 섞여 있다(공들인 기체 + 스크립트 도형 
 (위 2026-09-16 항목의 규격 참고).
 
 **대사 삽화는 0장**이라 전선 이야기가 글자만으로 흐른다. 자리는 16곳 뚫려 있다.
+
+## ChatGPT — 기체별 선택 특성 계획 · 2026-09-22
+
+사용자가 기체당 5~6개 특성, +0.1~+5.0 수준의 성장, 아름다운 트리/차크람형
+디자인을 요청했다. [기체별 선택 특성 — 코어 서킷 계획](docs/balance/mech-traits-plan-2026-09-22.md)을 작성했다.
+
+- 기본안: 현재 47종 각각 6노드·3갈래 원형. 소유 기체별 배분과 프리셋.
+- +0.1~+5.0은 %/%p를 명시하는 누적 보너스로 해석했다. 세부 단위·포인트·상한은 제안값.
+- 6종 파일럿의 36노드 효과 초안과 전 47종의 확장 테마를 작성했다.
+  나머지 246노드의 상세 수치까지 확정했다는 뜻은 아니다.
+- 원형 A / 별자리 B 시안을 비교하고 사용자가 고른 뒤 아트와 화면 구현을 진행한다.
+- 기존 보스 `CONST.TRAIT`와 분리한다. main 화면 동결과 브랜치 분리 원칙을 유지한다.
+- **이번 작업은 계획 문서만이다. 게임 구현·수치 적용·이미지 제작·DB 변경·배포·브랜치 통합 없음.**
+- 이미 수정 중이던 `STATUS.md`·`tools/skill.mjs`는 다른 작업으로 보존하고 이번 커밋에서 제외한다.
+
+## Claude — 개발 계보 · 숙련 초안 · 2026-09-22 (main)
+
+- [개발 계보 · 숙련 계획](docs/balance/lineage-plan-2026-09-22.md) · [계보도](docs/balance/lineage-draft-2026-09-22.html) · [성장 곡선](docs/balance/robot-curves-2026-09-22.html)
+- 기체별 숙련 → 다음 기체 조각. 43종 8갈래 초안 · 새 R/UQ 기체 제안 · 뽑기와의 관계. **사용자 결정 전 — 구현 · DB · 배포 없음**
+- 위 코어 서킷 계획과 같은 '기체별 성장' 이라 겹친다. 숙련이 특성 포인트도 줄지는 사용자가 두 계획을 같이 보고 정한다(STATUS 할 일 3번)
+- 새 도구 `tools/curves.mjs` · `tools/skill.mjs` ⑥ 기대값을 지금 규칙에 맞춤(게임 코드 변경 없음). 화면 동결 파일은 건드리지 않았다
+
+## Claude — 세트 04: R 기체 10기 · 성장 2차 항 · 2026-09-23 (main)
+
+사용자가 그려 온 R 10기를 넣었다(이름 · 역할 · 수치 · 스킬은 Claude). **R 8 → 18종 · 뽑기 기체 43 → 53종.**
+PIKE · QUAKE · CIPHER · AEGIS · ZEPHYR · LONGBOW · ANVIL · VERDICT · POLARIS · VESPER — 자세한 기록은 `STATUS.md` 2026-09-23.
+
+- **공용 모듈 계약이 바뀌었다** — `ROBOT_TYPES[].curve`(선택) 가 생겼고 `computeStats`(js/stats.js) 가 2차 항을 더한다:
+  `값 = base + grow×(lv-1) + curve×(lv-1)²/(MAXLV-1)`. `curve` 가 없으면 예전과 완전히 같다. 속도에는 쓰지 않았다(전부 0).
+  **UI 브랜치가 볼 곳** — `js/game.js` 의 `STAT_MAX` 는 `base + grow×(MAXLV-1)` 로 바를 재는데, 곡선 기체는 이 값보다 최대 3% 높다.
+  여유 35% 안이라 지금은 문제가 없지만, 새 화면에서 다시 짤 때는 `curve` 도 더하는 편이 정확하다(main 은 화면 동결이라 고치지 않았다)
+- `server/arena.js` `balanceVersion()` 에 `curve` 를 넣었다 — 배포하면 아레나 스냅샷이 새 버전으로 바뀐다
+- 도감 기체 이정표 53 추가 · `tools/specialcheck.mjs` ③ 의 '43칸' 기대를 뽑기 목록 비교로 바꿨다
+- 그림 `assets/<id>.png` 10장(`tools/robot_art.py`, R 키 320). 회귀 16종 통과. **아직 배포하지 않았다**
+
+## Claude — 세트 05: UQ 기체 18기 · 아종 · 2026-09-23 오후 (main)
+
+UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 2026-09-23 (오후).
+- **새 선택 필드 `ROBOT_TYPES[].family`**(`'nimbus'` · `'goliath'` · `'hydra'`) — 같은 차체 아종 표시. 전투 · 서버는 아직 읽지 않는다.
+  UI 브랜치가 도감 · 격납고에서 형제를 묶어 보여 줄 때 쓰면 된다. 계보 분화 규칙이 정해지면 서버가 쓴다
+- VALKEN-4(스토리) 수치 상향 · 새 도구 `tools/fit.mjs` · `tools/curves.mjs --wr` · 계보도 초안 2(`docs/balance/lineage-draft-2026-09-23.html`)
+- 화면 동결 파일은 건드리지 않았다. **아직 배포하지 않았다**
+
+### → ChatGPT · UI 브랜치 — 숙련 · 계보 · 공명 · 전투력 보정 계약 (2026-09-23 밤 · Claude, main)
+
+**자세한 인계는 [`docs/handoff/2026-09-23-main-to-ui.md`](docs/handoff/2026-09-23-main-to-ui.md)** — 동결 이후 main 변경 전부 · 통합 때 이어받을 화면 · UI 브랜치 코드에서 찾은 문제(뽑기 화면이 스토리 기체를 안 거름).
+
+
+- **특성 포인트** — `traitPoints(level)`(`js/stats.js`). 5레벨마다 1 · 10레벨마다 1 더 · 최고 레벨 2 더 = Lv.60 에 20.
+  아래 절의 '숙련 단계' 는 이것으로 확정됐다. **특성 수 · 비용을 포인트 총량에 맞춰 제한하지 않는다**(사용자 지시 — 다 찍을 수 있으면
+  누구나 같은 빌드가 된다). 특성은 넉넉히 두고 플레이어가 필요한 것을 골라 찍게 한다
+- **계보** — `js/lineage.js` : `canDevelop(type, ownedTypes) → { ok, why, need }`(why: owned · root · sibling · parents · gacha · story) ·
+  `developable(owned)` · `lineageView(owned) → { type: { state: owned|open|locked|gacha, need, parents, children, std, sibs } }`.
+  데이터 `data/lineage.js`. 상점 조립이 막히면 서버 응답 `{ error: 'lineage locked', why, need }` — **지금은 `CONST.LINEAGE.gate = false` 라 막지 않는다.**
+  계보도 화면이 나오면 켠다. 참고 시안 `docs/balance/lineage-draft-2026-09-23.html`
+- **공명** — `resonanceOf(team) → family | null`(`js/joint.js`). 합동전 편성 화면에 '공명' 표시를 붙이면 된다. 결과 창은 분석 줄이 이미 알린다
+- **전투력** — `computeStats` 결과에 `pwK`(보정 배수)가 붙을 수 있다. 화면은 `powerOf` 결과만 쓰면 된다. 스탯 표에 pwK 를 띄우지 않는다
+
+### → ChatGPT — 코어 서킷 특성 포인트의 출처가 바뀌었다 (2026-09-23 사용자 결정)
+
+`docs/balance/mech-traits-plan-2026-09-22.md` 3절의 포인트 `min(30, floor(level / 2))` 대신 **기체별 숙련으로 특성 포인트를 얻는다**.
+숙련은 개발 계보(`docs/balance/lineage-plan-2026-09-22.md` 첫 절)의 축이다 — 그 기체로 싸우면 오르고, 단계마다 다음 기체 조각과 특성 포인트를 준다.
+숙련 단계 수 · 단계당 포인트는 Claude 가 `play.mjs` 경제 측정으로 정해 여기 적는다. 특성 정의(노드 · 단위 · 상한)는 그대로 ChatGPT 담당
+
+> **2026-09-24 갱신** — 특성 정의(노드 · 단위 · 상한)는 사용자가 Claude 에게 맡겼다(`data/circuit.js` · `js/circuit.js`, '코어 서킷 시안 2 — 별자리').
+> ChatGPT 몫은 별자리 **형태와 그림**이다 — [`docs/art/circuit-constellations-2026-09-24.md`](docs/art/circuit-constellations-2026-09-24.md)
+
+### → Claude · ChatGPT — 코어 서킷 트리 외관 (2026-09-28 사용자 요청)
+
+- ChatGPT가 `docs/balance/core-circuit-draft-2026-09-23.html` 프로토타입의 노드·연결선 외관을 마무리한다. 원형 보석 소켓, 금속 링, 전문 노드 장식으로 패시브 트리의 위계를 표현한다.
+- 배경 그림, 76기 좌표와 이름 칸(사용자 수동 편집 포함), 36개 노드 ID·효과·선행 조건·20점 규칙·전문 별 비용은 유지한다.
+- main의 동결된 게임 UI 및 서버 전투는 수정하지 않는다. 시안 검수와 실제 게임 화면 연결·배포는 구분한다.
+- 2026-09-28 사용자 시안 승인 및 커밋·푸시·배포 요청. `server/build.mjs`가 승인 시안 하나만 `/core-circuit-preview.html`로 복사하도록 추가한다. 내부 문서 전체는 공개하지 않는다. 계정 저장·게임 UI 통합·DB 변경 없음.
+
+## Claude — 파츠 귀속 · 2026-09-28 (main · 이관 024 · 스위치 꺼 둠)
+
+사용자 결정 — 기체별 파츠는 **귀속**으로. 처음 끼면 그 기체에 귀속 · 풀려면 정제 코어 1 · 켜는 날 끼고 있는 파츠는 그 기체에 귀속 ·
+빌드 프리셋은 기체마다 · 스위치는 화면이 나올 때까지 꺼 둔다. 기록 `STATUS.md` 2026-09-28 · **UI 인계 [`docs/handoff/2026-09-28-main-to-ui.md`](docs/handoff/2026-09-28-main-to-ui.md)**.
+
+- 규칙 `js/bind.js` — `bindOn()` · `unbindCost()` · `equipCheck(bound, robotId)` · `fuseBind(bounds)` · `presetBindFilter(rows, robotId)`
+- 서버 `POST /api/hangar` — `equip`(켜지면 다른 기체 귀속이면 `{ error:'part bound', boundTo: 기체uid }` · 성공 응답에 `bound`) ·
+  **새 `unbind { partUid }`**(`not enough rcores` · `not bound` · `bind off`) · `presetSave/Apply/Delete`(켜지면 `robotUid` 의 기체 프리셋 · Apply 응답 `bound: [건너뛴 파츠uid]`) ·
+  `fuse`(`bound mismatch`)
+- `/api/state` — 밖에 `bind: { on, unbind, parts: { 파츠uid: 기체uid }, presets?: { 기체uid: [...] } }`(presets 는 켜졌을 때만)
+- DB — 이관 024 `part.bound` · `robot.presets`. 켜는 날 `tools/bindnow.sql`
+- 화면 동결 파일은 건드리지 않았다. 이 커밋에서 UI 브랜치와 `merge-tree` 충돌 없음

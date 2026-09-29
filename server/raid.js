@@ -8,26 +8,28 @@
  *   ② 하루 횟수를 서버가 센다. 클라가 보내는 값은 아무것도 믿지 않는다 —
  *      도전 요청에 실리는 것은 '도전한다' 는 사실뿐이다.
  */
+import { parseCircuit } from '../js/circuit.js';
 import { codexMonsterStmt } from './codex.js';
 import { computeStats, power } from '../js/stats.js';
 import { weekOf, weekEnd, raidOf, runRaid, raidSeeds, raidReward,
          raidLeft, raidDaily, dayOf } from '../js/raid.js';
 import { PART_COLS, partOf } from './parts.js';
-import { MONSTER_TYPES } from '../data/balance.js';
+import { MONSTER_TYPES, ROBOT_TYPES } from '../data/balance.js';
+import { jointOrder, jointTactics } from '../js/joint.js';
 
 const TOP_N = 10;
 const err = (status, error) => ({ ok: false, status, error });
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 
-/* 편성 전체를 읽는다. 시련은 한 기지만 레이드는 편성 둘이 차례로 들어간다 —
-   선봉이 쓰러지면 예비가 이어서 깎는다(js/breach.js 의 runBreach). */
+/* 편성 전체를 읽는다. 시련은 한 기지만 레이드는 편성 둘이 **한꺼번에** 싸운다(합동전 · js/joint.js).
+   여기서 읽는 순서는 기본 자리일 뿐이다 — 전위·후위는 도전 요청이 고른다(raidRun). */
 async function loadSquad(env, acc) {
   const p = await env.DB.prepare(
     'SELECT nickname, credits, scrap, rev, sel_robot, squad1, squad2 FROM player WHERE account_id = ?1')
     .bind(acc).first();
   if (!p) return null;
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, fat, skill_lv, ${Object.values(SLOT_COL).join(', ')}
+    `SELECT id, uid, type, level, fat, skill_lv, circuit, ${Object.values(SLOT_COL).join(', ')}
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(acc).all()).results || [];
   if (!robots.length) return null;
 
@@ -52,7 +54,7 @@ async function loadSquad(env, acc) {
       if (q) used.push(partOf(q));
     }
     const rb = { uid: row.uid, type: row.type, level: row.level, fat: row.fat,
-                 skillLv: row.skill_lv, slots };
+                 skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit) };
     return { name: row.type, type: row.type, robot: rb, parts: used,
              stats: computeStats(rb, used), power: power(rb, used) };
   });
@@ -102,6 +104,8 @@ function view(r, bar, mine, now) {
     ok: true, week: r.week, endsAt: weekEnd(r.week),
     boss: r.boss, name: MONSTER_TYPES[r.boss].name, role: MONSTER_TYPES[r.boss].role,
     level: r.level, battleHp: r.battleHp,
+    /* 합동전 — 보스의 스킬 조준과 요구 조건. 화면이 편성 칸 옆에 띄운다 */
+    aim: r.aim, traits: r.traits,
     maxHp: bar.max_hp, dealt, left: Math.max(0, bar.max_hp - dealt),
     killed: !!bar.killed_at, killer: bar.killer || null, killedAt: bar.killed_at || null,
     daily: raidDaily(), triesLeft: raidLeft(mine, now),
@@ -119,7 +123,7 @@ export async function raidView(env, acc, now) {
   return { ...view(r, bar, mine, now), ...(await board(env, acc, r.week)) };
 }
 
-export async function raidRun(env, acc, now) {
+export async function raidRun(env, acc, now, body) {
   const r = raidOf(weekOf(now));
   const bar = await getBar(env, r, now);
   if (bar.killed_at) return err(400, 'raid already down');
@@ -133,8 +137,16 @@ export async function raidRun(env, acc, now) {
   if (!f) return err(404, 'no player');
 
   const tries = (mine ? mine.tries : 0) + 1;
-  const seeds = raidSeeds(r.week, acc, tries, f.mechs.length);
-  const out = runRaid(f.mechs, r, seeds);
+  const seeds = raidSeeds(r.week, acc, tries);
+  /* 자리와 전술 — 요청에서 받되 편성 안의 uid · 표에 있는 전술만 받는다.
+     시드는 여전히 (주 · 계정 · 몇 번째)에서만 나온다 — 자리를 바꿔 가며 같은 시드를 다시 굴릴 수는 없다 */
+  const byUid = new Map(f.mechs.map(m => [m.robot.uid, m]));
+  const order = jointOrder(f.mechs.map(m => m.robot.uid), body && body.order);
+  const tacs = jointTactics(order, body && body.tactics);
+  const team = order.map((u, i) => { const m = byUid.get(u);
+    return { uid: u, name: ROBOT_TYPES[m.type].name, type: m.type, stats: m.stats, tactic: tacs[i],
+             level: m.robot.level, power: m.power }; });
+  const out = runRaid(team, r, seeds);
 
   /* 막대가 남은 것보다 더 때렸으면 남은 만큼만 센다 — 순위표의 합이 막대보다
      커지면 '누가 얼마나 기여했나' 가 말이 안 된다. */
@@ -184,8 +196,9 @@ export async function raidRun(env, acc, now) {
      같은 이름을 두 뜻으로 쓰지 않는 것이 고침이다. */
   return { ok: true, damage: dmg, raw: out.damage, reward: rw, kill,
            credits: f.player.credits + rw.cr, scrap: f.player.scrap + rw.sc, rev: f.player.rev + 1,
-           mechs: f.mechs.map(m => ({ uid: m.robot.uid, type: m.type, level: m.robot.level,
-                                      power: m.power, stats: m.stats })),
-           seeds, tries, foe: { type: r.boss, level: r.level, stats: r.stats },
+           /* 재생 입력 — **자리 순서 그대로**(0 전위 · 1 후위)와 서버가 확정한 전술 */
+           mechs: team.map(t => ({ uid: t.uid, type: t.type, level: t.level, power: t.power,
+                                   stats: t.stats, tactic: t.tactic })),
+           seeds, tries, foe: { type: r.boss, level: r.level, stats: r.stats, aim: r.aim, traits: r.traits },
            ...after };
 }

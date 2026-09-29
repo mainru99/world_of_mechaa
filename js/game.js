@@ -23,6 +23,8 @@ import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed, applyTerrain, maxRounds } from './breach.js';
 import { weekOf, weekEnd, TRIAL_WIN_BASE, trialOf, runTrial, trialWon, foeStats } from './trial.js';
 import { raidOf, runRaid, raidSeeds, raidLeft } from './raid.js';
+import { runJoint, jointOf, traitLines, traitFit, AIM_KO, JOINT } from './joint.js';
+import { damageTable, insight1, insightJoint, eventLines } from './insight.js';
 import { SPEAKERS, openingOf, closingOf, scriptOf, artPath } from '../data/story.js';
 import { FRONT_CHAPTERS, FRONT_CELLS, readProgress, writeProgress, clearedCount, cellIndex, cellOpen,
          lockedGates, buildLines, rewardOf, unlockedBy, frontView } from './front.js';
@@ -77,7 +79,7 @@ function robRarTag(type){ const k=rarOf(type), r=RR[k];
 
 /* 스킬의 '틀' 을 딱지로 바꾼다. 설명은 문장이라 훑어지지 않는데, 상대를 보고 고르려면
    무엇이 통하고 무엇이 안 통하는지가 먼저 눈에 들어와야 한다.
-   기체 30종의 스킬은 실제로는 이 다섯 조합뿐이다 — 등급은 같은 틀에 숫자만 키운 것이다. */
+   처음 30종의 스킬은 이 다섯 조합뿐이었다. 세트 03(2026-09-21)이 특화기술 여섯을 더했다 — 금빛 테두리 딱지. */
 function fxTags(type){
   const sk=(COMBAT_TYPES[type]||{}).skill, f=(sk&&sk.fx)||{}, t=[];
   if(f.hits>1)     t.push(['hit', f.hits+'연격']);
@@ -85,6 +87,13 @@ function fxTags(type){
   if(f.ignoreDef)  t.push(['pen', '방어 관통']);
   if(f.alwaysCrit) t.push(['crt', '확정 치명']);
   if(f.drain)      t.push(['drn', '흡혈']);
+  /* 특화기술 */
+  if(f.shield)     t.push(['sp fx-shd', '방벽']);
+  if(f.repair)     t.push(['sp fx-rep', '수리']);
+  if(f.mark)       t.push(['sp fx-mrk', '표적']);
+  if(f.shred)      t.push(['sp fx-shr', '장갑 파쇄']);
+  if(f.jam)        t.push(['sp fx-jam', '재밍']);
+  if(f.execute)    t.push(['sp fx-exe', '마무리']);
   return t.map(x=>`<span class="tag fx-${x[0]}">${x[1]}</span>`).join(' ');
 }
 
@@ -1546,45 +1555,41 @@ function drawRaid(r){
 /* One action per account; a completed server reward survives navigation, but an
    old response cannot start playback or overwrite another account's state. */
 async function raidRunGo(){
-  if(challengePending()||cur!=='trial'||_trialTab!=='raid')return;
+  if(challengePending()||_trialTab!=='raid'||(cur!=='trial'&&!(cur==='battle'&&_jctx===raidPrep)))return;
   if(!net.state.online){toast('보스 레이드는 서버 연결이 필요합니다');return;}
-  const token=challengeOwner(),epoch=++_challengeEpoch;
+  const token=challengeOwner(),request=_battleRequest;
+  ++_challengeEpoch;
+  const active=()=>sameChallengeOwner(token)&&request===_battleRequest&&_trialTab==='raid'&&(cur==='trial'||cur==='battle');
   _challengeAction=token;if(_raid&&sameChallengeOwner(_raidOwner))drawRaid(_raid);
+  const button=cur==='battle'?$('#sc-battle .bv-launch'):null,label=button?.innerHTML;
+  if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='교전 요청 중…';}
   try{
-    const r=await net.raid(true);
+    const r=await net.raid(true,jointReq());
     if(!sameChallengeOwner(token))return;
     if(!r||r.error){
-      toast(r?.error==='no tries left'?'오늘 도전을 다 썼습니다':r?.error==='raid already down'?'이번 주 보스는 이미 쓰러졌습니다':'공격 요청에 실패했습니다');
+      if(active())toast(r?.error==='no tries left'?'오늘 도전을 다 썼습니다':r?.error==='raid already down'?'이번 주 보스는 이미 쓰러졌습니다':'공격 요청에 실패했습니다');
       dropRaidCache();return;
     }
     _raid=r;_raidAt=Date.now();_raidOwner=token;
     S.credits=r.credits;S.scrap=r.scrap;commitLocal();renderWallet();
-    if(!challengeVisible(epoch,token,'raid')){toast(`레이드 기록 완료 · 피해 ${fmt(r.damage)} · 크레딧 +${fmt(r.reward.cr)}`);return;}
+    if(!active()){toast(`레이드 기록 완료 · 피해 ${fmt(r.damage)} · 크레딧 +${fmt(r.reward.cr)}`);return;}
     beginReplay();
-    const replayRequest=_battleRequest;
-    const mechs=r.mechs.map(m=>({name:ROBOT_TYPES[m.type].name,type:m.type,stats:m.stats})),foe=r.foe;
-    const out=runRaid(mechs,{boss:foe.type,level:foe.level,stats:foe.stats,battleHp:r.battleHp},r.seeds);
-    for(let i=0;i<out.rounds.length;i++){
-      if(!sameChallengeOwner(token)||replayRequest!==_battleRequest)return;
-      const rd=out.rounds[i],M=mechs[rd.mi];
-      renderArena(M.type,foe.type,M.name,r.name,`보스 레이드 · ${r.name}`,null,null,'trial');
-      if(arenaGone())return;
-      if(i>0&&rd.mi!==out.rounds[i-1].mi)blog(`<b style="color:var(--bad)">선봉 격추</b> — <span class="k">${M.name}</span> 투입`);
-      const P=makeUnit(M.name,M.type,M.stats);P.hp=rd.pHp;P.sp=rd.pSp;
-      const E=makeUnit(r.name,foe.type,foe.stats);E.hp=rd.eHp;E.sp=rd.eSp;
-      if(i===0)await bossEntrance();
-      if(arenaGone()||!sameChallengeOwner(token)||replayRequest!==_battleRequest)return;
-      if(!await playBattle(rd.events,P,E,{pHp:rd.pHp,eHp:rd.eHp,pSp:rd.pSp,eSp:rd.eSp}))return;
-      await sleep(320/battleSpeed);
-      if(arenaGone()||!sameChallengeOwner(token)||replayRequest!==_battleRequest)return;
-    }
+    const team=r.mechs.map(m=>({name:ROBOT_TYPES[m.type].name,type:m.type,stats:m.stats,tactic:m.tactic||'none'})),foe=r.foe;
+    const out=runRaid(team,{boss:foe.type,level:foe.level,stats:foe.stats,battleHp:r.battleHp,aim:foe.aim,traits:foe.traits},r.seeds);
+    renderJointArena(team,foe.type,r.name,`보스 레이드 · ${r.name}`,'none','trial');
+    if(!active())return;
+    await bossEntrance();
+    if(!active())return;
+    if(!await playJoint(out.events,out.team,out.boss,active)||!active())return;
+    _fight=fightJoint(out.events,team,{name:r.name,type:foe.type,stats:foe.stats,tactic:'none',traits:foe.traits||[]},r.seeds[0],foe.aim,false,true);
     renderRaidResult(r);
   }catch{if(sameChallengeOwner(token)){dropRaidCache();toast('공격 요청을 확인하지 못했습니다. 최신 기록을 다시 확인하세요.');}}
-  finally{if(_challengeAction===token){_challengeAction=null;if(sameChallengeOwner(token)&&cur==='trial')renderTrial();}}
+  finally{if(button?.isConnected){button.disabled=false;button.removeAttribute('aria-busy');button.innerHTML=label;}if(_challengeAction===token){_challengeAction=null;if(sameChallengeOwner(token)&&cur==='trial')renderTrial();}}
 }
 function renderRaidResult(r){
   shield();toBattle(null,'trial');
   $('#sc-battle').innerHTML=`<section class="tv-result ui-surface"><span class="ui-eyebrow">RAID REPORT</span><h2>${r.kill?'보스 격파':'공동 체력에 피해 반영'}</h2><p>${esc(r.name)} · 오늘 남은 도전 ${r.triesLeft} / ${r.daily}</p><div class="tv-result-grid"><div><span>이번에 반영된 피해</span><b>${fmt(r.damage)}</b></div><div><span>내 누적 피해</span><b>${fmt(r.me?.damage??r.damage)}</b></div><div><span>공동 보스 남은 체력</span><b>${r.killed?'격파됨':fmt(r.left)}</b></div></div>${r.raw>r.damage?`<p>공동 체력보다 많은 피해를 입혀, 남아 있던 ${fmt(r.damage)}만 반영했습니다.</p>`:''}<div class="tv-result-reward"><span>획득 보상</span><b>크레딧 +${fmt(r.reward.cr)}</b><b>스크랩 +${fmt(r.reward.sc)}</b></div><div class="row-btns"><button class="btn gold" onclick="ROWAR.go('trial')">레이드로 돌아가기</button><button class="btn" onclick="ROWAR.go('hangar')">출격 편성 확인</button></div></section>`;
+  $('#sc-battle').insertAdjacentHTML('beforeend',analysisSlot());fillAnalysis();
 }
 async function trialRunGo(){
   if(challengePending()||cur!=='trial'||_trialTab!=='trial')return;
@@ -1878,8 +1883,9 @@ async function findMatch(opts){
 function setPending(o, cost, rescue, tier, mode, duel){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, skillLv:o.skillLv|0, fat:0, slots:o.slots },
-    parts:o.parts, band:o.band||null, bandTotal:o.bandTotal||null, bandGoal:o.bandGoal||null,
+    parts:o.parts, bench:o.bench||[], band:o.band||null, bandTotal:o.bandTotal||null, bandGoal:o.bandGoal||null,
     cost:cost|0, rescue:!!rescue, tier:tier||null, mode:mode||null,
+    joint:o.joint||null,                 // 합동전(토벌 보스) — 조준과 요구 조건. 있으면 편성 화면이 뜬다
     /* 지목 대전이면 상대 편성 목록과 지금 고른 칸을 함께 들고 다닌다 —
        상대 카드에서 바로 다른 기체로 바꿔 끼울 수 있어야 하기 때문이다. */
     choices:(duel&&duel.choices)||null, pick:(duel&&duel.pick)|0, target:(duel&&duel.target)||null } : null;
@@ -1924,12 +1930,13 @@ function dispatchRobot(){
     || selRobot();
 }
 function dispatchOptions(){
-  return dispatchMissions({expeditionLevel:dispatchRobot().level,huntLevel:selRobot().level,sortieCost:sortieCost(selRobot()),credits:S.credits,weekly:huntNow()});
+  const boss=jointLead();
+  return dispatchMissions({expeditionLevel:dispatchRobot().level,huntLevel:selRobot().level,sortieCost:sortieCost(selRobot()),bossLevel:boss.level,bossCost:sortieCost(boss),credits:S.credits,weekly:huntNow()});
 }
 function renderDispatch(){
   const missions=dispatchOptions();
   if(!missions.some(m=>m.key===_dispatchSelected))_dispatchSelected=missions[0].key;
-  const selected=missions.find(m=>m.key===_dispatchSelected),rb=selected.kind==='exped'?dispatchRobot():selRobot();
+  const selected=missions.find(m=>m.key===_dispatchSelected),rb=selected.kind==='exped'?dispatchRobot():selected.tier==='BOSS'?jointLead():selRobot();
   _dispatchWeekReset=huntNow().resetAt;
   $('#sc-hunt').innerHTML=dispatchView({missions,selected:_dispatchSelected,filter:_dispatchFilter,tab:_dispatchTab,robot:rb,robotPower:power(rb),inSquad:S.squad.includes(rb.uid),
     expedition:S.expd,expeditionRobot:S.robots.find(r=>r.uid===S.expd?.uid),online:net.state.online,pending:!!_dispatchPending,canSend:S.robots.length>1&&rb.uid!==S.expd?.uid,weeklyReset:huntResetTxt(_dispatchWeekReset)});
@@ -2089,13 +2096,16 @@ function renderHunt(){
   }
   const hw = huntNow();
   const rows = Object.keys(CONST.HUNT).map(t=>{
-    const H=CONST.HUNT[t], cost=Math.ceil(sortieCost(rb)*H.costX);
+    /* 보스는 합동전 — 출격비와 보스 레벨을 편성 중 높은 레벨 기체에 맞춘다(서버와 같은 규칙) */
+    const base = t==='BOSS' ? jointLead() : rb;
+    const H=CONST.HUNT[t], cost=Math.ceil(sortieCost(base)*H.costX);
     /* 주간 한도(UQ · EP · BOSS). 다 쓰면 줄을 잠근다 — 서버도 막지만 누르고 나서 알면 헛걸음이다 */
     const wk = hw.tiers[t], out = !!(wk && wk.used >= wk.cap), poor = S.credits<cost || out;
-    const lv=Math.max(1,Math.min(MAXLV, rb.level+H.lv));
+    /* 상대 레벨 상한은 MAXLV 가 아니라 MAXLV+OPP_LV_OVER 다(js/rewards.js 의 oppLvMax) — 보스가 Lv.60 으로 보였다 */
+    const lv=Math.max(1,Math.min(MAXLV+(CONST.OPP_LV_OVER||0), base.level+H.lv));
     /* 보스는 무엇이 나오는지 밝히지 않는다. 나머지 등급은 이름을 보고 상성을 준비하는
        것이 판단인데, 보스까지 미리 알면 마지막 관문이 그냥 한 줄 더 비싼 사냥터가 된다. */
-    const names = t==='BOSS' ? '???'
+    const names = t==='BOSS' ? '??? · 합동전 — 편성 두 기가 함께 싸웁니다'
       : (MONSTER_BY_RARITY[t]||[]).map(id=>MONSTER_TYPES[id].name).join(' · ');
     return `<button class="hunt-row${poor?' poor':''}${wk?' cap':''}" ${poor?'disabled':''} onclick="ROWAR.hunt('${t}')">
       <!-- 등급 색은 .rr-* 다. .rar-* 는 파츠 등급(C/R/SR/SSR)이라 UC·UQ·EP 규칙이 아예 없어,
@@ -2164,6 +2174,7 @@ function makeOpponent(){
    방어·회피·속도를 내 값과 나란히 놓고, 상대 스킬도 함께 보여 준다.
    그래야 편성한 두 기 중 무엇을 낼지, 어떤 파츠를 낄지가 판단이 된다. */
 function showOpponent(opp, practice){
+  if(opp.joint && !practice) return showJoint(opp);   // 토벌 보스는 합동전 편성 화면(2026-09-21)
   shield();
   const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];
   const my=selRobot(), myst=computeStats(my), est=computeStats(opp.robot, opp.parts||[]);
@@ -2199,7 +2210,13 @@ function showOpponent(opp, practice){
     enemyName:opp.callsign,enemyMeta:`${monster?'몬스터 · 위험도 '+T.rarity:opp.kind==='player'?'플레이어':'훈련 기체'}${opp.band?' · 구간 '+opp.band+'/'+(opp.bandTotal||12):''}`,
     brief:`<p>${esc(brief)}</p>${bandLine(opp.bandGoal)}`,costLabel:practice||opp.mode==='duel'||opp.rescue?'무료':fmt(opp.cost)+' 크레딧',rewardLabel:practice||opp.mode==='duel'?'보상 없음':opp.rescue?'크레딧':'상대·승패에 따라 결정',
     actions:`<button class="bv-launch" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작 ${icon('chevron')}</button><button class="btn ghost" onclick="ROWAR.battleRetry(${!!practice})">다시 찾기</button>`,
-    details:choices+tactics+(notes.length?`<div class="oppnote">${notes.map(n=>`<div>· ${n}</div>`).join('')}</div>`:'')+intel});
+    details:relayPreview(opp,practice)+choices+tactics+(notes.length?`<div class="oppnote">${notes.map(n=>`<div>· ${n}</div>`).join('')}</div>`:'')+intel});
+}
+function relayPreview(opp,practice){
+  const own=jointBase().map(u=>S.robots.find(r=>r.uid===u)).filter(Boolean);
+  if(practice||!CONST.RELAY.on||opp.mode==='hunt'||own.length<2||!opp.bench?.length)return '';
+  const foe=opp.bench[0],rb=own[1];
+  return `<section class="bv-relay ui-surface"><h3>교대 대전 · 양쪽 2기</h3><p>선봉이 격추되면 예비가 이어서 싸웁니다. 위 전력 비교는 선봉 기준입니다. 예비 전술은 선봉의 전술을 따릅니다.</p><div><span>${sprite(rb.type,false)}<b>우리 예비 · ${esc(ROBOT_TYPES[rb.type].name)} · Lv.${rb.level}</b></span><span>${sprite(foe.type,false)}<b>상대 예비 · ${esc(foe.name||COMBAT_TYPES[foe.type]?.name||foe.type)} · Lv.${foe.level}</b></span></div></section>`;
 }
 
 /* ------------------------------- 연습 대전 ------------------------------- */
@@ -2232,11 +2249,13 @@ async function practiceStart(){
   const P=makeUnit(ROBOT_TYPES[my.type].name, my.type, computeStats(my), _tactic);
   const E=makeUnit(opp.callsign, opp.robot.type, computeStats(opp.robot, opp.parts), tacE);
   const events=simulate(P,E,opp.seed);
+  const statP=computeStats(my), statE=computeStats(opp.robot, opp.parts);
   renderArena(my.type, opp.robot.type, P.name, E.name, null, _tactic, tacE);
 
   if(rarOf(opp.robot.type)==='BOSS') await bossEntrance();
   const winner = await playBattle(events,P,E);
   if(!winner) return;
+  _fight=fight1(events, P, E, statP, statE, _tactic, tacE, opp.seed, events[events.length-1].winner==='P');
   renderPracticeResult(events[events.length-1].winner==='P', P, E);
 }
 
@@ -2253,17 +2272,19 @@ function renderPracticeResult(win,P,E){
         <button class="btn big gold" onclick="ROWAR.practiceFind()">한 판 더</button>
         <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
+      ${analysisSlot()}
     </div>`;
+  fillAnalysis();
 }
 
 
 /* 승패와 보상은 서버가 확정한다. 클라는 서버가 준 시드와 스탯으로 같은 전투를
    다시 돌려 애니메이션만 재생한다 — 결정적 시뮬이라 결과가 반드시 일치한다.
    각자 계산하면 피로도 정산 시점 차이 등으로 어긋나므로 스탯도 서버 것을 쓴다. */
-async function requestBattleStart(tactic){
+async function requestBattleStart(tactic,options){
   const button=$('#sc-battle .bv-launch'),html=button?.innerHTML;
   if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='전투 준비 중…';}
-  try{return await net.battleStart(tactic);}
+  try{return await net.battleStart(tactic,options);}
   finally{if(button?.isConnected){button.disabled=false;button.removeAttribute('aria-busy');button.innerHTML=html;}}
 }
 /* Keep navigation settlement outside the result/insight insertion point shared with main.
@@ -2280,6 +2301,7 @@ async function startBattle(){
   beginReplay();
   const opp=_pendingOpp; if(!opp) return;
   if(!net.state.online){ toast('대전은 서버 연결이 필요합니다'); return; }
+  if(opp.joint) return startJointBattle(opp);
 
   const my=selRobot(),account=net.state.accountId,state=S,request=_battleRequest; _battleRobot=my;
   const r=await requestBattleStart(_tactic);
@@ -2306,7 +2328,8 @@ async function startBattle(){
      떨어뜨렸을 때 화면과 판정이 갈린다. */
   const P=makeUnit(r.nameP, my.type, r.statP, r.tacticP);
   const E=makeUnit(r.opponent.callsign, r.opponent.type, r.statE, r.tacticE);
-  const events=simulate(P,E,r.seed);
+  const rl=r.relay;
+  const events=rl?simulate(P,E,r.seed,{P:[makeUnit(rl.nameP2,rl.typeP2,rl.statP2,rl.tacticP2)],E:[makeUnit(rl.nameE2,rl.typeE2,rl.statE2,rl.tacticE2)]}):simulate(P,E,r.seed);
   renderArena(my.type, r.opponent.type, P.name, E.name, null, r.tacticP, r.tacticE,opp.mode==='hunt'?'hunt':'battle');
 
   /* **재생이 끝날 때까지 기다린다.** 예전에는 여기서 바로 함수가 끝나, 재생이 도는 동안
@@ -2315,6 +2338,7 @@ async function startBattle(){
   const winner = await playBattleForAccount(events,P,E,r,my,account,state,request);
   if(!winner) return;                            // 중간에 나갔으면 화면만 접는다(보상은 이미 서버에 반영됨)
   applyServerBattle(r, my);
+  _fight=fight1(events, P, E, r.statP, r.statE, r.tacticP, r.tacticE, r.seed, r.win);
   renderResult(r.win, _lastReward, P, E, opp);
 }
 
@@ -2327,7 +2351,12 @@ function applyServerBattle(r, rb){
   S.stat.wins=r.player.wins; S.stat.losses=r.player.losses;
   rb.level=r.robot.level; rb.exp=r.robot.exp; rb.fat=r.robot.fat; rb.fatAt=r.robot.fatAt;
   if(r.reward.part) addPart(r.reward.part);
+  /* 교대 전투(동결 예외) — 둘째 기체가 나왔으면 그 기체도 받아 적고, 결과 창은 합동전처럼 기체마다 한 줄 */
+  const r2=r.relay&&r.relay.robot2, rb2=r2&&S.robots.find(x=>x.uid===r2.uid);
+  if(rb2){ rb2.level=r2.level; rb2.exp=r2.exp; rb2.fat=r2.fat; rb2.fatAt=r2.fatAt; }
   _lastReward={ win:r.win, cr:r.reward.cr, sc:r.reward.sc, core:r.reward.core, part:r.reward.part,
+                robots: rb2 ? [{name:ROBOT_TYPES[rb.type].name, lv:r.reward.lv, fat:r.reward.fat},
+                               {name:ROBOT_TYPES[rb2.type].name, lv:r2.lv, fat:r2.fatGain}] : null,
                 lv:r.reward.lv, fat:r.reward.fat, rname:ROBOT_TYPES[rb.type].name,
                 ratingDelta:r.ratingDelta||0, cost:r.cost||0, rescue:!!r.rescue, duel:r.mode==='duel',
                 band:r.band||null, hunt: r.mode==='hunt' ? { tier:r.tier, done:!!r.huntDone } : null };
@@ -2465,8 +2494,8 @@ async function bossEntrance(){
 }
 
 function shakeF(side){ const el=AR('#fighter-'+side); if(!el) return; el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
-async function lunge(side){ const el=AR('#fighter-'+side); if(!el) return; el.classList.add(side==='p'?'lungeL':'lungeR'); await sleep(110/battleSpeed); el.classList.remove('lungeL','lungeR'); }
-function floatDmg(side,text,cls){ const host=AR('#fighter-'+side); if(!host) return; const d=document.createElement('div'); d.className='dmg '+cls; d.textContent=text; d.style.left=(side==='p'?'30px':'70px'); d.style.top='24px'; host.appendChild(d); setTimeout(()=>d.remove(),1000); }
+async function lunge(side){ const el=AR('#fighter-'+side); if(!el) return; el.classList.add(side[0]==='p'?'lungeL':'lungeR'); await sleep(110/battleSpeed); el.classList.remove('lungeL','lungeR'); }
+function floatDmg(side,text,cls){ const host=AR('#fighter-'+side); if(!host) return; const d=document.createElement('div'); d.className='dmg '+cls; d.textContent=text; d.style.left=(side[0]==='p'?'30px':'70px'); d.style.top='24px'; host.appendChild(d); setTimeout(()=>d.remove(),1000); }
 function banner(txt){ const b=AR('#skillbanner'); if(!b) return; b.textContent=txt; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); }
 function blog(html){ const l=document.getElementById('blog'); if(!l) return; const d=document.createElement('div'); d.innerHTML=html; l.appendChild(d); l.scrollTop=l.scrollHeight; }
 async function playBattle(events,P,E,o){
@@ -2476,7 +2505,14 @@ async function playBattle(events,P,E,o){
   if(stopped()) return null;
   const rain=(P.type==='ignis'||E.type==='ignis')?createIgnisRain(arena):null;
   let rainSkill=null;
-  const nameOf=s=> s==='P'?`<span class="k">${P.name}</span>`:`<span style="color:var(--bad);font-weight:700">${E.name}</span>`;
+  /* 지금 서 있는 기체 — 교대 전투(swap 사건)에서 바뀐다(2026-09-25 · 동결 예외). 교대가 없으면 P · E 그대로다 */
+  const cu0={p:{name:P.name,max:P.maxhp,type:P.type}, e:{name:E.name,max:E.maxhp,type:E.type}}, cu={...cu0};
+  const mx=k=>cu[k].max;
+  const nameOf=s=> s==='P'?`<span class="k">${cu.p.name}</span>`:`<span style="color:var(--bad);font-weight:700">${cu.e.name}</span>`;
+  const swapIn=(x,draw)=>{ const k=x.side==='P'?'p':'e'; cu[k]={name:x.name,max:x.maxhp,type:x.type};
+    if(draw){ const f=AR('#fighter-'+k); if(f) f.innerHTML=sprite(x.type,k==='p');
+      const nm=AR('.hpwrap.'+k+' .nm span'); if(nm) nm.textContent=x.name; }
+    setHP(k,x.hp,x.maxhp); setSP(k,0); };
   try{
     /* 아레나는 simulate 가 끝난 뒤에 재생하므로 P.hp 가 이미 최종값이다 — 그래서 만땅으로 시작한다.
        점령전은 방어선 사이에 체력이 이어지므로 '들어갈 때의 값'을 따로 받는다. */
@@ -2487,32 +2523,56 @@ async function playBattle(events,P,E,o){
     const sl=ms=>sleep(ms/battleSpeed);
     /* 건너뛰기 — 남은 이벤트를 애니메이션 없이 한 번에 반영하고 끝낸다.
        마지막 체력·게이지를 그대로 그려 두므로 화면이 결과와 어긋나지 않는다. */
-    const finishNow=()=>{
-      for(const x of events){
+    const finishNow=(from)=>{
+      if(!from){ cu.p=cu0.p; cu.e=cu0.e; }               // 처음부터 다시 그린다 — 교대 전 기체부터
+      for(let k=from;k<events.length;k++){ const x=events[k];
         if(x.t==='turn') setSP(x.side==='P'?'p':'e', x.sp);
-        else if(x.t==='heal') setHP(x.side==='P'?'p':'e', x.hp, x.side==='P'?P.maxhp:E.maxhp);
-        else if(x.t==='hit' && !x.miss) setHP(x.dside==='P'?'p':'e', x.thp, x.dside==='P'?P.maxhp:E.maxhp);
+        else if(x.t==='jam') setSP(x.dside==='P'?'p':'e', x.sp);
+        else if(x.t==='heal') setHP(x.side==='P'?'p':'e', x.hp, mx(x.side==='P'?'p':'e'));
+        else if(x.t==='hit' && !x.miss) setHP(x.dside==='P'?'p':'e', x.thp, mx(x.dside==='P'?'p':'e'));
+        else if(x.t==='swap') swapIn(x,true);
       }
       blog('<b>건너뜀</b> — 결과는 그대로입니다');
       const last=events[events.length-1];
       return stopped()?null:((last&&last.t==='end')?last.winner:'P');
     };
+    /* 실시간 재생(2026-09-21) — 사건마다 정해 둔 시각까지만 기다린다. 동작(돌진)은 기다리지 않아서
+       두 기체의 행동이 가까우면 겹쳐 움직인다. 기다림은 지금 배속으로 나눈다(도중에 배속을 바꿔도 바로 먹는다) */
+    const tl=battleTimeline(events);
+    let clock=0;
+    const until=async t=>{ const w=t-clock; clock=Math.max(clock,t); if(w>0) await sl(w); };
     await sl(400);
-    for(const e of events){
+    for(let i=0;i<events.length;i++){
+      const e=events[i];
+      if(e.t!=='end') await until(tl[i]);
       if(stopped()) return null;                 // 보상 판정은 서버에 있으며 화면 재생만 중단한다.
-      if(_skipReplay) return finishNow();
+      if(_skipReplay) return finishNow(0);   // 처음부터 다시 그린다 — 몇 번 그려도 결과는 같다
       if(e.t==='turn'){ rainSkill=null; setSP(e.side==='P'?'p':'e', e.sp); continue; }
+      if(e.t==='swap'){ rainSkill=null; swapIn(e,true); banner('교대!'); blog(`교대 — ${nameOf(e.side)} 출격`); continue; }
       if(e.t==='skill'){
         rainSkill=null;
-        if(rain&&(e.side==='P'?P:E).type==='ignis'){
+        if(rain&&cu[e.side==='P'?'p':'e'].type==='ignis'){
           rainSkill={side:e.side,index:0,left:COMBAT_TYPES.ignis.skill.fx.hits};
           rain.cast(e.side==='P'?'p':'e');
         }
-        banner(e.name); blog(`${nameOf(e.side)} 스킬 <b>${e.name}</b>!`); await sl(520); continue;
+        banner(e.name); blog(`${nameOf(e.side)} 스킬 <b>${e.name}</b>!`); continue;
       }
       if(e.t==='heal'){ const hS=e.side==='P'?'p':'e';
-        setHP(hS, e.hp, hS==='p'?P.maxhp:E.maxhp); floatDmg(hS,'+'+e.amt,'heal');
-        blog(`${nameOf(e.side)} 체력 <span class="h">+${e.amt}</span> 흡수`); await sl(260); continue; }
+        setHP(hS, e.hp, mx(hS)); floatDmg(hS,'+'+e.amt,'heal');
+        blog(`${nameOf(e.side)} 체력 <span class="h">+${e.amt}</span> ${e.src==='repair'?'수리':'흡수'}`); continue; }
+      /* 특화기술 — 방벽 · 표적 · 재밍 (js/sim.js afterSkill) */
+      if(e.t==='shield'){ const k=e.side==='P'?'p':'e'; floatDmg(k,'방벽 '+e.amt,'heal');
+        blog(`${nameOf(e.side)} <span class="h">방벽 ${e.amt}</span>`); continue; }
+      if(e.t==='mark'){ blog(`${nameOf(e.side)} → ${nameOf(e.dside)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); continue; }
+      if(e.t==='jam'){ const k=e.dside==='P'?'p':'e'; setSP(k, e.sp); floatDmg(k,'JAM','miss');
+        blog(`${nameOf(e.side)} 재밍 — ${nameOf(e.dside)} SP −${e.amt} · 행동 지연`); continue; }
+      /* 흘려내기 — 친 쪽이 돌진했다가 튕겨 나간다. 흘린 쪽에 PARRY */
+      if(e.t==='parry'){ const pS=e.side==='P'?'p':'e', aS=e.dside==='P'?'p':'e';
+        lunge(aS);
+        if(stopped()) return null;
+        floatDmg(pS,'PARRY','parry'); shakeF(aS);
+        blog(`${nameOf(e.side)} <span class="c">흘려내기!</span> ${nameOf(e.dside)} 의 공격을 흘리고 · ${nameOf(e.dside)} 행동 지연`);
+        continue; }
       if(e.t==='hit'){
         const aS=e.side==='P'?'p':'e', dS=e.dside==='P'?'p':'e';
         // sim 의 스킬 타격은 같은 턴에 연속으로 나온다. 평타로 효과가 이어지지 않게 경계를 지킨다.
@@ -2521,20 +2581,45 @@ async function playBattle(events,P,E,o){
           const index=rainSkill.index++;
           if(--rainSkill.left<=0) rainSkill=null;
           await rain.strike(aS,{miss:!!e.miss,index,speed:battleSpeed});
-        }else{ rainSkill=null; await lunge(aS); }
+        }else{ rainSkill=null; lunge(aS); }   // 돌진은 기다리지 않는다 — 다른 기체의 행동과 겹쳐 보이게
         if(stopped()) return null;
         if(e.miss){ floatDmg(dS,'MISS','miss'); blog(`${nameOf(e.side)} 의 공격을 ${nameOf(e.dside)} 이(가) <span class="m">회피!</span>`); }
         else{ if(!isRain) flash(); shakeF(dS); floatDmg(dS,(e.crit?'CRIT ':'')+e.dmg,e.crit?'crit':'norm');
-          setHP(dS,e.thp, dS==='p'?P.maxhp:E.maxhp);
-          blog(`${nameOf(e.side)} → ${nameOf(e.dside)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해`); }
-        await sl(300); continue;
+          setHP(dS,e.thp, mx(dS));
+          blog(`${nameOf(e.side)} → ${nameOf(e.dside)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해${e.absorb?` <span class="m">(방벽 −${e.absorb})</span>`:''}`); }
+        continue;
       }
-      if(e.t==='end'){ await sl(300); return stopped()?null:e.winner; }
+      if(e.t==='end'){ await until(tl[i]); await sl(300); return stopped()?null:e.winner; }
     }
     return stopped()?null:'P';
   }finally{
     if(rain) rain.dispose();
   }
+}
+
+/* ── 실시간 재생 시간표 (2026-09-21 · 사용자 결정) ──────────────────
+   예전 재생은 사건을 하나씩 순서대로 틀어, 속도대로 따로 움직이는 전투가 '주고받기' 로 보였다.
+   이제 사건마다 **보여 줄 시각(ms, 배속 1)** 을 정한다.
+     · 행동의 시작 — 계산이 'turn' 에 적어 둔 at(흐른 시간)에 비례. 행동 사이 평균이 TL.gap 이 되게 늘린다
+     · 한 행동 안의 사건 — 그 뒤로 TL.step 만큼씩 짧게 이어진다
+   그래서 두 기체의 행동이 가까우면 겹쳐 보인다(돌진이 동시에 나간다). 빠른 기체는 더 자주 움직인다.
+   **순서는 뒤집지 않는다** — 체력 막대가 계산 순서대로 움직여야 결과와 맞는다(TL.min 간격).
+   at 이 없는 사건열(옛 기록 · 검사용)은 행동마다 TL.gap 씩 띄운다. 합동전(playJoint)도 이것을 쓴다. */
+const TL = { gap: 520, min: 40,
+  step: { start: 0, turn: 60, skill: 420, hit: 170, heal: 120, shield: 120, mark: 100, jam: 150, parry: 260, down: 220, trait: 320 } };
+function battleTimeline(events){
+  const ats=events.filter(e=>e.t==='turn'&&e.at!=null).map(e=>e.at);
+  const avg=ats.length>1 ? (ats[ats.length-1]-ats[0])/(ats.length-1) : 0;
+  const scale=avg>0 ? TL.gap/avg : 0, t0=ats.length ? ats[0] : 0;
+  const out=[]; let base=0, off=0, prev=-Infinity, n=0;
+  for(const e of events){
+    if(e.t==='turn'){ base = (e.at!=null && scale) ? (e.at-t0)*scale : (n++ ? Math.max(prev+TL.min, base+TL.gap) : 0); off=0; }
+    const t=Math.max(base+off, prev+TL.min);
+    off += TL.step[e.t] != null ? TL.step[e.t] : 80;
+    out.push(t); prev=t;
+  }
+  if(out.length && out[0]<0) out[0]=0;
+  return out;
 }
 function renderResult(win,rw,P,E,opp){
   shield();
@@ -2547,11 +2632,19 @@ function renderResult(win,rw,P,E,opp){
   else if(rw.rescue) rewards.push(`<div class="r" style="color:var(--bad)">비상 출격 · 크레딧만 지급</div>`);
   else if(rw.cost) rewards.push(`<div class="r" style="color:var(--dim)">출격비 −${rw.cost}</div>`);
   if(!rw.duel){
-    if(!rw.rescue) rewards.push(`<div class="r">경험치 +${rw.lv.amt}</div>`);
-    if(rw.lv.to>rw.lv.from) rewards.push(`<div class="r" style="color:var(--good)">레벨 업!  ${rw.rname}  Lv.${rw.lv.from} → Lv.${rw.lv.to}</div>`);
+    /* 합동전은 두 기가 각자 받는다 — 기체마다 한 줄 */
+    if(rw.robots && rw.robots.length){
+      for(const x of rw.robots){
+        rewards.push(`<div class="r">${esc(x.name)} 경험치 +${x.lv.amt}${x.fat.add?` · <span style="color:var(--bad)">피로도 +${x.fat.add} (${x.fat.now} / ${FAT_MAX})</span>`:''}</div>`);
+        if(x.lv.to>x.lv.from) rewards.push(`<div class="r" style="color:var(--good)">레벨 업!  ${esc(x.name)}  Lv.${x.lv.from} → Lv.${x.lv.to}</div>`);
+      }
+    } else {
+      if(!rw.rescue) rewards.push(`<div class="r">경험치 +${rw.lv.amt}</div>`);
+      if(rw.lv.to>rw.lv.from) rewards.push(`<div class="r" style="color:var(--good)">레벨 업!  ${rw.rname}  Lv.${rw.lv.from} → Lv.${rw.lv.to}</div>`);
+    }
     rewards.push(`<div class="r">크레딧 +${rw.cr}</div>`);
     if(!rw.rescue) rewards.push(`<div class="r">스크랩 +${rw.sc}</div>`);
-    if(rw.fat.add) rewards.push(`<div class="r" style="color:var(--bad)">피로도 +${rw.fat.add}  (누적 ${rw.fat.now} / ${FAT_MAX})</div>`);
+    if(rw.fat.add && !rw.robots) rewards.push(`<div class="r" style="color:var(--bad)">피로도 +${rw.fat.add}  (누적 ${rw.fat.now} / ${FAT_MAX})</div>`);
     if(rw.core) rewards.push(`<div class="r" style="color:var(--acc2)">코어 +${rw.core}</div>`);
     if(rw.part) rewards.push(`<div class="r">파츠: ${partIco(rw.part,'xs')} ${esc(rw.part.name)} <span class="tag rar-${rw.part.rarity}">${rw.part.rarity}</span></div>`);
     /* 토벌 주간 한도가 걸린 등급이면 이번 주 몇 번째인지 */
@@ -2578,7 +2671,9 @@ function renderResult(win,rw,P,E,opp){
         ${rw.hunt&&!rw.hunt.done?'<button class="btn big ghost" onclick="ROWAR.go(\'hunt\')">사냥터로</button>':''}
         <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
       </div>
+      ${analysisSlot()}
     </div>`;
+  fillAnalysis();
   renderWallet();
 }
 function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$('#spdbtn'); if(b)b.textContent='속도 x'+battleSpeed; }
@@ -2593,6 +2688,364 @@ function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$(
 let _skipReplay = false;
 const skipReplay = () => { _skipReplay = true; const b=$('#skipbtn'); if(b) b.textContent='건너뛰는 중'; };
 const beginReplay = () => { _skipReplay = false; };
+
+/* ------------------------------- 전투 분석 ------------------------------- */
+/* 2026-09-21 · 사용자 결정 — 결과 창에 **딜표**(평타 · 스킬 · 치명 · 흘려내기)와 **승패 요인**을 붙인다(js/insight.js).
+   딜표는 사건에서 정확히 세므로 바로 그린다. 승패 요인은 같은 판을 조건만 바꿔 다시 돌려 추정하므로
+   창을 먼저 띄우고 조금 뒤에 채운다(결과 창을 늦추지 않는다). 전선 · 점령은 여러 판이 이어져 딜표만 합산한다. */
+let _fight=null;                           // 방금 끝난 판 — 결과 창이 한 번 쓰고 비운다
+
+const fightRow=(T,k,name,mine)=>({ name, mine, r:T[k]||{normal:0,nHits:0,skill:0,sHits:0,crit:0,miss:0,parry:0,parried:0,heal:0,absorbed:0,total:0} });
+/* 1:1 — 서버가 준 스탯 · 전술 · 시드 그대로 */
+function fight1(events, P, E, statP, statE, tacP, tacE, seed, win){
+  const T=damageTable(events);
+  return { kind:'1v1', T, rows:[fightRow(T,'P0',P.name,true), fightRow(T,'E0',E.name,false)],
+    spec:{ P:{name:P.name,type:P.type,stats:statP,tactic:tacP||'none'}, E:{name:E.name,type:E.type,stats:statE,tactic:tacE||'none'}, seed, win } };
+}
+function fightJoint(events, team, boss, seed, aim, win, raid){
+  const T=damageTable(events);
+  return { kind: raid ? 'raid' : 'joint', T,
+    rows:[...team.map((m,i)=>fightRow(T,'P'+i,`${i===0?'전위':'후위'} · ${m.name}`,true)), fightRow(T,'E0',boss.name,false)],
+    spec:{ team:team.map(m=>({name:m.name,type:m.type,stats:m.stats,tactic:m.tactic||'none'})),
+      boss:{name:boss.name,type:boss.type,stats:boss.stats,tactic:boss.tactic||'none',traits:boss.traits||[]},
+      aim, seed, win, raid:!!raid, maxTurns: raid ? ((CONST.RAID||{}).turns||600) : undefined } };
+}
+/* 전선 · 점령 — 방어선마다 한 판. 서버가 준 입력으로 같은 판을 다시 돌려 기체 · 방어선별로 더한다 */
+function fightBreach(r){
+  if(!r || !r.mechs || !r.lines || !r.seeds) return null;
+  const out=runBreach({ mechs:r.mechs, lines:r.lines, seeds:r.seeds, hpLeft:r.hpLeft0 });
+  const acc={}, add=(k,name,mine,x)=>{ const a=(acc[k] ||= { name, mine, r:{normal:0,nHits:0,skill:0,sHits:0,crit:0,miss:0,parry:0,parried:0,heal:0,absorbed:0,total:0} });
+    if(x) for(const f in a.r) a.r[f]+=x[f]||0; };
+  for(const rd of out.rounds){
+    const T=damageTable(rd.events), M=r.mechs[rd.mi], L=r.lines[rd.li];
+    add('M'+rd.mi, M.name, true, T.P0); add('L'+rd.li, `방어선 ${rd.li+1} · ${L.name}`, false, T.E0);
+  }
+  const T={}; Object.values(acc).forEach((a,i)=>{ T[(a.mine?'P':'E')+i]={...a.r, side:a.mine?'P':'E'}; });
+  return { kind:'breach', T, rows:Object.values(acc), spec:null };
+}
+
+function dmgTableHtml(rows){
+  const max=Math.max(1,...rows.map(x=>x.r.total));
+  const n=v=>fmt(Math.round(v));
+  return `<div class="dmgwrap"><table class="dmgtab">
+    <thead><tr><th>기체</th><th>평타</th><th>스킬</th><th>합계</th><th class="c-crit">치명</th><th>흘려내기</th></tr></thead>
+    <tbody>${rows.map(({name,mine,r})=>{
+      const sub=[r.heal?`회복 ${n(r.heal)}`:'', r.absorbed?`방벽 ${n(r.absorbed)}`:'', r.miss?`빗나감 ${r.miss}`:''].filter(Boolean).join(' · ');
+      return `<tr class="${mine?'mine':'foe'}">
+        <td>${esc(name)}${sub?`<span class="sub">${sub}</span>`:''}</td>
+        <td>${n(r.normal)}<small>×${r.nHits}</small></td>
+        <td>${n(r.skill)}<small>×${r.sHits}</small></td>
+        <td class="tot"><b>${n(r.total)}</b><i class="bar" style="width:${Math.round(r.total/max*100)}%"></i></td>
+        <td class="c-crit">${r.crit}</td>
+        <td>${r.parry}<small>/ −${r.parried}</small></td></tr>`; }).join('')}</tbody></table></div>`;
+}
+/* 결과 창에 넣는 칸. 딜표와 바로 셀 수 있는 줄은 지금, 추정은 fillAnalysis 가 채운다 */
+function analysisSlot(){
+  const f=_fight; if(!f) return '';
+  const now=eventLines(f.T, r=>r.side==='P');
+  return `<div class="anal">
+    <h4>전투 분석</h4>
+    <ul class="insl" id="anal-lines">${now.map(l=>`<li class="k-${l.k}">${esc(l.text)}</li>`).join('')}${
+      f.spec ? `<li class="k-wait" id="anal-wait">같은 조건으로 다시 돌려 보는 중…</li>` : ''}</ul>
+    <h4>딜표 <small>평타 · 스킬 피해(×타격 수) · 흘려내기 성공 / 당함</small></h4>
+    ${dmgTableHtml(f.rows)}
+  </div>`;
+}
+function fillAnalysis(){
+  const f=_fight; _fight=null;
+  if(!f || !f.spec) return;
+  const wait=$('#anal-wait'),owner=S,account=net.state.accountId,request=_battleRequest;
+  /* 한 틱 쉬고 돈다 — 결과 창이 먼저 그려지게 */
+  setTimeout(()=>{
+    if(!wait || !wait.isConnected || $('#anal-wait')!==wait || S!==owner || net.state.accountId!==account || _battleRequest!==request) return;
+    let res; try{ res = f.kind==='1v1' ? insight1(f.spec) : insightJoint(f.spec); }catch(e){ wait.remove(); return; }
+    wait.outerHTML = res.lines.map(l=>`<li class="k-${l.k}">${esc(l.text)}</li>`).join('');
+  }, 60);
+}
+
+/* ------------------------------- 합동전 ------------------------------- */
+/* 2026-09-21 · 사용자 결정. 토벌 보스와 레이드는 편성 두 기가 **한꺼번에** 싸운다(js/joint.js).
+   전투 직전에 **자리(전위·후위)와 기체별 전술**을 고른다 — 이 묶음이 그 화면과 재생이다.
+   고른 값은 서버가 걸러서 받고(jointOrder · jointTactics), 재생은 **서버가 돌려준 값**으로 한다.
+   ※ UI 개편 브랜치(codex/ui-rebuild)와 합칠 때 이 묶음은 통째로 옮기면 된다 — CONTRACT.md 참고. */
+let _jform = { order: [], tac: {} };     // 고른 자리와 전술. 판을 넘겨도 기억한다
+let _jctx = null;                        // 지금 열린 편성 화면을 다시 그리는 함수
+
+/* 기본 자리 — 서버와 같은 규칙: 선봉(편성 안이면)이 먼저, 그다음 편성 순서 */
+function jointBase(){
+  const sel = selRobot();
+  const sq = (S.squad && S.squad.length) ? S.squad.filter(u=>S.robots.some(r=>r.uid===u)) : [sel.uid];
+  const lead = sq.includes(sel.uid) ? sel.uid : (sq[0] || sel.uid);
+  return [lead, ...sq.filter(u=>u!==lead)].slice(0, 2);
+}
+/* 합동전의 기준 기체 — 편성 중 레벨이 가장 높은 쪽. 서버가 출격비와 보스 레벨을 여기에 맞춘다 */
+function jointLead(){
+  const rbs = jointBase().map(u=>S.robots.find(r=>r.uid===u)).filter(Boolean);
+  return rbs.reduce((a,b)=> b.level>a.level ? b : a, rbs[0] || selRobot());
+}
+function jointForm(){
+  const base = jointBase();
+  const order = _jform.order.filter(u=>base.includes(u));
+  for(const u of base) if(!order.includes(u)) order.push(u);
+  _jform.order = order.slice(0, 2);
+  for(const u of _jform.order) if(!(CONST.TACTIC||{})[_jform.tac[u]]) _jform.tac[u] = 'none';
+  return _jform;
+}
+function jointSwap(){ const f=jointForm(); if(f.order.length<2) return; f.order=[f.order[1], f.order[0]]; if(_jctx) _jctx(); }
+function jointTac(u,k){ if(!(CONST.TACTIC||{})[k]) return; jointForm().tac[u]=k; if(_jctx) _jctx(); }
+const jointReq = () => { const f=jointForm(); return { order:f.order.slice(), tactics:{ ...f.tac } }; };
+
+/* 보스 칸 — 조준과 요구 조건. 답까지 적는다(사용자 결정: '관통 추천' 까지 보여 준다) */
+function jointBossHtml(type, level, joint, callsign){
+  const T=COMBAT_TYPES[type], J=(joint && joint.aim) ? joint : jointOf(type);
+  const tl=traitLines(J.traits);
+  const aimTxt = { front:'스킬도 <b>전위</b>를 노립니다',
+                   back:'스킬이 <b>후위</b>를 노립니다 — 후위도 버텨야 합니다',
+                   all:`스킬이 <b>둘 다</b> 맞힙니다(한 기에 ${Math.round((JOINT().aoe||1)*100)}%씩)` }[J.aim] || '';
+  return `<div class="oppcard jboss">
+      <div class="sprite" data-t="${T.rarity}" style="height:130px">${sprite(type,false)}</div>
+      <div>
+        <div class="rname">${esc(callsign||T.name)} <span class="tag monster-tag">보스</span></div>
+        <div class="rrole">${T.role} · Lv.${level}</div>
+        <div class="jaim"><span class="tag jaimtag">${AIM_KO[J.aim]||''}</span> ${aimTxt}</div>
+      </div>
+    </div>
+    <div class="monster-skill"><strong>${T.skill.name}</strong> <span class="fxrow">${fxTags(type)}</span><span>${T.skill.desc}</span></div>
+    ${tl.length ? `<div class="jreq"><div class="jreqh">요구 조건</div>${tl.map(t=>`<div class="jtr">
+        <span class="tag jtrtag">${t.ko}</span><span>${t.desc}</span><b>→ ${t.answer}</b></div>`).join('')}</div>` : ''}`;
+}
+
+/* 편성 칸 하나 — 자리 설명 · 기체 · 요구 조건에 맞는가(✓/✗) · 전술 */
+function jointSlotHtml(u, i, traits){
+  const rb=S.robots.find(r=>r.uid===u); if(!rb) return '';
+  const T=ROBOT_TYPES[rb.type], tac=jointForm().tac[u]||'none';
+  const fits = (traits||[]).map(k=>{ const v=traitFit(rb.type,k,tac); if(v==null) return '';
+    return `<span class="tag jfit ${v?'ok':'no'}">${v?'✓':'✗'} ${CONST.TRAIT[k].ko}</span>`; }).filter(Boolean).join(' ');
+  const pos = i===0 ? ['전위','보스의 평타를 받습니다']
+                    : ['후위',`공격력 +${Math.round(((JOINT().backAtk||1)-1)*100)}% · 평타를 받지 않습니다`];
+  return `<div class="jslot ${i===0?'front':'back'}">
+    <div class="jpos"><b>${pos[0]}</b><span>${pos[1]}</span></div>
+    <div class="jrb">
+      <div class="sprite" data-t="${T.rarity}">${sprite(rb.type,true)}</div>
+      <div class="jinfo">
+        <div class="rname">${T.name} <span class="lv">Lv.${rb.level}</span> ${robRarTag(rb.type)}</div>
+        <div class="rrole">${T.role} · 전투력 ${fmt(power(rb))} · 피로도 ${fatOf(rb)}</div>
+        <div class="fxrow">${fxTags(rb.type)}</div>
+        ${fits ? `<div class="jfits">${fits}</div>` : ''}
+      </div>
+    </div>
+    <div class="jtac">${Object.keys(CONST.TACTIC||{}).map(k=>`<button class="btn tacbtn sm${k===tac?' on':''}"
+        title="${esc(CONST.TACTIC[k].desc||'')}" onclick="ROWAR.jointTac('${u}','${k}')"><b>${CONST.TACTIC[k].ko}</b></button>`).join('')}</div>
+  </div>`;
+}
+function jointFormHtml(traits){
+  const f=jointForm();
+  return `<div class="jform">
+    <div class="tachead">합동전 편성 <small>자리와 기체별 전술을 고르세요</small></div>
+    ${jointSlotHtml(f.order[0],0,traits)}
+    ${f.order.length>1
+      ? `<button class="btn ghost jswap" onclick="ROWAR.jointSwap()">⇅ 자리 바꾸기</button>${jointSlotHtml(f.order[1],1,traits)}`
+      : `<div class="hint jone">편성에 기체가 한 기뿐입니다 — 격납고에서 한 기를 더 편성하면 둘이 함께 싸웁니다</div>`}
+  </div>`;
+}
+
+/* 토벌 보스 — 상대 카드 대신 이 화면이 뜬다 */
+function showJoint(opp){
+  shield();
+  _jctx = () => showJoint(opp);
+  const allies=jointForm().order.map(u=>battleUnit(S.robots.find(r=>r.uid===u)));
+  $('#sc-battle').innerHTML=battleView({mode:'hunt',allies,enemies:[battleUnit(opp.robot,opp.parts||[])],...battleIdentity(),enemyName:opp.callsign,enemyMeta:'보스 토벌 · 동시 합동전',
+    details:`<div class="jointprep">${jointBossHtml(opp.robot.type,opp.robot.level,opp.joint,opp.callsign)}${jointFormHtml(opp.joint.traits)}</div>`,
+    brief:'<p>전위와 후위가 동시에 싸웁니다. 두 기 모두 피로도가 쌓이며 서버가 정한 자리·전술로 재생합니다.</p>',costLabel:fmt(opp.cost)+' 크레딧',rewardLabel:'토벌 보상',
+    actions:`<button class="bv-launch" onclick="ROWAR.startBattle()">합동 출격 ${icon('chevron')}</button><button class="btn ghost" onclick="ROWAR.hunt('${opp.tier}')">다시 찾기</button>`});
+}
+
+/* 합동전 무대 — 왼쪽에 두 기(전위가 앞), 오른쪽에 보스 */
+function renderJointArena(team, bType, bName, label, bossTac,navAs='hunt'){
+  const tac=(t,side)=> (t&&t!=='none') ? `<em class="tacmark ${side}">${tacKo(t)}</em>` : '';
+  shield();
+  toBattle('arena',navAs);
+  $('#sc-battle').innerHTML = `
+    <div class="arena-head">
+      <h2 class="title" style="margin:0">${label}</h2>
+      <button class="btn ghost spd" id="spdbtn" onclick="ROWAR.toggleSpeed()">속도 x${battleSpeed}</button>
+      <button class="btn ghost spd" id="skipbtn" onclick="ROWAR.skipReplay()">건너뛰기</button>
+    </div>
+    <div class="arena joint bv-joint-arena" id="arena">
+      <div class="grid"></div>
+      ${team.map((u,i)=>`<div class="hpwrap p p${i}"><div class="nm"><span>${i===0?'전위':'후위'} · ${esc(u.name)}</span>${tac(u.tactic,'p')}<small id="hpn-p${i}"></small></div>
+        <div class="hpbar" id="hp-p${i}"><i></i></div><div class="spbar" id="sp-p${i}"><i></i></div></div>`).join('')}
+      <div class="hpwrap e"><div class="nm"><small id="hpn-e"></small>${tac(bossTac,'e')}<span>${esc(bName)}</span></div>
+        <div class="hpbar" id="hp-e"><i></i></div><div class="spbar" id="sp-e"><i></i></div></div>
+      ${team.map((u,i)=>`<div class="fighter left jf${i}" id="fighter-p${i}">${sprite(u.type,true)}</div>`).join('')}
+      <div class="fighter right big" id="fighter-e">${sprite(bType,false)}</div>
+      <div class="flash" id="flash"></div>
+      <div class="skillbanner" id="skillbanner"></div>
+    </div>
+    <div class="blog" id="blog"></div>`;
+}
+
+/* 후위 사격(2026-09-21 사용자 제보) — 후위도 돌진 연출(lunge)을 썼더니, 후위는 전위 **뒤 층**에 서 있어서
+   앞으로 튀어나간 모습이 전위 그림에 가려 '가만히 있다' 로 보였다. 판정은 원래부터 둘 다 쳤다.
+   후위는 제자리에서 반동하고 탄도 선을 쏜다 — 뒤에서 쏘는 기체라는 자리가 그림으로도 읽힌다. */
+async function shoot(aK, dK){
+  const ar=document.getElementById('arena'), a=AR('#fighter-'+aK), d=AR('#fighter-'+dK);
+  if(!ar||!a||!d) return;
+  const R=ar.getBoundingClientRect(), ra=a.getBoundingClientRect(), rd=d.getBoundingClientRect();
+  const x1=ra.left+ra.width*0.72-R.left, y1=ra.top+ra.height*0.42-R.top;
+  const x2=rd.left+rd.width*0.4-R.left,  y2=rd.top+rd.height*0.5-R.top;
+  const t=document.createElement('div');
+  t.className='tracer';
+  t.style.cssText=`left:${x1}px;top:${y1}px;width:${Math.hypot(x2-x1,y2-y1)}px;transform:rotate(${Math.atan2(y2-y1,x2-x1)*180/Math.PI}deg)`;
+  ar.appendChild(t);
+  a.classList.add('firing');
+  await sleep(150/battleSpeed);
+  a.classList.remove('firing');
+  setTimeout(()=>t.remove(), 260);
+}
+
+/* 재생 — playBattle 과 같은 흐름에 '누가(i)' 가 붙었다. team · boss 는 runJoint 가 만든 유닛이다 */
+async function playJoint(events, team, boss,active=()=>true){
+  const arena=document.getElementById('arena');
+  const stopped=()=>!active()||cur!=='battle'||!arena||!arena.isConnected||document.getElementById('arena')!==arena;
+  if(stopped()) return null;
+  const key =(side,i)=> side==='E' ? 'e' : 'p'+(i|0);
+  const unit=(side,i)=> side==='E' ? boss : team[i|0];
+  const nm  =(side,i)=> side==='E' ? `<span style="color:var(--bad);font-weight:700">${esc(boss.name)}</span>`
+                                   : `<span class="k">${esc(team[i|0].name)}</span>`;
+  team.forEach((u,i)=>{ setHP('p'+i, u.maxhp, u.maxhp); setSP('p'+i, 0); });
+  setHP('e', boss.maxhp, boss.maxhp); setSP('e', 0);
+  blog(`합동전 개시! <b>${team.map(u=>esc(u.name)).join(' · ')}</b> vs <b>${esc(boss.name)}</b>`);
+  const sl=ms=>sleep(ms/battleSpeed);
+  const down=new Set();
+  const finishNow=(from)=>{
+    for(let k=from;k<events.length;k++){ const x=events[k];
+      if(x.t==='turn') setSP(key(x.side,x.i), x.sp);
+      else if(x.t==='jam') setSP(key(x.dside,x.di), x.sp);
+      else if(x.t==='heal') setHP(key(x.side,x.i), x.hp, unit(x.side,x.i).maxhp);
+      else if(x.t==='hit' && !x.miss) setHP(key(x.dside,x.di), x.thp, unit(x.dside,x.di).maxhp);
+      else if(x.t==='down'){ const el=AR('#fighter-p'+x.i); if(el) el.classList.add('down'); }
+    }
+    blog('<b>건너뜀</b> — 결과는 그대로입니다');
+    const last=events[events.length-1];
+    return stopped()?null:((last&&last.t==='end')?last.winner:'E');
+  };
+  /* 실시간 재생 — playBattle 과 같은 시간표(battleTimeline). 전위 · 후위 · 보스가 각자의 박자로 움직인다 */
+  const tl=battleTimeline(events);
+  let clock=0;
+  const until=async t=>{ const w=t-clock; clock=Math.max(clock,t); if(w>0) await sl(w); };
+  const strike=(aK,dK,side,i)=>{ if(side==='P' && i===1) shoot(aK,dK); else lunge(aK); };   // 기다리지 않는다
+  await sl(400);
+  for(let ix=0;ix<events.length;ix++){
+    const e=events[ix];
+    if(e.t!=='end') await until(tl[ix]);
+    if(stopped()) return null;
+    if(_skipReplay) return finishNow(0);
+    if(e.t==='turn'){ setSP(key(e.side,e.i), e.sp); continue; }
+    if(e.t==='skill'){
+      banner(e.name);
+      blog(`${nm(e.side,e.i)} 스킬 <b>${esc(e.name)}</b>!${e.aim==='all'?' <span class="m">광역</span>':e.aim==='back'?' <span class="m">후위 저격</span>':''}`);
+      continue;
+    }
+    if(e.t==='trait'){ banner('광폭화'); blog(`<b style="color:var(--bad)">${esc(boss.name)} 광폭화!</b> 공격력이 크게 오릅니다`); continue; }
+    if(e.t==='parry'){
+      const pK=key(e.side,e.i), aK=key(e.dside,e.di);
+      strike(aK,pK,e.dside,e.di);
+      if(stopped()) return null;
+      floatDmg(pK,'PARRY','parry'); shakeF(aK);
+      blog(`${nm(e.side,e.i)} <span class="c">흘려내기!</span> ${nm(e.dside,e.di)} 의 공격을 흘리고 · ${nm(e.dside,e.di)} 행동 지연`);
+      continue;
+    }
+    if(e.t==='heal'){
+      const k=key(e.side,e.i);
+      setHP(k, e.hp, unit(e.side,e.i).maxhp); floatDmg(k,'+'+e.amt,'heal');
+      blog(`${nm(e.side,e.i)} 체력 <span class="h">+${e.amt}</span> ${e.src==='regen'?'재생':e.src==='repair'?'수리':'흡수'}`);
+      continue;
+    }
+    if(e.t==='shield'){ const k=key(e.side,e.i); floatDmg(k,'방벽 '+e.amt,'heal');
+      blog(`${nm(e.side,e.i)} <span class="h">방벽 ${e.amt}</span>`); continue; }
+    if(e.t==='mark'){ blog(`${nm(e.side,e.i)} → ${nm(e.dside,e.di)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); continue; }
+    if(e.t==='jam'){ const k=key(e.dside,e.di); setSP(k,e.sp); floatDmg(k,'JAM','miss');
+      blog(`${nm(e.side,e.i)} 재밍 — ${nm(e.dside,e.di)} SP −${e.amt} · 행동 지연`); continue; }
+    if(e.t==='down'){
+      down.add(e.i);
+      const el=AR('#fighter-p'+e.i); if(el) el.classList.add('down');
+      const exposed = e.i===0 && team.length>1 && !down.has(1);
+      blog(`<b style="color:var(--bad)">${e.i===0?'전위':'후위'} 격추</b> — ${nm('P',e.i)}${exposed?' · 이제 후위가 모든 공격을 받습니다':''}`);
+      continue;
+    }
+    if(e.t==='hit'){
+      const aK=key(e.side,e.i), dK=key(e.dside,e.di);
+      strike(aK,dK,e.side,e.i);
+      if(stopped()) return null;
+      if(e.miss){ floatDmg(dK,'MISS','miss'); blog(`${nm(e.side,e.i)} 의 공격을 ${nm(e.dside,e.di)} 이(가) <span class="m">회피!</span>`); }
+      else{
+        flash(); shakeF(dK); floatDmg(dK,(e.crit?'CRIT ':'')+e.dmg, e.crit?'crit':'norm');
+        setHP(dK, e.thp, unit(e.dside,e.di).maxhp);
+        blog(`${nm(e.side,e.i)} → ${nm(e.dside,e.di)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해${e.cut?` <span class="m">(역장 −${e.cut})</span>`:''}${e.absorb?` <span class="m">(방벽 −${e.absorb})</span>`:''}`);
+      }
+      continue;
+    }
+    if(e.t==='end'){ await until(tl[ix]); await sl(300); return stopped()?null:e.winner; }
+  }
+  return stopped()?null:'E';
+}
+
+/* 토벌 보스 출격 — 서버가 정한 자리·전술·스탯·시드로 재생하고, 두 기의 정산을 받아 적는다 */
+async function startJointBattle(opp){
+  const state=S,account=net.state.accountId,request=_battleRequest;
+  const sameOwner=()=>S===state&&net.state.accountId===account;
+  const active=()=>sameOwner()&&request===_battleRequest&&cur==='battle';
+  const r=await requestBattleStart('none',jointReq());
+  if(!sameOwner())return;
+  if(!r || r.error){
+    if(!active())return;
+    if(r && /expired|no pending|already started|not enough credits/i.test(r.error||'')){ _pendingOpp=null; return hunt(opp.tier||'BOSS'); }
+    toast('전투를 시작하지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
+  }
+  setPending(r.next && r.next.opponent, r.next && r.next.cost, r.next && r.next.rescue, r.next && r.next.tier, r.next && r.next.mode,r.next);
+  if(!active()){applyJointBattle(r);renderAll();return;}
+  if(r.cost){ S.credits=Math.max(0, S.credits-r.cost); renderWallet(); }
+  const res=runJoint({ seed:r.seed, aim:r.boss.aim, team:r.team,
+    boss:{ name:r.boss.callsign, type:r.boss.type, stats:r.boss.stats, tactic:r.boss.tactic, traits:r.boss.traits } });
+  renderJointArena(r.team, r.boss.type, r.boss.callsign, '토벌 보스 · 합동전', r.boss.tactic);
+  await bossEntrance();
+  if(!sameOwner())return;
+  if(!active()){applyJointBattle(r);renderAll();return;}
+  const w=await playJoint(res.events, res.team, res.boss,active);
+  if(!sameOwner())return;
+  applyJointBattle(r);
+  if(!w||!active()){renderAll();return;}
+  _fight=fightJoint(res.events, r.team, { name:r.boss.callsign, type:r.boss.type, stats:r.boss.stats, tactic:r.boss.tactic, traits:r.boss.traits },
+                    r.seed, r.boss.aim, r.win, false);
+  renderResult(r.win, _lastReward, { name:r.team.map(t=>t.name).join(' · ') }, { name:r.boss.callsign }, opp);
+}
+function applyJointBattle(r){
+  const lead=S.robots.find(x=>x.uid===r.robot.uid) || selRobot();
+  applyServerBattle(r, lead);
+  for(const x of (r.robots||[])){
+    const rb=S.robots.find(y=>y.uid===x.uid);
+    if(rb){ rb.level=x.level; rb.exp=x.exp; rb.fat=x.fat; rb.fatAt=x.fatAt; }
+  }
+  _lastReward.robots=(r.reward.robots||[]).map(x=>({ ...x,
+    name:(ROBOT_TYPES[(S.robots.find(y=>y.uid===x.uid)||{}).type]||{}).name||'' }));
+  commitLocal();
+}
+
+/* 레이드 — '보스 공격' 을 누르면 먼저 이 편성 화면이 뜬다 */
+function raidPrep(){
+  const r=_raid; if(!r) return go('trial');
+  if(challengePending())return;
+  toBattle(null,'trial');
+  shield();
+  _jctx = raidPrep;
+  const J = r.aim ? { aim:r.aim, traits:r.traits||[] } : jointOf(r.boss);
+  const foe=raidOf(r.week).stats;
+  $('#sc-battle').innerHTML=battleView({mode:'raid',allies:jointForm().order.map(u=>battleUnit(S.robots.find(m=>m.uid===u))),enemies:[{type:r.boss,level:r.level,stats:foe,power:0}],powerKnown:false,...battleIdentity(),enemyName:r.name,enemyMeta:'주간 레이드 · 동시 합동전',
+    details:`<div class="jointprep">${jointBossHtml(r.boss,r.level,J,r.name)}${jointFormHtml(J.traits)}</div>`,
+    brief:`<p>오늘 남은 도전 ${r.triesLeft} / ${r.daily} · 매번 가득 찬 보스 체력 ${fmt(r.battleHp)}에서 시작합니다. 피해만 공동 체력에 반영되며 피로도는 쌓이지 않습니다.</p>`,costLabel:'무료',rewardLabel:'반영 피해에 따른 보상',
+    actions:`<button class="bv-launch" ${r.triesLeft>0&&!r.killed?'':'disabled'} onclick="ROWAR.raidRun()">보스 공격 ${icon('chevron')}</button><button class="btn ghost" onclick="ROWAR.go('trial')">레이드로 돌아가기</button>`});
+}
 
 /* ------------------------------- 초기화/공개 ------------------------------- */
 /* resetSave() 가 있던 자리. 로컬 저장본만 비우는 함수였다.
@@ -2755,6 +3208,15 @@ function setFrontCh(id){
   if(!ch?.cells[0].open)return;
   _frontCh=id;_frontCell=null;renderFront();
 }
+let _frontReady=false;
+const playedAccount=()=>((S.stat?.wins|0)+(S.stat?.losses|0)>0)||frontProg().some(v=>v>0);
+function frontAfterState(){
+  _frontReady=true;_frontCh=null;_frontCell=null;
+  for(const ch of frontView(frontProg(),myMaxLv()))if(ch.cells.some(c=>c.cleared))markSeen(ch.id,'open');
+  if(cur!=='terr')return;
+  if(document.body.classList.contains('gated')&&playedAccount()){go('home');return;}
+  renderTerrHome();
+}
 function currentChapter(view){
   const live = view.find(ch => ch.cells.some(c => c.open && !c.cleared));
   return (live || view[view.length - 1]).id;
@@ -2773,7 +3235,7 @@ function renderFront(){
   const view=frontView(frontProg(),myMaxLv());
   if(!_frontCh||!view.some(v=>v.id===_frontCh&&v.cells[0].open))_frontCh=currentChapter(view);
   const ch=view.find(v=>v.id===_frontCh);
-  if(!cellSeen(ch.id,'open')&&!_frontIntroAttempted.has(ch.id)){
+  if(_frontReady&&!cellSeen(ch.id,'open')&&!_frontIntroAttempted.has(ch.id)){
     const op=openingOf(ch.id);
     if(op){
       _frontIntroAttempted.add(ch.id);
@@ -2942,7 +3404,9 @@ function renderFrontResult(r, c){
   for(const f of (r.fat || [])){ const rb = S.robots.find(x => x.uid === f.uid); if(!rb || !f.add) continue;
     lines.push(`<div class="r" style="color:var(--bad)">${ROBOT_TYPES[rb.type].name} 피로도 +${f.add} (${f.now})</div>`); }
 
-  $('#sc-battle').innerHTML=frontResultView(r,c,{rewards:lines.join(''),repair:frontFixHtml((r.fat||[]).map(f=>f.uid))});
+  _fight=fightBreach(r);
+  $('#sc-battle').innerHTML=frontResultView(r,c,{rewards:lines.join(''),repair:frontFixHtml((r.fat||[]).map(f=>f.uid))})+analysisSlot();
+  fillAnalysis();
 }
 
 /* 전선 결과에서 바로 정비 — 방금 싸운 기체만(편성 두 기가 같이 나간다).
@@ -3263,7 +3727,9 @@ function renderBreachResult(r){
   }
   lines.push(`<div class="r" style="color:var(--dim)">출격비 −${fmt(r.cost)} 크레딧</div>`);
 
-  $('#sc-battle').innerHTML=territoryResultView(r,node,lines.join(''));
+  _fight=fightBreach(r);
+  $('#sc-battle').innerHTML=territoryResultView(r,node,lines.join(''))+analysisSlot();
+  fillAnalysis();
 }
 
 async function claimTerr(){
@@ -3359,7 +3825,8 @@ window.ROWAR = {
   setFrontTab, setFrontCh, restartCh, restartChGo, openCell, runCell: guard(runCell, 1000),
   openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
   trialRun: guard(trialRunGo, 1000),
-  setTrialTab, raidRun: guard(raidRunGo, 1000),
+  setTrialTab, raidRun: guard(raidRunGo, 1000), raidPrep,
+  jointSwap, jointTac,
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
   duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,
@@ -3400,8 +3867,13 @@ function renderAcct(){
 /* 접속 직후 한 번: 서버와 이 브라우저 중 어느 쪽을 따를지 정한다.
      · 서버 rev 0  = 한 번도 올린 적 없음 → 이 브라우저 저장본을 올린다(이관)
      · 서버 rev 가 내가 아는 것보다 큼 → 다른 곳에서 저장한 것이니 내려받는다
-     · 그 밖 → 올린다 */
+     · 그 밖 → 올린다
+   끝나면 — 받았든 올렸든 실패했든 — 전선을 서버 상태로 다시 정한다(frontAfterState · 2026-09-24) */
 async function syncOnConnect(){
+  try{ await syncOnConnectInner(); }
+  finally{ frontAfterState(); }
+}
+async function syncOnConnectInner(){
   /* 주의: net.pull() 이 내부에서 syncedRev 를 서버 값으로 갱신한다.
      그래서 '내가 알고 있던 rev' 는 반드시 pull 전에 읽어야 한다.
      뒤에서 읽으면 항상 서버와 같아져 '올리기'로 빠지고, 새 저장본이 서버를 덮어쓴다. */
@@ -3529,6 +4001,7 @@ async function doRegister(){
 let _gateNeedsPull=false;
 async function afterLogin(r){
   stopScript();_storyArt=null;_frontCh=null;_frontCell=null;_frontIntroAttempted.clear();
+  _frontReady=false;_jform={order:[],tac:{}};_jctx=null;_fight=null;
   _dispatchUid=null;_dispatchPending=null;_dispatchTab='missions';_dispatchFilter='all';_dispatchSelected='exped:SHORT';
   ++_rankEpoch;_rankTab='rank';_rankPage=null;_codexRaw=null;_codexAt=0;_codexGroup='monster';
   ++_battleRequest; _pendingOpp=null; _practiceOpp=null; _battleFindOpts=undefined; _duelTarget=null; _battleMode='arena';
@@ -3549,6 +4022,7 @@ async function afterLogin(r){
   S=normalize(remote.state); takeBand(remote.band); if(remote.codex) _codexRaw=remote.codex;
   S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync();
   renderAcct(); renderGate(); renderAll();
+  frontAfterState();                             // 그 계정의 진행으로 전선을 다시 정한다(2026-09-24)
   toast(r.loginId+' 으로 로그인했습니다');
 }
 async function doLogin(){
@@ -3607,7 +4081,9 @@ async function openGate(){
       renderAll();
     }catch(e){ console.error(e); }
     if(btn){ btn.disabled=false; btn.textContent=was||'시작하기'; }
-    /* 접속에 실패해도 문은 연다 — 오프라인으로도 놀 수 있는 게 이 게임의 규칙이다. */
+    /* 접속에 실패해도 문은 연다 — 오프라인으로도 놀 수 있는 게 이 게임의 규칙이다.
+       그때는 동기화가 없었으니 이 브라우저 저장본이 곧 정본이다 — 전선 도입을 틀어도 된다(2026-09-24) */
+    if(!_frontReady) frontAfterState();
   }
   setGateVisible(false);
 }

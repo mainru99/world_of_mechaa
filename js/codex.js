@@ -38,7 +38,7 @@ export const GROUP_KO = { monster: '몬스터', robot: '기체', part: '파츠' 
 export const MONSTER_IDS = Object.keys(MONSTER_TYPES)
   .map(id => ({ id, rarity: MONSTER_TYPES[id].rarity })).sort((a, b) => byRar(a, b) || a.id.localeCompare(b.id))
   .map(x => x.id);
-export const ROBOT_IDS = Object.keys(ROBOT_TYPES)
+export const ROBOT_IDS = Object.keys(ROBOT_TYPES).filter(id => !ROBOT_TYPES[id].story)   // 스토리 기체는 도감 칸이 없다
   .map(id => ({ id, rarity: ROBOT_TYPES[id].rarity })).sort((a, b) => byRar(a, b) || a.id.localeCompare(b.id))
   .map(x => x.id);
 export const PART_KEYS = Object.keys(PART_BASES).flatMap(b => PART_RARS.map(r => b + ':' + r));

@@ -17,13 +17,13 @@ export function expeditionProgress(expd,now=Date.now()){
  const seconds=Math.ceil(left/1000);
  return {done:left===0,left,percent:Math.max(0,Math.min(100,(1-left/duration)*100)),clock:[Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(n=>String(n).padStart(2,'0')).join(':')};
 }
-export function dispatchMissions({expeditionLevel,huntLevel,sortieCost,credits,weekly}){
+export function dispatchMissions({expeditionLevel,huntLevel,sortieCost,bossLevel=huntLevel,bossCost=sortieCost,credits,weekly}){
  const expeditions=Object.entries(CONST.EXPED).map(([tier,t])=>({key:'exped:'+tier,kind:'exped',tier,name:t.ko,terrain:terrain[tier],time:t.h+'시간',level:expeditionLevel,reward:expeditionEstimate(tier,expeditionLevel),cost:0}));
  const hunts=Object.entries(CONST.HUNT).map(([tier,t])=>{
-  const cap=weekly.tiers[tier],cost=Math.ceil(sortieCost*t.costX),used=cap?.used||0;
-  return {key:'hunt:'+tier,kind:'hunt',tier,name:rarityNames[tier]+' 토벌',terrain:terrain[tier],time:'즉시 전투',level:Math.max(1,Math.min(CONST.MAXLV,huntLevel+t.lv)),cost,cap:cap?.cap,used,
+  const cap=weekly.tiers[tier],cost=Math.ceil((tier==='BOSS'?bossCost:sortieCost)*t.costX),used=cap?.used||0;
+  return {key:'hunt:'+tier,kind:'hunt',tier,name:rarityNames[tier]+' 토벌',terrain:terrain[tier],time:'즉시 전투',level:Math.max(1,Math.min(CONST.MAXLV+(CONST.OPP_LV_OVER||0),(tier==='BOSS'?bossLevel:huntLevel)+t.lv)),cost,cap:cap?.cap,used,
    blocked:cap&&used>=cap.cap?'이번 주 한도 소진':credits<cost?'크레딧 부족':'',
-   names:tier==='BOSS'?'보스 신호 · 상세 미확인':(MONSTER_BY_RARITY[tier]||[]).map(id=>MONSTER_TYPES[id].name).join(' · '),reward:{scX:t.scX,partP:t.partP,coreP:t.coreP}};
+   names:tier==='BOSS'?'보스 신호 · 동시 합동전 · 자리와 전술은 상대 확인 후 선택':(MONSTER_BY_RARITY[tier]||[]).map(id=>MONSTER_TYPES[id].name).join(' · '),reward:{scX:t.scX,partP:t.partP,coreP:t.coreP}};
  });
  return [...expeditions,...hunts];
 }

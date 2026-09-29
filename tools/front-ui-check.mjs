@@ -89,7 +89,7 @@ for(const phase of ['post','replay'])for(const change of ['navigation','account'
 for(const completed of [true,false]){
  const script=deferred(),events=[],el={innerHTML:''};
  const c=vm.createContext({S:{robots:team},cur:'terr',_battleRequest:0,net:{state:{online:true,accountId:'A'}},frontProg:()=>readProgress('11000000000'),myMaxLv:()=>32,frontView,cellSeen:()=>false,openingOf:()=>[{t:'도입'}],playScript:()=>{events.push('story');return script.promise;},markSeen:()=>events.push('seen'),go:()=>events.push('redirect'),$:()=>el,frontCampaignView:()=> 'mission-list',frontTeam:()=>team,power:()=>5000,fatOf:()=>0,lockedGates:()=>[]});
- vm.runInContext('let _frontCh=null,_frontCell=null;const _frontIntroAttempted=new Set();'+fn('currentChapter')+fn('renderFront'),c);
+ vm.runInContext('let _frontReady=true,_frontCh=null,_frontCell=null;const _frontIntroAttempted=new Set();'+fn('currentChapter')+fn('renderFront'),c);
  c.renderFront();script.resolve(completed);await flush();assert.equal(events.includes('seen'),completed);assert.equal(events.includes('redirect'),completed);
  c.renderFront();assert.equal(events.filter(e=>e==='story').length,1);assert.equal(el.innerHTML,'mission-list');
 }

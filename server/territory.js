@@ -13,6 +13,7 @@
  * 전투 규칙 자체는 js/breach.js 에 있다. 서버와 클라가 같은 파일을 쓰고, 시드도 서버가
  * 준다 — 그래서 화면에 보이는 전투와 확정된 결과가 갈릴 수 없다.
  */
+import { parseCircuit } from '../js/circuit.js';
 import { codexMonsterStmt } from './codex.js';
 import { codexLines } from '../js/breach.js';
 import { CONST, TERRITORY, MONSTER_TYPES, ROBOT_TYPES, SLOTS } from '../data/balance.js';
@@ -237,7 +238,7 @@ async function loadSquad(env, accountId) {
     .bind(accountId).first();
   if (!p) return null;
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core
+    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, circuit, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
   if (!robots.length) return null;
   const parts = (await env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`)
@@ -265,7 +266,7 @@ async function loadSquad(env, accountId) {
       if (q) used.push(partOf(q));
     }
     return { row, robot: { uid: row.uid, type: row.type, level: row.level, exp: row.exp,
-                           fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots }, parts: used };
+                           fat: row.fat, fatAt: row.fat_at, skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit) }, parts: used };
   });
   return { p, mechs };
 }

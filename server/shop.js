@@ -8,12 +8,15 @@
 import { CONST, ROBOT_TYPES } from '../data/balance.js';
 import { periodEnd, refreshCost, shardNeed, shardKey, parseItems, shopState, rollShop, slotSig, bagView } from '../js/shop.js';
 import { insertPart } from './parts.js';
+import { canDevelop } from '../js/lineage.js';
+import { goalOk, autoGoal } from '../js/mastery.js';
+import { synthCheck, rollSynth, applySynth } from '../js/shardsynth.js';
 
 const err = (status, error, extra) => ({ ok: false, status, error, ...(extra || {}) });
 
 async function load(env, acc) {
   const p = await env.DB.prepare(
-    'SELECT credits, cores, scrap, items, shop, rev FROM player WHERE account_id = ?1').bind(acc).first();
+    'SELECT credits, cores, scrap, items, shop, rev, m_goal FROM player WHERE account_id = ?1').bind(acc).first();
   if (!p) return null;
   const robots = (await env.DB.prepare('SELECT type, level FROM robot WHERE account_id = ?1')
     .bind(acc).all()).results || [];
@@ -42,7 +45,9 @@ export async function shopView(env, acc, now) {
 
 /* POST /api/shop  { action: 'buy', slot, sig }   진열 한 칸을 산다
                    { action: 'refresh' }          크레딧을 내고 진열을 새로 굴린다
-                   { action: 'assemble', type }   조각을 모아 기체를 조립한다 */
+                   { action: 'assemble', type }   조각을 모아 기체를 조립한다
+                   { action: 'goal', type }       개발 목표를 고른다 — 숙련 조각이 그리로 모인다(022)
+                   { action: 'synth', mats }      조각 합성 — { 기체 id: 개수 } 같은 등급 6 ~ 10 개 + 스크랩(js/shardsynth.js) */
 export async function shopRun(env, acc, now, body) {
   const a = body && body.action;
   const L = await load(env, acc);
@@ -101,6 +106,12 @@ export async function shopRun(env, acc, now, body) {
     if (!ROBOT_TYPES[type]) return err(400, 'unknown robot');
     const need = shardNeed(type), items = parseItems(L.p.items), have = items[shardKey(type)] | 0;
     if (!need || have < need) return err(400, 'not enough shards', { need, have });
+    /* 개발 계보(2026-09-23) — 앞 기체를 다 가져야 조립한다. **스위치가 꺼져 있으면 보지 않는다**
+       (CONST.LINEAGE.gate). 계보도 화면이 UI 개편에서 나올 때 켠다 — 이유를 보여 줄 화면 없이 막으면 고장처럼 보인다 */
+    if (CONST.LINEAGE && CONST.LINEAGE.gate) {
+      const dv = canDevelop(type, L.owned);
+      if (!dv.ok) return err(400, 'lineage locked', { why: dv.why, need: dv.need });
+    }
     items[shardKey(type)] = have - need;
     if (!items[shardKey(type)]) delete items[shardKey(type)];
 
@@ -123,6 +134,39 @@ export async function shopRun(env, acc, now, body) {
                          scrap: L.p.scrap + g.sc, cores: L.p.cores + g.co, rev: L.p.rev + 1 } };
     return { ...view(acc, after, now), assembled: { type, uid: dupe ? null : uid, dupe, gain: dupe ? g : null },
              rev: L.p.rev + 1 };
+  }
+
+  /* 조각 합성(2026-09-25) — 굴리는 것은 서버 난수. 보관함 · 스크랩이 읽을 때 그대로일 때만 쓴다 */
+  if (a === 'synth') {
+    const items = parseItems(L.p.items);
+    const chk = synthCheck(body.mats, items);
+    if (chk.error) return err(400, 'bad synth', { why: chk.error });
+    if (L.p.scrap < chk.cost) return err(400, 'not enough scrap', { need: chk.cost, have: L.p.scrap });
+    const buf = new Uint32Array(1);
+    const rnd = () => { crypto.getRandomValues(buf); return buf[0] / 4294967296; };
+    /* 개발 목표 우선 — 숙련 조각 · 작전과 같은 목표(m_goal · 없으면 autoGoal) */
+    const goal = goalOk(L.p.m_goal, L.owned) ? L.p.m_goal : autoGoal(L.owned);
+    const out = rollSynth(chk.rar, chk.n, rnd, goal);
+    const next = applySynth(items, body.mats, out);
+    const res = await env.DB.prepare(
+      `UPDATE player SET items = ?4, scrap = scrap - ?5, rev = rev + 1, updated_at = ?6
+        WHERE ${guard} AND scrap >= ?5`)
+      .bind(acc, L.p.shop, L.p.items, JSON.stringify(next), chk.cost, now).run();
+    if ((res.meta?.changes ?? 0) !== 1) return err(409, 'shop changed, retry');
+    const after = { ...L, p: { ...L.p, items: JSON.stringify(next), scrap: L.p.scrap - chk.cost, rev: L.p.rev + 1 } };
+    return { ...view(acc, after, now), synth: { ...out, from: chk.rar, used: chk.n, spent: chk.cost, rates: chk.rates },
+             rev: L.p.rev + 1 };
+  }
+
+  /* 개발 목표를 고른다(022) — 숙련 조각이 모일 기체. 계보가 열어 준 것 · 아직 없는 것만 고를 수 있다.
+     고르는 화면은 UI 개편에서 나온다. 그때까지 서버가 autoGoal 로 골라 두고, 이 길로 바꾼다. */
+  if (a === 'goal') {
+    const type = String(body.type || '');
+    if (!goalOk(type, L.owned)) return err(400, 'bad goal', { type });
+    const r = await env.DB.prepare('UPDATE player SET m_goal = ?2, updated_at = ?3 WHERE account_id = ?1')
+      .bind(acc, type, now).run();
+    if ((r.meta?.changes ?? 0) !== 1) return err(409, 'retry');
+    return { ...view(acc, L, now), goal: type };
   }
 
   return err(400, 'unknown action');

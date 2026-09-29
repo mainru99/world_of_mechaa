@@ -207,11 +207,14 @@ export async function battleFind(opts) {
      라고 말한다 — 무엇을 잘못 적었는지가 빠져 고칠 수가 없다. */
   return { error: d.error || r.error || 'find failed', need: d.need, have: d.have, target: d.target };
 }
-export async function battleStart(tactic) {
+export async function battleStart(tactic, joint) {
   if (!state.online) return null;
   /* 전술은 서버가 흰 목록으로 다시 본다. 여기서 보내는 것은 '고른 값'일 뿐이고,
-     재생에 쓰는 것은 응답이 돌려주는 tacticP 다. */
-  const r = await call('/api/battle/start', { method: 'POST', body: { tactic: tactic || 'none' } });
+     재생에 쓰는 것은 응답이 돌려주는 tacticP 다.
+     joint = { order:[uid,uid], tactics:{uid:전술} } — 합동전(토벌 보스)의 자리와 기체별 전술 */
+  const body = { tactic: tactic || 'none' };
+  if (joint) { body.order = joint.order; body.tactics = joint.tactics; }
+  const r = await call('/api/battle/start', { method: 'POST', body });
   if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return r.data; }
   return { error: (r.data && r.data.error) || r.error || 'start failed' };
 }
@@ -257,8 +260,9 @@ export async function ranking() {
 
 /* 격납고 조작 — 서버 판정. 성공하면 서버가 확정한 값을 돌려준다. */
 /* 보스 레이드. 시련과 같은 모양이다. */
-export async function raid(run) {
-  const r = await call('/api/raid', run ? { method: 'POST', body: {} } : {});
+export async function raid(run, joint) {
+  /* joint = { order, tactics } — 합동전 자리와 전술. 조회(GET)에는 안 실린다 */
+  const r = await call('/api/raid', run ? { method: 'POST', body: joint || {} } : {});
   if (r.ok && r.data && r.data.ok) return r.data;
   return { error: (r.data && r.data.error) || r.error || 'raid failed' };
 }

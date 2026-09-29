@@ -12,7 +12,11 @@
 import { parseCodex } from '../js/codex.js';
 import { parseItems } from '../js/shop.js';
 import { parsePresets } from '../js/preset.js';
+import { bindOn, unbindCost } from '../js/bind.js';
 import { huntWeekView } from '../js/rewards.js';
+import { settleMastery, masteryView } from '../js/mastery.js';
+import { parseCircuit } from '../js/circuit.js';
+import { salvLeft, salvDaily } from '../js/salvage.js';
 import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
 import { expedView } from './expedition.js';
 import { PART_COLS, partOf, insertPart, updatePart, partChanged, checkNewPart } from './parts.js';
@@ -191,16 +195,33 @@ export async function noteMigration(env, accountId, clamped, now) {
 /* ── 읽기 ──────────────────────────────────────────────── */
 export async function loadState(env, accountId) {
   const p = await env.DB.prepare(
-    `SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items, presets,
-            campaign, hunt_wk, sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
+    `SELECT nickname, credits, cores, rcores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items, presets,
+            campaign, hunt_wk, m_goal, salv, sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
        FROM player WHERE account_id = ?1`).bind(accountId).first();
   if (!p) return null;
 
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, s_weapon, s_frame, s_booster, s_core
+    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, m_lv, circuit, presets, s_weapon, s_frame, s_booster, s_core
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
+
+  /* ── 숙련 조각 정산(022) ──────────────────────────────────────
+     레벨이 오르는 길은 여럿이지만(대전 · 전선 · 점령 · 레벨업 구매) 정산은 **여기 한 곳**에서 한다.
+     클라는 무엇을 하든 곧 상태를 다시 읽으므로 늦어도 그때 들어온다. 줄 것이 있을 때만 쓴다. */
+  const mast = settleMastery(
+    robots.map(r => ({ id: r.id, uid: r.uid, type: r.type, level: r.level, mLv: r.m_lv })),
+    robots.map(r => r.type), parseItems(p.items), p.m_goal);
+  if (mast.changed) {
+    const w = [env.DB.prepare('UPDATE player SET items=?1, m_goal=?2 WHERE account_id=?3')
+      .bind(JSON.stringify(mast.items), mast.goal, accountId)];
+    for (const g of mast.grants)
+      w.push(env.DB.prepare('UPDATE robot SET m_lv=?1 WHERE id=?2').bind(g.to, g.id));
+    await env.DB.batch(w);
+    p.items = JSON.stringify(mast.items);
+    p.m_goal = mast.goal;
+    for (const g of mast.grants) { const r = robots.find(x => x.id === g.id); if (r) r.m_lv = g.to; }
+  }
   const parts = (await env.DB.prepare(
-    `SELECT ${PART_COLS} FROM part WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
+    `SELECT ${PART_COLS}, bound FROM part WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
 
   const byId = new Map(parts.map(x => [x.id, x.uid]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
@@ -223,6 +244,21 @@ export async function loadState(env, accountId) {
     presets: parsePresets(p.presets),
     /* 토벌 주간 입장 수(021) — 사냥터 줄에 '이번 주 3 / 21' 을 띄운다. 지난주 값이면 0 으로 내려간다 */
     hunt: huntWeekView(p.hunt_wk, Date.now()),
+    /* 숙련 조각(022) — 개발 목표와 모인 조각. 조각 자체는 items 에 들어 있다(shard:<id>).
+       방금 정산한 만큼은 grants 로 알려 준다 — 화면이 '조각 +n' 을 띄울 수 있게. */
+    mastery: { ...masteryView(robots, parseItems(p.items), p.m_goal), got: mast.total, grants: mast.grants },
+    /* 023 — 정제 코어 · 조각 회수 작전 오늘 남은 횟수 · 기체마다 코어 서킷에 찍은 별({ uid: ['A1', …] }).
+       state 안에 넣지 않는다 — 클라는 state 를 저장본으로 갈아 끼우므로, 모르는 칸은 밖에 둔다 */
+    rcores: p.rcores | 0,
+    salvage: { left: salvLeft(p.salv, Date.now()), daily: salvDaily() },
+    circuit: Object.fromEntries(robots.filter(r => r.circuit).map(r => [r.uid, parseCircuit(r.circuit)])),
+    /* 024 — 파츠 귀속. on 이 꺼져 있으면 parts 는 비어 있다(아직 아무것도 귀속하지 않는다).
+       parts: { 파츠uid: 귀속 기체uid } · unbind: 풀 때 드는 정제 코어 · presets: 켜진 뒤의 기체마다 프리셋 { 기체uid: [...] } */
+    bind: {
+      on: bindOn(), unbind: unbindCost(),
+      parts: Object.fromEntries(parts.filter(x => x.bound != null).map(x => [x.uid, (robots.find(r => r.id === x.bound) || {}).uid || null])),
+      ...(bindOn() ? { presets: Object.fromEntries(robots.map(r => [r.uid, parsePresets(r.presets)])) } : {}),
+    },
     state: {
       v: 2, credits: p.credits, cores: p.cores, scrap: p.scrap,
       stat: { wins: p.wins, losses: p.losses, pulls: p.pulls },
@@ -238,8 +274,9 @@ export async function loadState(env, accountId) {
       robots: robots.map(r => {
         const slots = {};
         for (const sl of SLOTS) slots[sl] = byId.get(r[col[sl]]) ?? null;
+        /* 찍은 별(023)이 있으면 기체에 싣는다 — 화면도 js/stats.js computeStats 로 능력치를 내므로 서버와 같은 값이 된다 */
         return { uid: r.uid, type: r.type, level: r.level, exp: r.exp, fat: r.fat, fatAt: r.fat_at,
-                 skillLv: r.skill_lv | 0, slots };
+                 skillLv: r.skill_lv | 0, slots, ...(r.circuit ? { circuit: parseCircuit(r.circuit) } : {}) };
       }),
       parts: parts.map(partOf),
     },
@@ -286,8 +323,10 @@ export async function saveState(env, accountId, incoming, now) {
     const s = k => (r.slots[k] ? pid.get(r.slots[k]) ?? null : null);
     const old = cur.robots.find(x => x.uid === r.uid);
     if (!old) {
-      stmts2.push(D.prepare(`INSERT INTO robot (account_id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core, created_at)
-                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)`)
+      /* m_lv 를 그 레벨로 박는다(022) — 동기화로 들어온 레벨은 클라가 적은 값이라
+         숙련 조각의 바탕이 되면 안 된다. 여기서부터 오른 레벨만 조각이 된다. */
+      stmts2.push(D.prepare(`INSERT INTO robot (account_id, uid, type, level, exp, fat, fat_at, s_weapon, s_frame, s_booster, s_core, created_at, m_lv)
+                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?4)`)
         .bind(accountId, r.uid, r.type, r.level, r.exp, r.fat, r.fatAt,
               s('WEAPON'), s('FRAME'), s('BOOSTER'), s('CORE'), now));
     } else {

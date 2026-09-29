@@ -6,7 +6,7 @@
  * 난수는 인자로 받는다. 클라는 Math.random, 서버는 crypto 기반을 넣는다.
  * 그래야 서버가 판정할 때 클라의 난수에 의존하지 않는다.
  */
-import { ROBOT_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, PULL_TABLE, PULL_TABLE_CR,
+import { ROBOT_TYPES, ROBOT_RARITY, ROBOT_RARITY_CR, ROBOT_RARITY_RC, PULL_TABLE, PULL_TABLE_CR, PULL_TABLE_RC,
          RARITY, SLOTS, PART_BASES, AFFIXES, AFFIX_GROUPS, CONST } from '../data/balance.js';
 /* 분해 환급이 강화 비용을 알아야 한다 — 두 값이 갈리면 돈이 찍힌다(scrapGain 주석). */
 import { enhCost } from './stats.js';
@@ -27,7 +27,8 @@ export function weighted(list, rnd) {
 /* 등급별 기체 목록. balance.js 에서 파생시키므로 기체를 추가해도 여기는 안 고쳐도 된다. */
 export const BY_RARITY = (() => {
   const m = {};
-  for (const k in ROBOT_TYPES) { const r = ROBOT_TYPES[k].rarity; (m[r] = m[r] || []).push(k); }
+  for (const k in ROBOT_TYPES) { if (ROBOT_TYPES[k].story) continue;   // 스토리 기체는 뽑기 · 상대에 안 나온다
+    const r = ROBOT_TYPES[k].rarity; (m[r] = m[r] || []).push(k); }
   return m;
 })();
 
@@ -69,7 +70,11 @@ export const scrapGain = (rarity, enh) =>
 export const PULL_CUR = {
   core:   { cost: CONST.PULL_COST,    table: PULL_TABLE,    rar: ROBOT_RARITY,    ko: '코어'   },
   credit: { cost: CONST.PULL_CR_COST, table: PULL_TABLE_CR, rar: ROBOT_RARITY_CR, ko: '크레딧' },
+  /* 정제 코어(2026-09-25) — 코어 10개를 합친 것. 확률이 코어 쪽보다 소폭 높다. 화면은 UI 개편 뒤 */
+  rcore:  { cost: (CONST.REFINE || {}).pull || 1, table: PULL_TABLE_RC, rar: ROBOT_RARITY_RC, ko: '정제 코어' },
 };
+/* 창구마다 값을 치르는 칸 — player 표의 열 이름 */
+export const PULL_COL = { core: 'cores', credit: 'credits', rcore: 'rcores' };
 
 /* ── 파츠 생성 (2026-09-11 개편, 4단계) ────────────────────────────────
    슬롯 → 베이스 → 등급 → 인챈트 순으로 정한다. **이름이 곧 성능이다.**

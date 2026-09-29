@@ -27,6 +27,7 @@ import { ranking } from '../server/ranking.js';
 import { insertPart } from '../server/parts.js';
 import { codexView, codexRewards, codexActivatable, PART_KEYS, monRule, monTier } from '../js/codex.js';
 import { rollPart } from '../js/gacha.js';
+import { makeUnit, simulate } from '../js/sim.js';
 
 let bad = 0;
 const ok = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if (!c) bad++; };
@@ -71,8 +72,18 @@ const seenBefore = () => Object.values(cx().ms || {}).reduce((a, b) => a + b, 0)
   const r = await startBattle(env, 1, T0 + 2000, { tactic: 'bal' });
   const after = cx(), id = pend.opp.type;
   ok(r.ok && pend.opp.kind === 'monster', `대전(비상 출격) — 상대 ${id}`);
-  ok((after.ms?.[id] | 0) === (before.ms?.[id] | 0) + 1, '대전 — 만난 수 +1');
-  ok((after.mk?.[id] | 0) === (before.mk?.[id] | 0) + (r.win ? 1 : 0), `대전 — ${r.win ? '이겨서 처치 +1' : '져서 처치 그대로'}`);
+  const rl=r.relay;
+  const ev=simulate(makeUnit(r.nameP,q('SELECT type FROM robot WHERE uid=?',r.robot.uid).type,r.statP,r.tacticP),makeUnit(r.opponent.callsign,id,r.statE,r.tacticE),r.seed,
+    rl?{P:[makeUnit(rl.nameP2,rl.typeP2,rl.statP2,rl.tacticP2)],E:[makeUnit(rl.nameE2,rl.typeE2,rl.statE2,rl.tacticE2)]}:undefined);
+  const seen={[id]:1},kills={};let current=id;
+  for(const e of ev){
+    if(e.t==='swap'&&e.side==='E'){kills[current]=(kills[current]||0)+1;current=e.type;seen[current]=(seen[current]||0)+1;}
+    if(e.t==='end'&&e.winner==='P')kills[current]=(kills[current]||0)+1;
+  }
+  for(const type of Object.keys(seen)){
+    ok((after.ms?.[type]|0)===(before.ms?.[type]|0)+seen[type],`대전 — 실제로 나온 ${type} 만난 수 +${seen[type]}`);
+    ok((after.mk?.[type]|0)===(before.mk?.[type]|0)+(kills[type]||0),`대전 — 격추한 ${type} 처치 +${kills[type]||0} (최종 승패와 별도)`);
+  }
   db.prepare('UPDATE player SET credits = 999999 WHERE account_id=1').run();
 }
 /* 전선 1-1 */

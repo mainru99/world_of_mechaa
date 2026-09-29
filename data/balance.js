@@ -41,6 +41,17 @@ export const ROBOT_RARITY_CR = [
   {k:'UQ', ko:'유니크', w: 3.5},
   {k:'EP', ko:'에픽',   w: 0.8} ];
 
+/* 정제 코어 뽑기(2026-09-25 사용자 지시) — 정제 코어 1개로 1회. **코어 뽑기보다 소폭 높다.**
+   기체 칸 12 → 15 · 꽝 19.5 → 16. 기체 등급은 에픽 3 → 4.5 · 유니크 8 → 10 으로 조금 위로.
+   파츠 등급은 모든 창구가 같은 RARITY 를 쓴다 — 여기서는 파츠가 나올 확률만 조금 올렸다. */
+export const PULL_TABLE_RC = [ {k:'robot',w:15}, {k:'core',w:1.5}, {k:'credit',w:20}, {k:'part',w:47.5}, {k:'bust',w:16} ];
+export const ROBOT_RARITY_RC = [
+  {k:'C',  ko:'커먼',   w:40  },
+  {k:'UC', ko:'언커먼', w:27.5},
+  {k:'R',  ko:'레어',   w:18  },
+  {k:'UQ', ko:'유니크', w:10  },
+  {k:'EP', ko:'에픽',   w: 4.5} ];
+
 /* 기체 30종 · 등급마다 6종 */
 /* 2026-09-10 기체 고유 특성 조정.
    등급별 평균과 여섯 단계 속도 구조를 유지하되, 30종 모두 역할·능력치·스킬 수치 조합이
@@ -82,7 +93,7 @@ export const ROBOT_TYPES = {
      순으로 빨라지며, base와 grow에 같은 방향을 주어 레벨이 올라가도 개성이 사라지지 않는다.
      등급 전체 성장량은 이전 합계와 같고 Lv.60 등급 내 승률은 35~65% 범위다. */
   seraph:{ id:'seraph', name:"SERAPH", rarity:'EP', role:"고화력 흡혈형 · 아크엔젤",
-    base:{hp:857,atk:159,def:92,spd:58,crit:.16,eva:.11}, grow:{hp:53.1,atk:11.5,def:6.3,spd:3.61}, spread:.18,
+    base:{hp:872.6,atk:161.9,def:93.7,spd:58,crit:.16,eva:.11}, grow:{hp:54.06,atk:11.71,def:6.41,spd:3.61}, spread:.18,
     skill:{name:"세이크리드 랜스", desc:"방어력 50% 관통 2.0배. 회피 불가, 피해 35% 흡수.", fx:{mult:2,ignoreDef:.5,noMiss:true,drain:.35}} },
   nemesis:{ id:'nemesis', name:"NEMESIS", rarity:'EP', role:"불안정 관통포형 · 오버로드",
     base:{hp:704,atk:162,def:76,spd:72,crit:.17,eva:.12}, grow:{hp:42.4,atk:11.7,def:5,spd:4.47}, spread:.42,
@@ -116,7 +127,7 @@ export const ROBOT_TYPES = {
     base:{hp:685,atk:131,def:75,spd:82,crit:.19,eva:.24}, grow:{hp:51.1,atk:9.5,def:6.2,spd:5.07}, spread:.3,
     skill:{name:"헬파이어 살보", desc:"0.65배 포격을 5회. 모두 회피 불가.", fx:{mult:.65,hits:5,noMiss:true}} },
   atlas:{ id:'atlas', name:"ATLAS", rarity:'EP', role:"스킬 결전형 · 타이탄",
-    base:{hp:1277,atk:105,def:136,spd:50,crit:.13,eva:.08}, grow:{hp:59.7,atk:7.6,def:7,spd:3.1}, spread:.12,
+    base:{hp:1291.2,atk:106.2,def:137.5,spd:50,crit:.13,eva:.08}, grow:{hp:60.36,atk:7.68,def:7.08,spd:3.1}, spread:.12,
     skill:{name:"타이탄 크러시", desc:"방어력 70% 관통 2.8배 강타. 회피 불가, 피해 15% 흡수.", fx:{mult:2.8,ignoreDef:.7,noMiss:true,drain:.15}} },
   /* ---- 세트 03: 3rd.png의 등급별 기체, 기존 등급 기준 무작위 고정 스펙 ---- */
   grit:{ id:'grit', name:"GRIT", rarity:'C', role:"장갑 관통형 · 가드",
@@ -144,11 +155,206 @@ export const ROBOT_TYPES = {
     base:{hp:600,atk:109,def:67,spd:61,crit:.18,eva:.13}, grow:{hp:41.3,atk:10,def:5,spd:4.52}, spread:.08,
     skill:{name:"오비탈 포커스", desc:"방어력 75% 관통 1.8배 사격. 빗나가지 않음.", fx:{mult:1.8,ignoreDef:.75,noMiss:true}} },
   auric:{ id:'auric', name:"AURIC", rarity:'EP', role:"치명 장갑형 · 골드 가디언",
-    base:{hp:880,atk:142,def:101,spd:65,crit:.2,eva:.1}, grow:{hp:60.7,atk:10.3,def:7.7,spd:4.04}, spread:.08,
+    base:{hp:889.8,atk:143.6,def:102.1,spd:65,crit:.2,eva:.1}, grow:{hp:61.38,atk:10.41,def:7.79,spd:4.04}, spread:.08,
     skill:{name:"골든 임팩트", desc:"1.8배 확정 치명타 강타. 빗나가지 않음.", fx:{mult:1.8,alwaysCrit:true,noMiss:true}} },
   ignis:{ id:'ignis', name:"IGNIS", rarity:'EP', role:"초고속 치명포형 · 피닉스",
     base:{hp:729,atk:111,def:83,spd:89,crit:.25,eva:.13}, grow:{hp:46.9,atk:8,def:5.9,spd:5.5}, spread:.24,
     skill:{name:"이그니스 레인", desc:"방어력 40%를 관통하는 0.5배 확정 치명타 사격을 5회.", fx:{mult:.5,hits:5,ignoreDef:.4,alwaysCrit:true}} },
+  /* ---- 세트 03 (2026-09-21) · 특화기술 ────────────────────────────
+     사용자가 그려 온 13기. 이름 · 역할 · 수치 · 스킬은 Claude 가 붙였다.
+     지금까지의 30종은 스킬이 전부 '때리는 방식'의 조합이었다(배수 · 연타 · 관통 · 필중 · 확정 치명 · 흡혈).
+     그래서 **지키고 · 받치고 · 흔드는** 기체가 없었다. 세트 03 은 그 빈자리를 특화기술로 채운다(js/sim.js).
+       shield 방벽 · repair 수리 · mark 표적 · shred 장갑 파쇄 · jam 재밍 · execute 마무리
+     합동전에서는 방벽 · 수리가 **더 다친 아군**에게 간다 — 후위 지원기라는 자리가 생긴다.
+     보스 요구 조건의 답도 된다 — 중장갑 ← 장갑 파쇄 · 과충전 · 광폭화 ← 재밍 · 재생 ← 마무리. */
+  husk:{ id:'husk', name:"HUSK", rarity:'C', role:"방벽 생존형 · 실더",
+    base:{hp:520,atk:70,def:62,spd:42,crit:.05,eva:.04}, grow:{hp:53,atk:9.4,def:7.2,spd:3.6}, spread:.2,
+    skill:{name:"셸 업", desc:"1.2배 타격 뒤 최대 내구의 13%만큼 방벽을 두른다. 쓸 때마다 방벽이 30%씩 얇아진다.", fx:{mult:1.2,shield:.13}} },
+  mortar:{ id:'mortar', name:"MORTAR", rarity:'C', role:"장갑 파쇄 포격형 · 브레이커",
+    base:{hp:470,atk:88,def:50,spd:43,crit:.06,eva:.04}, grow:{hp:50,atk:10.8,def:6.1,spd:3.8}, spread:.32,
+    skill:{name:"크랙 셸", desc:"1.9배 포격. 맞으면 상대 방어력이 15% 깎인다(전투 끝까지 쌓이고 최대 30%).", fx:{mult:1.9,shred:.15}} },
+  lens:{ id:'lens', name:"LENS", rarity:'C', role:"정찰 표적형 · 스포터",
+    base:{hp:420,atk:70,def:46,spd:57,crit:.1,eva:.08}, grow:{hp:48,atk:9.3,def:5.8,spd:4.9}, spread:.15,
+    skill:{name:"타깃 락", desc:"상대에게 표적을 새긴 뒤(받는 피해 +17%, 전투 끝까지) 빗나가지 않는 1.3배 사격.", fx:{mult:1.3,noMiss:true,mark:.17}} },
+  static:{ id:'static', name:"STATIC", rarity:'C', role:"전파 교란형 · 재머",
+    base:{hp:450,atk:69,def:52,spd:52,crit:.06,eva:.07}, grow:{hp:52,atk:9.5,def:6.3,spd:4.5}, spread:.24,
+    skill:{name:"노이즈 버스트", desc:"1.35배 전파탄. 상대의 SP 를 30 깎고 행동을 늦춘다.", fx:{mult:1.35,jam:30}} },
+  swift:{ id:'swift', name:"SWIFT", rarity:'UC', role:"고기동 마무리형 · 인터셉터",
+    base:{hp:470,atk:80,def:52,spd:64,crit:.13,eva:.1}, grow:{hp:47,atk:10,def:5.8,spd:5.3}, spread:.2,
+    skill:{name:"다이브 샷", desc:"0.85배 강하 사격 2회. 체력 35% 미만인 상대에게는 1.75배로 들어간다.", fx:{mult:.85,hits:2,execute:.75}} },
+  shrike:{ id:'shrike', name:"SHRIKE", rarity:'UC', role:"참격 파쇄형 · 슬래셔",
+    base:{hp:500,atk:84,def:55,spd:53,crit:.11,eva:.09}, grow:{hp:50,atk:9.8,def:6.1,spd:4.4}, spread:.22,
+    skill:{name:"리퍼 컷", desc:"0.52배 참격 4회. 맞을 때마다 상대 방어력이 2.5% 깎인다(최대 30%).", fx:{mult:.52,hits:4,shred:.025}} },
+  patch:{ id:'patch', name:"PATCH", rarity:'UC', role:"수리 지원형 · 메카닉",
+    base:{hp:580,atk:84,def:56,spd:47,crit:.08,eva:.05}, grow:{hp:55,atk:9.2,def:6.8,spd:4}, spread:.18,
+    skill:{name:"필드 리페어", desc:"1.3배 사격 뒤 최대 내구의 14%를 수리한다(쓸 때마다 30%씩 줄어든다). 합동전에서는 더 다친 아군을 고친다.", fx:{mult:1.3,repair:.14}} },
+  vega:{ id:'vega', name:"VEGA", rarity:'R', role:"결전 저격형 · 헌트리스",
+    base:{hp:520,atk:104,def:58,spd:60,crit:.15,eva:.1}, grow:{hp:51,atk:11,def:5.9,spd:4.7}, spread:.12,
+    skill:{name:"엔드 오브 라인", desc:"빗나가지 않는 1.8배 저격. 체력 35% 미만인 상대에게는 2배로 들어간다.", fx:{mult:1.8,noMiss:true,execute:1}} },
+  orbit:{ id:'orbit', name:"ORBIT", rarity:'R', role:"비트 표적형 · 프로젝터",
+    base:{hp:560,atk:90,def:62,spd:58,crit:.13,eva:.12}, grow:{hp:50,atk:9.7,def:6.2,spd:4.5}, spread:.2,
+    skill:{name:"사일런트 비트", desc:"표적을 새기고(받는 피해 +15%) 빗나가지 않는 0.6배 비트 사격 4회.", fx:{mult:.6,hits:4,noMiss:true,mark:.15}} },
+  zealot:{ id:'zealot', name:"ZEALOT", rarity:'UQ', role:"교란 제압형 · 인퀴지터",
+    base:{hp:720,atk:110,def:78,spd:55,crit:.16,eva:.11}, grow:{hp:55,atk:10,def:6.6,spd:4.1}, spread:.2,
+    skill:{name:"침묵의 종", desc:"1.9배 철퇴. 상대의 SP 를 50 깎고 행동을 크게 늦춘다.", fx:{mult:1.9,jam:50}} },
+  nebula:{ id:'nebula', name:"NEBULA", rarity:'UQ', role:"방벽 흡수형 · 오브 가디언",
+    base:{hp:760,atk:112,def:82,spd:50,crit:.14,eva:.1}, grow:{hp:53,atk:10,def:6.9,spd:3.8}, spread:.18,
+    skill:{name:"이벤트 셸", desc:"1.5배 오브 폭발로 피해 10% 흡수, 이어서 최대 내구 15%만큼 방벽. 방벽은 쓸 때마다 30%씩 얇아진다.", fx:{mult:1.5,drain:.1,shield:.15}} },
+  sovereign:{ id:'sovereign', name:"SOVEREIGN", rarity:'EP', role:"파쇄 결전형 · 데몬로드",
+    base:{hp:780,atk:150,def:85,spd:70,crit:.18,eva:.12}, grow:{hp:48,atk:10.8,def:6,spd:4.5}, spread:.3,
+    skill:{name:"폴른 크라운", desc:"0.8배 마검 4연격. 맞을 때마다 방어 5% 파쇄(최대 30%), 체력 35% 미만인 상대에게는 1.5배.", fx:{mult:.8,hits:4,shred:.05,execute:.5}} },
+  behemoth:{ id:'behemoth', name:"BEHEMOTH", rarity:'EP', role:"요새 수호형 · 시타델",
+    base:{hp:1179.7,atk:121.1,def:123.1,spd:52,crit:.14,eva:.07}, grow:{hp:59.5,atk:8.62,def:7.39,spd:3.3}, spread:.2,
+    skill:{name:"옵시디언 배리어", desc:"표적을 새기고(+12%) 방어 40% 관통 1.9배 포격, 이어서 최대 내구 22%만큼 방벽(쓸 때마다 30%씩 얇아진다).", fx:{mult:1.9,ignoreDef:.4,mark:.12,shield:.22}} },
+
+  /* ---- 세트 04 (2026-09-23) · R 열 기체 · 성장 곡선 ──────────────────
+     사용자가 그려 온 10기. 전부 R 이고 이름 · 역할 · 수치 · 스킬은 Claude 가 붙였다.
+     R 은 8종 → 18종이 된다. 고른 자리는 **계보(개발 트리)가 비어 있던 칸**이다 —
+     교란 · 수리 · 파쇄 · 방벽이 R 에 없어서 C·UC 에서 UQ 로 건너뛰는 연결이 억지였다
+     (docs/balance/lineage-plan-2026-09-22.md 의 특화기술 표).
+
+     **성장이 직선이 아닌 기체를 처음 넣는다(`curve`).** Lv.MAXLV 값은 grow + curve 만큼 오른 값이고,
+     중간 레벨이 위(조숙형, curve 음수) 또는 아래(대기만성, curve 양수)로 휜다. 같은 등급 안에서도
+     '지금 강한 기체' 와 '키우면 강한 기체' 가 갈린다. curve 가 없는 기존 기체는 한 자리도 바뀌지 않는다.
+       조숙형   ZEPHYR · POLARIS      — Lv.20~35 에서 등급 위쪽, Lv.60 에서는 아래쪽
+       대기만성 LONGBOW · VESPER      — 중반에는 등급 바닥, Lv.60 에서 등급 꼭대기 */
+  pike:{ id:'pike', name:"PIKE", rarity:'R', role:"돌격 관통창형 · 랜스가드",
+    base:{hp:576,atk:104.6,def:61.3,spd:58,crit:.12,eva:.08}, grow:{hp:50.8,atk:10.58,def:6.22,spd:4.3}, spread:.2,
+    skill:{name:"게이볼그 차지", desc:"방어력 50%를 관통하는 0.95배 찌르기 2회.", fx:{mult:.95,hits:2,ignoreDef:.5}} },
+  quake:{ id:'quake', name:"QUAKE", rarity:'R', role:"장갑 파쇄 포격형 · 시스모",
+    base:{hp:696,atk:122.8,def:77.9,spd:45,crit:.1,eva:.06}, grow:{hp:55.36,atk:12.09,def:7.25,spd:3.7}, spread:.3,
+    skill:{name:"그라운드 셰이크", desc:"1.75배 진동 포격. 상대 방어력을 10% 깎는다(원래 방어의 70%까지).", fx:{mult:1.75,shred:.1}} },
+  cipher:{ id:'cipher', name:"CIPHER", rarity:'R', role:"전파 교란형 · 고스트",
+    base:{hp:536,atk:90.5,def:59,spd:60,crit:.12,eva:.1}, grow:{hp:52.85,atk:10.54,def:6.81,spd:4.5}, spread:.18,
+    skill:{name:"고스트 시그널", desc:"1.5배 전자 사격. 상대의 스킬 게이지를 40 깎는다.", fx:{mult:1.5,jam:40}} },
+  aegis:{ id:'aegis', name:"AEGIS", rarity:'R', role:"방패 방벽형 · 벌워크",
+    base:{hp:788,atk:96.3,def:96.3,spd:42,crit:.07,eva:.05}, grow:{hp:57.81,atk:10.04,def:7.85,spd:3.6}, spread:.16,
+    skill:{name:"타워 슬램", desc:"1.3배 방패 가격 뒤 최대 내구 14%만큼 방벽(쓸 때마다 30%씩 얇아진다).", fx:{mult:1.3,shield:.14}} },
+  zephyr:{ id:'zephyr', name:"ZEPHYR", rarity:'R', role:"조숙 고기동형 · 윈드러너",
+    base:{hp:511,atk:89.9,def:55.1,spd:65,crit:.14,eva:.18},
+    grow:{hp:48.93,atk:9.69,def:5.94,spd:5.66}, curve:{hp:-1.66,atk:-0.33,def:-0.2,spd:0}, spread:.26,
+    skill:{name:"윈드 셰어", desc:"0.62배 베기를 4회. 각각 치명타·회피 판정.", fx:{mult:.62,hits:4}} },
+  longbow:{ id:'longbow', name:"LONGBOW", rarity:'R', role:"대기만성 장사정포형 · 아처",
+    base:{hp:555,atk:98.3,def:57.7,spd:46,crit:.1,eva:.06},
+    grow:{hp:55.94,atk:12.79,def:6.89,spd:3.06}, curve:{hp:1.73,atk:0.4,def:0.21,spd:0}, spread:.35,
+    skill:{name:"롱보우 스트라이크", desc:"방어력 30%를 관통하는 2.5배 장사정 포격.", fx:{mult:2.5,ignoreDef:.3}} },
+  anvil:{ id:'anvil', name:"ANVIL", rarity:'R', role:"야전 정비형 · 리페어러",
+    base:{hp:720,atk:101.3,def:74.3,spd:48,crit:.08,eva:.06}, grow:{hp:52.97,atk:10.22,def:6.88,spd:3.9}, spread:.18,
+    skill:{name:"필드 웰딩", desc:"1.35배 타격 뒤 최대 내구 17%를 수리한다(쓸 때마다 30%씩 줄어든다).", fx:{mult:1.35,repair:.17}} },
+  verdict:{ id:'verdict', name:"VERDICT", rarity:'R', role:"중장 마무리형 · 집행자",
+    base:{hp:720,atk:106.9,def:78.5,spd:47,crit:.1,eva:.06}, grow:{hp:52.86,atk:11.01,def:7.2,spd:3.9}, spread:.22,
+    skill:{name:"선고 집행", desc:"1.15배 포격 2회. 내구 35% 아래인 상대에게는 65% 더 아프다.", fx:{mult:1.15,hits:2,execute:.65}} },
+  polaris:{ id:'polaris', name:"POLARIS", rarity:'R', role:"조숙 정밀저격형 · 노스스타",
+    base:{hp:513,atk:101.6,def:55.9,spd:62,crit:.17,eva:.09},
+    grow:{hp:50.25,atk:10.49,def:6.03,spd:5.03}, curve:{hp:-1.46,atk:-0.31,def:-0.18,spd:0}, spread:.1,
+    skill:{name:"노스 스타", desc:"방어력 25% 관통 1.5배 확정 치명타 저격.", fx:{mult:1.5,ignoreDef:.25,alwaysCrit:true}} },
+  vesper:{ id:'vesper', name:"VESPER", rarity:'R', role:"대기만성 흡혈참격형 · 이븐스타",
+    base:{hp:619,atk:106.1,def:66.3,spd:54,crit:.14,eva:.1},
+    grow:{hp:52.74,atk:12.09,def:6.79,spd:3.53}, curve:{hp:2.2,atk:0.5,def:0.28,spd:0}, spread:.24,
+    skill:{name:"이브닝 사이드", desc:"1.7배 참격. 준 피해의 30%를 흡수한다.", fx:{mult:1.7,drain:.3}} },
+
+  /* ---- 세트 05 (2026-09-23) · UQ 열 기체 · 아종 ─────────────────────
+     사용자가 그려 온 18기. 전부 UQ 이고 이름 · 역할 · 수치 · 스킬은 Claude 가 붙였다. UQ 8 → 26종.
+     UQ 에 없던 특화기술(수리 · 처형 · 표적 · 파쇄)을 채운다.
+
+     **아종(`family`)** — 사용자가 x · y · z-twin 으로 묶어 온 기체는 같은 차체를 쓰는 형제다.
+     한 집안은 **속도 · 치명 · 회피 · 구간이 같고**(차체) 무장 · 스킬 · 성장 모양이 다르다.
+       NIMBUS  — 광륜 차체 2형: 캐논(관통 빔) · 피스트(흡혈 연타)
+       GOLIATH — 중해머 차체 4형: 샌드(표준 파쇄) · 러스트(대기만성 중타) · 시엘(조숙 방벽) · 바이올렛(흡혈)
+       HYDRA   — 미사일 백팩 차체 2형: 스나이퍼(관통 필중) · 개틀링(6연 표적)
+     계보에서는 같은 등급 안에서 옆으로 갈라지는 '분화' 로 잇는다(docs/balance/lineage-plan-2026-09-22.md).
+     family 는 지금 전투에 쓰이지 않는 표시값이다. */
+  salvo:{ id:'salvo', name:"SALVO", rarity:'UQ', role:"중장 연사 파쇄형 · 브레이커",
+    base:{hp:876.1,atk:119.9,def:96.8,spd:46,crit:.1,eva:.05}, grow:{hp:50.72,atk:11.28,def:7.14,spd:3.7}, spread:.3,
+    skill:{name:"브레이크 스톰", desc:"0.5배 개틀링 5연사. 맞을 때마다 상대 방어력을 2% 깎는다(원래 방어의 70%까지).", fx:{mult:.5,hits:5,shred:.02}} },
+  sentry:{ id:'sentry', name:"SENTRY", rarity:'UQ', role:"정찰 표적형 · 워처",
+    base:{hp:669.7,atk:104.6,def:75.3,spd:60,crit:.14,eva:.11}, grow:{hp:49.13,atk:11.52,def:6.62,spd:4.4}, spread:.15,
+    skill:{name:"락온 비컨", desc:"표적을 새기고(+18%) 빗나가지 않는 1.45배 사격.", fx:{mult:1.45,noMiss:true,mark:.18}} },
+  osprey:{ id:'osprey', name:"OSPREY", rarity:'UQ', role:"초장거리 처형 저격형 · 헌터",
+    base:{hp:640,atk:121.6,def:68.3,spd:62,crit:.17,eva:.1}, grow:{hp:43.73,atk:11.78,def:5.58,spd:4.5}, spread:.1,
+    skill:{name:"탈론 샷", desc:"방어력 30% 관통 1.9배 저격. 빗나가지 않고, 내구 35% 아래인 상대에게 90% 더 아프다.", fx:{mult:1.9,noMiss:true,ignoreDef:.3,execute:.9}} },
+  aquila:{ id:'aquila', name:"AQUILA", rarity:'UQ', role:"조숙 비익 기동형 · 스카이",
+    base:{hp:612.9,atk:104.5,def:66.3,spd:72,crit:.16,eva:.17}, grow:{hp:47.22,atk:10.81,def:5.92,spd:4.6}, curve:{hp:-.7,atk:-.16,def:-.09,spd:0}, spread:.22,
+    skill:{name:"윙 바라지", desc:"0.58배 사격 5회. 각각 치명타·회피 판정.", fx:{mult:.58,hits:5}} },
+  paladin:{ id:'paladin', name:"PALADIN", rarity:'UQ', role:"성기사 수리형 · 가디언",
+    base:{hp:917.3,atk:111.9,def:107.4,spd:46,crit:.1,eva:.06}, grow:{hp:50.85,atk:10.39,def:7.28,spd:3.6}, spread:.2,
+    skill:{name:"생크추어리", desc:"1.5배 철퇴 뒤 최대 내구 18%를 수리한다(쓸 때마다 30%씩 줄어든다).", fx:{mult:1.5,repair:.18}} },
+  auger:{ id:'auger', name:"AUGER", rarity:'UQ', role:"굴착 파쇄형 · 마이너",
+    base:{hp:821.9,atk:138.5,def:86.9,spd:47,crit:.11,eva:.06}, grow:{hp:49.11,atk:12.15,def:6.66,spd:3.7}, spread:.32,
+    skill:{name:"딥 드릴", desc:"방어력 30% 관통 1.9배 굴착. 상대 방어력을 12% 깎는다(원래 방어의 70%까지).", fx:{mult:1.9,ignoreDef:.3,shred:.12}} },
+  halberd:{ id:'halberd', name:"HALBERD", rarity:'UQ', role:"미늘창 처형형 · 할버디어",
+    base:{hp:739.1,atk:121.7,def:82.6,spd:52,crit:.13,eva:.08}, grow:{hp:44.31,atk:10.64,def:6.32,spd:4}, spread:.22,
+    skill:{name:"헤즈맨 스윙", desc:"방어력 40% 관통 1.3배 베기 2회. 내구 35% 아래인 상대에게 70% 더 아프다.", fx:{mult:1.3,hits:2,ignoreDef:.4,execute:.7}} },
+  quasar:{ id:'quasar', name:"QUASAR", rarity:'UQ', role:"대기만성 중력 교란형 · 그래비톤",
+    base:{hp:670.9,atk:118.7,def:72.3,spd:52,crit:.14,eva:.1}, grow:{hp:49.56,atk:12.02,def:6.61,spd:4}, curve:{hp:1.53,atk:.37,def:.2,spd:0}, spread:.28,
+    skill:{name:"이벤트 호라이즌", desc:"1.9배 중력 타격. 상대의 스킬 게이지를 35 깎는다.", fx:{mult:1.9,jam:35}} },
+  gyre:{ id:'gyre', name:"GYRE", rarity:'UQ', role:"사슬 연격 흡혈형 · 플레일",
+    base:{hp:697.9,atk:112.9,def:73.9,spd:54,crit:.13,eva:.09}, grow:{hp:49.41,atk:11.53,def:6.69,spd:4.1}, spread:.3,
+    skill:{name:"체인 사이클론", desc:"0.62배 사슬 타격 4회. 준 피해의 20%를 흡수한다.", fx:{mult:.62,hits:4,drain:.2}} },
+  ronin:{ id:'ronin', name:"RONIN", rarity:'UQ', role:"광검 결전형 · 사무라이",
+    base:{hp:584.8,atk:117,def:62.4,spd:64,crit:.2,eva:.12}, grow:{hp:42.77,atk:11.86,def:5.44,spd:4.6}, spread:.18,
+    skill:{name:"홍월 일섬", desc:"방어력 25% 관통 1.85배 확정 치명타 베기.", fx:{mult:1.85,alwaysCrit:true,ignoreDef:.25}} },
+  nimbus_c:{ id:'nimbus_c', name:"NIMBUS CANNON", rarity:'UQ', family:'nimbus', role:"광륜 차체 · 빔 캐논형",
+    base:{hp:714.5,atk:116,def:80.8,spd:56,crit:.14,eva:.1}, grow:{hp:44.55,atk:10.87,def:6.28,spd:4.2}, spread:.14,
+    skill:{name:"헤일로 빔", desc:"방어력 55% 관통 1.7배 광선. 빗나가지 않음.", fx:{mult:1.7,ignoreDef:.55,noMiss:true}} },
+  nimbus_f:{ id:'nimbus_f', name:"NIMBUS FIST", rarity:'UQ', family:'nimbus', role:"광륜 차체 · 권격형",
+    base:{hp:662.6,atk:99.4,def:73.6,spd:56,crit:.14,eva:.1}, grow:{hp:50.44,atk:11.24,def:6.97,spd:4.2}, spread:.14,
+    skill:{name:"헤일로 러시", desc:"0.78배 주먹 3연타. 준 피해의 15%를 흡수한다.", fx:{mult:.78,hits:3,drain:.15}} },
+  goliath_s:{ id:'goliath_s', name:"GOLIATH SAND", rarity:'UQ', family:'goliath', role:"중해머 차체 · 표준형",
+    base:{hp:932.4,atk:119.3,def:104.1,spd:42,crit:.09,eva:.05}, grow:{hp:54.74,atk:11.83,def:7.52,spd:3.5}, spread:.34,
+    skill:{name:"어스 크러셔", desc:"2.2배 해머 강타. 상대 방어력을 8% 깎는다(원래 방어의 70%까지).", fx:{mult:2.2,shred:.08}} },
+  goliath_r:{ id:'goliath_r', name:"GOLIATH RUST", rarity:'UQ', family:'goliath', role:"중해머 차체 · 대기만성 중타형",
+    base:{hp:851.4,atk:108.9,def:95,spd:42,crit:.09,eva:.05}, grow:{hp:51.67,atk:11.33,def:7.15,spd:3.5}, curve:{hp:1.6,atk:.35,def:.22,spd:0}, spread:.34,
+    skill:{name:"러스트 폴", desc:"방어력 30% 관통 2.6배 내려찍기.", fx:{mult:2.6,ignoreDef:.3}} },
+  goliath_c:{ id:'goliath_c', name:"GOLIATH CIEL", rarity:'UQ', family:'goliath', role:"중해머 차체 · 조숙 방벽형",
+    base:{hp:866.6,atk:110.8,def:96.7,spd:42,crit:.09,eva:.05}, grow:{hp:59.42,atk:12.3,def:8.07,spd:3.5}, curve:{hp:-4.91,atk:-1.02,def:-.67,spd:0}, spread:.34,
+    skill:{name:"스카이 바스티온", desc:"1.4배 해머 뒤 최대 내구 16%만큼 방벽(쓸 때마다 30%씩 얇아진다).", fx:{mult:1.4,shield:.16}} },
+  goliath_v:{ id:'goliath_v', name:"GOLIATH VIOLET", rarity:'UQ', family:'goliath', role:"중해머 차체 · 수정 흡혈형",
+    base:{hp:897.7,atk:114.8,def:100.2,spd:42,crit:.09,eva:.05}, grow:{hp:56.54,atk:12.14,def:7.75,spd:3.5}, spread:.34,
+    skill:{name:"아메시스트 블룸", desc:"1.9배 수정 해머. 준 피해의 30%를 흡수한다.", fx:{mult:1.9,drain:.3}} },
+  hydra_s:{ id:'hydra_s', name:"HYDRA SNIPER", rarity:'UQ', family:'hydra', role:"미사일 백팩 차체 · 저격형",
+    base:{hp:689.3,atk:117,def:73.1,spd:54,crit:.15,eva:.09}, grow:{hp:44.73,atk:11.33,def:6.05,spd:4.1}, spread:.12,
+    skill:{name:"헤드 헌트", desc:"방어력 50% 관통 2.1배 저격. 빗나가지 않음.", fx:{mult:2.1,ignoreDef:.5,noMiss:true}} },
+  hydra_g:{ id:'hydra_g', name:"HYDRA GATLING", rarity:'UQ', family:'hydra', role:"미사일 백팩 차체 · 제압 개틀링형",
+    base:{hp:711.9,atk:107.8,def:75.3,spd:54,crit:.15,eva:.09}, grow:{hp:47.83,atk:11.18,def:6.48,spd:4.1}, spread:.12,
+    skill:{name:"하이드라 헤즈", desc:"표적을 새기고(+10%) 0.45배 개틀링 6연사.", fx:{mult:.45,hits:6,mark:.1}} },
+
+  /* ---- 세트 06 (2026-09-23) · EP 다섯 기체 ─────────────────────────
+     사용자가 그려 온 5기. 전부 EP 이고 이름 · 역할 · 수치 · 스킬은 Claude 가 붙였다. EP 8 → 13종.
+     **세기는 계보에서 열 때 필요한 앞 기체 수에 맞춘다**(2026-09-23 사용자 결정 ⑦) —
+     MONARCH 4종 → 등급 안 53~55% · SOLARIS · LIONHEART 3종 → 46~53% · SHOGUN · REVENANT 2종 → 42~46%.
+     EP 에 없던 자리를 채운다 — 수리(LIONHEART) · 6연격(SOLARIS) · 처형 결전(MONARCH · REVENANT). */
+  solaris:{ id:'solaris', name:"SOLARIS", rarity:'EP', role:"광익 다중검형 · 선브링어",
+    base:{hp:717.6,atk:122.7,def:79.3,spd:76,crit:.18,eva:.13}, grow:{hp:47.14,atk:10.21,def:6.01,spd:4.8}, spread:.16,
+    skill:{name:"브릴리언트 윙즈", desc:"방어력 35%를 관통하는 0.62배 광익 참격을 6회.", fx:{mult:.62,hits:6,ignoreDef:.35}} },
+  monarch:{ id:'monarch', name:"MONARCH", rarity:'EP', role:"대검 결전형 · 로드 나이트",
+    base:{hp:960.6,atk:147,def:105.9,spd:54,crit:.15,eva:.08}, grow:{hp:54.78,atk:11,def:7,spd:3.6}, curve:{hp:.89,atk:.18,def:.11,spd:0}, spread:.26,
+    skill:{name:"로열 디크리", desc:"방어력 55% 관통 2.6배 대검 강타. 내구 35% 아래인 상대에게 60% 더 아프다.", fx:{mult:2.6,ignoreDef:.55,execute:.6}} },
+  lionheart:{ id:'lionheart', name:"LIONHEART", rarity:'EP', role:"사자 방패형 · 그랜드 팔라딘",
+    base:{hp:1296.5,atk:133,def:144.3,spd:48,crit:.1,eva:.06}, grow:{hp:63.19,atk:9.39,def:8.07,spd:3.2}, spread:.18,
+    skill:{name:"라이언 가드", desc:"1.45배 성검 강타 뒤 최대 내구 12%를 수리하고 20%만큼 방벽을 친다(둘 다 쓸 때마다 30%씩 줄어든다).", fx:{mult:1.45,repair:.12,shield:.2}} },
+  shogun:{ id:'shogun', name:"SHOGUN", rarity:'EP', role:"발도 결전형 · 쇼군",
+    base:{hp:686.2,atk:137.2,def:76.5,spd:80,crit:.24,eva:.14}, grow:{hp:43.47,atk:10.15,def:5.6,spd:5.2}, spread:.2,
+    skill:{name:"만개 일섬", desc:"방어력 45% 관통 2.05배 확정 치명타 발도.", fx:{mult:2.05,ignoreDef:.45,alwaysCrit:true}} },
+  revenant:{ id:'revenant', name:"REVENANT", rarity:'EP', role:"그림자 처형형 · 어쌔신",
+    base:{hp:722.3,atk:138.2,def:77.5,spd:86,crit:.22,eva:.2}, grow:{hp:45.66,atk:10.38,def:5.8,spd:5.4}, curve:{hp:-.54,atk:-.12,def:-.07,spd:0}, spread:.24,
+    skill:{name:"섀도우 리퍼", desc:"0.8배 쌍검 3연격. 준 피해의 25%를 흡수하고, 내구 35% 아래인 상대에게 70% 더 아프다.", fx:{mult:.8,hits:3,drain:.25,execute:.7}} },
+
+  /* ---- 스토리 기체 (2026-09-21) — **뽑기 · 상점 · 상대 · 도감 · 시작 기체에 나오지 않는다(story:true)** ----
+     2장 주인공 아렌의 ROOK-3 세 단계와 셀릭의 VALKEN-4. 얻는 길은 아직 없다 — 전선 보상 등으로 나중에 연다.
+     걸러 내는 곳: js/units.js · js/gacha.js 의 BY_RARITY, js/shop.js, js/codex.js, server/worker.js 의 시작 기체 */
+  rook3:{ id:'rook3', name:"ROOK-3", rarity:'C', story:true, role:"누더기 보급형 · 리퍼브",
+    base:{hp:480,atk:72,def:50,spd:48,crit:.07,eva:.06}, grow:{hp:52,atk:9.6,def:6.2,spd:4.3}, spread:.26,
+    skill:{name:"스크랩 펀치", desc:"1.35배 강타 뒤 최대 내구 7%만큼 방벽 — 덧댄 장갑이 버틴다. 쓸 때마다 30%씩 얇아진다.", fx:{mult:1.35,shield:.07}} },
+  rook3_mod:{ id:'rook3_mod', name:"ROOK-3 MOD", rarity:'UC', story:true, role:"비대칭 개조형 · 블랙 암",
+    base:{hp:500,atk:88,def:54,spd:55,crit:.11,eva:.07}, grow:{hp:50,atk:10.2,def:6,spd:4.6}, spread:.3,
+    skill:{name:"블랙 암 라이플", desc:"빼앗은 검은 팔의 0.7배 사격 3회. 맞을 때마다 상대 방어 2% 파쇄(최대 30%).", fx:{mult:.7,hits:3,shred:.02}} },
+  rook3_re:{ id:'rook3_re', name:"ROOK-3 RE", rarity:'R', story:true, role:"재정비 균형형 · 리빌트",
+    base:{hp:582,atk:98.8,def:68.6,spd:56,crit:.12,eva:.1}, grow:{hp:48.3,atk:9.96,def:6.34,spd:4.4}, spread:.22,
+    skill:{name:"리빌트 버스트", desc:"빗나가지 않는 1.05배 연사 2회 뒤 최대 내구 9%만큼 방벽. 쓸 때마다 30%씩 얇아진다.", fx:{mult:1.05,hits:2,noMiss:true,shield:.09}} },
+  valken4:{ id:'valken4', name:"VALKEN-4", rarity:'R', story:true, role:"신형 정밀형 · 엘리트",
+    base:{hp:505.6,atk:83.1,def:57.8,spd:62,crit:.16,eva:.11}, grow:{hp:50.78,atk:10.22,def:6.31,spd:4.8}, spread:.12,
+    skill:{name:"트윈 아이", desc:"표적을 새기고(+6%) 빗나가지 않는 1.5배 확정 치명타.", fx:{mult:1.5,noMiss:true,alwaysCrit:true,mark:.06}} },
 };
 
 /* 대전 전용 몬스터. ROBOT_TYPES 와 표를 나눠 두어 뽑기·격납고·소유 목록에
@@ -231,15 +437,21 @@ export const MONSTER_TYPES = {
   boss_bael_fortress:{ id:'boss_bael_fortress', name:'철혈성채 바알', rarity:'BOSS', role:'초중장 섬멸형 · 마왕성채',
     base:{hp:473.5,atk:33.75,def:37.7,spd:32.05,crit:.22,eva:.06}, grow:{hp:112.5,atk:11.25,def:8.1,spd:3.15}, spread:.26,
     skill:{name:'종말의 일제사격', desc:'1.0배 포격을 3회. 방어력 60%를 관통하며 회피할 수 없다.',
-           fx:{mult:1.0,hits:3,ignoreDef:true,noMiss:true}} },
+           fx:{mult:1.0,hits:3,ignoreDef:true,noMiss:true}},
+    /* 합동전 — 광역 일제사격. 두 기 모두 버텨야 하고, 장갑을 뚫어야 한다 */
+    joint:{ aim:'all', traits:['armor','overcharge'], hp:1.0, atk:0.95 } },
   boss_astraea:{ id:'boss_astraea', name:'성극천사 아스트라이아', rarity:'BOSS', role:'초고기동 심판형 · 성역병기',
     base:{hp:535.95,atk:19.6,def:71.8,spd:19.45,crit:.30,eva:.20}, grow:{hp:68.85,atk:10.8,def:5.4,spd:4.35}, spread:.15,
     skill:{name:'세라픽 저지먼트', desc:'0.91배 심판광을 3회. 방어력 60%를 관통하고 회피 불가·확정 치명타, 피해의 10%를 흡수한다.',
-           fx:{mult:.91,hits:3,ignoreDef:true,noMiss:true,alwaysCrit:true,drain:.1}} },
+           fx:{mult:.91,hits:3,ignoreDef:true,noMiss:true,alwaysCrit:true,drain:.1}},
+    /* 합동전 — 후위 저격. 치명형 후위는 안 통하고, 빗나가지 않아야 맞힌다 */
+    joint:{ aim:'back', traits:['critnull','phase'] } },
   boss_nihil:{ id:'boss_nihil', name:'공허군주 니힐', rarity:'BOSS', role:'공간침식 연격형 · 공허핵',
     base:{hp:590.65,atk:47.75,def:47.65,spd:16.5,crit:.38,eva:.32}, grow:{hp:55.95,atk:11.25,def:4.95,spd:4.5}, spread:.24,
     skill:{name:'이벤트 호라이즌', desc:'방어력 60%를 관통하는 0.98배 침식을 4회. 피해의 25%를 흡수한다.',
-           fx:{mult:.98,hits:4,ignoreDef:true,drain:.25}} }
+           fx:{mult:.98,hits:4,ignoreDef:true,drain:.25}},
+    /* 합동전 — 전위 침식. 연타가 막히고 재생으로 버틴다. 한 방이 큰 기체가 답이다 */
+    joint:{ aim:'front', traits:['field','regen'], hp:0.8 } }
 };
 
 /* 파츠 */
@@ -757,7 +969,7 @@ export const CONST = {
   SHARD_NEED: { C: 10, UC: 15, R: 20, UQ: 30, EP: 40 },
 
   /* ── 도감 (2026-09-18 사용자 지시 · 같은 날 활성화 방식으로 고쳤다) ──────
-     몬스터 16 · 기체 30 · 파츠 84칸(21종 × 4등급).
+     몬스터 16 · 기체 71(뽑을 수 있는 것) · 파츠 84칸(21종 × 4등급).
 
      **모은 칸은 재화를 내고 '활성화' 해야 센다.** 이정표(steps)는 활성화한 칸 수로 넘는다.
      이정표에 닿으면 **그때까지 활성화에 쓴 재화를 돌려준다** — 크레딧은 +2% 얹어서,
@@ -796,7 +1008,10 @@ export const CONST = {
     steps: {
       monster: [ { n: 4 }, { n: 8, title: 'hunter' }, { n: 16, title: 'tracker' },   // 보스 셋을 빼면 16종이다(2장 셋 포함)
                  { n: 19, title: 'giantslayer' } ],
-      robot:   [ { n: 6 }, { n: 12, title: 'mechanic' }, { n: 18 }, { n: 24 }, { n: 30, title: 'hangarlord' } ],
+      /* 2026-09-21 세트 03 으로 뽑을 수 있는 기체가 43종 — 36 · 43 이정표를 더했다(스토리 기체는 세지 않는다) */
+      /* 2026-09-23 세트 04(R 10기) · 세트 05(UQ 18기)로 뽑을 수 있는 기체가 71종 — 53 · 62 · 71 이정표를 더했다 */
+      /* 2026-09-23 세트 06(EP 5기)으로 76종 — 76 이정표를 더했다 */
+      robot:   [ { n: 6 }, { n: 12, title: 'mechanic' }, { n: 18 }, { n: 24 }, { n: 30, title: 'hangarlord' }, { n: 36 }, { n: 43 }, { n: 53 }, { n: 62 }, { n: 71 }, { n: 76 } ],
       part:    [ { n: 10 }, { n: 21, title: 'scavenger' }, { n: 42 }, { n: 63, title: 'artificer' },
                  { n: 84, title: 'forgemaster' } ],
     },
@@ -814,6 +1029,48 @@ export const CONST = {
       legend:      '잿빛 성단의 전설',
     },
   },
+
+  /* 숙련 = 그 기체의 특성 포인트(js/stats.js traitPoints). [n레벨마다, 몇 점] 을 전부 더하고 최고 레벨에 maxBonus.
+     2026-09-23 사용자 결정 — 5레벨마다 1 · 10레벨마다 1 더 · 최고 레벨에 2 더(Lv.60 = 20점) */
+  /* 숙련 — every 는 특성 포인트(js/stats.js traitPoints · Lv.60 에 20),
+     shard 는 개발 목표로 쌓이는 조각(js/mastery.js · Lv.60 에 **14**).
+     **조각을 레벨에 붙인 것은 잠정이다** — 원래 의도는 '숙련은 특성 포인트만' 이었는데(2026-09-23 밤),
+     조각 수급처가 아직 정해지지 않아 레벨에 얹었다. 수급처가 정해지면 이 표를 0 으로 두거나 다른 축으로 옮긴다.
+     조각 값은 2026-09-23 사용자 결정 '중간' — 원하는 EP 한 기를 계보로 얻는 데 약 110일.
+     뽑기로 아무 EP 나 얻는 기대 기간(약 75일)의 1.5배다. 90일 경제로 쟀다(tools/play.mjs). */
+  MASTERY: { every: [[5, 1], [10, 1]], maxBonus: 2, shard: { every: [[5, 1]], maxBonus: 2 } },
+  /* 개발 계보(data/lineage.js · js/lineage.js). gate — 조각 조립에 계보 조건을 거는가.
+     **지금은 끈다.** 켜면 앞 기체가 없는 기체의 조각은 조립하지 못하고 쌓인다. 이유를 보여 줄 계보도 화면이
+     UI 개편에서 나온 뒤 켠다(CONTRACT '개발 계보'). */
+  LINEAGE: { gate: false },
+
+  /* 교대 전투(2026-09-25 사용자 결정) — 대전(아레나 · 친선전)에서 편성 두 기가 **교대로** 싸운다. 앞 기체가 쓰러지면 다음 기체.
+     share — 경험치 몫(첫째로 나온 기체 60% · 둘째 40%). 둘째가 나오기 전에 끝나면 첫째가 다 받는다.
+     on — 2026-09-25 켰다. 사용자가 동결 예외를 줘서 js/game.js 대전 재생이 simulate(P, E, seed, bench) 로 둘째 기체까지 재생한다
+     (CONTRACT '화면 파일 동결' 기록). UI 개편 화면도 같은 방식으로 재생해야 한다(CONTRACT '교대 전투') */
+  RELAY: { on: true, share: [0.6, 0.4] },
+
+  /* 조각 합성(2026-09-25 사용자 결정 · js/shardsynth.js) — 같은 등급 조각 min ~ max 개 + 스크랩 → 조각.
+     성공(한 등급 위) = base + (넣은 수 − min) × step · 명작(두 등급 위) = master · 나머지는 동급.
+     6개 25% → 10개 53% · 명작 1%. 결과 수량 = 넣은 수 × qty(반올림) — 예: R 10개 → UQ 3개 · 명작이면 EP 2개 · 동급이면 R 5개.
+     scrap — 재료 등급별 한 번 값. 에픽은 넣을 수 없다 */
+  SHARD_SYNTH: { min: 6, max: 10, base: 0.25, step: 0.07, master: 0.01,
+                 qty: { same: 1 / 2, up: 1 / 3, master: 1 / 5 },
+                 scrap: { C: 120, UC: 200, R: 320, UQ: 500 } },
+
+  /* 정제 코어(2026-09-25 사용자 지시) — 코어 need 개를 합쳐 1개. **지금은 합치기 말고는 얻을 길이 없다.**
+     pull — 정제 코어 뽑기 1회 값 · circuitReset — 코어 서킷을 비울 때 드는 값(추가 비용은 사용자가 나중에 정한다) */
+  REFINE: { need: 10, pull: 1, circuitReset: 1 },
+  /* 파츠 귀속(2026-09-28 사용자 결정) — 처음 끼면 그 기체에 귀속 · 풀려면 정제 코어 unbind 개 · 프리셋은 기체마다.
+     **on 은 꺼 둔다.** 귀속 표시 · 해제 단추가 UI 개편에서 나오면 tools/bindnow.sql 을 돌리고 켠다(js/bind.js 머리말) */
+  PART_BIND: { on: false, unbind: 1 },
+  /* 조각 회수 작전(2026-09-25 사용자 지시) — 하루 daily 번. 개발 목표의 조각이 들어온다(숙련 조각과 같은 목표).
+     난이도를 골라 **내 기체와 같은 레벨**의 몬스터 하나와 싸운다. mul — 상대 체력 · 공격 배수 · shard — 이기면 받는 조각.
+     지면 횟수만 쓴다. 파츠 없는 기체 기준 이길 확률 정찰 ~88% · 회수 46~57% · 강습 5~25%(레벨이 높을수록 어렵다 · 몬스터 16종 평균).
+     하루는 UTC 기준(레이드와 같다 · 한국 09:00 에 바뀐다) */
+  /* rar — 작전 조각이 갈 수 있는 기체 등급(2026-09-25 사용자 결정 'C ~ R 한정'). 유니크 · 에픽 조각은 앞으로 조각 합성으로 만든다.
+     레벨(숙련) 조각에는 걸지 않는다 — 그쪽은 개발 목표가 무엇이든 그리로 간다 */
+  SALVAGE: { daily: 2, rar: ['C', 'UC', 'R'], tiers: [ { ko: '정찰', mul: 0.7, shard: 1 }, { ko: '회수', mul: 1.0, shard: 2 }, { ko: '강습', mul: 1.3, shard: 3 } ] },
 
   RATING_GEAR: [
     { at:    0, n: 0, rar: 'C',   enh:  0, skillLv:  0 },
@@ -963,9 +1220,57 @@ export const CONST = {
      보상   깎은 비율에 비례한다. 하루 횟수가 정해져 있으므로 이 값이 경제의
             새 수도꼭지가 된다. 전부 0 으로 두면 보상 없는 콘텐츠가 된다.
             만렙 기준 한 번 격파 = 크레딧 약 (crBase + crLv×60). */
+  /* ── 합동전 (2026-09-21 · 사용자 결정) ──────────────────
+     토벌 보스와 레이드는 편성 **두 기가 한꺼번에** 싸운다(js/joint.js).
+     backAtk  후위 공격력 배수. 보스 평타를 안 맞는 대신이다 — 화력형의 자리
+     aoe      광역 스킬이 한 기에 주는 배수. 둘 다 맞으므로 합은 1 을 넘는다
+     boss     합동전 보스 배수. 두 기가 동시에 치므로 1:1 보스 그대로면 너무 약하다.
+              값은 tools/jointcheck.mjs 로 잰다 */
+  JOINT: {
+    backAtk: 1.15,
+    aoe: 0.6,
+    boss: { hp: 0.5, atk: 0.5 },
+    /* 공명(2026-09-23 사용자 결정) — 같은 집안(ROBOT_TYPES[].family) 아종 두 기를 전위 · 후위로 함께 내면
+       둘 다 공격력이 이만큼 오른다. 아종을 모을 이유를 전투에도 둔다. 합동전 토벌 · 레이드에 똑같이 걸린다 */
+    resonance: 0.05,
+  },
+
+  /* ── 흘려내기 (2026-09-21 · 사용자 결정) ──────────────────
+     평타가 동시에 오갈 때(짧은 한 턴의 win 비율 안) 맞는 쪽이 확률로 흘려낸다. 판정은 js/sim.js tryParry.
+     p      기본 확률 — 속도 비의 제곱근을 곱하고 pMin ~ pMax 로 자른다(빠를수록 잘 흘린다)
+     delay  흘려내기를 당한 쪽 게이지가 밀리는 양(한 턴이 100)
+     목표는 **평타의 5~10%** 가 흘려지는 것 — 더 잦으면 운 게임이 된다. 값은 tools/parrycheck.mjs 로 잰다
+     spdK   속도 보정의 지수. 0.5(제곱근)로 두었더니 느린 중장갑이 크게 손해를 봤다(GLACIER −13%p) — 0.25 로 눌렀다
+     실측(Lv.30 · 등급 안): 평타의 6.0% · 거울 대결 편향 없음 · 가장 많이 움직인 기체 GLACIER −7%p · ATLAS +6%p
+     (스킬 한 방에 기대는 기체가 이득, 평타에 기대는 기체가 손해 — 흘려낼 수 없는 것이 스킬뿐이라서다) */
+  PARRY: { win: 0.14, p: 0.2, pMin: 0.12, pMax: 0.28, delay: 20, spdK: 0.25 },
+
+  /* ── 특화기술 기준값 (2026-09-21) ─────────────────────────
+     기체 스킬 fx 의 shield · repair · mark · shred · jam · execute 가 쓰는 공통값. 판정은 js/sim.js.
+     execHp      마무리가 켜지는 상대 체력 비율
+     shredFloor  장갑 파쇄로 내려갈 수 있는 바닥 — 원래 방어력의 이 비율(0.4 로 두었더니 긴 판에서 파쇄 기체가 83~86%)
+     decay       방벽 · 수리가 쓸 때마다 약해지는 비율. 버티는 기체끼리 끝없이 버티던 것(0% 짝)을 막는다 */
+  SPECIAL: { execHp: 0.35, shredFloor: 0.7, decay: 0.3 },
+
+  /* ── 요구 조건 특성 (2026-09-21) ────────────────────────
+     보스에 붙어 **이기는 조합**을 바꾼다. 몬스터 표의 joint.traits 로 건다.
+     answer 는 화면이 딱지 옆에 붙이는 '통하는 답' 이다. 판정은 js/joint.js.
+     스탯으로 끝나는 것(def · eva)은 전투 전에 반영하고, 나머지는 판정 중에 건다.
+     **특성은 난수를 더 뽑지 않는다** — 치명 무효도 치명은 굴린 뒤 배수만 지운다. */
+  TRAIT: {
+    armor:      { ko:'중장갑',    def: 1.8,  answer:'관통',        desc:'방어력이 매우 높습니다' },
+    field:      { ko:'역장',      flat: 0.4, answer:'한 방이 큰 공격', desc:'타격마다 일정량을 깎습니다 — 연타가 약해집니다' },
+    phase:      { ko:'위상 회피', eva: 0.3,  answer:'필중',        desc:'회피율이 매우 높습니다' },
+    critnull:   { ko:'치명 무효',            answer:'치명 아닌 화력', desc:'치명타 추가 피해를 받지 않습니다' },
+    regen:      { ko:'재생',      pct: 0.025, answer:'순간 화력',   desc:'턴마다 최대 내구를 회복합니다' },
+    antiheal:   { ko:'흡수 차단',            answer:'흡혈 없는 기체', desc:'공격으로 회복할 수 없습니다' },
+    overcharge: { ko:'과충전',    sp: 1.6,   answer:'방어 전술',   desc:'스킬이 자주 옵니다' },
+    enrage:     { ko:'광폭화',    turn: 10, atk: 1.6, answer:'빠른 격파', desc:'10턴 뒤 공격력이 크게 오릅니다' },
+  },
+
   RAID: {
     bossX: 12,
-    hpX: 50,
+    hpX: 130,                 // 2026-09-21 합동전으로 한 판 피해가 약 2.6배 — 막대를 같은 비율로 키웠다(50 → 130)
     daily: 3,
     crBase: 40, crLv: 6,      // Lv.60 전부 깎으면 크레딧 400
     scBase: 6,  scLv: 1.2,    // 같은 조건에서 스크랩 78

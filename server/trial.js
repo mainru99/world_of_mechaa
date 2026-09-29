@@ -10,6 +10,7 @@
  * 읽는 행 — player 1 + robot N + part N + trial 1. 아레나 한 판과 비슷하다.
  * 순위표는 상위 10 + 내 1 + 인원 1 이라 인원이 늘어도 그대로다.
  */
+import { parseCircuit } from '../js/circuit.js';
 import { codexMonsterStmt } from './codex.js';
 import { computeStats, power } from '../js/stats.js';
 import { weekOf, weekEnd, trialOf, runTrial, trialWon, TRIAL_WIN_BASE } from '../js/trial.js';
@@ -27,7 +28,7 @@ async function loadOne(env, acc) {
     'SELECT nickname, sel_robot, squad1, squad2 FROM player WHERE account_id = ?1').bind(acc).first();
   if (!p) return null;
   const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, fat, skill_lv, ${Object.values(SLOT_COL).join(', ')}
+    `SELECT id, uid, type, level, fat, skill_lv, circuit, ${Object.values(SLOT_COL).join(', ')}
        FROM robot WHERE account_id = ?1 ORDER BY id`).bind(acc).all()).results || [];
   if (!robots.length) return null;
   const squad = [p.squad1, p.squad2].filter(Boolean);
@@ -46,7 +47,7 @@ async function loadOne(env, acc) {
   }
   return { nickname: p.nickname,
            robot: { uid: row.uid, type: row.type, level: row.level, fat: row.fat,
-                    skillLv: row.skill_lv, slots },
+                    skillLv: row.skill_lv, slots, circuit: parseCircuit(row.circuit) },
            parts: used };
 }
 

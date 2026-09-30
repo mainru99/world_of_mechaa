@@ -1,5 +1,6 @@
-// Read-only production verification. No token, cookies, POST, guest creation,
-// migrations, rewards or wallet writes. Build dist/ before running this check.
+// Production verification without account mutations. GET files/queries and
+// credential-free empty POSTs to four routes whose auth guard returns 401
+// before parsing/dispatch. No tokens, cookies, guests, migrations or rewards.
 import assert from 'node:assert/strict';
 import {readFile,readdir,writeFile,mkdir} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
@@ -16,6 +17,10 @@ const records=[],errors=[];
 async function get(path){
  const u=new URL(path,base);u.searchParams.set('release_check',tag);
  return fetch(u,{headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(30000)});
+}
+async function deniedPost(path){
+ const u=new URL(path,base);u.searchParams.set('release_check',tag);
+ return fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:'{}',signal:AbortSignal.timeout(30000)});
 }
 async function walk(dir){
  const out=[];for(const f of await readdir(resolve(root,'dist',dir),{withFileTypes:true})){
@@ -41,13 +46,16 @@ try{
  assert.equal(health.ok,true);assert.equal(health.db,'connected');assert.equal(Number(health.schema_version),24);assert.equal(health.balance_ver,balanceVersion());
  assert.equal(CONST.PART_BIND.on,false);assert.equal(CONST.LINEAGE.gate,false);
 }catch(e){errors.push(`health: ${e.message}`);}
-for(const path of ['/api/state','/api/hangar','/api/circuit','/api/refine','/api/salvage','/api/trial','/api/raid','/api/battle/start']){
- try{const r=await get(path);await r.arrayBuffer();records.push({path,status:r.status,authenticationRequired:r.status===401});assert.equal(r.status,401,path);}catch(e){errors.push(`${path}: ${e.message}`);}
+for(const path of ['/api/state','/api/salvage','/api/trial','/api/raid']){
+ try{const r=await get(path);await r.arrayBuffer();records.push({path,method:'GET',status:r.status,authenticationRequired:r.status===401});assert.equal(r.status,401,path);}catch(e){errors.push(`${path}: ${e.message}`);}
+}
+for(const path of ['/api/hangar','/api/circuit','/api/refine','/api/battle/start']){
+ try{const r=await deniedPost(path);await r.arrayBuffer();records.push({path,method:'POST',status:r.status,authenticationRequired:r.status===401});assert.equal(r.status,401,path);}catch(e){errors.push(`${path}: ${e.message}`);}
 }
 for(const path of ['/CONTRACT.md','/server/schema.sql','/tools/ui-performance-probe.js']){
  try{const r=await get(path);await r.arrayBuffer();records.push({path,status:r.status,privatePathBlocked:r.status===404});assert.equal(r.status,404,path);}catch(e){errors.push(`${path}: ${e.message}`);}
 }
-const report={at:new Date().toISOString(),base,tag,mode:'GET only; anonymous; no production account mutation',ok:errors.length===0,health,flags:{bind:CONST.PART_BIND.on,lineage:CONST.LINEAGE.gate},fileCount:files.length,records,errors};
+const report={at:new Date().toISOString(),base,tag,mode:'anonymous GET + credential-free empty POST rejected by auth; no production account mutation',ok:errors.length===0,health,flags:{bind:CONST.PART_BIND.on,lineage:CONST.LINEAGE.gate},fileCount:files.length,records,errors};
 await mkdir(resolve(root,'docs/ui/previews'),{recursive:true});
 await writeFile(resolve(root,'docs/ui/previews/release-verification-2026-09-30.json'),JSON.stringify(report,null,2)+'\n');
 console.log(JSON.stringify({ok:report.ok,fileCount:files.length,health,flags:report.flags,errors},null,2));

@@ -1,8 +1,8 @@
 # 협업 계약
 
-## 2026-09-30 사용자 승인 — main 반영·운영 배포 · 진행
+## 2026-09-30 사용자 승인 — main 반영·운영 배포 · 완료
 
-사용자 지시: “이제 main에 반영하고 배포해도 되지 않을까?” 최신 원격 main ab45b4c와 통합본 e7b5756을 대조했으며 main의33개 후속 통합 커밋이 모두 포함되어 있다. 프론트/서버 회귀와 격리 로컬 API를 최종 확인한 뒤 main을 fast-forward하고 깨끗한 통합 checkout에서 npm run deploy한다. 로컬 main의 core-circuit-draft HTML 미커밋 변경·docs/art·proto는 보존한다. DB/수치/기체 그림/기능 스위치·스마트 배치·크론 설정을 유지하고 이관/bindnow.sql을 실행하지 않는다. 운영 읽기 전용 health/API 인증/정적 파일·브라우저 확인과 출시 기록을 남긴다. 운영 계정의 로그인/보상/소비 테스트는 하지 않으며 실제 Galaxy S26 Ultra·iOS/저사양 검수는 대기다.
+사용자 지시: “이제 main에 반영하고 배포해도 되지 않을까?” 원격 main ab45b4c의 최신 변경이 통합본에 포함됨을 확인하고 main을 e79af1f로 fast-forward·푸시했다. 깨끗한 통합 checkout에서 운영 배포 성공(Worker b2cac688-b7d9-46e5-a07a-e90a03027b3b). 회귀36종·격리 로컬 API129회·운영 파일79개 일치, schema24/balance sof8k3·인증/API·PC/모바일 viewport 화면을 확인했다. 로컬 main의 core-circuit-draft HTML 미커밋 변경·docs/art·proto와 원본 UI 브랜치를 보존했다. DB 이관/bindnow.sql 없이 수치/기체 그림/기능 스위치·스마트 배치·크론 유지. 기존 운영 게스트의 화면 탐색만 했으며 새 계정 생성/로그인/보상/소비/전투는 실행하지 않았다. 실제 Galaxy S26 Ultra·iOS/저사양 검수는 대기다. 상세는 docs/ui/release-2026-09-30.md. 아래의 main 미반영/배포 대기 기록은 당시의 역사이며 이번 절이 우선한다. 운영 main은 Claude 주도, 프론트는 GPT 담당을 유지한다.
 
 ## 2026-09-30 P5 성능·입력 검수 — GPT · 로컬 완료 / 실기기 대기
 

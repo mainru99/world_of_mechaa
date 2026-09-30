@@ -1,5 +1,9 @@
 # 진행 상황 — 한 것 / 남은 것
 
+- **2026-09-30 UI 통합 main 반영·운영 배포 완료** — 사용자 승인으로 main ab45b4c → e79af1f fast-forward·푸시, Worker b2cac688-b7d9-46e5-a07a-e90a03027b3b 배포. [운영 게임](https://rowar.hun7539.workers.dev/)에 리빌드 화면·서킷/정제·개발/조각 회수·격납고/프리셋·대전 준비·성능 보완 적용. 회귀36종·격리 HTTP129회·운영 파일79개 일치·PC/모바일 viewport 화면 검수 완료. DB 이관 없이 schema24·balance sof8k3·PART_BIND.on=false·LINEAGE.gate=false 유지. 실제 휴대전화·저사양·장시간 검수는 대기. 원본 UI 브랜치와 로컬 main의 다른 미커밋 자료 보존. [배포/복구 기록](docs/ui/release-2026-09-30.md), [구현/다음 작업](docs/ui/IMPLEMENTATION.md).
+
+**최신 운영/이어받기 기준은 위 배포 기록과 main이다.** 아래의 UI 미연결·API만 있음·미반입·이전 ‘최신 할 일’ 표시는 당시 기록이다. 변경하지 않은 서버 정책은 유지하며 실기기와 출시 정책 등 미완료 항목은 배포 기록을 따른다.
+
 - **2026-09-28 코어 서킷 외관 시안 배포 완료** — 코드 `7dcd759`, Worker `f0156f84`. [공개 미리보기](https://rowar.hun7539.workers.dev/core-circuit-preview.html). 배경·좌표·규칙 유지, 보석 노드·금속 링·금색 연결선 적용. 시안/배경 원본 해시 일치, schema 23·balance `1efvw2l` 유지. **게임 UI 연결·계정 저장은 아직 별도**. 상세: `docs/art/core-circuit-tree-2026-09-28.md`.
 
 이어서 작업할 때 여기부터 읽는다. 설치·셋업 절차는 [`server/SETUP_KO.md`](server/SETUP_KO.md),

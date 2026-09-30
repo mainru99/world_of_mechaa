@@ -29,7 +29,7 @@ const ctx=vm.createContext({
   $:()=>({value:'build',focus(){},scrollIntoView(){}}),
   matchMedia:()=>({matches:false}),Date,
 });
-const names=['hangarRobot','inspectRobot','cycleHangar','setHangarTab','equip','unequip','skillUp','service','levelUp','savePreset','applyPreset'];
+const names=['hangarRobot','inspectRobot','cycleHangar','setHangarTab','skillUp','service','levelUp'];
 vm.runInContext(names.map(fn).join('\n'),ctx);
 ctx.inspectRobot(1);
 assert.equal(ctx.hangarUid,'reserve');assert.equal(ctx.S.sel,0);assert.deepEqual(ctx.S.squad,['lead']);
@@ -37,16 +37,8 @@ ctx.cycleHangar(1);assert.equal(ctx.hangarUid,'lead');ctx.inspectRobot(1);
 ctx.setHangarTab('tune');assert.equal(ctx.hangarTab,'tune');
 assert.equal(ctx.S.sel,0);
 
-reply=null;
-await ctx.equip('WEAPON','new');assert.equal(robots[1].slots.WEAPON,null,'rejected API cannot equip');
-reply={};await ctx.equip('WEAPON','new');assert.equal(robots[1].slots.WEAPON,'new');
-await ctx.unequip('WEAPON');assert.equal(robots[1].slots.WEAPON,null);
 reply={skillLv:2,credits:850,scrap:790,success:true};await ctx.skillUp();assert.equal(robots[1].skillLv,2);
 reply={credits:820};await ctx.service();assert.equal(robots[1].fat,0);assert.equal(robots[0].fat,9);
-reply={presets:[{n:'saved'}]};await ctx.savePreset(0);
-robots[0].slots.WEAPON='shared';
-reply={applied:{WEAPON:'shared'},emptied:['FRAME'],missing:[]};await ctx.applyPreset(0);
-assert.equal(robots[0].slots.WEAPON,null);assert.equal(robots[1].slots.WEAPON,'shared');
 let finish;
 pending=new Promise(resolve=>{finish=resolve;});
 const upgrading=ctx.levelUp();ctx.inspectRobot(0);
@@ -61,4 +53,8 @@ const render=fn('renderHangar');
 assert.match(render,/sprite\(rb.type,false,\{idle:true\}\)/);
 assert.match(render,/ROWAR.inspectRobot/);
 assert.doesNotMatch(render,/onclick="ROWAR.selectRobot/);
-console.log('Hangar UI passed: inspection/cycling/tabs preserve vanguard and squad; 8 API calls target inspected UID; rejected equip; delayed level-up target; presets transfer; stale selection fallback; idle hero contract.');
+console.log('Hangar UI passed: inspection/cycling/tabs preserve vanguard and squad; skill/service/level-up target inspected UID; delayed level-up target; stale selection fallback; idle hero contract.');
+
+// Equipment and presets moved into the server-aware controller; retain their
+// captured-UID, rejection and transfer coverage against the actual server.
+await import('./loadout-ui-check.mjs');

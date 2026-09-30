@@ -1,0 +1,34 @@
+// Disposable guest on the isolated loopback Worker only. No live credentials.
+import assert from 'node:assert/strict';
+import {createLoadoutManager} from '../js/ui/loadout-manager.js';
+import {rollPart} from '../js/gacha.js';
+import {CONST} from '../data/balance.js';
+const base=new URL(process.argv[2]||'http://127.0.0.1:8841');assert.equal(base.protocol,'http:');assert.equal(base.hostname,'127.0.0.1');assert.ok(base.port&&base.pathname==='/');
+const store=new Map();globalThis.localStorage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,String(v)),removeItem:k=>store.delete(k)};
+const fetch0=globalThis.fetch;let http=0;globalThis.fetch=(p,a)=>{http++;return fetch0(new URL(p,base),a);};
+const net=await import('../js/net.js'),good=r=>{assert.ok(r&&!r.error&&r.ok!==false,r?.error||'missing response');return r;};
+good(await net.connect({create:true}));good(await net.pull());
+const robots=['azure','grit'].map((type,i)=>({uid:`loadout-http-${type}`,type,level:20,exp:0,fat:0,fatAt:Date.now(),skillLv:0,slots:{WEAPON:null,FRAME:null,BOOSTER:null,CORE:null}}));
+const parts=[rollPart(20,()=>.5,'http-W','R','WEAPON'),rollPart(20,()=>.5,'http-F','R','FRAME')];
+good(await net.push({v:2,robots,parts,credits:10000,cores:20,scrap:5000,sel:0,squad:[robots[0].uid],stat:{wins:0,losses:0,pulls:0}}));
+const before=good(await net.growthState());assert.equal(before.bind.on,false);let state=before.state;state.presets=before.presets;
+let html='',rb=state.robots[1],rcores=before.rcores;
+const doc={querySelector:s=>s==='#modal[open] .lu-app'&&html.includes('lu-app')?{}:null,getElementById:()=>null};
+const manager=createLoadoutManager({document:doc,state:()=>state,robot:()=>rb,net,openModal:h=>html=h,commit(){},toast(){},balance:()=>rcores,setBalance:v=>rcores=v,onRemote:r=>rcores=r.rcores,partMarkup:p=>p.name});
+const A=manager.actions;
+await A.openSlot('WEAPON');await A.equip('WEAPON','http-W');assert.equal(state.robots[1].slots.WEAPON,'http-W');assert.equal(manager.bound('http-W'),null);
+await A.openSlot('FRAME');await A.equip('FRAME','http-F');await A.openPresets();A.loadoutName(0,'중장갑 전선');await A.savePreset(0);
+assert.equal(state.presets[0].n,'중장갑 전선');const known=net.syncedRev();
+rb=state.robots[0];await A.openPresets();await A.applyPreset(0);
+assert.equal(state.robots[0].slots.WEAPON,'http-W');assert.equal(state.robots[0].slots.FRAME,'http-F');assert.equal(state.robots[1].slots.WEAPON,null);assert.equal(state.robots[1].slots.FRAME,null);assert.ok(net.syncedRev()>known);
+await A.openSlot('FRAME');await A.unequip('FRAME');assert.equal(state.robots[0].slots.FRAME,null);
+await A.openPresets();A.deletePreset(0);assert.ok(html.includes('삭제할까요'));await A.confirmPreset();assert.equal(manager.list(rb.uid)[0],null);
+const after=good(await net.growthState());assert.equal(after.presets[0],null);assert.equal(after.state.robots[0].slots.WEAPON,'http-W');assert.equal(after.state.robots[0].slots.FRAME,null);
+assert.deepEqual([after.state.credits,after.state.cores,after.state.scrap],[before.state.credits,before.state.cores,before.state.scrap]);assert.deepEqual(after.bind.parts,{});
+assert.equal((await net.hangar('unbind',{partUid:'http-W'})).error,'bind off');assert.equal((await net.hangar('equip',{robotUid:rb.uid,slot:'WEAPON',partUid:'unknown'})).error,'part not found');
+assert.equal((await net.hangar('equip',{robotUid:'unknown',slot:'WEAPON',partUid:'http-W'})).error,'robot not found');
+// A response from a signed-out account must not update transport revision.
+const d={};d.p=new Promise(r=>d.resolve=r);globalThis.fetch=()=>d.p;const rev=net.syncedRev(),pending=net.hangar('presetDelete',{i:0});net.state.accountId='changed';
+d.resolve(new Response(JSON.stringify({ok:true,rev:rev+999}),{status:200,headers:{'Content-Type':'application/json'}}));assert.equal((await pending).error,'account changed');assert.equal(net.syncedRev(),rev);
+assert.equal(CONST.PART_BIND.on,false);assert.equal(CONST.LINEAGE.gate,false);
+console.log(`Loadout HTTP passed (${http} requests): UI equip/unequip, account preset save/apply/transfer/delete/reload, UID errors, bind off, unchanged currencies, captured account revision; SQLite enabled mode is checked separately.`);

@@ -10,7 +10,8 @@ import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY,
          SLOTS, SLOT_STATS, PART_NAMES, RARITY, STAT_ROLL, CONST,
          AFFIXES, TERRITORY, TERRAIN, PART_BASES } from '../data/balance.js';
 import { shardNeed, shardKey, bagView } from './shop.js';
-import { parsePresets, presetCheck, PRESET_MAX, NAME_MAX } from './preset.js';
+import { parsePresets } from './preset.js';
+import { createLoadoutManager } from './ui/loadout-manager.js';
 import { parseCodex, codexView, codexRewards, codexTitles, codexActivatable, codexNext, actCost,
          titleName, GROUPS, GROUP_KO } from './codex.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
@@ -235,6 +236,7 @@ const ERR_KO = { 'not enough credits':'크레딧이 부족합니다', 'not enoug
   'squad blocked':'편성 제한에 걸려 데려갈 기체가 없습니다',
   'no territory':'점령한 칸이 없습니다', 'nothing to claim':'아직 쌓인 수입이 없습니다',
   'node has no defense':'칸 정보를 읽지 못했습니다',
+  'part bound':'다른 기체 전용 파츠입니다. 귀속을 먼저 풀어 주세요.', 'bound mismatch':'서로 다른 기체 전용 파츠는 함께 합성할 수 없습니다.',
   'no robot':'출격할 수 있는 기체가 없습니다' };
 
 async function srvHangar(action, args){
@@ -251,79 +253,10 @@ function commitLocal(){
   renderAll();
 }
 
-async function equip(slot,partUid){
-  const rb=hangarRobot();
-  const r=await srvHangar('equip',{robotUid:rb.uid, slot, partUid}); if(!r) return;
-  for(const x of S.robots) for(const sl of SLOTS) if(x.slots[sl]===partUid) x.slots[sl]=null;
-  rb.slots[slot]=partUid; commitLocal(); closeModal();
-}
-async function unequip(slot){
-  const rb=hangarRobot();
-  const r=await srvHangar('unequip',{robotUid:rb.uid, slot}); if(!r) return;
-  rb.slots[slot]=null; commitLocal(); closeModal();
-}
-/* ── 빌드 프리셋 (5순위 I) ──────────────────────────────
-   파츠 조합을 다섯 칸에 저장해 두고 한 번에 바꿔 끼운다. 계정에 붙는다(파츠가 계정 공용이라서).
-   저장은 **지금 이 기체가 끼고 있는 것**을 서버가 읽어 적는다. 적용은 장착과 같은 규칙 —
-   다른 기체가 끼고 있으면 떼어 오고, 분해해서 없는 파츠는 건너뛴다. */
-const presetsNow = () => parsePresets(S.presets);
+// Server-aware presets stay within the inspected robot's equipment context.
 function presetBar(){
-  const list = presetsNow();
-  if(!list.some(Boolean)) return '';
-  return `<div class="pset-bar">${list.map((x,i)=> x
-    ? `<button class="pset-chip" onclick="ROWAR.applyPreset(${i})" title="이 기체에 입히기">${esc(x.n)}</button>` : '').join('')}</div>`;
-}
-function presetLines(x){
-  const chk = presetCheck(x, S.parts);
-  return SLOTS.map(sl=>{
-    const u = x.s[sl], pt = u && findPart(u, S.parts);
-    const v = !u ? '<i class="none">비움</i>'
-      : chk.missing.includes(sl) ? '<i class="gone">분해됨 — 건너뜀</i>'
-      : `${esc(pt.name)} ${rarTag(pt)}`;
-    return `<div class="pset-ln"><b>${SLOT_KO[sl]}</b> ${v}</div>`;
-  }).join('');
-}
-function openPresets(){
-  const rb = hangarRobot(), list = presetsNow();
-  const T = ROBOT_TYPES[rb.type];
-  const rows = list.map((x,i)=>`<div class="pset-row">
-      <div class="pset-h"><input class="ainput pset-name" aria-label="프리셋 ${i+1} 이름" id="psn${i}" maxlength="${NAME_MAX}" value="${esc(x ? x.n : `프리셋 ${i+1}`)}">
-        ${x ? '' : '<span class="hint">빈 칸</span>'}</div>
-      ${x ? `<div class="pset-lns">${presetLines(x)}</div>` : ''}
-      <div class="row-btns">
-        ${x ? `<button class="btn gold" onclick="ROWAR.applyPreset(${i})">${esc(T.name)}에 입히기</button>` : ''}
-        <button class="btn" onclick="ROWAR.savePreset(${i})">${x ? '지금 장착으로 덮어쓰기' : '지금 장착 저장'}</button>
-        ${x ? `<button class="btn ghost" onclick="ROWAR.deletePreset(${i})">삭제</button>` : ''}
-      </div></div>`).join('');
-  openModal(`<div class="mhead">빌드 프리셋 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
-    <div class="hint" style="margin-bottom:10px">지금 <b>${esc(T.name)}</b>이 끼고 있는 파츠를 저장하고, 어느 기체에든 한 번에 입힙니다.
-      다른 기체가 끼고 있던 파츠는 떼어 옵니다.</div>
-    <div class="pset-list">${rows}</div>`);
-}
-async function savePreset(i){
-  const rb = hangarRobot();
-  const name = ($('#psn'+i) || {}).value || '';
-  const r = await srvHangar('presetSave', { i, robotUid: rb.uid, name }); if(!r) return;
-  S.presets = r.presets; commitLocal(); openPresets();
-  toast(`「${r.presets[i].n}」 저장`);
-}
-async function deletePreset(i){
-  const r = await srvHangar('presetDelete', { i }); if(!r) return;
-  S.presets = r.presets; commitLocal(); openPresets();
-  toast('프리셋을 지웠습니다');
-}
-async function applyPreset(i){
-  const rb = hangarRobot(), x = presetsNow()[i]; if(!x) return;
-  const r = await srvHangar('presetApply', { i, robotUid: rb.uid }); if(!r) return;
-  /* 서버가 끼운 그대로 받아 적는다 — 다른 기체에서 떼어 온 것까지 */
-  for(const [sl,u] of Object.entries(r.applied || {})){
-    for(const o of S.robots) for(const s2 of SLOTS) if(o.slots[s2]===u) o.slots[s2]=null;
-    rb.slots[sl] = u;
-  }
-  for(const sl of (r.emptied || [])) rb.slots[sl] = null;
-  closeModal(); commitLocal();
-  const miss = (r.missing || []).map(sl=>SLOT_KO[sl]);
-  toast(`「${x.n}」 입힘` + (miss.length ? ` · ${miss.join('·')} 은(는) 분해되어 건너뜀` : ''));
+ const rb=hangarRobot(),list=loadout.list(rb.uid);
+ return list.some(Boolean)?'<p class="hint">'+(loadout.mode()?'이 기체 전용':'계정 공용')+' 빌드 '+list.filter(Boolean).length+' / 5</p><div class="pset-bar">'+list.map(x=>x?'<span class="pset-chip">'+esc(x.n)+'</span>':'').join('')+'</div>':'';
 }
 
 async function scrapPart(u){
@@ -843,7 +776,7 @@ function renderHangar(){
     <span class="hv-unit-art">${sprite(r.type,false)}</span><span class="hv-unit-copy"><small>Lv.${r.level} <em>${status(r)}</em></small><b>${esc(ROBOT_TYPES[r.type].name)}</b><span>전투력 ${fmt(power(r))}</span></span><strong class="rr-${rarOf(r.type)}">${rarOf(r.type)}</strong></button>`).join('');
   const thumbstrip=S.robots.map((r,i)=>`<button class="hv-thumb ${r.uid===rb.uid?'selected':''}" onclick="ROWAR.inspectRobot(${i})" aria-label="${esc(ROBOT_TYPES[r.type].name)} 살펴보기" aria-pressed="${r.uid===rb.uid}">${sprite(r.type,false)}<small>${status(r)}</small></button>`).join('');
   const slotsHtml=SLOTS.map(slot=>{const p=findPart(rb.slots[slot],S.parts);return `<button class="hv-slot ${p?'filled':''}" onclick="ROWAR.openSlot('${slot}')" aria-label="${SLOT_KO[slot]} ${p?esc(p.name):'빈 슬롯'} 장비 변경">
-    <span class="hv-slot-icon">${p?partIco(p,'sm'):slotIco(slot,'sm')}</span><span class="hv-slot-kind">${SLOT_KO[slot]}</span><span class="hv-slot-copy"><b>${p?esc(p.name):'장착할 파츠 선택'}</b><small>${p?`${p.rarity} · 강화 +${p.enh||0}`:'비어 있음'}</small></span>${icon('chevron')}</button>`;}).join('');
+    <span class="hv-slot-icon">${p?partIco(p,'sm'):slotIco(slot,'sm')}</span><span class="hv-slot-kind">${SLOT_KO[slot]}</span><span class="hv-slot-copy"><b>${p?esc(p.name):'장착할 파츠 선택'}</b><small>${p?`${p.rarity} · 강화 +${p.enh||0}`:'비어 있음'}</small>${p?loadout.badge(p.uid):''}</span>${icon('chevron')}</button>`;}).join('');
   const invAll = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
   /* 다 그리지 않는다. 칩 폭을 어떻게 잡아도 300개는 1만 픽셀이 넘고(실측), 그만한 DOM 을
      매 렌더마다 새로 만든다. 거르개·정렬이 있으니 찾는 것은 앞쪽에 오게 만들 수 있다. */
@@ -853,7 +786,7 @@ function renderHangar(){
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
   const inv = invParts.length? invParts.map(p=>`<div class="pchip ic${enhClass(p)}${isFresh(p.uid)?' fresh':''}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화 — 스크랩 ${enhCost(p.enh||0)} · 성공 ${Math.round(enhRate(p.enh||0)*100)}%">
       ${partIco(p)}<div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
-      <div class="pfoot"><span class="ps" style="color:var(--gold)">강화 ${fmt(enhCost(p.enh||0))}${(p.enh|0)>=enhMax()?'':` <span style="color:var(--dim)">${Math.round(enhRate(p.enh||0)*100)}%</span>`}</span>
+      ${loadout.badge(p.uid)}<div class="pfoot"><span class="ps" style="color:var(--gold)">강화 ${fmt(enhCost(p.enh||0))}${(p.enh|0)>=enhMax()?'':` <span style="color:var(--dim)">${Math.round(enhRate(p.enh||0)*100)}%</span>`}</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p.rarity,p.enh))}</button></div></div>`).join('')
     : `<div class="empty">${invAll.length?'거른 조건에 맞는 파츠가 없습니다.':'보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.'}</div>`;
@@ -922,13 +855,16 @@ function openFuse(){
 function fuseToggle(u){
   const i = _fuseSel.indexOf(u);
   if(i >= 0) _fuseSel.splice(i, 1);
-  else if(_fuseSel.length < (CONST.FUSE?.need || 3)) _fuseSel.push(u);
+  else if(_fuseSel.length < (CONST.FUSE?.need || 3)){
+    if(!loadout.fuse([..._fuseSel,u]).ok){toast('서로 다른 기체 전용 파츠는 함께 합성할 수 없습니다.');return;}
+    _fuseSel.push(u);
+  }
   /* 모달을 통째로 다시 그리지 않는다 — 아래 syncFuse 주석 참고 */
   if($('#fusegrid')) syncFuse(); else drawFuse();
 }
 const fuseSel = () => _fuseSel.map(u => findPart(u, S.parts)).filter(Boolean);
 /* 첫 장이 칸과 등급을 정한다. 서버도 같은 규칙(fuseCheck)을 쓴다. */
-const fuseFits = (p, lock) => !lock || (p.slot === lock.slot && p.rarity === lock.rarity);
+const fuseFits = (p, lock) => (!lock || (p.slot === lock.slot && p.rarity === lock.rarity)) && loadout.fuse([..._fuseSel,p.uid]).ok;
 
 /* 하나를 고르면 **같은 칸·같은 등급만 남기고 나머지가 차례로 빠져나간다.**
    예전에는 흐리게만 두었는데, 파츠가 수십 개면 흐린 것들 사이에서 고를 것을 다시
@@ -976,7 +912,8 @@ function fuseInfo(){
   const sel = fuseSel(), lock = sel[0] || null;
   let fore = `<div class="hint">같은 칸·같은 등급으로 <b>${need}개</b>를 고르세요.</div>`;
   let btn  = `<button class="btn big" disabled>${need}개를 고르세요 (${sel.length}/${need})</button>`;
-  const bad = sel.length === need ? fuseCheck(sel) : null;
+  const binding=loadout.fuse(sel.map(p=>p.uid));
+  const bad = !binding.ok?'서로 다른 기체 전용 파츠는 함께 합성할 수 없습니다.':sel.length === need ? fuseCheck(sel) : null;
   if(sel.length === need && !bad){
     const rar = sel[0].rarity, cost = fuseCost(rar), up = fuseUpRate(rar);
     const bases = sel.map(p => p.base).filter(Boolean);
@@ -990,6 +927,7 @@ function fuseInfo(){
       <div><span>등급</span><b>${rar}${up>0
         ? ` → <span style="color:var(--gold)">${nextRarity(rar)} ${Math.round(up*100)}%</span>`
         : ' (더 오를 등급 없음)'}</b></div>
+      ${binding.bound?`<div><span>귀속 상속</span><b>${esc(loadout.boundName(binding.bound))} 전용</b></div>`:''}
       <div><span>인챈트</span><b>새로 굴립니다</b></div>
       <div><span>비용</span><b class="${poor?'bad':''}">스크랩 ${fmt(cost)}</b></div>
     </div>
@@ -1022,7 +960,7 @@ function drawFuse(){
     `<button type="button" aria-pressed="${_fuseSel.includes(p.uid)}" class="pchip ic fusec${_fuseSel.includes(p.uid)?' on':''}${enhClass(p)}${isFresh(p.uid)?' fresh':''}"
       data-uid="${p.uid}" style="--i:${i}" onclick="ROWAR.fuseToggle('${p.uid}')">
       ${partIco(p)}<div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}</div>
-      <div class="ps">${SLOT_KO[p.slot]}${p.enh?` · +${p.enh}`:''}</div></button>`).join('')
+      <div class="ps">${SLOT_KO[p.slot]}${p.enh?` · +${p.enh}`:''}</div>${loadout.badge(p.uid)}</button>`).join('')
     : `<div class="empty">합성할 수 있는 파츠가 없습니다. 끼고 있는 파츠는 재료가 될 수 없습니다.</div>`;
 
   openModal(`<div class="mhead">파츠 합성 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
@@ -1032,25 +970,31 @@ function drawFuse(){
   if(_fuseSel.length) syncFuse();     // 다시 열었을 때 고른 것이 남아 있으면 바로 걸러 준다
 }
 async function doFuse(){
+  const owner=S,account=net.state.accountId;
   const need = CONST.FUSE?.need || 3;
   const sel = _fuseSel.map(u => findPart(u, S.parts)).filter(Boolean);
-  if(sel.length !== need || fuseCheck(sel)) return;
+  if(sel.length !== need || fuseCheck(sel)||!loadout.fuse(sel.map(p=>p.uid)).ok) return;
   const r = await srvHangar('fuse', { uids: sel.map(p => p.uid) });
-  if(!r) return;
+  if(!r||S!==owner||account!==net.state.accountId) return;
   /* 서버가 확정한 것만 받아 적는다. 무엇이 나올지 클라가 굴리지 않는다. */
+  loadout.inherit(r,sel.map(p=>p.uid));
   const gone = new Set(r.used || sel.map(p => p.uid));
   S.parts = S.parts.filter(p => !gone.has(p.uid));
   if(r.part) addPart(r.part);
   S.scrap = r.scrap;
   _fuseSel = [];
   commitLocal(); renderWallet(); renderHangar();
-  fuseResult(r, sel);
+  const bindingChecked=!loadout.mode()||await loadout.refreshBinding();
+  if(S!==owner||account!==net.state.accountId)return;
+  commitLocal();
+  if($('#modal[open] #fusegrid'))fuseResult(r,sel,bindingChecked);
+  else toast(r.part?`${r.part.name} 합성 완료 · 보관함에서 확인하세요.`:'합성 완료');
 }
 /* 합성 결과 — **무엇이 나왔는지 보여 준다.**
    예전에는 토스트 한 줄이었다. 되돌릴 수 없는 작업의 결과가 3초 뒤에 사라지는 글자
    한 줄이면, 태운 재료가 무엇이 됐는지(인챈트·계열·구간) 영영 알 수 없다.
    등급 색으로 빛을 내는 것은 뽑기 캡슐과 같은 규칙이다 — 결과의 무게를 색으로 먼저 안다. */
-function fuseResult(r, mats){
+function fuseResult(r, mats,bindingChecked=true){
   const p = r.part;
   if(!p){ closeModal(); toast('합성했습니다'); return; }
   const head = r.up ? '등급 상승!' : (r.guaranteed ? '베이스 확정' : '합성 완료');
@@ -1059,7 +1003,7 @@ function fuseResult(r, mats){
       <div class="fresb"></div>
       <div class="pchip ic fresp${enhClass(p)}">
         ${partIco(p)}<div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div>
-        <div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
+        <div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>${loadout.badge(p.uid)}
       </div>
     </div>
     <div class="fpv">
@@ -1068,6 +1012,7 @@ function fuseResult(r, mats){
       <div><span>남은 스크랩</span><b>${fmt(S.scrap)}</b></div>
     </div>
     <div class="hint">인벤토리에서 <span class="tag newt">NEW</span> 로 표시됩니다.</div>
+    ${bindingChecked?'':'<p class="hint">합성 결과는 지급되었습니다. 귀속 정보는 장비 선택에서 새로 확인해 주세요.</p>'}
     <div class="row-btns">
       <button class="btn" onclick="ROWAR.closeModal()">확인</button>
       <button class="btn big gold" onclick="ROWAR.openFuse()">계속 합성</button>
@@ -1116,20 +1061,6 @@ function openRobot(i){
         onclick="ROWAR.closeModal();ROWAR.toggleSquad('${r.uid}')">${inSq?'편성 해제':'편성하기'}</button>
     </div>
     ${inSq?'':`<div class="hint" style="margin-top:8px">편성한 <b>${SQUAD_MAX}기</b>만 출전합니다.</div>`}`);
-}
-
-function openSlot(slot){
-  const rb=hangarRobot(); const equippedHere=rb.slots[slot];
-  const list=S.parts.filter(p=>p.slot===slot);
-  const rows = list.length? list.map(p=>{ const equipped = S.robots.some(r=>Object.values(r.slots).includes(p.uid));
-    const onMe = equippedHere===p.uid;
-    return `<div class="pchip ic${enhClass(p)}${isFresh(p.uid)?' fresh':''}" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      ${partIco(p)}<div><div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${partStatLine(p)}</div>
-      ${equipped&&!onMe?`<div class="ps" style="color:var(--bad)">다른 기체 장착중</div>`:''}</div>
-      <button class="btn ${onMe?'danger':''}" style="padding:8px 12px;font-size:13px"
-        onclick="ROWAR.${onMe?`unequip('${slot}')`:`equip('${slot}','${p.uid}')`}">${onMe?'해제':'장착'}</button>
-    </div>`; }).join('') : `<div class="empty">이 슬롯(${SLOT_KO[slot]})에 맞는 파츠가 없습니다.</div>`;
-  openModal(`<div class="mhead">${SLOT_KO[slot]} 슬롯 · 파츠 선택 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>${rows}`);
 }
 
 /* ------------------------------- 뽑기 화면 ------------------------------- */
@@ -3817,7 +3748,7 @@ function guard(fn, coolMs = 0){
     /* 하나가 도는 동안 들어온 것은 버린다. 끝난 뒤에도 coolMs 동안은 다시 받지 않는다 —
        동작이 짧게 끝나는 조작(상대 찾기 같은)은 그 사이에 남은 클릭이 도착할 수 있다. */
     const key = fn.name || String(_cool.size);
-    if(_busy || (typeof shards!=='undefined'&&shards.busy()) || (typeof growth!=='undefined'&&growth.busy()) || Date.now() < (_cool.get(key) || 0)) return;
+    if(_busy || (typeof loadout!=='undefined'&&loadout.busy()) || (typeof shards!=='undefined'&&shards.busy()) || (typeof growth!=='undefined'&&growth.busy()) || Date.now() < (_cool.get(key) || 0)) return;
     _busy = true;
     document.body.classList.add('busy');
     /* 예외를 반드시 드러낸다. 예전에는 그냥 던졌는데, onclick 에서 부르는 async 함수라
@@ -3836,8 +3767,8 @@ function guard(fn, coolMs = 0){
 /* 속도 토글·화면 이동·모달 닫기는 문지기를 지나지 않는다 —
    전투가 재생되는 동안에도 눌러야 하는 것들이다. */
 
-const development=createCircuitManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,onRemote:r=>growth.adopt(r),blocked:()=>!!_pullPending||!!_shopPending||_busy||growth.busy()||shards.busy()});
-const growth=createDevelopmentManager({state:()=>S,net,openModal,commit:commitLocal,toast,mobile:()=>matchMedia('(max-width:700px)').matches,onRemote:r=>{development.adopt(r);development.wallet();},blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||shards.busy()});
+const development=createCircuitManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,onRemote:r=>growth.adopt(r),blocked:()=>!!_pullPending||!!_shopPending||_busy||growth.busy()||shards.busy()||loadout.busy()});
+const growth=createDevelopmentManager({state:()=>S,net,openModal,commit:commitLocal,toast,mobile:()=>matchMedia('(max-width:700px)').matches,onRemote:r=>{development.adopt(r);loadout.adopt(r);development.wallet();},blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||shards.busy()||loadout.busy()});
 let _salvageReturnTo='hunt';
 async function replaySalvage(r,returnTo,same,checked){
  if(!same())return;
@@ -3852,11 +3783,13 @@ async function replaySalvage(r,returnTo,same,checked){
  _fight=null;shield();toBattle(null,returnTo);
  $('#sc-battle').innerHTML=salvageResultView(r,returnTo,checked);
 }
-const shards=createShardManager({state:()=>S,robot:selRobot,net,openModal,closeModal,commit:commitLocal,toast,goal:()=>growth.info(),onRemote:r=>{growth.adopt(r);development.adopt(r);development.wallet();},paint:()=>growth.paintCards(),applyShop:shopApply,replay:replaySalvage,returnTo:()=>cur==='battle'?_salvageReturnTo:cur==='gacha'?'gacha':'hunt',blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||growth.busy()});
+const shards=createShardManager({state:()=>S,robot:selRobot,net,openModal,closeModal,commit:commitLocal,toast,goal:()=>growth.info(),onRemote:r=>{growth.adopt(r);development.adopt(r);loadout.adopt(r);development.wallet();},paint:()=>growth.paintCards(),applyShop:shopApply,replay:replaySalvage,returnTo:()=>cur==='battle'?_salvageReturnTo:cur==='gacha'?'gacha':'hunt',blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||growth.busy()||loadout.busy()});
+const loadout=createLoadoutManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,balance:development.balance,setBalance:v=>{development.setBalance(v);development.wallet();},onRemote:r=>{growth.adopt(r);development.adopt(r);development.wallet();},partMarkup:p=>'<div class="pchip ic">'+partIco(p)+'<div class="pn">'+esc(p.name)+' '+rarTag(p)+setTag(p)+affixTags(p)+'</div><div class="ps">'+partStatLine(p,true)+'</div></div>',blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||growth.busy()||shards.busy()});
 window.ROWAR = {
   ...development.actions,
   ...growth.actions,
   ...shards.actions,
+  ...loadout.actions,
   enterTerritory, enterFront, prepareTerritory, returnTerritory, uiMore, uiGo,
   inspectRobot, cycleHangar, setHangarTab, setHangarSort, openHangarInventory,
   go,
@@ -3871,9 +3804,8 @@ window.ROWAR = {
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} net.cancelSync(); }),
   toggleSquad: guard(toggleSquad),
   levelUp: guard(levelUp), service: guard(service), frontFix: guard(frontFix), enhance: guard(enhancePart), skillUp: guard(skillUp),
-  equip: guard(equip), unequip: guard(unequip), doScrap: guard(doScrap),
-  openPresets, savePreset: guard(savePreset, 600), deletePreset: guard(deletePreset, 600), applyPreset: guard(applyPreset, 600),
-  openSlot, openRobot, closeModal, setGacha, scrapPart, toggleSpeed, skipReplay, pickExped, openNode, guide,
+  doScrap: guard(doScrap),
+  openRobot, closeModal, setGacha, scrapPart, toggleSpeed, skipReplay, pickExped, openNode, guide,
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
   setFrontTab, setFrontCh, restartCh, restartChGo, openCell, runCell: guard(runCell, 1000),
   openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
@@ -3945,6 +3877,7 @@ async function syncOnConnectInner(){
     S.presets = parsePresets(remote.presets);
     if(typeof development!=='undefined')development.adopt(remote);
     if(typeof growth!=='undefined')growth.adopt(remote);
+    if(typeof loadout!=='undefined')loadout.adopt(remote);
     save();
     net.cancelSync();                        // 방금 받은 걸 도로 올릴 필요는 없다
     renderAll();
@@ -3971,7 +3904,7 @@ async function syncOnConnectInner(){
 }
 
 /* 안내 내용과 수치는 js/ui/common.js에서 현행 공유 규칙을 읽는다. */
-function guide(topic='start'){openModal(guideView(topic));}
+function guide(topic='start'){openModal(guideView(topic,loadout.binding()));}
 
 /* 계정 화면 — 게스트면 승격/로그인, 정식이면 로그아웃 */
 function accountScreen(){
@@ -4078,6 +4011,7 @@ async function afterLogin(r){
   S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync();
   if(typeof development!=='undefined')development.adopt(remote);
   if(typeof growth!=='undefined')growth.adopt(remote);
+    if(typeof loadout!=='undefined')loadout.adopt(remote);
   renderAcct(); renderGate(); renderAll();
   frontAfterState();                             // 그 계정의 진행으로 전선을 다시 정한다(2026-09-24)
   toast(r.loginId+' 으로 로그인했습니다');

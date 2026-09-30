@@ -318,12 +318,7 @@ export async function codex(action, args = {}) {
   return { ...(r.data || {}), error: (r.data && r.data.error) || r.error || 'codex failed', status: r.status };
 }
 
-export async function hangar(action, args = {}) {
-  if (!state.online) return null;
-  const r = await call('/api/hangar', { method: 'POST', body: { action, ...args } });
-  if (r.ok && r.data && r.data.ok) { setSyncedRev(r.data.rev); return r.data; }
-  return { error: (r.data && r.data.error) || r.error || 'hangar failed' };
-}
+export const hangar=(action,args={})=>developmentRequest('/api/hangar',{action,...args});
 
 /* ── 정식 계정 ─────────────────────────────────────────────
  * 승격은 지금 쓰던 계정에 아이디·비밀번호를 붙이는 것이라 진행상황이 그대로 이어진다.

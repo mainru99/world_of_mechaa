@@ -1,6 +1,7 @@
 import {parsePresets} from '../preset.js';
 import {bindingState,boundRobot,fuseBinding,robotName} from './loadout-model.js';
 import {bindingBadge,loadoutView} from './loadout-view.js';
+import {partWindow} from './part-window.js';
 const KO={WEAPON:'무장',FRAME:'프레임',BOOSTER:'부스터',CORE:'코어'};
 const errors={'offline':'서버 연결이 필요합니다.','part bound':'다른 기체 전용 파츠입니다. 귀속을 먼저 풀어 주세요.','not enough rcores':'정제 코어가 부족합니다.','not bound':'이미 귀속이 풀린 파츠입니다.','bind off':'현재는 귀속을 사용하지 않습니다.','robot not found':'기체 기록을 찾을 수 없습니다.','part not found':'파츠 기록을 찾을 수 없습니다.'};
 export function createLoadoutManager(ctx){
@@ -23,6 +24,7 @@ export function createLoadoutManager(ctx){
  function draw(notice=''){
   const t=token();if(!visible(t))return;
   const robot=t.owner.robots.find(r=>r.uid===session.uid);if(!robot)return;
+  if(session.mode==='slot')session.page=partWindow(t.owner.parts.filter(p=>p.slot===session.slot),session.query,session.page).page;
   ctx.openModal(loadoutView({...session,state:t.owner,bind:current(),robot,list:list(robot.uid),pending:busy(),online:ctx.net.state.online,notice,rcores:ctx.balance(),partMarkup:ctx.partMarkup}));
  }
  async function read(t){
@@ -45,7 +47,7 @@ export function createLoadoutManager(ctx){
  async function open(mode,slot){
   if(blocked())return;
   const robot=ctx.robot();if(!robot)return;
-  session={owner:ctx.state(),account:ctx.net.state.accountId,uid:robot.uid,mode,slot,known:false,names:{},confirm:null};
+  session={owner:ctx.state(),account:ctx.net.state.accountId,uid:robot.uid,mode,slot,query:'',page:0,known:false,names:{},confirm:null};
   // Opening is explicit; subsequent async draws must keep this session visible.
   ctx.openModal(loadoutView({...session,state:ctx.state(),bind:current(),robot,list:list(robot.uid),pending:true,online:ctx.net.state.online,rcores:ctx.balance(),partMarkup:ctx.partMarkup}));
   await refresh();
@@ -112,6 +114,10 @@ export function createLoadoutManager(ctx){
  const actions={
   openPresets:()=>open('presets'),openSlot:s=>Object.hasOwn(KO,s)?open('slot',s):undefined,
   refreshLoadout:refresh,loadoutName:(i,v)=>{if(session&&!busy())session.names[i]=v;},
+  loadoutSearch:v=>{if(!blocked()&&same(session)&&session.mode==='slot'){session.query=String(v).slice(0,80);session.page=0;draw();}},
+  loadoutPage:step=>{if(!blocked()&&same(session)&&session.mode==='slot'&&[1,-1].includes(step)){
+   session.page=partWindow(ctx.state().parts.filter(p=>p.slot===session.slot),session.query,session.page+step).page;draw();
+  }},
   savePreset:i=>requestPreset('presetSave',i),deletePreset:i=>requestPreset('presetDelete',i),applyPreset,
   confirmPreset:()=>{const c=session?.confirm;if(!c||blocked())return;return c.kind==='presetDelete'?remove(c.i):save(c.i,c.name);},
   cancelPreset:()=>{if(session&&!busy()){session.confirm=null;draw();}},

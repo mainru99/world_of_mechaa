@@ -12,6 +12,7 @@ import { ROBOT_TYPES, MONSTER_TYPES, ROBOT_RARITY,
 import { shardNeed, shardKey, bagView } from './shop.js';
 import { parsePresets } from './preset.js';
 import { createLoadoutManager } from './ui/loadout-manager.js';
+import { partWindow, PART_PAGE } from './ui/part-window.js';
 import { parseCodex, codexView, codexRewards, codexTitles, codexActivatable, codexNext, actCost,
          titleName, GROUPS, GROUP_KO } from './codex.js';
 import { RR, RIDX, ROBOT_IDS, COMBAT_TYPES, BY_RARITY, MONSTER_BY_RARITY, rarOf } from './units.js';
@@ -848,19 +849,29 @@ function renderHangar(){
    되돌릴 수 없으므로 마지막 버튼에만 실제 동작을 건다. 고르는 동안에는 아무 일도
    일어나지 않는다. */
 let _fuseSel = [], _fuseHide = 0;
+let _fusePage=0, _fuseQuery='', _fusePaged=false;
 function openFuse(){
   _fuseSel = _fuseSel.filter(u => findPart(u, S.parts));   // 그 사이 사라진 것 정리
+  _fusePage=0;_fuseQuery='';
   drawFuse();
 }
 function fuseToggle(u){
+  const first=_fuseSel[0];
   const i = _fuseSel.indexOf(u);
   if(i >= 0) _fuseSel.splice(i, 1);
   else if(_fuseSel.length < (CONST.FUSE?.need || 3)){
     if(!loadout.fuse([..._fuseSel,u]).ok){toast('서로 다른 기체 전용 파츠는 함께 합성할 수 없습니다.');return;}
     _fuseSel.push(u);
   }
-  /* 모달을 통째로 다시 그리지 않는다 — 아래 syncFuse 주석 참고 */
-  if($('#fusegrid')) syncFuse(); else drawFuse();
+  /* 소량은 기존 필터 연출을 유지하고, 큰 목록은 선택 조건으로 페이지를 다시 잡는다. */
+  if(first!==_fuseSel[0])_fusePage=0;
+  if(_fusePaged)drawFuse();else if($('#fusegrid')) syncFuse(); else drawFuse();
+}
+function fuseSearch(query){
+  _fuseQuery=String(query).slice(0,80);_fusePage=0;drawFuse();
+}
+function fusePage(step){
+  if([1,-1].includes(step)){_fusePage=Math.max(0,_fusePage+step);drawFuse();}
 }
 const fuseSel = () => _fuseSel.map(u => findPart(u, S.parts)).filter(Boolean);
 /* 첫 장이 칸과 등급을 정한다. 서버도 같은 규칙(fuseCheck)을 쓴다. */
@@ -904,6 +915,10 @@ function paintFuse(){
   const f = fuseInfo(), a = $('#fusefore'), b = $('#fusebtn');
   if(a) a.innerHTML = f.fore;
   if(b) b.innerHTML = f.btn;
+  const selected=$('#fuse-selected');if(selected)selected.innerHTML=fuseSelected();
+}
+function fuseSelected(){
+  return fuseSel().map(p=>`<button class="btn" onclick="ROWAR.fuseToggle('${esc(p.uid)}')" aria-label="재료 선택 해제: ${esc(p.name)}">${esc(p.name)} · ${p.rarity} ×</button>`).join('')||'<span>선택한 재료가 없습니다.</span>';
 }
 
 /* 결과 예고 — 확정 베이스인지, 등급이 오를 확률이 얼마인지 */
@@ -953,18 +968,25 @@ function drawFuse(){
   const worn = new Set(S.robots.flatMap(r => Object.values(r.slots)).filter(Boolean));
   const ord = { WEAPON:0, FRAME:1, BOOSTER:2, CORE:3 };
   /* 칸·등급으로 묶어 둔다. 걸러지고 남는 것들이 원래 이웃이라 빠져나간 뒤에도 줄이 흐트러지지 않는다. */
-  const pool = S.parts.filter(p => !worn.has(p.uid)).sort((x,y)=>
+  let pool = S.parts.filter(p => !worn.has(p.uid)).sort((x,y)=>
     (ord[x.slot]-ord[y.slot]) || (RAR_ORDER[y.rarity]-RAR_ORDER[x.rarity]) || ((y.enh|0)-(x.enh|0)));
+  _fusePaged=pool.length>PART_PAGE;
+  const lock=fuseSel()[0];
+  if(_fusePaged&&lock)pool=pool.filter(p=>fuseFits(p,lock));
+  const window=partWindow(pool,_fuseQuery,_fusePage);_fusePage=window.page;
   const f = fuseInfo();
-  const chips = pool.length ? pool.map((p,i)=>
+  const chips = window.rows.length ? window.rows.map((p,i)=>
     `<button type="button" aria-pressed="${_fuseSel.includes(p.uid)}" class="pchip ic fusec${_fuseSel.includes(p.uid)?' on':''}${enhClass(p)}${isFresh(p.uid)?' fresh':''}"
       data-uid="${p.uid}" style="--i:${i}" onclick="ROWAR.fuseToggle('${p.uid}')">
       ${partIco(p)}<div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}</div>
       <div class="ps">${SLOT_KO[p.slot]}${p.enh?` · +${p.enh}`:''}</div>${loadout.badge(p.uid)}</button>`).join('')
-    : `<div class="empty">합성할 수 있는 파츠가 없습니다. 끼고 있는 파츠는 재료가 될 수 없습니다.</div>`;
+    : `<div class="empty">조건에 맞는 합성 재료가 없습니다. 검색을 바꾸거나 선택한 재료를 해제하세요. 끼고 있는 파츠는 재료가 될 수 없습니다.</div>`;
 
   openModal(`<div class="mhead">파츠 합성 <button class="mx" onclick="ROWAR.closeModal()">✕</button></div>
     <div id="fusefore">${f.fore}</div>
+    <form class="lu-search" onsubmit="event.preventDefault();ROWAR.fuseSearch(this.elements.query.value)"><label for="fuse-query">파츠 검색</label><div><input id="fuse-query" name="query" type="search" maxlength="80" value="${esc(_fuseQuery)}" placeholder="이름, 등급, 강화 수치"><button class="btn">검색</button></div></form>
+    <div id="fuse-selected" class="fuse-selected" aria-label="선택한 합성 재료">${fuseSelected()}</div>
+    <nav class="lu-pager" aria-label="합성 재료 페이지"><button id="fuse-prev" class="btn" ${window.page===0?'disabled':''} onclick="ROWAR.fusePage(-1)">이전</button><span>${window.page+1} / ${window.pages} 페이지 · ${fmt(window.total)}개</span><button id="fuse-next" class="btn" ${window.page+1===window.pages?'disabled':''} onclick="ROWAR.fusePage(1)">다음</button></nav>
     <div class="inv finv" id="fusegrid">${chips}</div>
     <div id="fusebtn">${f.btn}</div>`);
   if(_fuseSel.length) syncFuse();     // 다시 열었을 때 고른 것이 남아 있으면 바로 걸러 준다
@@ -3808,7 +3830,7 @@ window.ROWAR = {
   openRobot, closeModal, setGacha, scrapPart, toggleSpeed, skipReplay, pickExped, openNode, guide,
   setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
   setFrontTab, setFrontCh, restartCh, restartChGo, openCell, runCell: guard(runCell, 1000),
-  openFuse, fuseToggle, doFuse: guard(doFuse, 1000),
+  openFuse, fuseToggle, fuseSearch, fusePage, doFuse: guard(doFuse, 1000),
   trialRun: guard(trialRunGo, 1000),
   setTrialTab, raidRun: guard(raidRunGo, 1000), raidPrep,
   jointSwap, jointTac,
@@ -4011,10 +4033,11 @@ async function afterLogin(r){
   S.items=remote.items||{}; S.presets=parsePresets(remote.presets); save(); net.cancelSync();
   if(typeof development!=='undefined')development.adopt(remote);
   if(typeof growth!=='undefined')growth.adopt(remote);
-    if(typeof loadout!=='undefined')loadout.adopt(remote);
+  if(typeof loadout!=='undefined')loadout.adopt(remote);
   renderAcct(); renderGate(); renderAll();
   frontAfterState();                             // 그 계정의 진행으로 전선을 다시 정한다(2026-09-24)
   toast(r.loginId+' 으로 로그인했습니다');
+  return true;
 }
 async function doLogin(){
   const id=$('#lg-id').value.trim(), pw=$('#lg-pw').value;

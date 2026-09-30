@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {performance} from 'node:perf_hooks';
+import {PART_PAGE,partWindow} from '../js/ui/part-window.js';
+import {loadoutView} from '../js/ui/loadout-view.js';
+import {createLoadoutManager} from '../js/ui/loadout-manager.js';
+import {bindingState} from '../js/ui/loadout-model.js';
+const parts=Array.from({length:1000},(_,i)=>({uid:`p${i}`,slot:'WEAPON',rarity:i%2?'SR':'R',enh:i%10,name:i===999?'최종 검수 무장':'검수 무장'}));
+const state={robots:[{uid:'A',type:'ignis',level:4,slots:{WEAPON:null}}],parts,presets:[],items:{}};
+assert.equal(partWindow(parts).rows.length,PART_PAGE);
+assert.equal(partWindow(parts,'최종 SR +9').rows[0].uid,'p999','search reaches the last part, beyond the visible page');
+assert.equal(partWindow(parts,'missing',99).page,0);
+assert.equal(partWindow(parts,'',99).page,41);assert.equal(partWindow(parts,'',41).rows.length,16);
+const on=bindingState({bind:{on:true,parts:{p0:'other'},unbind:1}});
+let started=performance.now();
+const html=loadoutView({state,bind:on,robot:state.robots[0],mode:'slot',slot:'WEAPON',list:[],known:true,online:true,partMarkup:p=>`<b>${p.uid}</b>`});
+const duration=performance.now()-started;
+assert.equal((html.match(/<article class="lu-part /g)||[]).length,24);
+assert.ok(!html.includes('openUnbind(\'p0\')'),'another robot binding is sorted after available parts');
+let shown='',calls=[];
+const net={state:{accountId:1,online:true},growthState:async()=>({state:structuredClone(state),presets:[],bind:{on:false,parts:{}}}),hangar:async(a,b)=>{calls.push([a,b]);return {ok:true};}};
+const manager=createLoadoutManager({document:{querySelector:()=>shown.includes('lu-app')?{}:null,getElementById:()=>null},state:()=>state,robot:()=>state.robots[0],net,openModal:h=>shown=h,commit(){},balance:()=>0,toast(){},partMarkup:p=>`<b>${p.uid}</b>`});
+await manager.actions.openSlot('WEAPON');manager.actions.loadoutPage(1);
+assert.ok(shown.includes('<b>p24</b>'));assert.ok(!shown.includes('<b>p0</b>'));
+manager.actions.loadoutSearch('최종');assert.ok(shown.includes('<b>p999</b>'));
+await manager.actions.equip('WEAPON','p999');assert.equal(calls[0][1].partUid,'p999');assert.equal(state.robots[0].slots.WEAPON,'p999');
+manager.actions.loadoutSearch('');manager.actions.loadoutPage(99);assert.ok(shown.includes('<b>p0</b>'),'invalid page step ignored');
+net.state.accountId=2;const before=shown;manager.actions.loadoutSearch('最終');assert.equal(shown,before,'old account session cannot redraw new account');
+const source=readFileSync(new URL('../js/game.js',import.meta.url),'utf8');
+function fn(name){const a=source.indexOf(`function ${name}(`),b=source.indexOf('\n}',a);assert.ok(a>=0&&b>=0);return source.slice(a,b+2);}
+let fuseHtml='';
+const c=vm.createContext({S:state,PART_PAGE,partWindow,_fuseSel:[],_fusePage:0,_fuseQuery:'',_fusePaged:false,
+ RAR_ORDER:{R:1,SR:2},loadout:{badge:()=>'',fuse:()=>({ok:true})},fuseInfo:()=>({fore:'',btn:''}),fuseSel:()=>c._fuseSel.map(u=>parts.find(p=>p.uid===u)),
+ fuseFits:(p,lock)=>!lock||p.slot===lock.slot&&p.rarity===lock.rarity,fmt:String,esc:String,enhClass:()=>'',isFresh:()=>false,freshTag:()=>'',rarTag:()=>'',setTag:()=>'',partIco:()=>'',SLOT_KO:{WEAPON:'무장'},syncFuse(){},openModal:h=>fuseHtml=h});
+vm.runInContext(['fuseSelected','drawFuse','fuseSearch','fusePage'].map(fn).join('\n'),c);
+c.drawFuse();assert.equal((fuseHtml.match(/data-uid=/g)||[]).length,24);
+c.fusePage(1);assert.ok(fuseHtml.includes('2 / 42'));
+c._fuseSel=['p0'];c.drawFuse();assert.ok(fuseHtml.includes('재료 선택 해제: 검수 무장'),'off-page selection remains removable');
+assert.equal((fuseHtml.match(/data-uid=/g)||[]).length,24);assert.ok(fuseHtml.includes('500개'));
+c._fuseSel=[];c.fuseSearch('최종');assert.ok(!fuseHtml.includes('data-uid="p999"'),'equipped parts are excluded');
+state.robots[0].slots.WEAPON=null;c.fuseSearch('최종');assert.ok(fuseHtml.includes('data-uid="p999"'));assert.equal((fuseHtml.match(/data-uid=/g)||[]).length,1);
+console.log(`Launch UI passed: 1,000 parts → 24 cards, full-pool search, binding order, UID equip, page clamp/account isolation, fuse paging/off-page selection. Node template render ${duration.toFixed(2)} ms (not browser/device timing).`);

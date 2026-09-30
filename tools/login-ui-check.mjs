@@ -35,7 +35,7 @@ function setup(pull){
  assert.deepEqual(t.events.find(x=>x[0]==='gate'),['gate',true]);
  t.c.net.pull=async()=>({state:{owner:'new'},band:{},items:{},presets:[]});
  const retried=await t.c.afterLogin({loginId:'new'});
- assert.notEqual(retried,false);
+ assert.equal(retried,true,'successful account adoption must open the gate');
  assert.equal(t.c.S.owner,'new');
  assert.equal(t.c._gateNeedsPull,false);
  assert.equal(t.events.filter(x=>x[0]==='save').length,1);
@@ -47,4 +47,13 @@ function setup(pull){
  c.save();assert.equal(writes.length,0,'background saves must be blocked while the new account is not loaded');
  c._gateNeedsPull=false;c.save();assert.equal(writes.length,2);
 }
-console.log('Login UI passed: failed account pull keeps gate up, blocks background writes, and retry adopts new account once.');
+for(const downloaded of [true,false]){
+ const t=setup(async()=>downloaded?{state:{owner:'new'},items:{},presets:[]}:null),nodes=new Map();
+ t.c.$=id=>{if(!nodes.has(id))nodes.set(id,{value:id==='#gate-id'?'new':id==='#gate-pw'?'test-only-password':'',hidden:true,addEventListener(k,h){this[k]=h;},setAttribute(){},focus(){}});return nodes.get(id);};
+ t.c._gateAuthPending=false;t.c.openGate=()=>{};t.c.accountScreen=()=>{};t.c.net.login=async()=>({loginId:'new'});
+ vm.runInContext(fn('initGate'),t.c);t.c.initGate();t.events.length=0;
+ await nodes.get('#gate-login').submit({preventDefault(){}});
+ assert.equal(t.events.some(x=>x[0]==='gate'&&x[1]===false),downloaded,'real submit only opens after successful state adoption');
+ assert.equal(nodes.get('#gate-in').disabled,false);assert.equal(t.c._gateAuthPending,false);
+}
+console.log('Login UI passed: direct form opens after successful adoption; failed pull keeps gate up, blocks writes, and allows retry.');

@@ -1,0 +1,206 @@
+{
+  "samples": [
+    {
+      "scope": "local synthetic PC browser; no CPU/network throttling; not physical phone/GPU FPS/INP",
+      "at": "2026-09-30T13:18:06.097Z",
+      "viewport": {
+        "width": 1174,
+        "height": 661,
+        "clientWidth": 1161
+      },
+      "load": {
+        "domReady": 1074.7,
+        "load": 1189.5,
+        "fcp": 552
+      },
+      "resources": {
+        "count": 135,
+        "transferBytes": 11319772,
+        "unitPngCount": 39,
+        "unitPngEncodedBytes": 7388383
+      },
+      "dom": {
+        "elements": 3119,
+        "inventoryCards": 60,
+        "modals": 0,
+        "activeScreen": "sc-hangar",
+        "overflow": false
+      },
+      "longTasks": [
+        {
+          "name": "self",
+          "start": 377,
+          "ms": 123
+        }
+      ],
+      "eventTiming": [
+        {
+          "name": "click",
+          "start": 1179,
+          "ms": 56,
+          "interaction": 879
+        },
+        {
+          "name": "click",
+          "start": 20293,
+          "ms": 72,
+          "interaction": 886
+        },
+        {
+          "name": "click",
+          "start": 20614,
+          "ms": 72,
+          "interaction": 893
+        }
+      ],
+      "frameIntervals": null
+    },
+    {
+      "scope": "local synthetic PC browser; no CPU/network throttling; not physical phone/GPU FPS/INP",
+      "at": "2026-09-30T13:18:09.295Z",
+      "viewport": {
+        "width": 1174,
+        "height": 661,
+        "clientWidth": 1161
+      },
+      "load": {
+        "domReady": 1074.7,
+        "load": 1189.5,
+        "fcp": 552
+      },
+      "resources": {
+        "count": 187,
+        "transferBytes": 17709602,
+        "unitPngCount": 81,
+        "unitPngEncodedBytes": 13642177
+      },
+      "dom": {
+        "elements": 3119,
+        "inventoryCards": 60,
+        "modals": 0,
+        "activeScreen": "sc-hangar",
+        "overflow": false
+      },
+      "longTasks": [
+        {
+          "name": "self",
+          "start": 377,
+          "ms": 123
+        },
+        {
+          "name": "self",
+          "start": 21491,
+          "ms": 58
+        },
+        {
+          "name": "self",
+          "start": 22075,
+          "ms": 58
+        },
+        {
+          "name": "self",
+          "start": 22658,
+          "ms": 57
+        },
+        {
+          "name": "self",
+          "start": 23241,
+          "ms": 66
+        },
+        {
+          "name": "self",
+          "start": 23824,
+          "ms": 65
+        }
+      ],
+      "eventTiming": [
+        {
+          "name": "click",
+          "start": 1179,
+          "ms": 56,
+          "interaction": 879
+        },
+        {
+          "name": "click",
+          "start": 20293,
+          "ms": 72,
+          "interaction": 886
+        },
+        {
+          "name": "click",
+          "start": 20614,
+          "ms": 72,
+          "interaction": 893
+        },
+        {
+          "name": "click",
+          "start": 20912,
+          "ms": 40,
+          "interaction": 900
+        },
+        {
+          "name": "click",
+          "start": 21212,
+          "ms": 40,
+          "interaction": 907
+        },
+        {
+          "name": "click",
+          "start": 21491,
+          "ms": 80,
+          "interaction": 914
+        },
+        {
+          "name": "click",
+          "start": 21784,
+          "ms": 32,
+          "interaction": 921
+        },
+        {
+          "name": "click",
+          "start": 22075,
+          "ms": 72,
+          "interaction": 928
+        },
+        {
+          "name": "click",
+          "start": 22376,
+          "ms": 40,
+          "interaction": 935
+        },
+        {
+          "name": "click",
+          "start": 22657,
+          "ms": 80,
+          "interaction": 942
+        },
+        {
+          "name": "click",
+          "start": 22953,
+          "ms": 48,
+          "interaction": 949
+        },
+        {
+          "name": "click",
+          "start": 23241,
+          "ms": 96,
+          "interaction": 956
+        },
+        {
+          "name": "click",
+          "start": 23542,
+          "ms": 24,
+          "interaction": 963
+        },
+        {
+          "name": "click",
+          "start": 23824,
+          "ms": 96,
+          "interaction": 970
+        }
+      ],
+      "frameIntervals": null
+    }
+  ],
+  "notes": "Event records retained only click/keydown for readability. Baseline event ring included hover records and may omit late clicks. Samples are cumulative bounded logs; zero load means captured before load completion. No GPU FPS, INP, memory, CPU-throttle or physical-device claim."
+}

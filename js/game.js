@@ -699,7 +699,7 @@ function navDot(){
    저장하지 않는다 — 화면을 떠났다 오면 전체로 돌아온다. 걸러 둔 것을 잊고
    "파츠가 사라졌다" 고 여기는 것이 거르기를 못 쓰는 것보다 나쁘다. */
 const INV_PAGE = 60;
-const invF = { slot:'', rar:'', fresh:'', sort:'new', limit:INV_PAGE };
+const invF = { slot:'', rar:'', fresh:'', sort:'new', page:0, query:'' };
 const RAR_ORDER = { C:0, R:1, SR:2, SSR:3 };
 const invMatch = p => (!invF.slot || p.slot===invF.slot) && (!invF.rar || p.rarity===invF.rar)
   && (!invF.fresh || isFresh(p.uid));
@@ -710,13 +710,23 @@ function sortInv(list){
   else a.reverse();                       /* 최신 — S.parts 는 얻은 순서다 */
   return a;
 }
-/* 거르개를 건드리면 몇 개까지 보고 있었는지는 잊는다. 무장으로 좁혀 놓고
-   '60개 더 보기' 를 그대로 물려받으면 몇 개가 남았는지 감이 안 온다. */
+/* Filter/search the complete pool, but retain only one page of cards in DOM. */
 function setInvF(k,v){
   invF[k]= invF[k]===v && k!=='sort' ? '' : v;
-  invF.limit=INV_PAGE; renderHangar();
+  invF.page=0; renderHangar();
+  [...$('#hv-inventory').querySelectorAll('.fchip')].find(b=>b.getAttribute('onclick')===`ROWAR.setInvF('${k}','${v}')`)?.focus({preventScroll:true});
 }
-const invMore = () => { invF.limit += INV_PAGE; renderHangar(); };
+function invSearch(query){
+  invF.query=String(query).slice(0,80);invF.page=0;renderHangar();
+  $('#inv-query')?.focus({preventScroll:true});
+}
+function invPage(step){
+  if(step!==1&&step!==-1)return;
+  invF.page=Math.max(0,invF.page+step);renderHangar();
+  $('#hv-inventory')?.scrollIntoView({block:'start'});
+  const btn=$('#inv-'+(step===1?'next':'prev'));
+  (btn&&!btn.disabled?btn:$('#inv-position'))?.focus({preventScroll:true});
+}
 
 /* 거르개. 같은 칸을 다시 누르면 풀린다 — 끄는 법을 따로 찾게 만들지 않는다.
    숫자를 칸마다 적어 둔다. 눌러 보고 0 개인 것을 아는 것과 누르기 전에 아는 것은 다르다. */
@@ -773,27 +783,27 @@ function renderHangar(){
   const lead=selRobot();
   const status=r=>S.expd?.uid===r.uid?'원정 중':r.uid===lead.uid?'선봉':S.squad.includes(r.uid)?'예비':'대기';
   const rank={C:0,UC:1,R:2,UQ:3,EP:4};
-  const sorted=S.robots.map((r,i)=>({r,i})).sort((a,b)=>hangarSort==='level'?b.r.level-a.r.level:hangarSort==='rarity'?rank[rarOf(b.r.type)]-rank[rarOf(a.r.type)]:power(b.r)-power(a.r));
-  const roster=sorted.map(({r,i})=>`<button class="hv-unit ${r.uid===rb.uid?'selected':''}" aria-pressed="${r.uid===rb.uid}" onclick="ROWAR.inspectRobot(${i})" data-robot="${esc(r.uid)}">
-    <span class="hv-unit-art">${sprite(r.type,false)}</span><span class="hv-unit-copy"><small>Lv.${r.level} <em>${status(r)}</em></small><b>${esc(ROBOT_TYPES[r.type].name)}</b><span>전투력 ${fmt(power(r))}</span></span><strong class="rr-${rarOf(r.type)}">${rarOf(r.type)}</strong></button>`).join('');
+  // One power calculation per unit per render, shared by ordering and labels.
+  const sorted=S.robots.map((r,i)=>({r,i,pw:power(r)})).sort((a,b)=>hangarSort==='level'?b.r.level-a.r.level:hangarSort==='rarity'?rank[rarOf(b.r.type)]-rank[rarOf(a.r.type)]:b.pw-a.pw);
+  const roster=sorted.map(({r,i,pw})=>`<button class="hv-unit ${r.uid===rb.uid?'selected':''}" aria-pressed="${r.uid===rb.uid}" onclick="ROWAR.inspectRobot(${i})" data-robot="${esc(r.uid)}">
+    <span class="hv-unit-art">${sprite(r.type,false)}</span><span class="hv-unit-copy"><small>Lv.${r.level} <em>${status(r)}</em></small><b>${esc(ROBOT_TYPES[r.type].name)}</b><span>전투력 ${fmt(pw)}</span></span><strong class="rr-${rarOf(r.type)}">${rarOf(r.type)}</strong></button>`).join('');
   const thumbstrip=S.robots.map((r,i)=>`<button class="hv-thumb ${r.uid===rb.uid?'selected':''}" onclick="ROWAR.inspectRobot(${i})" aria-label="${esc(ROBOT_TYPES[r.type].name)} 살펴보기" aria-pressed="${r.uid===rb.uid}">${sprite(r.type,false)}<small>${status(r)}</small></button>`).join('');
   const slotsHtml=SLOTS.map(slot=>{const p=findPart(rb.slots[slot],S.parts);return `<button class="hv-slot ${p?'filled':''}" onclick="ROWAR.openSlot('${slot}')" aria-label="${SLOT_KO[slot]} ${p?esc(p.name):'빈 슬롯'} 장비 변경">
     <span class="hv-slot-icon">${p?partIco(p,'sm'):slotIco(slot,'sm')}</span><span class="hv-slot-kind">${SLOT_KO[slot]}</span><span class="hv-slot-copy"><b>${p?esc(p.name):'장착할 파츠 선택'}</b><small>${p?`${p.rarity} · 강화 +${p.enh||0}`:'비어 있음'}</small>${p?loadout.badge(p.uid):''}</span>${icon('chevron')}</button>`;}).join('');
-  const invAll = S.parts.filter(p=> !S.robots.some(r=>Object.values(r.slots).includes(p.uid)));
-  /* 다 그리지 않는다. 칩 폭을 어떻게 잡아도 300개는 1만 픽셀이 넘고(실측), 그만한 DOM 을
-     매 렌더마다 새로 만든다. 거르개·정렬이 있으니 찾는 것은 앞쪽에 오게 만들 수 있다. */
-  const invHit = sortInv(invAll.filter(invMatch));
-  const invParts = invHit.slice(0, invF.limit);
+  const worn=new Set(S.robots.flatMap(r=>Object.values(r.slots)).filter(Boolean));
+  const invAll = S.parts.filter(p=>!worn.has(p.uid));
+  const invWindow=partWindow(sortInv(invAll.filter(invMatch)),invF.query,invF.page,INV_PAGE);
+  invF.page=invWindow.page;
+  const invParts = invWindow.rows;
   /* 뽑기가 더 이상 일반 파츠를 자동으로 없애지 않으므로, 치우는 일은 여기서 한다.
      칩 전체는 강화, 오른쪽 아래 작은 버튼이 분해다 — 분해는 되돌릴 수 없어 따로 눌러야 한다. */
-  const inv = invParts.length? invParts.map(p=>`<div class="pchip ic${enhClass(p)}${isFresh(p.uid)?' fresh':''}" onclick="ROWAR.enhance('${p.uid}')" title="클릭: 강화 — 스크랩 ${enhCost(p.enh||0)} · 성공 ${Math.round(enhRate(p.enh||0)*100)}%">
-      ${partIco(p)}<div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
-      ${loadout.badge(p.uid)}<div class="pfoot"><span class="ps" style="color:var(--gold)">강화 ${fmt(enhCost(p.enh||0))}${(p.enh|0)>=enhMax()?'':` <span style="color:var(--dim)">${Math.round(enhRate(p.enh||0)*100)}%</span>`}</span>
+  const inv = invParts.length? invParts.map(p=>`<div class="pchip ic${enhClass(p)}${isFresh(p.uid)?' fresh':''}" data-part="${esc(p.uid)}">
+      <button type="button" class="inv-enhance" onclick="ROWAR.enhance('${p.uid}')" aria-label="${esc(p.name)} +${p.enh||0} 강화 · 스크랩 ${fmt(enhCost(p.enh||0))}" title="강화 — 스크랩 ${enhCost(p.enh||0)} · 성공 ${Math.round(enhRate(p.enh||0)*100)}%">${partIco(p)}<div class="pn">${freshTag(p.uid)}${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps"><b class="slotk">${SLOT_KO[p.slot]}</b>${partStatLine(p,true)}</div>
+      ${loadout.badge(p.uid)}</button><div class="pfoot"><span class="ps" style="color:var(--gold)">강화 ${fmt(enhCost(p.enh||0))}${(p.enh|0)>=enhMax()?'':` <span style="color:var(--dim)">${Math.round(enhRate(p.enh||0)*100)}%</span>`}</span>
         <button class="scrapb" onclick="event.stopPropagation();ROWAR.scrapPart('${p.uid}')"
           title="분해하면 되돌릴 수 없습니다">분해 +${fmt(scrapGain(p.rarity,p.enh))}</button></div></div>`).join('')
     : `<div class="empty">${invAll.length?'거른 조건에 맞는 파츠가 없습니다.':'보유한 여분 파츠가 없습니다. 뽑기나 대전으로 획득하세요.'}</div>`;
-  const invMoreBtn = invHit.length>invParts.length
-    ? `<button class="btn invmore" onclick="ROWAR.invMore()">${fmt(invHit.length-invParts.length)}개 더 보기</button>` : '';
+  const invPager = `<nav class="lu-pager" aria-label="보관함 페이지"><button id="inv-prev" class="btn" ${invWindow.page===0?'disabled':''} onclick="ROWAR.invPage(-1)">이전</button><span id="inv-position" tabindex="-1" aria-live="polite">${invWindow.page+1} / ${invWindow.pages} 페이지 · ${fmt(invWindow.total)}개</span><button id="inv-next" class="btn" ${invWindow.page+1===invWindow.pages?'disabled':''} onclick="ROWAR.invPage(1)">다음</button></nav>`;
 
   const cost=lvCost(rb.level), fat=fatOf(rb), scost=serviceCost(rb);
   const slv=rb.skillLv|0, sk=skillCost(slv), range=atkRange(st);
@@ -823,7 +833,7 @@ function renderHangar(){
     <section class="hv-equipped-tune"><h3>장착 파츠 강화</h3>${SLOTS.map(slot=>{const p=findPart(rb.slots[slot],S.parts);return p?`<button class="hv-enhance" onclick="ROWAR.enhance('${p.uid}')" ${!net.state.online||S.scrap<enhCost(p.enh||0)||(p.enh|0)>=enhMax()?'disabled':''}>${partIco(p,'xs')}<span><b>${esc(p.name)} +${p.enh||0}</b><small>${(p.enh|0)>=enhMax()?'최대 강화':`스크랩 ${fmt(enhCost(p.enh||0))} · 성공 ${Math.round(enhRate(p.enh||0)*100)}%`}</small></span>${icon('chevron')}</button>`:'';}).join('')||'<p class="hint">장착한 파츠가 없습니다.</p>'}<p class="hint">강화 실패 시에도 재화는 소모됩니다.</p></section></div>`;
   const growthPanel=typeof growth!=='undefined'?`<div class="hv-growth">${growth.card()}<p class="hv-mastery">${nextMastery(rb)} · 기체별 숙련 보상</p></div>`:'';
   const detail=hangarTab==='info'?`${stats}${gear}<details class="hv-details"><summary>기체 특성 · 스킬</summary><p>${esc(T.role)}</p><b>${esc(T.skill.name)}${slv?' +'+slv:''}</b><div class="fxrow">${fxTags(rb.type)}</div><p>${esc(T.skill.desc)}</p><p>공격력 변동 폭 ±${Math.round(st.spread*100)}% · 피로 ${fat}/${FAT_MAX}${fat?` · 최대 내구 −${fat}%`:''}</p></details>`:hangarTab==='gear'?`${gear}<div class="hv-build"><h3>빌드 프리셋</h3>${presetBar()||'<p class="hint">현재 장착 조합을 저장해 빠르게 교체하세요.</p>'}<button class="btn" onclick="ROWAR.openPresets()">프리셋 관리</button>${setPanel(rb)}</div>`:tune;
-  const inventory=`<details class="hv-inventory ui-surface" id="hv-inventory" ${hangarInventory?'open':''}><summary>파츠 보관함 <span>${invAll.length}개 ${icon('chevron')}</span></summary><div class="hv-inventory-body"><div class="hv-section-head"><span class="hint">${invHit.length}개 표시 · 파츠를 눌러 강화 · 장착은 장비 슬롯에서</span><button class="btn" onclick="ROWAR.openFuse()">파츠 합성</button></div>${invBar(invAll)}<div class="inv">${inv}</div>${invMoreBtn}</div></details>`;
+  const inventory=`<details class="hv-inventory ui-surface" id="hv-inventory" ${hangarInventory?'open':''}><summary>파츠 보관함 <span>${invAll.length}개 ${icon('chevron')}</span></summary><div class="hv-inventory-body"><div class="hv-section-head"><span class="hint">${invWindow.total}개 검색 결과 · 파츠를 눌러 강화 · 장착은 장비 슬롯에서</span><button class="btn" onclick="ROWAR.openFuse()">파츠 합성</button></div><form class="lu-search" onsubmit="event.preventDefault();ROWAR.invSearch(this.elements.query.value)"><label for="inv-query">보관함 검색</label><div><input id="inv-query" name="query" type="search" maxlength="80" value="${esc(invF.query)}" placeholder="이름, 등급, 강화 수치"><button class="btn">검색</button></div></form>${invBar(invAll)}${invPager}<div class="inv">${inv}</div></div></details>`;
   $('#sc-hangar').innerHTML=`<div class="ui-pagehead hv-pagehead"><div><span class="ui-eyebrow">HANGAR / MECH MANAGEMENT</span><h1>격납고</h1><p>기체를 완성하고, 다음 전장을 준비하세요.</p></div><span class="hv-squad-count">출전 편성 <b>${S.squad.length} / ${SQUAD_MAX}</b></span></div>
     <div class="hv-layout">
       <aside class="hv-roster ui-surface"><div class="hv-roster-head"><h2>보유 기체 <small>${S.robots.length}</small></h2><select aria-label="기체 정렬" onchange="ROWAR.setHangarSort(this.value)">${[['power','전투력 순'],['level','레벨 순'],['rarity','등급 순']].map(([k,v])=>`<option value="${k}" ${hangarSort===k?'selected':''}>${v}</option>`).join('')}</select></div><div class="hv-roster-list">${roster}</div><button class="hv-acquire" onclick="ROWAR.go('gacha')"><span>＋</span><span><b>새 기체 획득</b><small>더 넓은 전술을 준비하세요.</small></span></button></aside>
@@ -3834,7 +3844,7 @@ window.ROWAR = {
   levelUp: guard(levelUp), service: guard(service), frontFix: guard(frontFix), enhance: guard(enhancePart), skillUp: guard(skillUp),
   doScrap: guard(doScrap),
   openRobot, closeModal, setGacha, scrapPart, toggleSpeed, skipReplay, pickExped, openNode, guide,
-  setInvF, invMore, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
+  setInvF, invSearch, invPage, bulkScrap, setBulkKeepEnh, doBulkScrap: guard(doBulkScrap, 1000),
   setFrontTab, setFrontCh, restartCh, restartChGo, openCell, runCell: guard(runCell, 1000),
   openFuse, fuseToggle, fuseSearch, fusePage, doFuse: guard(doFuse, 1000),
   trialRun: guard(trialRunGo, 1000),
@@ -4022,6 +4032,7 @@ async function afterLogin(r){
   ++_rankEpoch;_rankTab='rank';_rankPage=null;_codexRaw=null;_codexAt=0;_codexGroup='monster';
   ++_battleRequest; _pendingOpp=null; _practiceOpp=null; _battleFindOpts=undefined; _duelTarget=null; _battleMode='arena';
   hangarUid=null; hangarTab='info'; hangarInventory=false;
+  Object.assign(invF,{slot:'',rar:'',fresh:'',sort:'new',page:0,query:''});
   ++_terrRequest; dropTerrCache(); dropRankCache();
   _territorySelected='n01'; _territoryFilter='all'; _returnToTerritory=false;
   Object.assign(_territoryViewport,{zoom:1,left:0,top:0});
@@ -4141,7 +4152,6 @@ function initGate(){
 function boot(){
   document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));
   document.querySelectorAll('[data-emblem]').forEach(el=>el.innerHTML=emblem);
-  preloadSprites();
   initGate();
   /* 재화 숫자/계정명과 화면 폭에 따라 지갑이 줄바꿈돼도 고정 탭이 가려지지 않는다. */
   const topbar = document.querySelector('.topbar');
@@ -4149,6 +4159,7 @@ function boot(){
   fitNav();
   new ResizeObserver(fitNav).observe(topbar);
   S=load(); save();          // 첫 실행이면 시작 기체를 바로 확정해 저장한다
+  preloadSprites(S.squad.map(uid=>S.robots.find(r=>r.uid===uid)?.type));
   /* 화면 이동은 data-s 가 있는 단추만. 레일 아래의 '?'(.rhelp)도 .nav 안의 단추라, 예전에는 go(undefined) 가 불려
      모든 화면이 꺼진 채 설명 창만 떴다 — 창을 닫으면 빈 화면이었다(2026-09-19). */
   document.querySelectorAll('.nav button[data-s]').forEach(b=> b.addEventListener('click',()=>b.hasAttribute('data-territory-entry')?enterTerritory():go(b.dataset.s)));

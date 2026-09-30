@@ -1,0 +1,90 @@
+{
+  "samples": [
+    {
+      "scope": "local synthetic PC browser; no CPU/network throttling; not physical phone/GPU FPS/INP",
+      "at": "2026-09-30T13:20:06.273Z",
+      "viewport": {
+        "width": 330,
+        "height": 734,
+        "clientWidth": 316
+      },
+      "load": {
+        "domReady": 895.4,
+        "load": 1006.7,
+        "fcp": 316
+      },
+      "resources": {
+        "count": 187,
+        "transferBytes": 17709602,
+        "unitPngCount": 81,
+        "unitPngEncodedBytes": 13642177
+      },
+      "dom": {
+        "elements": 1453,
+        "inventoryCards": 1,
+        "modals": 0,
+        "activeScreen": "sc-hangar",
+        "overflow": false
+      },
+      "longTasks": [
+        {
+          "name": "self",
+          "start": 168,
+          "ms": 120
+        }
+      ],
+      "eventTiming": [
+        {
+          "name": "click",
+          "start": 20757,
+          "ms": 24,
+          "interaction": 7184
+        },
+        {
+          "name": "keydown",
+          "start": 60239,
+          "ms": 88,
+          "interaction": 7198
+        },
+        {
+          "name": "click",
+          "start": 60239,
+          "ms": 88,
+          "interaction": 7198
+        },
+        {
+          "name": "click",
+          "start": 82971,
+          "ms": 56,
+          "interaction": 7205
+        },
+        {
+          "name": "keydown",
+          "start": 83235,
+          "ms": 64,
+          "interaction": 7212
+        },
+        {
+          "name": "click",
+          "start": 83235,
+          "ms": 64,
+          "interaction": 7212
+        },
+        {
+          "name": "keydown",
+          "start": 103361,
+          "ms": 48,
+          "interaction": 7219
+        },
+        {
+          "name": "click",
+          "start": 103361,
+          "ms": 48,
+          "interaction": 7219
+        }
+      ],
+      "frameIntervals": null
+    }
+  ],
+  "notes": "Event records retained only click/keydown for readability. Baseline event ring included hover records and may omit late clicks. Samples are cumulative bounded logs; zero load means captured before load completion. No GPU FPS, INP, memory, CPU-throttle or physical-device claim."
+}

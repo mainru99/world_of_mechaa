@@ -37,7 +37,10 @@ export function sprite(id, faceRight, { idle: animateIdle = false } = {}) {
   return '<picture class="mecha-picture"><source type="image/webp" media="(prefers-reduced-motion: no-preference)" srcset="' + idle + '">' + img + '</picture>';
 }
 
-/* 전투 중 첫 표시가 늦지 않도록 미리 받아둔다 */
-export function preloadSprites() {
-  for (const id of [...ROBOT_IDS, ...MONSTER_IDS]) { const i = new Image(); i.src = assetPath(id); }
+/* Warm only the requested formation. Other sprites load when their UI opens. */
+export function preloadSprites(ids = []) {
+  for (const id of new Set(ids)) {
+    if (!ROBOT_IDS.includes(id) && !MONSTER_IDS.includes(id)) continue;
+    const i = new Image(); i.src = assetPath(id);
+  }
 }

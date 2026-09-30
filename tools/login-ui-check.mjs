@@ -15,6 +15,7 @@ function setup(pull){
   _frontReady:true,_jform:{order:['old-unit'],tac:{}},_jctx:()=>{},_fight:{old:true},
   _dispatchUid:null,_dispatchPending:null,_dispatchTab:'',_dispatchFilter:'',_dispatchSelected:'',_rankEpoch:0,_rankTab:'',_rankPage:0,_codexRaw:null,_codexAt:0,_codexGroup:'',
   _battleRequest:0,_pendingOpp:null,_practiceOpp:null,_battleFindOpts:null,_duelTarget:null,_battleMode:'',hangarUid:null,hangarTab:'',hangarInventory:false,
+  invF:{slot:'WEAPON',rar:'SSR',fresh:'1',sort:'enh',page:9,query:'old account'},
   _terrRequest:0,_territorySelected:'',_territoryFilter:'',_returnToTerritory:false,_territoryViewport:{},_gateNeedsPull:false,
   dropTerrCache:()=>events.push(['terr']),dropRankCache:()=>events.push(['rank']),normalize:x=>x,takeBand:()=>{},parsePresets:x=>x,save:()=>events.push(['save']),
   renderAcct:()=>events.push(['acct']),renderGate:()=>events.push(['renderGate']),renderAll:()=>events.push(['all']),toast:x=>events.push(['toast',x]),
@@ -32,6 +33,7 @@ function setup(pull){
  assert.equal(t.events[0][0],'stopStory','account changes stop the previous account story');
  assert.equal(t.c._frontIntroAttempted.size,0);
  assert.equal(t.c._frontReady,false);assert.equal(t.c._jctx,null);assert.equal(t.c._fight,null);assert.equal(t.c._jform.order.length,0);
+ assert.equal(t.c.invF.query,'');assert.equal(t.c.invF.page,0);assert.equal(t.c.invF.slot,'');assert.equal(t.c.invF.rar,'');assert.equal(t.c.invF.sort,'new','account change resets inventory browsing');
  assert.deepEqual(t.events.find(x=>x[0]==='gate'),['gate',true]);
  t.c.net.pull=async()=>({state:{owner:'new'},band:{},items:{},presets:[]});
  const retried=await t.c.afterLogin({loginId:'new'});

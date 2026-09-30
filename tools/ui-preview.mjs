@@ -35,6 +35,7 @@ const sampleFrontNew=process.argv.includes('--sample-front-new');
 const sampleFrontChapter2=process.argv.includes('--sample-front-chapter2');
 const sampleFrontOffline=process.argv.includes('--sample-front-offline');
 const sampleFrontDelay=process.argv.includes('--sample-front-delay');
+const samplePerformance=process.argv.includes('--sample-performance');
 let previewFailPull=false;
 let previewIdentity=sampleLogin?null:{id:'preview',guest:false,loginId:'지휘관_01'};
 const previewToken='ui-preview-only';
@@ -44,6 +45,11 @@ let nextId=0;
 const parts=Array.from({length:12},(_,i)=>rollPart(32,rng,`preview-part-${++nextId}`,i<4?'SSR':'SR',SLOTS[i%4]));
 const robots=['ignis','ranger','azure','mule','bastion'].map((type,i)=>({uid:`preview-robot-${i}`,type,level:i<2?32:24,exp:0,fat:i===1?12:0,fatAt:Date.now(),skillLv:2,slots:Object.fromEntries(SLOTS.map((slot,j)=>[slot,i<2?parts[i*4+j].uid:null]))}));
 const state={v:2,credits:12460,cores:128,scrap:8320,robots,parts,sel:0,squad:robots.slice(0,2).map(x=>x.uid),stat:{wins:48,losses:12,pulls:80},campaign:'',items:{},presets:[]};
+if(samplePerformance){
+ while(parts.length<1000){const i=parts.length;parts.push(rollPart(32,rng,`preview-part-${++nextId}`,['C','R','SR','SSR'][i%4],SLOTS[i%4]));}
+ parts[0].name='첫 검수 무장';parts.at(-1).name='최종 검수 코어';
+ for(const type of Object.keys(ROBOT_TYPES).filter(type=>!robots.some(r=>r.type===type)))robots.push({uid:`preview-robot-${type}`,type,level:32,exp:0,fat:0,fatAt:Date.now(),skillLv:2,slots:Object.fromEntries(SLOTS.map(s=>[s,null]))});
+}
 if(sampleFront)state.campaign=sampleFrontNew?'':sampleFrontChapter2?'11111100000':'11000000000';
 const sampleNewType=Object.keys(ROBOT_TYPES).find(type=>!robots.some(r=>r.type===type));
 if(sampleShop){state.credits=250000;state.items[shardKey('ranger')]=shardNeed('ranger');state.items[shardKey(sampleNewType)]=Math.max(1,Math.floor(shardNeed(sampleNewType)*.55));}
@@ -66,6 +72,9 @@ const json=(res,code,data)=>{res.writeHead(code,{'content-type':'application/jso
 const server=http.createServer(async(req,res)=>{
  try{
   const url=new URL(req.url,'http://127.0.0.1');
+  if(samplePerformance&&url.pathname==='/__performance.js'){
+   res.writeHead(200,{'content-type':mime['.js'],'cache-control':'no-store'});res.end(await readFile(resolve(root,'tools/ui-performance-probe.js')));return;
+  }
   // Isolated presentation fixture, no combat API or production route.
   if(url.pathname==='/__battle-layout'){
    const unit=rb=>({type:rb.type,level:rb.level,stats:computeStats(rb,parts),power:power(rb,parts)});
@@ -252,6 +261,7 @@ const server=http.createServer(async(req,res)=>{
   if(!allowed||!file.startsWith(root+sep)||!mime[extname(file)]||!(await stat(file)).isFile()){res.writeHead(404);res.end('Not found');return;}
   let content=await readFile(file);
   if(name==='/index.html'){
+   if(samplePerformance)content=content.toString().replace('</head>','<script type="module" src="/__performance.js"></script></head>');
    const seed=JSON.stringify(state).replaceAll('<','\\u003c');
    const seen=sampleFront&&!sampleFrontNew?Object.fromEntries(FRONT_CHAPTERS.map(ch=>[ch.id+':open',1])):{};
    const bootstrap=`<script>${sampleFront?`localStorage.setItem('rowar.seen.v1',${JSON.stringify(JSON.stringify(seen))});`:''}${sampleLogin?"localStorage.removeItem('rowar.session');":"localStorage.setItem('rowar.session','ui-preview-only');"}localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;

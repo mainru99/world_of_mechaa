@@ -1,0 +1,341 @@
+{
+  "samples": [
+    {
+      "scope": "local synthetic PC browser; no CPU/network throttling; not physical phone/GPU FPS/INP",
+      "at": "2026-09-30T13:04:51.847Z",
+      "viewport": {
+        "width": 1174,
+        "height": 661,
+        "clientWidth": 1161
+      },
+      "load": {
+        "domReady": 1057.5,
+        "load": 2282.7,
+        "fcp": 672
+      },
+      "resources": {
+        "count": 184,
+        "transferBytes": 19305658,
+        "unitPngCount": 99,
+        "unitPngEncodedBytes": 17078399
+      },
+      "dom": {
+        "elements": 246,
+        "inventoryCards": 0,
+        "modals": 0,
+        "activeScreen": "sc-home",
+        "overflow": false
+      },
+      "longTasks": [
+        {
+          "name": "self",
+          "start": 352,
+          "ms": 157
+        },
+        {
+          "name": "self",
+          "start": 519,
+          "ms": 62
+        }
+      ],
+      "eventTiming": [],
+      "frameIntervals": null
+    },
+    {
+      "scope": "local synthetic PC browser; no CPU/network throttling; not physical phone/GPU FPS/INP",
+      "at": "2026-09-30T13:05:12.129Z",
+      "viewport": {
+        "width": 1174,
+        "height": 661,
+        "clientWidth": 1161
+      },
+      "load": {
+        "domReady": 1057.5,
+        "load": 2282.7,
+        "fcp": 672
+      },
+      "resources": {
+        "count": 285,
+        "transferBytes": 34475408,
+        "unitPngCount": 178,
+        "unitPngEncodedBytes": 30380832
+      },
+      "dom": {
+        "elements": 3051,
+        "inventoryCards": 60,
+        "modals": 0,
+        "activeScreen": "sc-hangar",
+        "overflow": false
+      },
+      "longTasks": [
+        {
+          "name": "self",
+          "start": 352,
+          "ms": 157
+        },
+        {
+          "name": "self",
+          "start": 519,
+          "ms": 62
+        },
+        {
+          "name": "self",
+          "start": 16646,
+          "ms": 64
+        },
+        {
+          "name": "self",
+          "start": 29428,
+          "ms": 56
+        }
+      ],
+      "eventTiming": [
+        {
+          "name": "click",
+          "start": 10181,
+          "ms": 24,
+          "interaction": 3231
+        },
+        {
+          "name": "click",
+          "start": 10495,
+          "ms": 40,
+          "interaction": 3238
+        },
+        {
+          "name": "click",
+          "start": 16646,
+          "ms": 336,
+          "interaction": 3245
+        }
+      ],
+      "frameIntervals": null
+    },
+    {
+      "scope": "local synthetic PC browser; no CPU/network throttling; not physical phone/GPU FPS/INP",
+      "at": "2026-09-30T13:05:55.973Z",
+      "viewport": {
+        "width": 1174,
+        "height": 661,
+        "clientWidth": 1161
+      },
+      "load": {
+        "domReady": 1057.5,
+        "load": 2282.7,
+        "fcp": 672
+      },
+      "resources": {
+        "count": 285,
+        "transferBytes": 34475408,
+        "unitPngCount": 178,
+        "unitPngEncodedBytes": 30380832
+      },
+      "dom": {
+        "elements": 28550,
+        "inventoryCards": 992,
+        "modals": 0,
+        "activeScreen": "sc-hangar",
+        "overflow": false
+      },
+      "longTasks": [
+        {
+          "name": "self",
+          "start": 352,
+          "ms": 157
+        },
+        {
+          "name": "self",
+          "start": 519,
+          "ms": 62
+        },
+        {
+          "name": "self",
+          "start": 16646,
+          "ms": 64
+        },
+        {
+          "name": "self",
+          "start": 29428,
+          "ms": 56
+        },
+        {
+          "name": "self",
+          "start": 50962,
+          "ms": 68
+        },
+        {
+          "name": "self",
+          "start": 52005,
+          "ms": 94
+        },
+        {
+          "name": "self",
+          "start": 53013,
+          "ms": 126
+        },
+        {
+          "name": "self",
+          "start": 54041,
+          "ms": 168
+        },
+        {
+          "name": "self",
+          "start": 55000,
+          "ms": 56
+        },
+        {
+          "name": "self",
+          "start": 55064,
+          "ms": 208
+        },
+        {
+          "name": "self",
+          "start": 56017,
+          "ms": 63
+        },
+        {
+          "name": "self",
+          "start": 56088,
+          "ms": 284
+        },
+        {
+          "name": "self",
+          "start": 57034,
+          "ms": 77
+        },
+        {
+          "name": "self",
+          "start": 57119,
+          "ms": 333
+        },
+        {
+          "name": "self",
+          "start": 58050,
+          "ms": 84
+        },
+        {
+          "name": "self",
+          "start": 58143,
+          "ms": 405
+        },
+        {
+          "name": "self",
+          "start": 59067,
+          "ms": 93
+        },
+        {
+          "name": "self",
+          "start": 59168,
+          "ms": 512
+        },
+        {
+          "name": "self",
+          "start": 60084,
+          "ms": 92
+        },
+        {
+          "name": "self",
+          "start": 60184,
+          "ms": 626
+        },
+        {
+          "name": "self",
+          "start": 61100,
+          "ms": 113
+        },
+        {
+          "name": "self",
+          "start": 62126,
+          "ms": 724
+        },
+        {
+          "name": "self",
+          "start": 63134,
+          "ms": 125
+        },
+        {
+          "name": "self",
+          "start": 64142,
+          "ms": 825
+        },
+        {
+          "name": "self",
+          "start": 65249,
+          "ms": 132
+        },
+        {
+          "name": "self",
+          "start": 65387,
+          "ms": 851
+        },
+        {
+          "name": "self",
+          "start": 66238,
+          "ms": 165
+        },
+        {
+          "name": "self",
+          "start": 67192,
+          "ms": 501
+        },
+        {
+          "name": "self",
+          "start": 68200,
+          "ms": 148
+        },
+        {
+          "name": "self",
+          "start": 68357,
+          "ms": 638
+        },
+        {
+          "name": "self",
+          "start": 69353,
+          "ms": 110
+        },
+        {
+          "name": "self",
+          "start": 70242,
+          "ms": 727
+        },
+        {
+          "name": "self",
+          "start": 71372,
+          "ms": 118
+        },
+        {
+          "name": "self",
+          "start": 72276,
+          "ms": 1085
+        },
+        {
+          "name": "self",
+          "start": 73361,
+          "ms": 119
+        }
+      ],
+      "eventTiming": [
+        {
+          "name": "click",
+          "start": 10181,
+          "ms": 24,
+          "interaction": 3231
+        },
+        {
+          "name": "click",
+          "start": 10495,
+          "ms": 40,
+          "interaction": 3238
+        },
+        {
+          "name": "click",
+          "start": 16646,
+          "ms": 336,
+          "interaction": 3245
+        }
+      ],
+      "frameIntervals": null
+    }
+  ],
+  "notes": "Event records retained only click/keydown for readability. Baseline event ring included hover records and may omit late clicks. Samples are cumulative bounded logs; zero load means captured before load completion. No GPU FPS, INP, memory, CPU-throttle or physical-device claim."
+}

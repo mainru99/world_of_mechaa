@@ -272,6 +272,7 @@ async function handleApi(request, env, url) {
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
     const st = await loadState(env, sess.account_id);
     if (!st) return json({ ok: false, error: 'no player' }, 404);
+    if(st.error)return json(st,st.status||500);
     return json({ ok: true, ...st, server_now: Date.now() });
   }
 

@@ -9,7 +9,8 @@ import { CONST, ROBOT_TYPES } from '../data/balance.js';
 import { periodEnd, refreshCost, shardNeed, shardKey, parseItems, shopState, rollShop, slotSig, bagView } from '../js/shop.js';
 import { insertPart } from './parts.js';
 import { canDevelop } from '../js/lineage.js';
-import { goalOk, autoGoal } from '../js/mastery.js';
+import { goalOk, autoGoal, masteryView } from '../js/mastery.js';
+import { commitMastery, MASTERY_RETRIES } from './mastery.js';
 import { synthCheck, rollSynth, applySynth } from '../js/shardsynth.js';
 
 const err = (status, error, extra) => ({ ok: false, status, error, ...(extra || {}) });
@@ -18,11 +19,11 @@ async function load(env, acc) {
   const p = await env.DB.prepare(
     'SELECT credits, cores, scrap, items, shop, rev, m_goal FROM player WHERE account_id = ?1').bind(acc).first();
   if (!p) return null;
-  const robots = (await env.DB.prepare('SELECT type, level FROM robot WHERE account_id = ?1')
+  const robots = (await env.DB.prepare('SELECT id, uid, type, level, m_lv FROM robot WHERE account_id = ?1 ORDER BY id')
     .bind(acc).all()).results || [];
   /* 레벨은 뽑기(server/pull.js)와 같은 자 — 가진 기체 중 가장 높은 레벨 */
   const level = Math.max(1, ...robots.map(r => r.level | 0));
-  return { p, level, owned: robots.map(r => r.type) };
+  return { p, robots, level, owned: robots.map(r => r.type) };
 }
 
 function view(acc, L, now) {
@@ -50,6 +51,20 @@ export async function shopView(env, acc, now) {
                    { action: 'synth', mats }      조각 합성 — { 기체 id: 개수 } 같은 등급 6 ~ 10 개 + 스크랩(js/shardsynth.js) */
 export async function shopRun(env, acc, now, body) {
   const a = body && body.action;
+  if(a==='goal'){
+    // Settle earnings against the old goal before changing it in the same batch.
+    const type=String(body.type||'');
+    for(let attempt=0;attempt<MASTERY_RETRIES;attempt++){
+      const L=await load(env,acc);if(!L)return err(404,'no player');
+      const r=await commitMastery(env,acc,L.p,L.robots,type,now);
+      if(r.error)return err(r.status,r.error,{type});
+      if(r.conflict)continue;
+      return {...view(acc,{...L,p:r.p},now),goal:type,rev:r.p.rev,
+        mastery:{...masteryView(r.robots,parseItems(r.p.items),type),got:0,grants:[]},
+        settled:{goal:r.mast.goal,got:r.mast.total,grants:r.mast.grants}};
+    }
+    return err(409,'mastery changed, retry');
+  }
   const L = await load(env, acc);
   if (!L) return err(404, 'no player');
   const st = shopState(L.p.shop, now, L.level);
@@ -156,17 +171,6 @@ export async function shopRun(env, acc, now, body) {
     const after = { ...L, p: { ...L.p, items: JSON.stringify(next), scrap: L.p.scrap - chk.cost, rev: L.p.rev + 1 } };
     return { ...view(acc, after, now), synth: { ...out, from: chk.rar, used: chk.n, spent: chk.cost, rates: chk.rates },
              rev: L.p.rev + 1 };
-  }
-
-  /* 개발 목표를 고른다(022) — 숙련 조각이 모일 기체. 계보가 열어 준 것 · 아직 없는 것만 고를 수 있다.
-     고르는 화면은 UI 개편에서 나온다. 그때까지 서버가 autoGoal 로 골라 두고, 이 길로 바꾼다. */
-  if (a === 'goal') {
-    const type = String(body.type || '');
-    if (!goalOk(type, L.owned)) return err(400, 'bad goal', { type });
-    const r = await env.DB.prepare('UPDATE player SET m_goal = ?2, updated_at = ?3 WHERE account_id = ?1')
-      .bind(acc, type, now).run();
-    if ((r.meta?.changes ?? 0) !== 1) return err(409, 'retry');
-    return { ...view(acc, L, now), goal: type };
   }
 
   return err(400, 'unknown action');

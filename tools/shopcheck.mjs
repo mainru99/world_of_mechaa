@@ -9,6 +9,7 @@
  *
  * node --no-warnings tools/shopcheck.mjs */
 import { DatabaseSync } from 'node:sqlite';
+import {sqliteD1} from './sqlite-d1.mjs';
 import { readFileSync } from 'node:fs';
 import { CONST, ROBOT_TYPES } from '../data/balance.js';
 import { shopView, shopRun } from '../server/shop.js';
@@ -20,13 +21,8 @@ const ok = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if (!c) bad++
 
 const db = new DatabaseSync(':memory:');
 db.exec(readFileSync(new URL('../server/schema.sql', import.meta.url), 'utf8'));
-const stmt = (sql, args = []) => ({
-  bind: (...a) => stmt(sql, a),
-  first: async () => db.prepare(sql).get(...args) ?? null,
-  all: async () => ({ results: db.prepare(sql).all(...args) }),
-  run: async () => { const r = db.prepare(sql).run(...args); return { meta: { changes: Number(r.changes) } }; },
-});
-const env = { DB: { prepare: sql => stmt(sql), batch: async list => { for (const s of list) await s.run(); return []; } } };
+
+const env = sqliteD1(db);
 const q = (sql, ...a) => db.prepare(sql).get(...a);
 const P = () => q('SELECT credits, cores, scrap, items, shop, codex FROM player WHERE account_id=1');
 

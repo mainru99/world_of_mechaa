@@ -80,5 +80,19 @@ for(const change of [null,'close','selection','account','owner']){
  const task=t.mgr.settleFor(target);t.net.state.accountId='B';p.resolve({items:{'shard:bastion':99},mastery:{goal:'bastion',got:99}});await task;
  assert.equal(t.state.items['shard:bastion'],undefined,'reward response cannot leak across accounts');
 }
+{
+ const t=setup();await t.A.openDevelopment('mule');t.A.developmentSelect('bastion');let reads=0;
+ t.net.growthState=async()=>++reads===1?{items:{'shard:rust':3},mastery:{goal:'rust',got:0}}:null;
+ t.net.setDevelopmentGoal=async()=>({goal:'bastion',items:{'shard:rust':4},mastery:{goal:'bastion',got:0},settled:{goal:'rust',got:1}});
+ await t.A.developmentGoal();assert.equal(t.state.items['shard:rust'],4,'atomic POST earnings survive a failed follow-up read');
+ assert.equal(t.state.credits,987);assert.ok(t.html.includes(`${ROBOT_TYPES.rust.name} 조각 +1`));
+}
+{
+ const t=setup();await t.A.openDevelopment('mule');t.A.developmentSelect('bastion');let reads=0;const post=defer();
+ t.net.growthState=async()=>++reads===1?{items:{'shard:rust':3},mastery:{goal:'rust',got:0}}:null;t.net.setDevelopmentGoal=()=>post.p;
+ const work=t.A.developmentGoal();await Promise.resolve();await Promise.resolve();await Promise.resolve();
+ t.state.items['shard:rust']=99;post.resolve({goal:'bastion',items:{'shard:rust':4},mastery:{goal:'bastion'},settled:{goal:'rust',got:1}});await work;
+ assert.equal(t.state.items['shard:rust'],99,'late goal response cannot rewind newer local inventory');
+}
 assert.equal(goalOk('rust',['mule']),true);
 console.log(`Development UI passed: ${Object.keys(L.pos).length} units, ${LINEAGE.length} lineage + ${LINEAGE_SIBS.length} variant edges; shared rules immutable; C roots/all-parent/entry eligibility; mastery next/max; old-goal-first settlement; duplicate guards; closed modal/selection/account isolation; failed/stale reads; currency retained.`);

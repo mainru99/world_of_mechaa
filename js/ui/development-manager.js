@@ -85,15 +85,22 @@ export function createDevelopmentManager(ctx){
   if(!same(token)){if(pending===token)pending=null;return;}
   if(!before){pending=null;ctx.commit();const message='기존 목표의 정산을 확인하지 못해 목표를 변경하지 않았습니다. 다시 시도하세요.';if(visible())draw(message);else ctx.toast(message);return;}
   if(!goalOk(type,token.owner.robots.map(r=>r.type))){pending=null;ctx.commit();const message='선택한 기체의 보유 조건이 바뀌었습니다. 다시 확인하세요.';if(visible())draw(message);else ctx.toast(message);return;}
+  const posting=snapshot();
   let answer;try{answer=await ctx.net.setDevelopmentGoal(type);}catch{}
   if(!same(token)){if(pending===token)pending=null;return;}
   const ok=answer&&!answer.error&&answer.goal===type;
-  if(ok)meta={owner:token.owner,account:token.account,goal:type,known:true};
+  if(ok){
+   meta={owner:token.owner,account:token.account,goal:type,known:true};
+   // Goal POST can settle additional OLD-goal earnings atomically. Keep the
+   // confirmed items if follow-up GET fails, but never rewind newer local items.
+   if(answer.mastery&&answer.items&&snapshot()===posting){token.owner.items={...answer.items};adopt(answer);}
+  }
   // A failed/ambiguous POST is also reconciled; never speculate about success.
   const after=await read(token);
   if(!same(token)){if(pending===token)pending=null;return;}
   if(pending===token)pending=null;ctx.commit();paintCards();
-  const message=ok?`${ROBOT_TYPES[type].name} 개발 목표 저장${after?' 완료':' 완료 · 조각 조회는 다시 확인하세요'}. 이미 모은 조각은 유지됩니다.${before.got?` 이전 목표 조각 +${before.got}도 먼저 정산했습니다.`:''}`:
+  const earned=[before,ok?answer.settled:null].filter(r=>r?.got).map(r=>`${ROBOT_TYPES[r.goal]?.name||'이전 목표'} 조각 +${r.got}`).join(' · ');
+  const message=ok?`${ROBOT_TYPES[type].name} 개발 목표 저장${after?' 완료':' 완료 · 조각 조회는 다시 확인하세요'}. 이미 모은 조각은 유지됩니다.${earned?` ${earned} 정산했습니다.`:''}`:
    after?.goal===type?`${ROBOT_TYPES[type].name} 목표가 서버에 저장된 것을 확인했습니다.`:answer?.error==='bad goal'?'이 기체는 목표로 선택할 수 없습니다. 보유 조건을 확인하세요.':'목표 저장을 확인하지 못했습니다. 새로고침으로 서버 기록을 확인하세요.';
   if(visible())draw(message);else ctx.toast(message);
  }

@@ -18,11 +18,15 @@ assert.equal(Number(good(await net.health()).schema_version),24);
 await net.connect({create:false});assert.equal(net.state.needGuest,true);
 good(await net.connect({create:true}));let remote=good(await net.pull());
 assert.equal(remote.state.robots.length,1);assert.equal(remote.state.robots[0].level,1);
-const first=good(await net.front('c1-1'));assert.equal(first.win,true);assert.equal(first.first,true);
+let first;for(let attempt=0;attempt<10;attempt++){
+ first=good(await net.front('c1-1'));if(first.win)break;
+ assert.equal(first.first,false);assert.equal(first.gain,null,'a legitimate defeat must not award first-clear rewards');
+}
+assert.equal(first.win,true);assert.equal(first.first,true);
 remote=good(await net.pull());assert.equal(remote.state.credits,800);assert.equal(remote.state.scrap,50);
 const repeat=good(await net.front('c1-1'));assert.equal(repeat.first,false);assert.equal(repeat.gain,null);
 const u=remote.state.robots[0].uid;
-for(let i=0;i<2;i++)good(await net.hangar('levelup',{robotUid:u}));
+for(let i=remote.state.robots[0].level;i<3;i++)good(await net.hangar('levelup',{robotUid:u}));
 const progression=good(await net.pull());assert.equal(progression.state.robots[0].level,3);
 good(await net.logout());storage.clear();good(await net.connect({create:true}));
 const loginId=`qa${Date.now()}`;good(await net.register(loginId,'LocalQA8843!'));
@@ -32,11 +36,17 @@ good(await net.push({v:2,credits:100000,cores:12,scrap:50000,robots:[robot],part
 const candidates=Object.keys(ROBOT_TYPES).filter(t=>goalOk(t,[robot.type])),old=candidates[0],next=candidates[1];assert.ok(old&&next);
 good(await net.setDevelopmentGoal(old));good(await net.growthState()); // device A preflight
 good(await net.hangar('levelup',{robotUid:robot.uid})); // device B crosses Lv.5
-good(await net.setDevelopmentGoal(next)); // device A goal write after level event
+const changed=good(await net.setDevelopmentGoal(next)); // device A goal write after level event
 const settled=good(await net.growthState());
-console.log(JSON.stringify({goalWindow:{old,next,grant:settled.mastery.got,creditedTo:settled.mastery.goal,oldShards:settled.items[`shard:${old}`]||0,newShards:settled.items[`shard:${next}`]||0},note:'Observed ordering; backend acceptance requires pre-change earnings credited to old goal atomically.'}));
+assert.equal(changed.settled.goal,old);assert.equal(changed.settled.got,1);assert.equal(settled.mastery.got,0);assert.equal(settled.items[`shard:${old}`],1);assert.equal(settled.items[`shard:${next}`]||0,0);
+console.log(JSON.stringify({goalWindow:{old,next,grant:changed.settled.got,creditedTo:changed.settled.goal,oldShards:settled.items[`shard:${old}`]||0,newShards:settled.items[`shard:${next}`]||0}}));
 const prep=good(await net.battleFind({mode:'duel',target:progression.nickname}));assert.equal(prep.opponent.kind,'player');
-console.log(JSON.stringify({preparation:{kind:prep.opponent.kind,circuitPresent:Object.hasOwn(prep.opponent,'circuit'),statsPresent:Object.hasOwn(prep.opponent,'stats')},note:'Pending additive preparation contract; no UI estimated values.'}));
+assert.ok(Array.isArray(prep.opponent.circuit));assert.ok(prep.opponent.stats?.hp>0);
+const battle=good(await net.battleStart('none'));assert.deepEqual(prep.opponent.stats,battle.statE);
+for(let i=0;i<5;i++)good(await net.hangar('levelup',{robotUid:robot.uid}));
+const reads=(await Promise.all([net.growthState(),net.growthState()])).map(good);
+assert.equal(reads.reduce((n,r)=>n+r.mastery.got,0),1);const final=good(await net.growthState());
+assert.equal(final.items[`shard:${old}`],1);assert.equal(final.items[`shard:${next}`],1);
 if(process.argv[3]){
  assert.equal(process.argv[3],'.tmp/launch-large.sql','fixture output is restricted to a known local QA file');
  const rng=mulberry32(20260930),sql=[],quote=v=>v===null?'NULL':typeof v==='number'?String(v):`'${String(v).replaceAll("'","''")}'`;
@@ -45,4 +55,4 @@ if(process.argv[3]){
  await mkdir('.tmp',{recursive:true});await writeFile(process.argv[3],sql.join('\n'));
  console.log(`Fixture generated: ${loginId} / LocalQA8843! · 1,000 parts; execute only against the isolated local launch-review-state DB.`);
 }
-console.log(`Launch API passed: fresh guest without migration, first/repeat rewards, Lv.3 progression, separate QA account; ${count} loopback HTTP requests. Server findings above remain pending.`);
+console.log(`Launch API passed: fresh guest without migration, first/repeat rewards, Lv.3 progression, separate QA account, old-goal atomic settlement and preparation/start stats; ${count} loopback HTTP requests.`);

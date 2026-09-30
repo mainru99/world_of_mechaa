@@ -20,7 +20,7 @@ import { isPct, fatOf, serviceCost, sortieCost, findPart, partStat, partMods, ga
          setKeyOf, setCounts, setActive,
          skillCost, skillRate, skillMax, skillMul,
          expNeed, battleExp, lvCost, enhCost, enhRate, enhMax,
-         computeStats as _computeStats, power as _power } from './stats.js';
+         computeStats as _computeStats, power as _power, powerOf } from './stats.js';
 import { mulberry32, makeUnit, simulate } from './sim.js';
 import { runBreach, rarAllowed, applyTerrain, maxRounds } from './breach.js';
 import { weekOf, weekEnd, TRIAL_WIN_BASE, trialOf, runTrial, trialWon, foeStats } from './trial.js';
@@ -44,6 +44,7 @@ import { frontCampaignView, frontStoryView, frontResultView } from './ui/front.j
 import { createModal } from './ui/modal.js';
 import { guideView, operationMenu, commonMessage } from './ui/common.js';
 import { battleView, BATTLE_MODES } from './ui/battle.js';
+import { preparedStats } from './ui/battle-stats.js';
 import { territoryView, territoryResultView, bindTerritory } from './ui/territory.js';
 import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog, percentText } from './ui/recruitment.js';
 import { createCircuitManager } from './ui/circuit-manager.js';
@@ -1423,7 +1424,10 @@ const tacKo = k => (CONST.TACTIC && CONST.TACTIC[k] && CONST.TACTIC[k].ko) || '�
 
 let _pendingOpp=null, _battleRobot=null, battleSpeed=1;   // 기본은 등속. 빠르게 보고 싶으면 x2~x8 로 올린다
 let _battleMode='arena', _battleRequest=0, _battleFindOpts;
-function battleUnit(rb,parts){return {type:rb.type,level:rb.level,stats:computeStats(rb,parts),power:power(rb,parts)};}
+function battleUnit(rb,parts,confirmed){
+  const stats=preparedStats(confirmed)||computeStats(rb,parts);
+  return {type:rb.type,level:rb.level,stats,power:powerOf(stats)};
+}
 function battleIdentity(){return {playerName:net.state.loginId||net.state.accountId||'지휘관',playerMeta:`${S.stat.wins}승 ${S.stat.losses}패`};}
 function setBattleMode(mode){
   if(!BATTLE_MODES[mode])return;
@@ -1862,7 +1866,7 @@ async function findMatch(opts){
 function setPending(o, cost, rescue, tier, mode, duel){
   _pendingOpp = o ? { kind:o.kind, callsign:o.callsign, rating:o.rating,
     robot:{ uid:'E', type:o.type, level:o.level, skillLv:o.skillLv|0, fat:0, slots:o.slots, ...(Array.isArray(o.circuit)?{circuit:o.circuit}:{}) },
-    parts:o.parts, bench:o.bench||[], band:o.band||null, bandTotal:o.bandTotal||null, bandGoal:o.bandGoal||null,
+    parts:o.parts, stats:o.stats||null, bench:o.bench||[], band:o.band||null, bandTotal:o.bandTotal||null, bandGoal:o.bandGoal||null,
     cost:cost|0, rescue:!!rescue, tier:tier||null, mode:mode||null,
     joint:o.joint||null,                 // 합동전(토벌 보스) — 조준과 요구 조건. 있으면 편성 화면이 뜬다
     /* 지목 대전이면 상대 편성 목록과 지금 고른 칸을 함께 들고 다닌다 —
@@ -2157,8 +2161,9 @@ function showOpponent(opp, practice){
   if(opp.joint && !practice) return showJoint(opp);   // 토벌 보스는 합동전 편성 화면(2026-09-21)
   shield();
   const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];
-  const my=selRobot(), myst=computeStats(my), est=computeStats(opp.robot, opp.parts||[]);
-  const enemyKnown=practice||opp.kind!=='player'||Array.isArray(opp.robot.circuit);
+  const confirmed=preparedStats(opp.stats);
+  const my=selRobot(), myst=computeStats(my), est=confirmed||computeStats(opp.robot, opp.parts||[]);
+  const enemyKnown=!!(practice||opp.kind!=='player'||confirmed||Array.isArray(opp.robot.circuit));
   const num=(k,v)=> isPct(k) ? (v*100).toFixed(0)+'%' : fmt(Math.round(v));
   /* 상대가 더 높은 값은 붉게, 내가 높으면 푸르게. 눈으로 훑어서 바로 읽히게 한다. */
   const cmp=k=>{ const a=est[k], b=myst[k], hi=a>b*1.02, lo=a<b*0.98;
@@ -2175,7 +2180,7 @@ function showOpponent(opp, practice){
   if(enemyKnown && est.def >= myst.def * 1.25)
     notes.push(myFx.ignoreDef ? '장갑이 두껍지만 <b>내 스킬이 관통합니다</b>'
                               : '<b>장갑이 두껍습니다</b> — 관통 스킬이 유리합니다');
-  const myPow=power(my), oPow=power(opp.robot,opp.parts||[]);
+  const myPow=power(my), oPow=powerOf(est);
   if(enemyKnown && oPow > myPow*1.10) notes.push('전투력이 밀립니다 — 공격력 <b>구간이 넓은</b> 편성이 뒤집을 여지가 큽니다');
   else if(enemyKnown && oPow < myPow*0.90) notes.push('전투력이 앞섭니다 — 구간이 <b>좁을수록</b> 확실합니다');
 
@@ -2188,7 +2193,7 @@ function showOpponent(opp, practice){
   }).join('')}</div></div>`:'';
   const intel=`<details class="bv-intel"><summary>기체 분석 · 스킬과 장비 비교</summary><div class="oppstats">${enemyKnown?['def','eva','spd'].map(cmp).join(''):'<p>상대 능력치는 전투 시작 시 확인할 수 있습니다.</p>'}</div>${oppGear(opp)}<div class="monster-skill"><strong>${T.skill.name}</strong><span class="fxrow">${fxTags(opp.robot.type)}</span><span>${T.skill.desc}</span></div><div class="my-skill"><strong>내 스킬 · ${COMBAT_TYPES[my.type].skill.name}</strong><span class="fxrow">${fxTags(my.type)}</span><span>${COMBAT_TYPES[my.type].skill.desc}</span></div></details>`;
   const brief=practice?'연습 대전 · 경험치·재화·피로도·전적은 변하지 않습니다.':opp.mode==='duel'?'친선 대전 · 출격비·보상·전적·레이팅 변동이 없습니다.':opp.rescue?'비상 출격 · 출격비 없이 전투합니다. 보상은 크레딧만 지급됩니다.':opp.tier?`토벌 ${HUNT_KO[opp.tier]||opp.tier} · 상대를 확인하고 전술을 선택하세요.`:'기체와 전술을 확인하세요. 전투는 자동으로 진행됩니다.';
-  $('#sc-battle').innerHTML=battleView({mode,allies:[battleUnit(my)],enemies:[{...battleUnit(opp.robot,opp.parts||[]),statsKnown:enemyKnown}],powerKnown:enemyKnown,powerUnavailableLabel:'상대 서킷 미확인',...battleIdentity(),
+  $('#sc-battle').innerHTML=battleView({mode,allies:[battleUnit(my)],enemies:[{...battleUnit(opp.robot,opp.parts||[],confirmed),statsKnown:enemyKnown}],powerKnown:enemyKnown,powerUnavailableLabel:'상대 능력치 미확인',...battleIdentity(),
     enemyName:opp.callsign,enemyMeta:`${monster?'몬스터 · 위험도 '+T.rarity:opp.kind==='player'?'플레이어':'훈련 기체'}${opp.band?' · 구간 '+opp.band+'/'+(opp.bandTotal||12):''}`,
     brief:`<p>${esc(brief)}</p>${bandLine(opp.bandGoal)}`,costLabel:practice||opp.mode==='duel'||opp.rescue?'무료':fmt(opp.cost)+' 크레딧',rewardLabel:practice||opp.mode==='duel'?'보상 없음':opp.rescue?'크레딧':'상대·승패에 따라 결정',
     actions:`<button class="bv-launch" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작 ${icon('chevron')}</button><button class="btn ghost" onclick="ROWAR.battleRetry(${!!practice})">다시 찾기</button>`,
@@ -2198,7 +2203,8 @@ function relayPreview(opp,practice){
   const own=jointBase().map(u=>S.robots.find(r=>r.uid===u)).filter(Boolean);
   if(practice||!CONST.RELAY.on||opp.mode==='hunt'||own.length<2||!opp.bench?.length)return '';
   const foe=opp.bench[0],rb=own[1];
-  return `<section class="bv-relay ui-surface"><h3>교대 대전 · 양쪽 2기</h3><p>선봉이 격추되면 예비가 이어서 싸웁니다. 위 전력 비교는 선봉 기준입니다. 예비 전술은 선봉의 전술을 따릅니다.</p><div><span>${sprite(rb.type,false)}<b>우리 예비 · ${esc(ROBOT_TYPES[rb.type].name)} · Lv.${rb.level}</b></span><span>${sprite(foe.type,false)}<b>상대 예비 · ${esc(foe.name||COMBAT_TYPES[foe.type]?.name||foe.type)} · Lv.${foe.level}</b></span></div></section>`;
+  const stats=preparedStats(foe.stats),intel=stats?`전투력 ${fmt(powerOf(stats))} · 내구 ${fmt(stats.hp)} · 공격 ${fmt(stats.atk)}`:'능력치 미확인';
+  return `<section class="bv-relay ui-surface"><h3>교대 대전 · 양쪽 2기</h3><p>선봉이 격추되면 예비가 이어서 싸웁니다. 위 전력 비교는 선봉 기준입니다. 예비 전술은 선봉의 전술을 따릅니다.</p><div><span>${sprite(rb.type,false)}<b>우리 예비 · ${esc(ROBOT_TYPES[rb.type].name)} · Lv.${rb.level}</b></span><span>${sprite(foe.type,false)}<span class="bv-relay-copy"><b>상대 예비 · ${esc(foe.name||COMBAT_TYPES[foe.type]?.name||foe.type)} · Lv.${foe.level}</b><small>${intel}</small></span></span></div></section>`;
 }
 
 /* ------------------------------- 연습 대전 ------------------------------- */
@@ -2837,7 +2843,7 @@ function showJoint(opp){
   shield();
   _jctx = () => showJoint(opp);
   const allies=jointForm().order.map(u=>battleUnit(S.robots.find(r=>r.uid===u)));
-  $('#sc-battle').innerHTML=battleView({mode:'hunt',allies,enemies:[battleUnit(opp.robot,opp.parts||[])],...battleIdentity(),enemyName:opp.callsign,enemyMeta:'보스 토벌 · 동시 합동전',
+  $('#sc-battle').innerHTML=battleView({mode:'hunt',allies,enemies:[battleUnit(opp.robot,opp.parts||[],opp.stats)],...battleIdentity(),enemyName:opp.callsign,enemyMeta:'보스 토벌 · 동시 합동전',
     details:`<div class="jointprep">${jointBossHtml(opp.robot.type,opp.robot.level,opp.joint,opp.callsign)}${jointFormHtml(opp.joint.traits)}</div>`,
     brief:'<p>전위와 후위가 동시에 싸웁니다. 두 기 모두 피로도가 쌓이며 서버가 정한 자리·전술로 재생합니다.</p>',costLabel:fmt(opp.cost)+' 크레딧',rewardLabel:'토벌 보상',
     actions:`<button class="bv-launch" onclick="ROWAR.startBattle()">합동 출격 ${icon('chevron')}</button><button class="btn ghost" onclick="ROWAR.hunt('${opp.tier}')">다시 찾기</button>`});

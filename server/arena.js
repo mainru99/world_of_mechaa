@@ -186,6 +186,7 @@ function rowToOpponent(row, ver, pick) {
     skillLv: e.skillLv | 0,
     slots: e.slots || { ...EMPTY_SLOTS },
     parts: e.parts || [],
+    circuit: parseCircuit(e.circuit),
     stats,                      // 스냅샷의 스탯. 옛 밸런스면 위에서 다시 계산한 것
     bench,
     rating: row.rating,

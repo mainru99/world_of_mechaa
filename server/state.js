@@ -14,7 +14,8 @@ import { parseItems } from '../js/shop.js';
 import { parsePresets } from '../js/preset.js';
 import { bindOn, unbindCost } from '../js/bind.js';
 import { huntWeekView } from '../js/rewards.js';
-import { settleMastery, masteryView } from '../js/mastery.js';
+import { masteryView } from '../js/mastery.js';
+import { commitMastery, MASTERY_RETRIES } from './mastery.js';
 import { parseCircuit } from '../js/circuit.js';
 import { salvLeft, salvDaily } from '../js/salvage.js';
 import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
@@ -194,31 +195,27 @@ export async function noteMigration(env, accountId, clamped, now) {
 
 /* ── 읽기 ──────────────────────────────────────────────── */
 export async function loadState(env, accountId) {
-  const p = await env.DB.prepare(
-    `SELECT nickname, credits, cores, rcores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items, presets,
-            campaign, hunt_wk, m_goal, salv, sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
-       FROM player WHERE account_id = ?1`).bind(accountId).first();
-  if (!p) return null;
+  let p,robots,mast;
+  for(let attempt=0;attempt<MASTERY_RETRIES;attempt++){
+    p = await env.DB.prepare(
+      `SELECT nickname, credits, cores, rcores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items, presets,
+              campaign, hunt_wk, m_goal, salv, sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
+         FROM player WHERE account_id = ?1`).bind(accountId).first();
+    if (!p) return null;
 
-  const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, m_lv, circuit, presets, s_weapon, s_frame, s_booster, s_core
-       FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
+    robots = (await env.DB.prepare(
+      `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, m_lv, circuit, presets, s_weapon, s_frame, s_booster, s_core
+         FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
 
-  /* ── 숙련 조각 정산(022) ──────────────────────────────────────
-     레벨이 오르는 길은 여럿이지만(대전 · 전선 · 점령 · 레벨업 구매) 정산은 **여기 한 곳**에서 한다.
-     클라는 무엇을 하든 곧 상태를 다시 읽으므로 늦어도 그때 들어온다. 줄 것이 있을 때만 쓴다. */
-  const mast = settleMastery(
-    robots.map(r => ({ id: r.id, uid: r.uid, type: r.type, level: r.level, mLv: r.m_lv })),
-    robots.map(r => r.type), parseItems(p.items), p.m_goal);
-  if (mast.changed) {
-    const w = [env.DB.prepare('UPDATE player SET items=?1, m_goal=?2 WHERE account_id=?3')
-      .bind(JSON.stringify(mast.items), mast.goal, accountId)];
-    for (const g of mast.grants)
-      w.push(env.DB.prepare('UPDATE robot SET m_lv=?1 WHERE id=?2').bind(g.to, g.id));
-    await env.DB.batch(w);
-    p.items = JSON.stringify(mast.items);
-    p.m_goal = mast.goal;
-    for (const g of mast.grants) { const r = robots.find(x => x.id === g.id); if (r) r.m_lv = g.to; }
+    /* ── 숙련 조각 정산(022) ──────────────────────────────────────
+       레벨이 오르는 길은 여럿이지만(대전 · 전선 · 점령 · 레벨업 구매) 상태 조회와 목표 변경은 같은 조건부 정산을 쓴다.
+       클라는 무엇을 하든 곧 상태를 다시 읽으므로 늦어도 그때 들어온다. 줄 것이 있을 때만 쓴다. */
+    const settled=await commitMastery(env,accountId,p,robots);
+    if(settled.conflict){
+      if(attempt+1===MASTERY_RETRIES)return {ok:false,status:409,error:'mastery changed, retry'};
+      continue;
+    }
+    ({p,robots,mast}=settled);break;
   }
   const parts = (await env.DB.prepare(
     `SELECT ${PART_COLS}, bound FROM part WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];

@@ -24,6 +24,14 @@ import { makeUnit, simulate, mulberry32, relayOut } from '../js/sim.js';
 /* 교대 전투(CONST.RELAY · 2026-09-25) — 켜져 있을 때만. 대전(아레나 · 비상 출격 · 친선전)만 해당하고 토벌은 그대로다 */
 const relayOn = () => !!(CONST.RELAY && CONST.RELAY.on);
 const relayShare = () => (CONST.RELAY && CONST.RELAY.share) || [0.6, 0.4];
+// Same snapshot/fallback in preparation and start. No seed/tactic is exposed.
+function opponentStats(o){
+  return o.stats || computeStats({type:o.type,level:o.level,skillLv:o.skillLv|0,fat:0,slots:o.slots,circuit:o.circuit},o.parts||[]);
+}
+function preparedBench(o){
+  return {type:o.type,level:o.level,name:(COMBAT[o.type]||{}).name,skillLv:o.skillLv|0,
+    parts:o.parts||[],slots:o.slots,circuit:parseCircuit(o.circuit),stats:opponentStats(o)};
+}
 /* 만들어 낸 상대의 두 번째 기체 — 첫째와 같은 종류(로봇 / 몬스터)로. makeOpponent 가 종류를 확률로 고르므로 몇 번 굴린다 */
 function secondOpponent(first, me, rnd, uid, rescue) {
   for (let k = 0; k < 12; k++) {
@@ -151,6 +159,7 @@ async function preparePending(env, accountId, me, now, credits, opts) {
           kind: hopp.kind, type: hopp.type, level: hopp.level, skillLv: hopp.skillLv | 0, callsign: hopp.callsign,
           rating: null, name: HT.name, role: HT.role, rarity: HT.rarity,
           skill: HT.skill, parts: hopp.parts, slots: hopp.slots,
+          circuit: parseCircuit(hopp.circuit), stats: joint ? jointBossStats(opponentStats(hopp),J.traits,hopp.type) : opponentStats(hopp),
           /* 합동전 — 화면이 편성 칸과 요구 조건을 그린다 */
           joint: joint ? { aim: J.aim, traits: J.traits } : null,
         },
@@ -186,7 +195,8 @@ async function preparePending(env, accountId, me, now, credits, opts) {
         callsign: dopp.callsign, rating: dopp.rating ?? null,
         name: DT.name, role: DT.role, rarity: DT.rarity,
         skill: DT.skill, parts: dopp.parts, slots: dopp.slots,
-        bench: relayOn() ? (dopp.bench || []).map(b => ({ type: b.type, level: b.level, name: (COMBAT[b.type] || {}).name })) : undefined,
+        circuit: parseCircuit(dopp.circuit), stats: opponentStats(dopp),
+        bench: relayOn() ? (dopp.bench || []).map(preparedBench) : undefined,
       },
     };
   }
@@ -218,13 +228,14 @@ async function preparePending(env, accountId, me, now, credits, opts) {
       rating: opp.rating ?? null,
       name: T.name, role: T.role, rarity: T.rarity,
       skill: T.skill, parts: opp.parts, slots: opp.slots,
+      circuit: parseCircuit(opp.circuit), stats: opponentStats(opp),
       /* 몬스터 구간 — 화면이 '지금 몇 구간을 상대하고 있나' 를 보여 준다.
          목표가 보여야 파밍에 방향이 생긴다(CONST.MON_BAND). */
       band: opp.band ?? null, bandTotal: (CONST.MON_BAND || []).length || null,
       /* 승급까지 몇 승 · 강등까지 몇 패. 몬스터일 때만 뜻이 있다 — 비상 출격은 안 움직인다. */
       bandGoal: opp.kind === 'monster' && !rescue ? bandGoal(me.band, me.bandPts) : null,
       /* 교대 전투 — 상대의 두 번째 기체(켜져 있을 때만) */
-      bench: relayOn() ? (opp.bench || []).map(b => ({ type: b.type, level: b.level, name: (COMBAT[b.type] || {}).name })) : undefined,
+      bench: relayOn() ? (opp.bench || []).map(preparedBench) : undefined,
     },
   };
 }
@@ -345,8 +356,7 @@ export async function startBattle(env, accountId, now, body) {
   const statP = computeStats(me.robot, me.parts);
   /* 사람 상대는 등록 당시 스냅샷의 스탯을 쓴다. 다시 계산하면 그 사이 상대가
      장비를 바꿨을 때 이미 성사된 전투의 입력이 달라진다. */
-  const statE = opp.stats || computeStats({ type: opp.type, level: opp.level, skillLv: opp.skillLv | 0,
-                                            fat: 0, slots: opp.slots }, opp.parts);
+  const statE = opponentStats(opp);
   /* 전술 — 내 것은 요청에서 받고, 상대 것은 **시드에서** 뽑는다.
      상대 전술을 별도 난수(시드를 한 번 섞은 것)로 뽑는 이유는 전투 난수열을 건드리지
      않기 위해서다. 이 줄이 전투 rnd 를 한 칸 당기면 예전 전투가 전부 다른 결과가 된다.
@@ -366,7 +376,7 @@ export async function startBattle(env, accountId, now, body) {
   if (me2 && ob) {
     decayFat(me2.robot, now);
     const statP2 = computeStats(me2.robot, me2.parts);
-    const statE2 = ob.stats || computeStats({ type: ob.type, level: ob.level, skillLv: ob.skillLv | 0, fat: 0, slots: ob.slots, circuit: ob.circuit }, ob.parts);
+    const statE2 = opponentStats(ob);
     const tacP2 = body && body.tactic2 != null ? validTactic(body.tactic2) : tacP;
     const tacE2 = pickTactic(ob.type, mulberry32((seed ^ 0x85ebca6b) >>> 0));
     const nameE2 = ob.callsign || (COMBAT[ob.type] || {}).name || opp.callsign;

@@ -1,5 +1,9 @@
 # 협업 계약
 
+## 2026-09-30 사용자 승인 — main 반영·운영 배포 · 진행
+
+사용자 지시: “이제 main에 반영하고 배포해도 되지 않을까?” 최신 원격 main ab45b4c와 통합본 e7b5756을 대조했으며 main의33개 후속 통합 커밋이 모두 포함되어 있다. 프론트/서버 회귀와 격리 로컬 API를 최종 확인한 뒤 main을 fast-forward하고 깨끗한 통합 checkout에서 npm run deploy한다. 로컬 main의 core-circuit-draft HTML 미커밋 변경·docs/art·proto는 보존한다. DB/수치/기체 그림/기능 스위치·스마트 배치·크론 설정을 유지하고 이관/bindnow.sql을 실행하지 않는다. 운영 읽기 전용 health/API 인증/정적 파일·브라우저 확인과 출시 기록을 남긴다. 운영 계정의 로그인/보상/소비 테스트는 하지 않으며 실제 Galaxy S26 Ultra·iOS/저사양 검수는 대기다.
+
 ## 2026-09-30 P5 성능·입력 검수 — GPT · 로컬 완료 / 실기기 대기
 
 사용자 승인: 다음 작업 및 멈춘 작업 재개. codex/ui-integration에서 game.js/sprites.js/part-window.js/hangar theme의 초기 그림 요청·보관함 DOM·검색/키보드 조작을 검수하고 발견한 프론트 병목을 보완한다. tools의 명시적 opt-in 가상 성능 계정/측정 도구와 관련 검사·인수 기록을 추가한다. 서버/DB/공유 수치/기체 에셋/기능 스위치는 변경하지 않는다. 사용자 Galaxy S26 Ultra는 현재 연결 불가이므로 실제 기기 측정은 대기하고 PC 브라우저 viewport 측정과 구별한다. 원본 UI/main 보존, 운영 반영·배포 없음.

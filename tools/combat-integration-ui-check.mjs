@@ -65,7 +65,7 @@ for(const phase of ['post','replay'])for(const change of ['screen','return','acc
  c.setPending({type:'mule',bench:[{type:'dune',level:40,name:'DUNE'}]},1,false,null,'arena');
  assert.equal(vm.runInContext('_pendingOpp.bench[0].type',c),'dune');
 }
-assert.equal(CONST.PART_BIND.on,false,'integration never activates binding');
+assert.equal(CONST.PART_BIND.on,true,'approved release enables binding');
 assert.ok(Object.values(ROBOT_TYPES).filter(t=>!t.story).length>=76);
 assert.ok(MONSTER_TYPES.boss_nihil);
 // Delayed analysis belongs to the exact result element and account that scheduled it.
@@ -77,4 +77,4 @@ for(const stale of ['element','account','state','request',null]){
  if(stale==='element')current={isConnected:true};if(stale==='account')c.net.state.accountId='b';if(stale==='state')c.S={};if(stale==='request')c._battleRequest++;
  timer();assert.equal(drawn,stale?0:1);
 }
-console.log('Merged combat UI passed: joint order; navigation/account cancellation; exactly-once rewards; UID relay settlement; server-progress entry; retained opponent bench; binding remains off.');
+console.log('Merged combat UI passed: joint order; navigation/account cancellation; exactly-once rewards; UID relay settlement; server-progress entry; retained opponent bench; approved binding policy retained.');

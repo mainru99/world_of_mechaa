@@ -14,6 +14,7 @@
  *   { '<종류>:<id>': 개수 }. 지금은 기체 조각(shard:<기체id>)만 들어간다.
  *   **나중에 아이템이 늘면 같은 칸에 새 종류 접두어로 넣는다** — 표를 바꾸지 않아도 된다. */
 import { CONST, ROBOT_TYPES } from '../data/balance.js';
+import { canDevelop } from './lineage.js';
 import { mulberry32 } from './sim.js';
 import { rollPart } from './gacha.js';
 
@@ -97,8 +98,9 @@ export function bagView(items, ownedTypes) {
   const own = new Set(ownedTypes || []);
   return Object.entries(items || {})
     .filter(([k, v]) => k.startsWith('shard:') && v > 0 && ROBOT_TYPES[k.slice(6)])
-    .map(([k, v]) => { const type = k.slice(6), need = shardNeed(type);
+    .map(([k, v]) => { const type = k.slice(6), need = shardNeed(type), development = canDevelop(type, own);
       return { key: k, kind: 'shard', type, rarity: ROBOT_TYPES[type].rarity, have: v, need,
-               ready: v >= need, owned: own.has(type) }; })
+               ready: v >= need && (!CONST.LINEAGE.gate || development.ok), hasShards: v >= need,
+               lineageLocked: !!CONST.LINEAGE.gate && !development.ok, development, owned: own.has(type) }; })
     .sort((a, b) => (b.ready - a.ready) || (b.have / b.need - a.have / a.need));
 }

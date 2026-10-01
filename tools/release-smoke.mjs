@@ -11,6 +11,8 @@ import {CONST} from '../data/balance.js';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const base='https://rowar.hun7539.workers.dev';
 const tag=process.argv[2]||'20260930-release';
+const reportName=process.argv[3]||'release-verification-2026-10-02.json';
+assert.match(reportName,/^[a-zA-Z0-9-]+\.json$/,'report filename only');
 const normalize=b=>b.toString('utf8').replaceAll('\r\n','\n');
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const records=[],errors=[];
@@ -44,7 +46,7 @@ let health=null;
 try{
  const r=await get('/api/health');assert.equal(r.status,200);health=await r.json();
  assert.equal(health.ok,true);assert.equal(health.db,'connected');assert.equal(Number(health.schema_version),24);assert.equal(health.balance_ver,balanceVersion());
- assert.equal(CONST.PART_BIND.on,false);assert.equal(CONST.LINEAGE.gate,false);
+ assert.equal(CONST.PART_BIND.on,true);assert.equal(CONST.LINEAGE.gate,true);
 }catch(e){errors.push(`health: ${e.message}`);}
 for(const path of ['/api/state','/api/salvage','/api/trial','/api/raid']){
  try{const r=await get(path);await r.arrayBuffer();records.push({path,method:'GET',status:r.status,authenticationRequired:r.status===401});assert.equal(r.status,401,path);}catch(e){errors.push(`${path}: ${e.message}`);}
@@ -57,6 +59,6 @@ for(const path of ['/CONTRACT.md','/server/schema.sql','/tools/ui-performance-pr
 }
 const report={at:new Date().toISOString(),base,tag,mode:'anonymous GET + credential-free empty POST rejected by auth; no production account mutation',ok:errors.length===0,health,flags:{bind:CONST.PART_BIND.on,lineage:CONST.LINEAGE.gate},fileCount:files.length,records,errors};
 await mkdir(resolve(root,'docs/ui/previews'),{recursive:true});
-await writeFile(resolve(root,'docs/ui/previews/release-verification-2026-09-30.json'),JSON.stringify(report,null,2)+'\n');
+await writeFile(resolve(root,'docs/ui/previews',reportName),JSON.stringify(report,null,2)+'\n');
 console.log(JSON.stringify({ok:report.ok,fileCount:files.length,health,flags:report.flags,errors},null,2));
 if(errors.length)process.exitCode=1;

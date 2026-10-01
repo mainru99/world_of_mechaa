@@ -12,7 +12,7 @@ const checks=[
  'mastery-concurrency-check','preparation-check','masterycheck','refinecheck',
  'battlecheck','arenacheck','shopcheck','presetcheck','codexcheck','bindcheck',
  'relaycheck','frontcheck','raidcheck','jointcheck','terrcheck','trialcheck',
- 'circuitcheck','synthcheck','lineagecheck','check_ignis_rain_integration'
+ 'circuitcheck','synthcheck','lineagecheck','feature-activation-check','check_ignis_rain_integration'
 ];
 for(const name of checks){
  const r=spawnSync(process.execPath,['--no-warnings',`tools/${name}.mjs`],{cwd:root,encoding:'utf8',timeout:60000,maxBuffer:4*1024*1024});

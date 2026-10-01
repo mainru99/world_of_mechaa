@@ -67,7 +67,7 @@ for(const change of ['close','account','owner','inspection']){
 }
 const old=CONST.PART_BIND.on;
 // Run the UI controller against actual server actions and in-memory SQLite.
-// Only this Node process toggles the constant; source/Worker/production stay off.
+// Only this Node process toggles the constant; configured source policy is restored below.
 try{for(const on of [false,true]){
  CONST.PART_BIND.on=on;const db=new DatabaseSync(':memory:');db.exec(readFileSync('server/schema.sql','utf8'));
  const stmt=(sql,args=[])=>({bind:(...a)=>stmt(sql,a),first:async()=>db.prepare(sql).get(...args)||null,all:async()=>({results:db.prepare(sql).all(...args)}),run:async()=>({meta:{changes:Number(db.prepare(sql).run(...args).changes)}})});
@@ -99,5 +99,5 @@ try{for(const on of [false,true]){
  }
  db.close();
 }}finally{CONST.PART_BIND.on=old;}
-assert.equal(CONST.PART_BIND.on,false);assert.equal(CONST.LINEAGE.gate,false);
+assert.equal(CONST.PART_BIND.on,old,'both-mode tests restore the configured binding policy');assert.equal(CONST.LINEAGE.gate,true);
 console.log('Loadout UI passed: actual SQLite off/on equip, unbind wallet/idempotency, per-UID/account presets, bound skip keeps gear, fuse conflict; preflight/mode changes, captured inspection, late account/state/close isolation, duplicate/failure safety; switches restored.');

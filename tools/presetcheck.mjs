@@ -15,6 +15,12 @@ import { loadState } from '../server/state.js';
 import { insertPart } from '../server/parts.js';
 import { rollPart } from '../js/gacha.js';
 import { PRESET_MAX } from '../js/preset.js';
+import { CONST } from '../data/balance.js';
+
+// Legacy account-wide mode remains supported. Enabled per-robot mode and
+// bound skips are exercised by bindcheck, loadout-ui-check and activation-check.
+const configuredBinding = CONST.PART_BIND.on;
+CONST.PART_BIND.on = false;
 
 let bad = 0;
 const ok = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if (!c) bad++; };
@@ -94,5 +100,6 @@ console.log('\n== ⑤ state ==');
   ok(s && Array.isArray(s.presets) && s.presets[0] && s.presets[0].s.FRAME === 'pF' && s.presets[1] === null, 'state.presets');
 }
 
-console.log(bad ? `\n✗ ${bad}건 실패` : '\n전부 통과');
+CONST.PART_BIND.on = configuredBinding;
+console.log(bad ? `\n✗ ${bad}건 실패` : '\n전부 통과 — legacy account mode; configured policy restored');
 process.exitCode = bad ? 1 : 0;

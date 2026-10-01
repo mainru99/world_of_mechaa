@@ -1,5 +1,11 @@
 # 협업 계약
 
+## 2026-10-02 사용자 승인 — 귀속·기체별 프리셋·계보 제한 활성화 · 진행
+
+활성화 연계 지원: js/shop.js의 보관함 ready 표시를 기존 canDevelop 판정과 일치시키고 js/game.js에서 선행/표준형/뽑기 입구 이유·계보 진입을 표시한다. 서버 판정·수치·확률은 변경하지 않는다. tools/feature-activation-check.mjs의 실제 서버/SQLite 이관·활성 조립 검사와 관련 UI 검사를 추가한다.
+
+사용자 지시: “파츠 귀속, 프리셋 기능, 계보 제한도 모두 활성화한다.” GPT가 data/balance.js의 PART_BIND.on 및 LINEAGE.gate를 켜고 관련 회귀·실제 SQLite 이관/조립 검사를 수행한다. 기존 장착 파츠 귀속과 계정 프리셋의 선봉 기체 이관은 tools/bindnow.sql로 운영 schema24에서 실행한 뒤 main 반영·푸시·배포한다. 기존 파츠/조각/기체/계정 프리셋 원본과 다른 담당 미커밋 자료를 보존하며 비용·능력치·뽑기 확률은 유지한다. 운영 DB는 집계로 전후를 대조하고 복구 지점/배포 버전·파일·화면을 기록한다. 기존 비활성 고정 검사 기대값은 승인된 활성 정책에 맞춘다. 휴대폰 실기기 검수는 사용자 요청으로 생략하며 완료로 표시하지 않는다.
+
 ## 2026-09-30 사용자 승인 — main 반영·운영 배포 · 완료
 
 사용자 지시: “이제 main에 반영하고 배포해도 되지 않을까?” 원격 main ab45b4c의 최신 변경이 통합본에 포함됨을 확인하고 main을 e79af1f로 fast-forward·푸시했다. 깨끗한 통합 checkout에서 운영 배포 성공(Worker b2cac688-b7d9-46e5-a07a-e90a03027b3b). 회귀36종·격리 로컬 API129회·운영 파일79개 일치, schema24/balance sof8k3·인증/API·PC/모바일 viewport 화면을 확인했다. 로컬 main의 core-circuit-draft HTML 미커밋 변경·docs/art·proto와 원본 UI 브랜치를 보존했다. DB 이관/bindnow.sql 없이 수치/기체 그림/기능 스위치·스마트 배치·크론 유지. 기존 운영 게스트의 화면 탐색만 했으며 새 계정 생성/로그인/보상/소비/전투는 실행하지 않았다. 실제 Galaxy S26 Ultra·iOS/저사양 검수는 대기다. 상세는 docs/ui/release-2026-09-30.md. 아래의 main 미반영/배포 대기 기록은 당시의 역사이며 이번 절이 우선한다. 운영 main은 Claude 주도, 프론트는 GPT 담당을 유지한다.

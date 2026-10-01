@@ -125,6 +125,12 @@ console.log('\n== ④ 조각 조립 ==');
   const short = await shopRun(env, 1, T0, { action: 'assemble', type });
   ok(!short.ok && short.error === 'not enough shards', `조각이 모자라면 거절 (필요 ${need})`);
   db.prepare(`UPDATE player SET items = json_set(COALESCE(items,'{}'), '$."shard:azure"', ?) WHERE account_id=1`).run(need + 2);
+  if (CONST.LINEAGE.gate) {
+    const locked = await shopRun(env, 1, T0, { action: 'assemble', type });
+    ok(!locked.ok && locked.error === 'lineage locked' && locked.need.includes('ranger'), '선행 RANGER 없으면 조각이 충분해도 거절');
+    ok(JSON.parse(P().items)['shard:azure'] === need + 2, '계보 거절은 조각을 소비하지 않는다');
+    db.prepare(`INSERT INTO robot (id, account_id, type, level, uid, created_at) VALUES (99, 1, 'ranger', 1, 'parent-ranger', ?)`).run(T0);
+  }
   const r = await shopRun(env, 1, T0, { action: 'assemble', type });
   const row = q(`SELECT type FROM robot WHERE account_id=1 AND type='azure'`);
   ok(r.ok && !r.assembled.dupe && !!row, '새 기체가 조립되어 행이 생겼다');

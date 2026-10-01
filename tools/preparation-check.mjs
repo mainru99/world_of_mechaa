@@ -41,5 +41,5 @@ for(const invalid of [null,{}, {...stats,hp:NaN},{...stats,eva:1},{...stats,atk:
 let view;Object.assign(c,{shield(){},COMBAT_TYPES:{...ROBOT_TYPES,...MONSTER_TYPES},MONSTER_TYPES,selRobot:()=>robot,isPct:k=>['crit','eva'].includes(k),fmt:String,STAT_LABEL:{},power:()=>100,CONST,esc:String,oppGear:()=>'',fxTags:()=>'',bandLine:()=>'',battleIdentity:()=>({}),icon:()=>'',relayPreview:()=>'',_tactic:'none',battleView:v=>{view=v;return '';},$:()=>({innerHTML:''})});
 vm.runInContext(fn('showOpponent'),c);c.showOpponent({kind:'player',robot,parts:[],stats,callsign:'PREP2',mode:'duel'});equal(view.enemies[0].stats,stats);assert.equal(view.powerKnown,true);
 c.showOpponent({kind:'player',robot,parts:[],callsign:'OLD',mode:'duel'});assert.equal(view.powerKnown,false);assert.equal(view.enemies[0].statsKnown,false);
-assert.equal(CONST.PART_BIND.on,false);assert.equal(CONST.LINEAGE.gate,false);
+assert.equal(CONST.PART_BIND.on,true);assert.equal(CONST.LINEAGE.gate,true);
 console.log('Preparation passed: player circuit, both picks, stale balance, stable pending snapshot, next/start, reserve stats, generated/rescue/hunt/joint boss; UI uses confirmed stats, old/invalid responses remain unknown; switches preserved.');

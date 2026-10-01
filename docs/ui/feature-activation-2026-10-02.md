@@ -22,9 +22,15 @@
 - bindcheck와 loadout-ui-check는 양 모드·해제·프리셋·합성을 실제 SQLite로 검증한다. 기존 계정 공용 presetcheck는 명시적 legacy 모드로 유지하고 구성값을 복원한다. shopcheck에는 선행 기체가 없을 때 거절/조각 불변 및 선행 보유 후 성공을 추가했다. 비활성 고정 UI 검사는 승인된 활성 정책을 검사하도록 갱신했다.
 - 최종37종 순차 검사·npm run build·git diff --check 통과. 검사 과정에서 구형 공용/계보 비활성 전제에 따른 실패를 수정했으며 서버 규칙을 약화하지 않았다.
 
-## main 반영·운영 결과 — 진행
+## main 반영·운영 결과 — 완료
 
-커밋/푸시, bindnow.sql 결과와 전후 집계, Worker 버전/새 balance_ver, 파일/API/운영 화면 확인을 완료 후 기록한다. 운영 계정을 생성하거나 소비·합성·출격 테스트하지 않는다. 검수 도구는 이전 배포 보고서를 덮지 않고 새 날짜의 JSON을 쓴다.
+- 코드95b45678f8305caab417f1017d8bc7ee4cb3a83b를 main과 codex/ui-integration에 fast-forward·푸시했다. 원본 UI 브랜치와 로컬 main의 미커밋 HTML SHA256 D929AADD07D4405F67D5F754594C581324EF6CE7042EF37A96D3EAD5FD291D8F 및 docs/art·proto를 보존했다.
+- 운영 tools/bindnow.sql 성공: 2문장/읽기1050행/쓰기115행, 최종 bookmark 00000671-00000006-000050f7-f18302f24a028e08f11d0666fc980e53. 쓰기115행이115개 귀속이라는 뜻은 아니다. 미장착 행은NULL로 유지되며 실제 귀속값이 생긴 파츠는19개다.
+- 이후 npm run deploy 성공. Worker a273690f-9ae4-4ff9-b2ac-97217f52abea, https://rowar.hun7539.workers.dev/ . 정적 파일3개(data/balance.js,js/shop.js,js/game.js) 새 업로드. D1/ASSETS·스마트 배치·크론2개 유지.
+- 이관 후 집계: schema24, 파츠115개 중 귀속19개/미귀속96개, 기체59개, 기체 프리셋0개/계정 프리셋0개. 미귀속 장착0, 장착-귀속 불일치0, 잘못된 계정/기체 귀속 참조0. 기존 저장 프리셋이 없어 옮길 값은0개였으며 규칙상 기존 계정 원본을 지우지 않는다.
+- tools/release-smoke.mjs: 배포 파일79개 일치, health200 /DB connected /schema24 /balance xw4pkj /accounts35 /arena35, PART_BIND.on=true·LINEAGE.gate=true. 보호 API8경로401, 비공개3경로404, 오류0. 스위치가 CONST에 포함되어 balance_ver가 sof8k3에서 xw4pkj로 변경됐다. 전투 능력치/확률 변경 때문은 아니다.
+- 실제 운영의 기존 게스트#0021로 프리셋 조회 완료 후 ‘기체 전용 장비 · 기체별 프리셋’ 및5칸을 확인했다. 계보에서도 최신 목표·조각을 받은 뒤 ‘기체 조립에도 위 계보의 보유 조건이 적용됩니다’를 확인했고, MULE/BASTION 공개 및 관계없는 미보유 ?? 표시가 유지됐다. 콘솔 오류0. 새 계정 생성/프리셋 저장/소비/합성/출격은 실행하지 않았다.
+- 검수 결과: [파일/API](previews/feature-activation-verification-2026-10-02.json), [운영 기체별 프리셋](previews/activation-presets-2026-10-02.jpg), [운영 계보](previews/activation-lineage-2026-10-02.jpg). 09-30 결과는 보존했다. 후속 기록 커밋은 문서/캡처/JSON만 변경하며 배포 애플리케이션은95b4567과 동일하다.
 
 ## 복구·남은 항목
 

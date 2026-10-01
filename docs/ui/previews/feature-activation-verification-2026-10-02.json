@@ -1,0 +1,565 @@
+{
+  "at": "2026-10-01T15:26:40.358Z",
+  "base": "https://rowar.hun7539.workers.dev",
+  "tag": "95b4567-a273690f",
+  "mode": "anonymous GET + credential-free empty POST rejected by auth; no production account mutation",
+  "ok": true,
+  "health": {
+    "ok": true,
+    "db": "connected",
+    "schema_version": "24",
+    "tables": 13,
+    "accounts": 35,
+    "arena": 35,
+    "balance_ver": "xw4pkj",
+    "ms": 639
+  },
+  "flags": {
+    "bind": true,
+    "lineage": true
+  },
+  "fileCount": 79,
+  "records": [
+    {
+      "path": "js/bind.js",
+      "status": 200,
+      "bytes": 2510,
+      "matches": true
+    },
+    {
+      "path": "style.css",
+      "status": 200,
+      "bytes": 113200,
+      "matches": true
+    },
+    {
+      "path": "js/circuit.js",
+      "status": 200,
+      "bytes": 13239,
+      "matches": true
+    },
+    {
+      "path": "index.html",
+      "status": 200,
+      "bytes": 8216,
+      "matches": true
+    },
+    {
+      "path": "js/breach.js",
+      "status": 200,
+      "bytes": 8443,
+      "matches": true
+    },
+    {
+      "path": "core-circuit-preview.html",
+      "status": 200,
+      "bytes": 1063165,
+      "matches": true
+    },
+    {
+      "path": "js/circuitlayout.js",
+      "status": 200,
+      "bytes": 7073,
+      "matches": true
+    },
+    {
+      "path": "js/game.js",
+      "status": 200,
+      "bytes": 295241,
+      "matches": true
+    },
+    {
+      "path": "js/codex.js",
+      "status": 200,
+      "bytes": 12898,
+      "matches": true
+    },
+    {
+      "path": "js/gacha.js",
+      "status": 200,
+      "bytes": 12784,
+      "matches": true
+    },
+    {
+      "path": "js/ignis-rain.js",
+      "status": 200,
+      "bytes": 7368,
+      "matches": true
+    },
+    {
+      "path": "js/front.js",
+      "status": 200,
+      "bytes": 7212,
+      "matches": true
+    },
+    {
+      "path": "js/lineage.js",
+      "status": 200,
+      "bytes": 3839,
+      "matches": true
+    },
+    {
+      "path": "js/preset.js",
+      "status": 200,
+      "bytes": 2295,
+      "matches": true
+    },
+    {
+      "path": "js/insight.js",
+      "status": 200,
+      "bytes": 8344,
+      "matches": true
+    },
+    {
+      "path": "js/joint.js",
+      "status": 200,
+      "bytes": 17828,
+      "matches": true
+    },
+    {
+      "path": "js/mastery.js",
+      "status": 200,
+      "bytes": 5361,
+      "matches": true
+    },
+    {
+      "path": "js/net.js",
+      "status": 200,
+      "bytes": 19096,
+      "matches": true
+    },
+    {
+      "path": "js/sim.js",
+      "status": 200,
+      "bytes": 24414,
+      "matches": true
+    },
+    {
+      "path": "js/rewards.js",
+      "status": 200,
+      "bytes": 21792,
+      "matches": true
+    },
+    {
+      "path": "js/salvage.js",
+      "status": 200,
+      "bytes": 4688,
+      "matches": true
+    },
+    {
+      "path": "js/shardsynth.js",
+      "status": 200,
+      "bytes": 4649,
+      "matches": true
+    },
+    {
+      "path": "js/raid.js",
+      "status": 200,
+      "bytes": 7028,
+      "matches": true
+    },
+    {
+      "path": "js/shop.js",
+      "status": 200,
+      "bytes": 6171,
+      "matches": true
+    },
+    {
+      "path": "js/trial.js",
+      "status": 200,
+      "bytes": 5907,
+      "matches": true
+    },
+    {
+      "path": "js/ui/challenge.js",
+      "status": 200,
+      "bytes": 9514,
+      "matches": true
+    },
+    {
+      "path": "js/stats.js",
+      "status": 200,
+      "bytes": 24444,
+      "matches": true
+    },
+    {
+      "path": "js/sprites.js",
+      "status": 200,
+      "bytes": 2897,
+      "matches": true
+    },
+    {
+      "path": "js/ui/battle-stats.js",
+      "status": 200,
+      "bytes": 436,
+      "matches": true
+    },
+    {
+      "path": "js/ui/battle.js",
+      "status": 200,
+      "bytes": 5690,
+      "matches": true
+    },
+    {
+      "path": "js/ui/development-manager.js",
+      "status": 200,
+      "bytes": 9352,
+      "matches": true
+    },
+    {
+      "path": "js/ui/common.js",
+      "status": 200,
+      "bytes": 18338,
+      "matches": true
+    },
+    {
+      "path": "js/ui/circuit-svg.js",
+      "status": 200,
+      "bytes": 10213,
+      "matches": true
+    },
+    {
+      "path": "js/ui/circuit-manager.js",
+      "status": 200,
+      "bytes": 7836,
+      "matches": true
+    },
+    {
+      "path": "js/ui/circuit-view.js",
+      "status": 200,
+      "bytes": 7258,
+      "matches": true
+    },
+    {
+      "path": "js/ui/development-graph.js",
+      "status": 200,
+      "bytes": 4911,
+      "matches": true
+    },
+    {
+      "path": "js/ui/development-view.js",
+      "status": 200,
+      "bytes": 9181,
+      "matches": true
+    },
+    {
+      "path": "js/ui/dispatch.js",
+      "status": 200,
+      "bytes": 9128,
+      "matches": true
+    },
+    {
+      "path": "js/ui/loadout-manager.js",
+      "status": 200,
+      "bytes": 10086,
+      "matches": true
+    },
+    {
+      "path": "js/ui/front.js",
+      "status": 200,
+      "bytes": 8938,
+      "matches": true
+    },
+    {
+      "path": "js/ui/development-visibility.js",
+      "status": 200,
+      "bytes": 630,
+      "matches": true
+    },
+    {
+      "path": "js/ui/icons.js",
+      "status": 200,
+      "bytes": 2133,
+      "matches": true
+    },
+    {
+      "path": "js/ui/loadout-view.js",
+      "status": 200,
+      "bytes": 7477,
+      "matches": true
+    },
+    {
+      "path": "js/ui/loadout-model.js",
+      "status": 200,
+      "bytes": 1360,
+      "matches": true
+    },
+    {
+      "path": "js/ui/part-window.js",
+      "status": 200,
+      "bytes": 888,
+      "matches": true
+    },
+    {
+      "path": "js/ui/recruitment.js",
+      "status": 200,
+      "bytes": 9120,
+      "matches": true
+    },
+    {
+      "path": "js/ui/modal.js",
+      "status": 200,
+      "bytes": 3576,
+      "matches": true
+    },
+    {
+      "path": "js/ui/ranking.js",
+      "status": 200,
+      "bytes": 5104,
+      "matches": true
+    },
+    {
+      "path": "js/ui/shard-manager.js",
+      "status": 200,
+      "bytes": 8513,
+      "matches": true
+    },
+    {
+      "path": "js/ui/shard-view.js",
+      "status": 200,
+      "bytes": 12371,
+      "matches": true
+    },
+    {
+      "path": "js/ui/territory.js",
+      "status": 200,
+      "bytes": 10344,
+      "matches": true
+    },
+    {
+      "path": "data/balance.js",
+      "status": 200,
+      "bytes": 125892,
+      "matches": true
+    },
+    {
+      "path": "data/circuit.js",
+      "status": 200,
+      "bytes": 22294,
+      "matches": true
+    },
+    {
+      "path": "js/units.js",
+      "status": 200,
+      "bytes": 2151,
+      "matches": true
+    },
+    {
+      "path": "data/lineage.js",
+      "status": 200,
+      "bytes": 8578,
+      "matches": true
+    },
+    {
+      "path": "data/powercal.js",
+      "status": 200,
+      "bytes": 1705,
+      "matches": true
+    },
+    {
+      "path": "themes/battle-v2.css",
+      "status": 200,
+      "bytes": 15555,
+      "matches": true
+    },
+    {
+      "path": "data/circuit_layout.js",
+      "status": 200,
+      "bytes": 55591,
+      "matches": true
+    },
+    {
+      "path": "data/front.js",
+      "status": 200,
+      "bytes": 13374,
+      "matches": true
+    },
+    {
+      "path": "data/story.js",
+      "status": 200,
+      "bytes": 54321,
+      "matches": true
+    },
+    {
+      "path": "themes/development-v2.css",
+      "status": 200,
+      "bytes": 9632,
+      "matches": true
+    },
+    {
+      "path": "themes/challenge-v2.css",
+      "status": 200,
+      "bytes": 11807,
+      "matches": true
+    },
+    {
+      "path": "themes/common-v2.css",
+      "status": 200,
+      "bytes": 10282,
+      "matches": true
+    },
+    {
+      "path": "themes/front-v2.css",
+      "status": 200,
+      "bytes": 12580,
+      "matches": true
+    },
+    {
+      "path": "themes/circuit-v2.css",
+      "status": 200,
+      "bytes": 5773,
+      "matches": true
+    },
+    {
+      "path": "themes/dispatch-v2.css",
+      "status": 200,
+      "bytes": 10507,
+      "matches": true
+    },
+    {
+      "path": "themes/login-v2.css",
+      "status": 200,
+      "bytes": 8589,
+      "matches": true
+    },
+    {
+      "path": "themes/loadout-v2.css",
+      "status": 200,
+      "bytes": 4812,
+      "matches": true
+    },
+    {
+      "path": "themes/ranking-v2.css",
+      "status": 200,
+      "bytes": 12314,
+      "matches": true
+    },
+    {
+      "path": "themes/scenes.css",
+      "status": 200,
+      "bytes": 33847,
+      "matches": true
+    },
+    {
+      "path": "themes/hangar-v2.css",
+      "status": 200,
+      "bytes": 16580,
+      "matches": true
+    },
+    {
+      "path": "themes/recruitment-v2.css",
+      "status": 200,
+      "bytes": 12471,
+      "matches": true
+    },
+    {
+      "path": "themes/supply-v2.css",
+      "status": 200,
+      "bytes": 8095,
+      "matches": true
+    },
+    {
+      "path": "themes/ui-v2.css",
+      "status": 200,
+      "bytes": 13490,
+      "matches": true
+    },
+    {
+      "path": "themes/shard-v2.css",
+      "status": 200,
+      "bytes": 9118,
+      "matches": true
+    },
+    {
+      "path": "assets/backgrounds/territory-map-v2.png",
+      "status": 200,
+      "bytes": 3387518,
+      "matches": true,
+      "sha256": "3e06efdd9d1118a0488b0d62c3dfc37c29e602b5f698f5e3a7c83c74f8c60599"
+    },
+    {
+      "path": "themes/territory-v2.css",
+      "status": 200,
+      "bytes": 15504,
+      "matches": true
+    },
+    {
+      "path": "assets/ignis.png",
+      "status": 200,
+      "bytes": 256860,
+      "matches": true,
+      "sha256": "60a6415c54cb9a4a21dbda9b9aaf7de2f6a7e76fe0ed8c5cc6dfc6285328164b"
+    },
+    {
+      "path": "assets/motions/ignis-idle-10f.webp",
+      "status": 200,
+      "bytes": 1590556,
+      "matches": true,
+      "sha256": "896834483e0e48cafd102abead15e77fc9e24c509f19078d7b8622367929c1fb"
+    },
+    {
+      "path": "/api/state",
+      "method": "GET",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/salvage",
+      "method": "GET",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/trial",
+      "method": "GET",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/raid",
+      "method": "GET",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/hangar",
+      "method": "POST",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/circuit",
+      "method": "POST",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/refine",
+      "method": "POST",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/battle/start",
+      "method": "POST",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/CONTRACT.md",
+      "status": 404,
+      "privatePathBlocked": true
+    },
+    {
+      "path": "/server/schema.sql",
+      "status": 404,
+      "privatePathBlocked": true
+    },
+    {
+      "path": "/tools/ui-performance-probe.js",
+      "status": 404,
+      "privatePathBlocked": true
+    }
+  ],
+  "errors": []
+}

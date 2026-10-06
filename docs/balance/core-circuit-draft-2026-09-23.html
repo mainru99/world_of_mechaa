@@ -137,6 +137,17 @@ section{display:flex;flex-direction:column;gap:14px}
 .star:focus-visible .focus-ring,.star:hover .focus-ring{opacity:1}
 @media(max-width:900px){.grid{grid-template-columns:1fr}}
 @media(max-width:520px){.board{padding:12px}.lvrow input{width:150px}}
+/* 찍은 전문 별만 청록 보석 안에 금빛 별 · 도는 햇살 · 숨쉬는 후광(2026-09-30 사용자 요청). 움직임 줄이기 설정이면 위의 규칙이 모두 멈춘다 */
+.tree-legend .notable{box-shadow:0 0 6px #ffd97899}
+.board svg .nb-rays{transform-box:fill-box;transform-origin:center;animation:nbspin 26s linear infinite}
+.board svg .nb-halo{transform-box:fill-box;transform-origin:center;animation:nbpulse 2.6s ease-in-out infinite}
+.board svg .nb-ready{transform-box:fill-box;transform-origin:center;animation:nbready 1.5s ease-in-out infinite}
+.board svg .pop{transform-box:fill-box;transform-origin:center;animation:starpop .75s ease-out forwards}
+.board svg .pop.big{animation-duration:1.1s}
+@keyframes nbspin{to{transform:rotate(360deg)}}
+@keyframes nbpulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}
+@keyframes nbready{0%,100%{opacity:.2;transform:scale(.95)}50%{opacity:.95;transform:scale(1.08)}}
+@keyframes starpop{0%{opacity:1;transform:scale(.5)}100%{opacity:0;transform:scale(2.6)}}
 </style>
 
 <div class="wrap">
@@ -333,6 +344,13 @@ function drawSvg() {
     const gradient = el('linearGradient', {id, x1:'0%',y1:'0%',x2:'85%',y2:'100%'}, defs);
     colors.forEach((color,i)=>el('stop',{offset:`${i*100/3}%`,'stop-color':color},gradient));
   }
+  /* 금빛 별 — 보석 안 무늬의 빛번짐 · 전문 별 후광 · 보석 반사광 */
+  const sg = el('filter', { id: 'starglow', x: '-100%', y: '-100%', width: '300%', height: '300%' }, defs);
+  el('feGaussianBlur', { stdDeviation: '1.1', result: 'b' }, sg); const sm = el('feMerge', {}, sg); el('feMergeNode', { in: 'b' }, sm); el('feMergeNode', { in: 'b' }, sm); el('feMergeNode', { in: 'SourceGraphic' }, sm);
+  const au = el('radialGradient', { id: 'nb-aura' }, defs);
+  [['0%', '#fff2b8', .95], ['35%', '#ffd35e', .55], ['100%', '#ffb13b', 0]].forEach(([o, c, a]) => el('stop', { offset: o, 'stop-color': c, 'stop-opacity': a }, au));
+  const ray = el('radialGradient', { id: 'nb-ray' }, defs);
+  [['0%', '#fff0b0', .9], ['100%', '#ffc24a', 0]].forEach(([o, c, a]) => el('stop', { offset: o, 'stop-color': c, 'stop-opacity': a }, ray));
   /* 장식 — 이동 경로로 오인하지 않게 흐린 점과 끊긴 호만 */
   const deco = el('g', { 'pointer-events': 'none' }, svg);
   for (const [x, y, r, o] of BG) el('circle', { cx: x, cy: y, r, fill: '#6d86a0', opacity: o * .6 }, deco);
@@ -351,8 +369,9 @@ function drawSvg() {
       // The exact prerequisite edges stay straight: decorative curves must not imply new connections.
       const edge = {x1:prev[0],y1:prev[1],x2:p[0],y2:p[1],'stroke-linecap':'round'};
       el('line',{...edge,stroke:'#070c12','stroke-width':4.6},lines);
-      el('line',{...edge,stroke:on?'#ba9858':'#485052','stroke-width':2.6,'data-edge':id},lines);
-      el('line',{...edge,stroke:on?'#f0dba0':'#151e25','stroke-width':.8},lines);
+      const nbEdge = on && i === 9;
+      el('line',{...edge,stroke:nbEdge?'#e2b650':on?'#ba9858':'#485052','stroke-width':nbEdge?3.2:2.6,'data-edge':id,...(nbEdge?{filter:'url(#glow)'}:{})},lines);
+      el('line',{...edge,stroke:nbEdge?'#fff3c4':on?'#f0dba0':'#151e25','stroke-width':nbEdge?1.1:.8},lines);
       prev = p;
     }
     /* 갈래 이름 — ★ 둘레에서 판 안이고 별을 덮지 않는 첫 자리(tools/circuitlayoutcheck.mjs labelSpot 과 같은 순서) */
@@ -370,6 +389,12 @@ function drawSvg() {
     el('circle', { cx: P.core[0], cy: P.core[1], r: 38, fill: '#0a1016', stroke: '#35485a', 'stroke-width': 2 }, svg);
     el('image', { href: IMG[st.mech], x: P.core[0] - 34, y: P.core[1] - 34, width: 68, height: 68, 'clip-path': 'url(#cc)', preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' }, svg);
   }
+  /* 후광 층 — 별보다 아래라 이웃 별을 덮지 않는다 */
+  const aura = el('g', { 'pointer-events': 'none' }, svg);
+  /* 방금 하나를 찍었으면 그 별에서 고리가 퍼진다(기체를 바꾸거나 채우기로 여럿이 들어온 때는 없다) */
+  const fresh = lastDraw.mech === st.mech ? [...st.taken].filter(id => !lastDraw.taken.has(id)) : [];
+  const popId = fresh.length === 1 ? fresh[0] : null;
+  lastDraw = { mech: st.mech, taken: new Set(st.taken) };
   /* 별 */
   for (const b of BR) for (let i = 1; i <= 9; i++) {
     const id = b + (i === 9 ? '*' : i), lock = i === 9;
@@ -393,18 +418,36 @@ function drawSvg() {
     circle(r,{fill: taken||available||notable?'url(#socket-metal)':'url(#socket-cold)',stroke:taken?'#f3dca4':'#827451','stroke-width':.5});
     circle(r-1.8,{fill:taken?'url(#socket-gem)':'url(#socket-dark)',stroke:'#080e15','stroke-width':1});
     circle(Math.max(1,r-2.8),{fill:'none',stroke:taken?'#a8f9df':available?'#d8c393':'#738387','stroke-width':.45,opacity:taken?.8:.45});
+    if(notable&&taken){
+      /* 찍은 전문 별 — 도는 햇살 · 숨쉬는 후광 · 금색 고리 */
+      let d='';
+      for(let k=0;k<24;k++){const a=-Math.PI/2+k*Math.PI/12, q=k%2?r+3.5:(k%4?r+10:r+16); d+=(k?'L':'M')+(x+q*Math.cos(a)).toFixed(1)+' '+(y+q*Math.sin(a)).toFixed(1);}
+      el('path',{d:d+'Z',class:'nb-rays',fill:'url(#nb-ray)',opacity:.9},aura);
+      el('circle',{cx:x,cy:y,r:r+8,class:'nb-halo',fill:'url(#nb-aura)'},aura);
+    } else if(notable&&available){
+      el('circle',{cx:x,cy:y,r:r+4.5,class:'nb-ready',fill:'none',stroke:'#ffd978','stroke-width':1.3},aura);
+    }
+    if(popId===id&&notable){          // 전문 별을 찍는 순간만
+      el('circle',{cx:x,cy:y,r:r+2,class:'pop big',fill:'none',stroke:'#ffe07a','stroke-width':2},aura);
+      el('circle',{cx:x,cy:y,r:r+2,class:'pop big',fill:'url(#nb-aura)',style:'animation-delay:.08s'},aura);
+    }
     if(notable){
+      if(taken) circle(r+3.6,{fill:'none',stroke:'#ffd978','stroke-width':.9,opacity:.9});
       for(let a=0;a<4;a++) {
         const theta=a*Math.PI/2,dx=Math.cos(theta),dy=Math.sin(theta);
         el('path',{d:`M${x+dx*(r-1)} ${y+dy*(r-1)} L${x+dx*(r+2)-dy*1.5} ${y+dy*(r+2)+dx*1.5} L${x+dx*(r+3)} ${y+dy*(r+3)} L${x+dx*(r+2)+dy*1.5} ${y+dy*(r+2)-dx*1.5} Z`,fill:'url(#socket-metal)'},g);
       }
     }
     // Different silhouettes retain the basic / mixed / specialized node distinction.
-    const ink=taken?'#dbfff0':available?'#f1db9d':notable?'#b89453':'#87999d', s=r*.43;
-    if(notable||kind==='c') el('path',{d:starPath(x,y,s,s*.4),fill:ink},g);
-    else if(kind==='b') el('path',{d:`M${x} ${y-s} L${x+s*.8} ${y} L${x} ${y+s} L${x-s*.8} ${y} Z`,fill:ink},g);
+    /* 찍은 전문 별만 금빛 별이 빛난다(청록 보석 안 · 더 크게). 일반 별은 흰 무늬 그대로(2026-09-30 사용자 결정) */
+    const lit=taken&&notable?{filter:'url(#starglow)'}:{};
+    const ink=taken?(notable?'#fff0a8':'#dbfff0'):available?'#f1db9d':notable?'#b89453':'#87999d', s=r*(taken&&notable?.66:.43);
+    if(notable||kind==='c') el('path',{d:starPath(x,y,s,s*.4),fill:ink,...lit},g);
+    else if(kind==='b') el('path',{d:`M${x} ${y-s} L${x+s*.8} ${y} L${x} ${y+s} L${x-s*.8} ${y} Z`,fill:ink,...lit},g);
     else if(kind==='x') {circle(s,{fill:'none',stroke:ink,'stroke-width':.8});circle(1,{fill:ink});}
-    else el('path',{d:`M${x-s*.5} ${y-s} L${x+s*.7} ${y-s*.15} L${x+s*.25} ${y+s} L${x-s*.65} ${y+s*.2} Z`,fill:ink},g);
+    else el('path',{d:`M${x-s*.5} ${y-s} L${x+s*.7} ${y-s*.15} L${x+s*.25} ${y+s} L${x-s*.65} ${y+s*.2} Z`,fill:ink,...lit},g);
+    /* 보석 반사광 — 찍은 전문 별만 */
+    if(taken&&notable){ const gr=r-1.8; el('ellipse',{cx:x-gr*.38,cy:y-gr*.45,rx:Math.max(.8,gr*.36),ry:Math.max(.5,gr*.2),fill:'#ffffff',opacity:.55,transform:`rotate(-30 ${(x-gr*.38).toFixed(1)} ${(y-gr*.45).toFixed(1)})`},g); }
     if(node&&Object.values(node[2]||{}).some(v=>v<0)) el('circle',{cx:x+r*.72,cy:y-r*.72,r:1.6,fill:'var(--minus)',stroke:'#10161c','stroke-width':.6},g);
   }
   for (const g of svg.querySelectorAll('.star')) {
@@ -413,6 +456,7 @@ function drawSvg() {
     g.addEventListener('mouseenter', () => { if (st.sel !== g.dataset.id) { st.sel = g.dataset.id; drawDetail(); } });
   }
 }
+let lastDraw = { mech: null, taken: new Set() };   // 방금 찍은 별을 알아보려고 — 그림에만 쓴다
 function focusStar(id) { const g = document.querySelector(`#svg [data-id="${id}"]`); if (g) g.focus(); }
 
 function drawBranches() {

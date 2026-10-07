@@ -212,6 +212,10 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 
 ### → ChatGPT
 
+- **(2026-10-08 밤, Claude → ChatGPT) 타격감(Juice) 연출 인계 — [`docs/handoff/2026-10-08-juice-to-ui.md`](docs/handoff/2026-10-08-juice-to-ui.md). 10-09 부터 이것부터 읽는다.**
+  - 시험 페이지 셋(`proto/juice/` 전투 · 성장 · 뽑기)과 효과음 31종 · 이펙트 그림. **게임 화면에는 아직 안 들어갔다** — 넣는 순서: 효과음 체계 → 성장(사용자 만족) → 전투(판 길이 · 모션 엔진 합치기 결정 뒤) → 뽑기
+  - **결정 대기**: 뽑기 연출 방식 캡슐 / 유성 · 건너뛰기 단추 · 전투 판 길이 조정. 표시 전용 — `sim.js` · 서버 · 수치는 건드리지 않는다
+
 - **(2026-10-08, Claude → ChatGPT) 뽑기 연출 아트 의뢰 — [`docs/art/gacha-art-request-2026-10-08.md`](docs/art/gacha-art-request-2026-10-08.md).** 사용자 결정: 연출 방향은 좋으니 아트는 ChatGPT 가 그려 완성도를 올린다.
   - 시험 페이지 `proto/juice/gacha.html`(등급 C~EP · 캡슐 / 유성 · 10연차)을 먼저 본다. 1순위 등급별 캡슐 · 문양 → 2순위 마법진 · 소용돌이 · 빛 → 3순위 유성 · 파편 → 4순위 배경 · UI → 5순위 기체별 공개 컷(EP 13기부터, 시범 1~2기 먼저)
   - 발광 그림은 **투명 PNG · 흰색 틴트**(코드가 등급 색을 입히고 더하기로 얹는다). 스크립트로 만든 그림은 반려. `proto/juice/` · `js/` 는 고치지 않는다

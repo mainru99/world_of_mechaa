@@ -314,3 +314,6 @@ export function traitFit(type, k, tactic) {
     default:           return null;
   }
 }
+
+/* 난투(js/brawl-sim.js · 2026-10-07)가 같은 한 타 · 스킬 판정을 쓴다. **내보내기만 더했다 — 합동전은 한 글자도 안 바뀐다** */
+export { hit as jointHit, skill as jointSkill };

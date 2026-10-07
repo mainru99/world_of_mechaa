@@ -185,6 +185,7 @@ button.b kbd{font-family:var(--num);font-size:11px;color:var(--sub);margin-left:
       <h2>세기</h2>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="sl"><span>화면 흔들림</span><input type="range" id="shakeAmt" min="0" max="150" value="100"><output id="shakeOut">100%</output></div>
+        <div class="sl"><span>소리 종류</span><select id="sfxsrc" aria-label="소리 종류"><option value="files">AI 생성 소리</option><option value="synth">합성음(예전)</option></select><span></span></div>
         <div class="sl"><span>소리 크기</span><input type="range" id="vol" min="0" max="100" value="70"><output id="volOut">70%</output></div>
         <div class="sl"><span>배속</span><input type="range" id="speed" min="1" max="3" value="1" step="1"><output id="speedOut">x1</output></div>
       </div>
@@ -206,6 +207,6 @@ button.b kbd{font-family:var(--num);font-size:11px;color:var(--sub);margin-left:
       효과음은 파일 없이 브라우저에서 합성한 임시 소리입니다.</p>
   </aside>
 </div>
-<script type="module" src="juice.js?v=0930c"></script>
+<script type="module" src="juice.js?v=1007a"></script>
 </body>
 </html>

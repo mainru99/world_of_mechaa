@@ -11,7 +11,7 @@
 import { ROBOT_TYPES } from '../../data/balance.js';
 import { makeUnit, simulate } from '../../js/sim.js';
 import { computeStats } from '../../js/stats.js';
-import { Sfx } from './sfx.js?v=0930c';
+import { Sfx } from './sfx.js?v=1007a';
 
 const $ = s => document.querySelector(s);
 const sfx = new Sfx();
@@ -684,7 +684,7 @@ function fire(e, i) {
       if (FX.sound) sfx.heal();
       break;
     }
-    case 'shield': { const F = FS(e.side); num(F, '방벽 ' + e.amt, 'heal', .4); if (FX.sound) sfx.blip(880); break; }
+    case 'shield': { const F = FS(e.side); num(F, '방벽 ' + e.amt, 'heal', .4); if (FX.sound && !sfx.file('shield', { gain: .9, max: 1 })) sfx.blip(880); break; }
     case 'mark': { const D = FS(e.dside); num(D, '표적', 'info', .4); if (FX.sound) sfx.blip(440); break; }
     case 'jam': { const D = FS(e.dside); setSP(D.k, e.sp); num(D, 'JAM', 'miss', .4); if (FX.sound) sfx.blip(300); break; }
     case 'swap': swapIn(e); break;
@@ -844,6 +844,7 @@ $('#play').onclick = start;
 const bindRange = (id, out, fn) => { const el = $('#' + id); const f = () => { $('#' + out).textContent = fn(+el.value); }; el.addEventListener('input', f); f(); };
 $('#shakeAmt').value = Math.round(shakeAmt * 100);
 bindRange('shakeAmt', 'shakeOut', v => { shakeAmt = v / 100; return v + '%'; });
+$('#sfxsrc').onchange = e2 => { sfx.useFiles = e2.target.value === 'files'; };
 bindRange('vol', 'volOut', v => { sfx.setVol(v / 100); return v + '%'; });
 bindRange('speed', 'speedOut', v => { speed = [1, 2, 4][v - 1]; return 'x' + speed; });
 for (const s of ['p1', 'p2', 'e1', 'e2']) {

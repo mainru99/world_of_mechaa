@@ -42,7 +42,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .mini b{font-family:var(--num);font-size:clamp(9px,1.1vw,12px);color:var(--c)}
 .hud{position:absolute;left:12px;top:10px;font-size:12px;color:var(--sub)}
 .hud b{font-family:var(--num);color:var(--ink)}
-.go{position:absolute;left:50%;bottom:5%;transform:translateX(-50%);font:inherit;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;border:1px solid #2c6f8d;background:linear-gradient(#17506b,#0f3a50);color:#eaf9ff;cursor:pointer;z-index:5}
+.go{position:absolute;right:14px;bottom:14px;font:inherit;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;border:1px solid #2c6f8d;background:linear-gradient(#17506b,#0f3a50);color:#eaf9ff;cursor:pointer;z-index:5}
 .go[hidden]{display:none}
 aside{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:14px}
 aside h2{margin:0 0 6px;font-size:12px;letter-spacing:.14em;color:var(--sub);font-weight:600}
@@ -108,6 +108,11 @@ td:last-child{font-family:var(--num);text-align:right;color:var(--sub)}
       <div class="seg"><button class="b on" id="m1">단발</button><button class="b" id="m10">10연차</button></div>
     </section>
     <section>
+      <h2>연출 방식</h2>
+      <div class="seg"><button class="b on" id="mCap">캡슐</button><button class="b" id="mMet">유성 (원신식)</button></div>
+      <p class="note" style="margin-top:6px">유성은 하늘에서 등급 색 별이 떨어집니다. 높은 등급은 구름 소용돌이가 먼저 열립니다.</p>
+    </section>
+    <section>
       <h2>등급 미리 보기</h2>
       <div class="seg five" id="tiers"></div>
       <p class="note" style="margin-top:6px">누르면 그 등급이 나오는 연출을 바로 봅니다. "무작위"는 실제 확률대로입니다.</p>
@@ -130,6 +135,6 @@ td:last-child{font-family:var(--num);text-align:right;color:var(--sub)}
   </aside>
 </div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="shock" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="turbulence" baseFrequency="0.012" numOctaves="1" result="t"/><feDisplacementMap id="shockMap" in="SourceGraphic" in2="t" scale="0" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
-<script type="module" src="gacha.js?v=1008c"></script>
+<script type="module" src="gacha.js?v=1008d"></script>
 </body>
 </html>

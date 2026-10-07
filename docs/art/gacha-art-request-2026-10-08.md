@@ -3,6 +3,21 @@
 사용자 결정(2026-10-08): **연출 방향은 좋다. 아트는 ChatGPT 가 그려 완성도를 올린다.**
 지금 연출은 전부 코드로 그린 임시 아트다(선 · 원 · 그라데이션). 이 문서의 파일이 들어오면 Claude 가 코드를 걸어 교체한다.
 
+## 상태 갱신 — 2026-10-08 밤 (Claude)
+
+사용자 지시('네가 바로 제작하고 바로 수정해')로 **추상 이펙트 그림은 Claude 가 먼저 만들어 연출에 걸었다.** `python tools/gacha_fx_gen.py` 로 다시 만들 수 있고, 걸린 결과는 `proto/juice/gacha.html` 에서 볼 수 있다.
+
+| 이미 있음(코드로 생성 · 걸림) | 파일 | ChatGPT 가 할 일 |
+|---|---|---|
+| 마법진 4층 · 바닥 | `assets/gacha/fx/rune-a~d.webp` · `rune-floor.webp` | **수작업 수준으로 다시 그린다**(생성본은 선 · 룬 비슷한 획이라 기하 문양이 단조롭다). 같은 파일 이름 · 크기로 덮어쓰면 바로 교체된다 |
+| 소용돌이 · 햇살 · 별빛 · 스트릭 | `fx/swirl-energy` · `swirl-cloud` · `ray-burst` · `flare-star` · `flare-streak` | 구름 소용돌이는 질감이 단순하다 — 더 풍부한 구름 · 번개 질감으로 |
+| 유성 · 불꽃 · 불씨 · 연기 | `fx/meteor-head` · `meteor-trail` · `spark` · `ember` · `smoke` | 급하지 않다 |
+| 등급별 캡슐 · 금 간 캡슐 | `assets/gacha/capsule-c~ep.png` · `capsule-uq-crack1` · `capsule-ep-crack1~2` | 기존 캡슐의 **색상만 바꾼 것**이다 — 등급마다 형태 · 장식이 다른 캡슐로 새로 그리는 것이 목표 |
+| 캡슐 파편 | `fx/shard-1~8.png` | 급하지 않다 |
+
+**그대로 의뢰하는 것(Claude 가 만들 수 없다)** — 등급 문양(`emblem-*`) · 등급별 배경(`bg-*`) · UI 틀(이름 판 · 별 · 리본 · NEW) · **기체별 공개 컷**(`splash/<id>-*`, EP 13기 시범부터).
+생성본을 덮어쓸 때는 **같은 파일 이름 · 같은 크기 · 흰색 틴트**를 지키면 코드를 고치지 않아도 바로 교체된다.
+
 ## 먼저 볼 것
 
 1. **시험 페이지** — 리포 루트에서 `python -m http.server 5181` → `http://localhost:5181/proto/juice/gacha.html`

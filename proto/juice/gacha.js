@@ -6,7 +6,7 @@
  * 연출 도구 — 레터박스 · 비네트 · 시간 늦추기 · 충격파(화면 일그러짐) · 카메라 줌 · 파편 · 애너모픽 스트릭 · 별 도장. */
 import { ROBOT_TYPES, ROBOT_RARITY } from '../../data/balance.js';
 import { BY_RARITY } from '../../js/gacha.js';
-import { Sfx } from './sfx.js?v=1008f';
+import { Sfx } from './sfx.js?v=1008g';
 
 const $ = s => document.querySelector(s);
 const sfx = new Sfx();
@@ -33,7 +33,25 @@ let W = 800, H = 500, S = 1, parts = [], trauma = 0, zoom = 0, zoomT = 0, zoomDu
 function fit() { const r = stage.getBoundingClientRect(); W = r.width; H = r.height; S = W / 800; const d = Math.min(2, devicePixelRatio || 1);
   for (const [c, g] of [[cvF, gF], [cvB, gB]]) { c.width = W * d; c.height = H * d; g.setTransform(d, 0, 0, d, 0, 0); } }
 new ResizeObserver(fit).observe(stage); fit();
+/* 이펙트 그림(tools/gacha_fx_gen.py 로 만든 흰색 투명 그림) — 등급 색은 코드가 입힌다. 아직 안 불러졌거나 없으면 아래 그리기 코드가 선 · 그라데이션으로 대신한다 */
+const IMG = {};
+for (const n of ['rune-a', 'rune-b', 'rune-c', 'rune-d', 'swirl-energy', 'swirl-cloud', 'ray-burst', 'flare-star', 'flare-streak', 'meteor-head', 'meteor-trail']) {
+  const im = new Image(); im.src = `../../assets/gacha/fx/${n}.${/^(meteor|spark|ember|smoke)/.test(n) ? 'png' : 'webp'}`; IMG[n] = im;
+}
+const ok = im => im && im.complete && im.naturalWidth > 0;
+const tintCache = new Map();
+function tinted(name, rgb) {
+  const key = name + '|' + rgb, hit = tintCache.get(key); if (hit) return hit;
+  const im = IMG[name]; if (!ok(im)) return null;
+  const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d');
+  x.drawImage(im, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = `rgb(${rgb})`; x.fillRect(0, 0, c.width, c.height);
+  tintCache.set(key, c); return c;
+}
 const capImg = new Image(); capImg.src = '../../assets/gacha/core-capsule.png';
+const CAPS = {};                                                          // 등급별 캡슐 — 파편이 그 그림으로 쪼개진다
+for (const k of ['c', 'uc', 'r', 'uq', 'ep']) { const im = new Image(); im.src = `../../assets/gacha/capsule-${k}.png`; CAPS[k] = im; }
+for (const k of ['uq-crack1', 'ep-crack1', 'ep-crack2']) { const im = new Image(); im.src = `../../assets/gacha/capsule-${k}.png`; CAPS[k] = im; }
+let shardImg = capImg;
 const CX = () => W / 2, CY = () => H * .5, FLOOR = () => H * .72;
 const add = o => { o.age = o.age ?? 0; o.L = o.L || 'f'; parts.push(o); return o; };
 
@@ -88,6 +106,23 @@ function drawLayer(g, L) {
   for (const p of parts) {
     if (p.L !== L || p.age < 0) continue; const u = p.age / p.life;
     if (p.k === 'spark') { g.globalAlpha = 1 - u; g.strokeStyle = p.col; g.lineWidth = p.w; g.beginPath(); g.moveTo(p.x - p.vx * 12, p.y - p.vy * 12); g.lineTo(p.x, p.y); g.stroke(); }
+    else if (p.k === 'rune' && tinted('rune-a', p.rgb)) { const a = u < .12 ? u / .12 : u > .78 ? (1 - u) / .22 : 1, t = p.age / 1000 * p.spin, D = p.R * 2 / .98;
+      g.save(); g.translate(p.x, p.y); g.scale(1, p.flat); g.globalAlpha = .95 * a;
+      const L = [['rune-a', t * .16], ['rune-b', -t * .32], ['rune-c', t * .5], ['rune-d', -t * .85]];
+      for (let i = 0; i < Math.min(4, p.layers + (p.layers >= 4 ? 0 : 0)); i++) { const [n, rot] = L[i]; const im = tinted(n, p.rgb); if (!im) continue; g.save(); g.rotate(rot); g.drawImage(im, -D / 2, -D / 2, D, D); g.restore(); }
+      g.restore(); }
+    else if (p.k === 'swirl' && tinted('swirl-energy', p.rgb)) { const a = u < .2 ? u / .2 : u > .75 ? (1 - u) / .25 : 1, grow = .55 + .45 * ease.out(Math.min(1, p.age / 700)), D = Math.hypot(W, H) * 1.25 * p.R * grow;
+      if (p.arms >= 6 && tinted('swirl-cloud', p.rgb)) { g.save(); g.translate(p.x, p.y); g.rotate(-p.age / 3200); g.globalAlpha = .7 * a; g.drawImage(tinted('swirl-cloud', p.rgb), -D * .6, -D * .6, D * 1.2, D * 1.2); g.restore(); }
+      g.save(); g.translate(p.x, p.y); g.scale(1, .88); g.rotate(p.age / 1500); g.globalAlpha = .85 * a; g.drawImage(tinted('swirl-energy', p.rgb), -D / 2, -D / 2, D, D); g.restore(); }
+    else if (p.k === 'burst' && tinted('ray-burst', p.rgb) && tinted('flare-star', '255,255,255')) { const a = 1 - u, e = ease.out(Math.min(1, u * 1.6)), D = (300 + 900 * e) * S * p.len;
+      g.save(); g.translate(p.x, p.y); g.rotate(p.age / 4000); g.globalAlpha = a; g.drawImage(tinted('ray-burst', p.rgb), -D / 2, -D / 2, D, D); g.globalAlpha = a * .8; g.drawImage(tinted('ray-burst', '255,255,255'), -D * .36, -D * .36, D * .72, D * .72); g.restore();
+      const F = (260 + 520 * e) * S; g.globalAlpha = a; g.drawImage(tinted('flare-star', '255,255,255'), p.x - F / 2, p.y - F / 2, F, F); }
+    else if (p.k === 'flare' && tinted('flare-streak', p.rgb)) { const a = u < .15 ? u / .15 : 1 - (u - .15) / .85, Lw = W * p.len * 1.3, Hh = Lw / 16;
+      g.globalAlpha = a; g.drawImage(tinted('flare-streak', '255,255,255'), p.x - Lw / 2, p.y - Hh / 2, Lw, Hh); g.globalAlpha = a * .8; g.drawImage(tinted('flare-streak', p.rgb), p.x - Lw / 2, p.y - Hh * 1.6, Lw, Hh * 3.2);
+      const F = 360 * S * (.6 + .4 * a); g.globalAlpha = a * .9; g.drawImage(tinted('flare-star', p.rgb), p.x - F / 2, p.y - F / 2, F, F); }
+    else if (p.k === 'meteor' && tinted('meteor-trail', p.rgb)) { const q = ease.in(u), x = p.x0 + (p.x1 - p.x0) * q, y = p.y0 + (p.y1 - p.y0) * q, dx = p.x1 - p.x0, dy = p.y1 - p.y0, ang = Math.atan2(dy, dx), L2 = 420 * S * Math.min(1, u * 3);
+      g.save(); g.translate(x, y); g.rotate(ang); g.globalAlpha = 1; g.drawImage(tinted('meteor-trail', p.rgb), -L2, -22 * S, L2, 44 * S); g.drawImage(tinted('meteor-trail', '255,255,255'), -L2 * .7, -9 * S, L2 * .7, 18 * S); g.restore();
+      const H2 = 150 * S; g.drawImage(tinted('meteor-head', p.rgb), x - H2 / 2, y - H2 / 2, H2, H2); const H3 = 70 * S; g.drawImage(tinted('meteor-head', '255,255,255'), x - H3 / 2, y - H3 / 2, H3, H3); }
     else if (p.k === 'ring') { g.globalAlpha = 1 - u; g.strokeStyle = p.col; g.lineWidth = p.w * (1 - u); g.beginPath(); g.ellipse(p.x, p.y, p.r0 + (p.r1 - p.r0) * ease.out(u), (p.r0 + (p.r1 - p.r0) * ease.out(u)) * p.flat, 0, 0, 7); g.stroke(); }
     else if (p.k === 'glow') { const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r); gr.addColorStop(0, `rgba(${p.rgb},${.85 * (1 - u)})`); gr.addColorStop(1, `rgba(${p.rgb},0)`); g.globalAlpha = 1; g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill(); }
     else if (p.k === 'beam') { const a = u < .12 ? u / .12 : 1 - (u - .12) / .88, w = p.w * (1 - u * .6), gr = g.createLinearGradient(p.x - w, 0, p.x + w, 0);
@@ -139,7 +174,7 @@ function drawLayer(g, L) {
       g.globalAlpha = a; g.strokeStyle = '#fff3c4'; g.lineWidth = 2 * S; g.shadowColor = '#ffb03a'; g.shadowBlur = 10;
       for (const seg of p.lines) { g.beginPath(); g.moveTo(p.x, p.y); const n = Math.ceil(seg.length * show); for (let i = 0; i < n; i++) g.lineTo(seg[i][0], seg[i][1]); g.stroke(); } g.shadowBlur = 0; }
     if (p.k === 'shard') { g.save(); g.globalAlpha = u > .7 ? 1 - (u - .7) / .3 : 1; g.translate(p.x, p.y); g.rotate(p.rot); g.beginPath(); p.pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.clip();
-      g.drawImage(capImg, -p.mx * p.cw, -p.my * p.cw, p.cw, p.cw); g.restore(); }
+      g.drawImage(shardImg, -p.mx * p.cw, -p.my * p.cw, p.cw, p.cw); g.restore(); }
   }
   g.globalAlpha = 1;
 }
@@ -218,7 +253,7 @@ async function reveal(ti, id) {
   const T = TIERS[ti], cx = CX(), cy = CY();
   setRobot(id); setCard(ti);
   if (!juice) {                                                       // 지금 게임 — 캡슐이 돌다가 기체가 튀어나온다
-    el.cap.style.opacity = 1; el.cap.animate([{ transform: 'translate(-50%,-50%) rotate(0)' }, { transform: 'translate(-50%,-50%) rotate(360deg)' }], { duration: 700 }); await sleep(700);
+    el.capImg.src = '../../assets/gacha/core-capsule.png'; el.cap.style.opacity = 1; el.cap.animate([{ transform: 'translate(-50%,-50%) rotate(0)' }, { transform: 'translate(-50%,-50%) rotate(360deg)' }], { duration: 700 }); await sleep(700);
     el.cap.style.opacity = 0; el.robot.style.opacity = 1; el.robot.animate([{ transform: 'translate(-50%,-50%) scaleX(-1) scale(.4)', opacity: 0 }, { transform: 'translate(-50%,-50%) scaleX(-1) scale(1)', opacity: 1 }], { duration: 400, easing: 'cubic-bezier(.2,1.4,.4,1)' });
     $('#cn').textContent = $('#cn').dataset.name; el.card.style.opacity = 1; await sleep(500); return;
   }
@@ -249,6 +284,7 @@ const FX_S = () => true;
 async function capsuleSeq(ti) {
   const T = TIERS[ti], cx = CX(), cy = CY(), hi = ti >= 3, epic = ti === 4;
   /* 2. 떨어진다 */
+  const ck = T.k.toLowerCase(); el.capImg.src = `../../assets/gacha/capsule-${ck}.png`; shardImg = ok(CAPS[ck]) ? CAPS[ck] : capImg;
   el.cap.style.opacity = 1; snd('land', { gain: .5, max: .6 });
   anim(el.cap, [{ transform: 'translate(-50%,-200%) scale(.9)' }, { transform: 'translate(-50%,-50%) scale(1.1,.88)', offset: .55 }, { transform: 'translate(-50%,-58%) scale(.96,1.05)', offset: .75 }, { transform: 'translate(-50%,-50%) scale(1)' }], { duration: 560, easing: 'ease-in' });
   await sleep(520); spark(cx, cy + 62 * S, 10, { col: ['#aab', '#889'], v: .35, life: 450, grav: .0003 }); ring(cx, FLOOR(), 120, T.col, 450, 3, 0, .22); shake(.15);
@@ -273,9 +309,9 @@ async function capsuleSeq(ti) {
   }
   el.capImg.style.filter = '';
   /* 4. 터지기 직전 — 어두워지고 갈라지고 하얗게 달아오른다. 에픽은 줌 인 + 정지 */
-  if (hi) { dimTo(epic ? .62 : .4, 300); crackP(cx, cy, 900 + ti * 200); glow(cx, cy, 130, '255,240,200', 600); snd('anvil_hit', { gain: .6, max: .5 }); shake(.35); await sleep(epic ? 480 : 320); }
+  if (hi) { el.capImg.src = `../../assets/gacha/capsule-${ck}-crack1.png`; dimTo(epic ? .62 : .4, 300); crackP(cx, cy, 900 + ti * 200); glow(cx, cy, 130, '255,240,200', 600); snd('anvil_hit', { gain: .6, max: .5 }); shake(.35); await sleep(epic ? 480 : 320); }
   if (epic) {
-    crackP(cx, cy, 1100); glow(cx, cy, 190, '255,210,140', 700); shake(.55); snd('anvil_hit', { gain: .85, max: .5, rate: .8 });
+    el.capImg.src = '../../assets/gacha/capsule-ep-crack2.png'; crackP(cx, cy, 1100); glow(cx, cy, 190, '255,210,140', 700); shake(.55); snd('anvil_hit', { gain: .85, max: .5, rate: .8 });
     zoom = .14; zoomT = zoomDur = 1800; roll = -.8; await sleep(420);
     el.capImg.style.filter = 'brightness(3) saturate(.3) drop-shadow(0 0 40px #fff)'; el.cap.animate([{ transform: 'translate(-50%,-50%) scale(1.06)' }, { transform: 'translate(-50%,-50%) scale(1.22)' }], { duration: 380, fill: 'forwards', easing: 'ease-in' });
     snd('enh_charge', { gain: .5, max: .45, rate: 1.6 }); await sleep(380);

@@ -24,6 +24,8 @@ const B = CONST.BRAWL;
 const rar = t => ROBOT_TYPES[t].rarity;
 const Cs = brawlTypes().filter(t => rar(t) === 'C');
 const blank = over => ({ ...newRun({ seed: 1, owned: [], rentals: [] }), ...over });
+/* 대기석 — 앞의 몇 칸만 적고 나머지는 빈칸(BRAWL.bench 가 바뀌어도 검사가 그대로 돈다) */
+const bench = (...u) => [...u, ...Array(Math.max(0, B.bench - u.length)).fill(null)];
 
 console.log('== ① 풀 · 대여 ==');
 {
@@ -71,7 +73,7 @@ console.log('\n== ② 상점 ==');
   ok(nc.shop.every(t => rar(t) === 'C'), '보유 UC 가 없으면 C 만');
   ok(weightAt(99) === B.weight.at(-1), '표 끝을 넘으면 마지막 줄');
   /* 복사본 한도 — C 한 종만 남긴 풀에서 8개를 가진 상태 → 상점에 그 기체가 최대 1개 */
-  const lim = blank({ pool: ['mule'], bench: [{ type: 'mule', star: 2 }, { type: 'mule', star: 2 }, { type: 'mule', star: 1 }, { type: 'mule', star: 1 }, null, null] });
+  const lim = blank({ pool: ['mule'], bench: bench({ type: 'mule', star: 2 }, { type: 'mule', star: 2 }, { type: 'mule', star: 1 }, { type: 'mule', star: 1 }) });
   ok(copiesOf(lim, 'mule') === 8, '★2 는 기체 셋으로 센다');
   const sh = rollShop(lim);
   ok(sh.filter(Boolean).length === 1 && sh.filter(x => x === null).length === B.shop.slots - 1, `C 한도 ${B.copies.C} — 8개 가졌으면 상점에 1개만`);
@@ -87,11 +89,11 @@ console.log('\n== ③ 동작 ==');
   ok(act(r, { t: 'buy', i: 3 }).error === 'empty slot' && act(blank({ shop: ['seraph'], gold: 4 }), { t: 'buy', i: 0 }).error === 'gold', '빈 칸 · 골드 부족 거절');
   const s1 = act(b1.run, { t: 'sell', where: 'bench', i: 0 });
   ok(s1.run.gold === 10 && !s1.run.bench[0], '팔면 산 값');
-  const s2 = act(blank({ bench: [{ type: 'seraph', star: 2 }, null, null, null, null, null] }), { t: 'sell', where: 'bench', i: 0 });
+  const s2 = act(blank({ bench: bench({ type: 'seraph', star: 2 }) }), { t: 'sell', where: 'bench', i: 0 });
   ok(s2.run.gold === B.startGold + B.price.EP * 3, `★2 EP 는 ${B.price.EP * 3} 에 팔린다`);
   const m1 = act(b1.run, { t: 'move', from: { where: 'bench', i: 0 }, to: { where: 'board', i: 2 } });
   ok(m1.run.board[2].type === 'mule' && !m1.run.bench[0], '대기석 → 보드 뒷줄');
-  const m2 = act(blank({ board: [{ type: 'mule', star: 1 }, null, null, null], bench: [{ type: 'dune', star: 1 }, null, null, null, null, null] }),
+  const m2 = act(blank({ board: [{ type: 'mule', star: 1 }, null, null, null], bench: bench({ type: 'dune', star: 1 }) }),
                  { t: 'move', from: { where: 'bench', i: 0 }, to: { where: 'board', i: 0 } });
   ok(m2.run.board[0].type === 'dune' && m2.run.bench[0].type === 'mule', '찬 칸으로 옮기면 서로 바뀐다');
   ok(act(r, { t: 'move', from: { where: 'board', i: 9 }, to: { where: 'bench', i: 0 } }).error === 'bad slot', '없는 칸 거절');
@@ -113,12 +115,12 @@ console.log('\n== ④ 합성 ==');
   const g0 = r.gold, x = act(r, { t: 'buy', i: 1 });
   ok(x.merged.length === 1 && x.run.board[1].star === 2 && x.run.bench.every(u => !u), '★1 셋 → ★2 · 보드에 있던 칸에 선다');
   ok(x.run.gold === g0 - B.price.C + B.mergeGold[2], `합성 보급품 ${B.mergeGold[2]}골드`);
-  const y = { ...blank(), board: [m(2), m(2), null, null], bench: [m(1), m(1), m(1), null, null, null] };
+  const y = { ...blank(), board: [m(2), m(2), null, null], bench: bench(m(1), m(1), m(1)) };
   const mg = autoMerge(y);
   ok(mg.length === 2 && mg[1].star === 3 && y.board[0].star === 3 && units3(y) === 1, `★2 셋이 되면 이어서 ★3(보급품 ${B.mergeGold[3]})`);
   function units3(s) { return [...s.board, ...s.bench].filter(Boolean).length; }
   const full = blank({ shop: ['dune'], gold: 5, board: [m(1), m(1), m(1), m(1)].map((u, i) => i < 2 ? { type: 'dune', star: 1 } : u),
-                       bench: Array(6).fill(0).map((_, i) => ({ type: Cs[i + 2] === 'dune' ? 'grit' : Cs[i + 2], star: 1 })) });
+                       bench: Array(B.bench).fill(0).map((_, i) => ({ type: Cs[i + 2] === 'dune' ? 'grit' : Cs[i + 2], star: 1 })) });
   const f1 = act(full, { t: 'buy', i: 0 });
   ok(f1.run && f1.run.board.filter(u => u && u.type === 'dune' && u.star === 2).length === 1, '보드 · 대기석이 다 차도 합성되는 기체는 산다');
   ok(act({ ...full, shop: ['scarab'] }, { t: 'buy', i: 0 }).error === 'full', '합성 안 되면 자리가 없다고 거절');
@@ -133,7 +135,7 @@ console.log('\n== ⑤ 시너지 ==');
   const s2 = sy([U('husk'), U('aegis'), null, null]);
   ok(s2.shield && s2.shield.tier === 1 && s2.shield.v === B.syn.shield.v[0], `서로 다른 방벽 둘 → 1단계(${B.syn.shield.v[0]})`);
   ok(sy([U('husk'), U('aegis'), U('nebula'), null]).shield.tier === 2, '셋 → 2단계');
-  const r = blank({ board: [U('husk'), null, null, null], bench: [U('aegis'), null, null, null, null, null] });
+  const r = blank({ board: [U('husk'), null, null, null], bench: bench(U('aegis')) });
   ok(!sy(r.board).shield, '대기석은 세지 않는다');
   const fam = sy([U('goliath_s'), U('goliath_r'), U('mule'), null]);
   ok(fam['family:goliath'] && fam['family:goliath'].types.length === 2, '같은 집안 아종 둘 → 공명');

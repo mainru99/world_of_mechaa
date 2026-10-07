@@ -3,7 +3,7 @@
  *
  * ── 런 상태 ─────────────────────────────────────────────
  *   { v, seed, day, round, gold, lives, wins, losses, streak, hist, pool, rent,
- *     board:[u|null ×4], bench:[u|null ×6], shop:[type|null ×5], rerolls, locked, done }
+ *     board:[u|null ×4], bench:[u|null ×BRAWL.bench(7)], shop:[type|null ×5], rerolls, locked, done }
  *   u = { type, star }. board 칸 번호가 곧 팀전 자리다(0 · 1 앞줄, 2 · 3 뒷줄 — js/brawl-sim.js).
  *   streak 은 연승이면 +n, 연패면 −n. hist 는 라운드마다 'W' | 'L'.
  *

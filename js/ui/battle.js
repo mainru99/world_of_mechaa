@@ -7,7 +7,6 @@ import {icon,escapeHtml as esc} from './icons.js';
 export const BATTLE_MODES={
   arena:{name:'일반 대전',en:'ARENA MATCH',icon:'battle'},
   duel:{name:'친선 대전',en:'FRIENDLY MATCH',icon:'shield'},
-  practice:{name:'연습 대전',en:'TRAINING MATCH',icon:'target'},
 };
 const fmt=n=>Math.round(Number(n)||0).toLocaleString('ko-KR');
 function unitCard(unit,side){
@@ -41,6 +40,6 @@ export function battleView({mode='arena',allies,enemies=[],playerName,playerMeta
     </div>
     <section class="bv-power" aria-label="전투력 비교"><div><small>아군 전투력</small><b>${powerKnown?fmt(a):'—'}</b></div><div class="bv-comparison"><span>전력 비교</span><div class="bv-power-track" style="--ally-share:${ratio}%"><i></i></div><small>${verdict}</small></div><div><small>적군 전투력</small><b>${powerKnown&&enemies.length?fmt(e):'—'}</b></div></section>
     ${details?`<div class="bv-details">${details}</div>`:''}
-    <div class="bv-bottom"><section class="bv-brief"><div class="bv-battlefield" aria-hidden="true"></div><div><h3>${mode==='duel'?'지목한 상대와 대결':mode==='practice'?'전술 시뮬레이션':'다음 전투를 준비하세요'}</h3><div>${brief}</div></div></section><section class="bv-deploy"><div class="bv-terms"><span>출격비 <b>${esc(costLabel)}</b></span><span>${esc(rewardLabel)}</span></div><div class="bv-actions">${actions}</div></section></div>
+    <div class="bv-bottom"><section class="bv-brief"><div class="bv-battlefield" aria-hidden="true"></div><div><h3>${mode==='duel'?'친선 대결':'다음 전투를 준비하세요'}</h3><div>${brief}</div></div></section><section class="bv-deploy"><div class="bv-terms"><span>출격비 <b>${esc(costLabel)}</b></span><span>${esc(rewardLabel)}</span></div><div class="bv-actions">${actions}</div></section></div>
     </div></div>`;
 }

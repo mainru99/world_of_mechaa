@@ -18,7 +18,7 @@ import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickT
          bandStart, bandStep, bandGoal,
          readHuntWeek, huntLeft, huntCap, huntResetAt, huntWeekView } from '../js/rewards.js';
 import { codexMonsterStmt } from './codex.js';
-import { registerArena, pickOpponentFromArena, pickOpponentByNickname, ratingDelta } from './arena.js';
+import { registerArena, pickOpponentFromArena, pickOpponentByNickname, pickOpponentRandom, ratingDelta } from './arena.js';
 import { makeUnit, simulate, mulberry32, relayOut } from '../js/sim.js';
 
 /* 교대 전투(CONST.RELAY · 2026-09-25) — 켜져 있을 때만. 대전(아레나 · 비상 출격 · 친선전)만 해당하고 토벌은 그대로다 */
@@ -177,10 +177,13 @@ async function preparePending(env, accountId, me, now, credits, opts) {
      하는데, 지목에는 창이 없다 — 아는 사람과 붙는 것이 목적이라 격차가 나도 뜻이 있다).
      상대를 못 찾으면 null 을 돌려주고 findMatch 가 오류로 바꾼다. */
   if (opts && opts.mode === 'duel') {
-    const target = String((opts.target || '')).trim();
+    /* random — 무작위 친선(이름 없이). 고른 상대의 이름을 target 으로 돌려주어 '편성의 다른 기체' 고르기가 그대로 된다 */
+    const random = !!opts.random;
     /* pick 은 상대의 편성 안에서 몇 번째 기체인가다. 화면이 고른 값을 그대로 받되
        arena.js 가 목록 범위로 잘라 주므로, 이상한 값이 와도 첫 기체로 떨어진다. */
-    const dopp = await pickOpponentByNickname(env, accountId, target, opts.pick | 0);
+    const dopp = random ? await pickOpponentRandom(env, accountId, power(me.robot, me.parts))
+                        : await pickOpponentByNickname(env, accountId, String((opts.target || '')).trim(), opts.pick | 0);
+    const target = random ? (dopp && dopp !== 'self' ? dopp.callsign : '') : String((opts.target || '')).trim();
     if (dopp === 'self') return 'self';
     if (!dopp) return null;
     const dseed = (Math.floor(rnd() * 0xffffffff)) >>> 0;
@@ -189,7 +192,7 @@ async function preparePending(env, accountId, me, now, credits, opts) {
       json: JSON.stringify({ opp: dopp, seed: dseed, at: now, rescue: false, cost: 0, mode: 'duel' }),
       cost: 0, rescue: false, mode: 'duel', tier: null,
       /* 고를 수 있는 기체 목록과 지금 고른 칸. 화면이 이걸로 바꿔 끼는 칸을 그린다. */
-      choices: dopp.choices || null, pick: dopp.pick | 0, target,
+      choices: dopp.choices || null, pick: dopp.pick | 0, target, random,
       opponent: {
         kind: dopp.kind, type: dopp.type, level: dopp.level, skillLv: dopp.skillLv | 0,
         callsign: dopp.callsign, rating: dopp.rating ?? null,
@@ -261,14 +264,15 @@ export async function findMatch(env, accountId, now, opts) {
      바꾸지 않고 그대로 알려 준다. 아레나로 떨어뜨리면 '누구와 붙는지'가 달라진다. */
   if (opts && opts.mode === 'duel') {
     const target = String((opts.target || '')).trim();
-    if (!target) return { ok: false, status: 400, error: 'no target' };
+    if (!target && !opts.random) return { ok: false, status: 400, error: 'no target' };
     const next = await preparePending(env, accountId, me, now, me.credits, opts);
     if (next === 'self') return { ok: false, status: 400, error: 'target is self', target };
-    if (!next) return { ok: false, status: 404, error: 'target not found', target };
+    if (!next) return opts.random ? { ok: false, status: 404, error: 'no opponent' }
+                                  : { ok: false, status: 404, error: 'target not found', target };
     await env.DB.prepare('UPDATE player SET pending_match = ?1 WHERE account_id = ?2')
       .bind(next.json, accountId).run();
     return { ok: true, opponent: next.opponent, cost: 0, rescue: false, mode: 'duel', tier: null,
-             choices: next.choices, pick: next.pick, target: next.target };
+             choices: next.choices, pick: next.pick, target: next.target, random: !!next.random };
   }
 
   const next = await preparePending(env, accountId, me, now, me.credits, opts);

@@ -200,8 +200,8 @@ function rowToOpponent(row, ver, pick) {
 
 /* 전투력 ±15% 안에서 사람 상대 하나. 없으면 null 을 돌려주고 부르는 쪽이 생성 상대로 넘어간다.
    ORDER BY RANDOM() 은 후보를 전부 읽어 정렬하므로 쓰지 않는다 — rnd 로 한 행만 읽는다. */
-export async function pickOpponentFromArena(env, accountId, myPower) {
-  const lo = Math.floor(myPower * 0.85), hi = Math.ceil(myPower * 1.15);
+export async function pickOpponentFromArena(env, accountId, myPower, span = 0.15) {
+  const lo = Math.floor(myPower * (1 - span)), hi = Math.ceil(myPower * (1 + span));
   const cut = Math.floor(Math.random() * 0x40000000);
 
   const q = dir => env.DB.prepare(
@@ -216,6 +216,17 @@ export async function pickOpponentFromArena(env, accountId, myPower) {
   const row = (await q('up')) || (await q('down'));
   if (!row) return null;
   return rowToOpponent(row, balanceVersion(), 0);
+}
+
+/* ── 무작위 친선 (2026-10-07 · 연습 대전을 대신한다) ── 등록된 다른 플레이어 하나.
+   전투력이 비슷한 쪽(±15%)부터 찾고, 없으면 ±40% · 전체로 넓힌다 — 사람이 적어도 비지 않게.
+   친선전이라 보상이 없으므로 넓혀도 파밍 길이 생기지 않는다. 몬스터 · 생성 상대는 섞지 않는다(사람과 붙는 것이 친선이다). */
+export async function pickOpponentRandom(env, accountId, myPower) {
+  for (const span of [0.15, 0.4, 1e9]) {
+    const o = await pickOpponentFromArena(env, accountId, myPower, span);
+    if (o) return o;
+  }
+  return null;
 }
 
 /* ── 지목 대전 ── 닉네임으로 특정 상대를 부른다.

@@ -14,7 +14,7 @@ function setup(pull){
   frontAfterState:()=>events.push(['frontState']),stopScript:()=>events.push(['stopStory']),_frontIntroAttempted:new Set(['old:intro']),
   _frontReady:true,_jform:{order:['old-unit'],tac:{}},_jctx:()=>{},_fight:{old:true},
   _dispatchUid:null,_dispatchPending:null,_dispatchTab:'',_dispatchFilter:'',_dispatchSelected:'',_rankEpoch:0,_rankTab:'',_rankPage:0,_codexRaw:null,_codexAt:0,_codexGroup:'',
-  _battleRequest:0,_pendingOpp:null,_practiceOpp:null,_battleFindOpts:null,_duelTarget:null,_battleMode:'',hangarUid:null,hangarTab:'',hangarInventory:false,
+  _battleRequest:0,_pendingOpp:null,_battleFindOpts:null,_duelTarget:null,_battleMode:'',hangarUid:null,hangarTab:'',hangarInventory:false,
   invF:{slot:'WEAPON',rar:'SSR',fresh:'1',sort:'enh',page:9,query:'old account'},
   _terrRequest:0,_territorySelected:'',_territoryFilter:'',_returnToTerritory:false,_territoryViewport:{},_gateNeedsPull:false,
   dropTerrCache:()=>events.push(['terr']),dropRankCache:()=>events.push(['rank']),normalize:x=>x,takeBand:()=>{},parsePresets:x=>x,save:()=>events.push(['save']),

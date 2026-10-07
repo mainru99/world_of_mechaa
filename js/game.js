@@ -33,7 +33,7 @@ import { FRONT_CHAPTERS, FRONT_CELLS, readProgress, writeProgress, clearedCount,
 import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
          fuseCheck, fuseCost, fuseUpRate, nextRarity } from './gacha.js';
-import { makeOpponent as _makeOpponent, pickTactic, bandStart, bandGoal, huntWeekView, huntResetAt } from './rewards.js';
+import { pickTactic, bandStart, bandGoal, huntWeekView, huntResetAt } from './rewards.js';
 import { sprite, preloadSprites } from './sprites.js?v=20260912-hangar10-recovery';
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 import { icon, emblem } from './ui/icons.js';
@@ -1446,22 +1446,25 @@ function setBattleMode(mode){
   toBattle();
   renderBattleHome();
 }
-function battleRetry(practice=false){
-  if(practice)return practiceFind();
+function battleRetry(){
   const opp=_pendingOpp;
+  /* 무작위 친선이면 '다시 찾기' 도 새 무작위 상대다 — 같은 사람을 다시 부르지 않는다 */
+  if(opp?.mode==='duel'&&opp.random)return findMatch({mode:'duel',random:true});
   if(opp?.mode==='duel')return findMatch({mode:'duel',target:opp.target||_duelTarget,pick:opp.pick});
   if(opp?.mode==='hunt'||opp?.tier)return findMatch({mode:'hunt',tier:opp.tier});
   return findMatch();
 }
 function renderBattleHome(searching=false){
   const rb=selRobot(),on=net.state.online,cost=sortieCost(rb),poor=S.credits<cost;
-  const practice=_battleMode==='practice',duel=_battleMode==='duel';
-  const brief=practice?'가상 상대와 전술을 시험하세요. 경험치·재화·피로도·전적은 변하지 않습니다.':duel?'이름으로 상대의 등록 기체를 찾습니다. 출격비·보상·레이팅 변동이 없는 친선전입니다.':!on?'서버 연결을 확인해 주세요. 연습 대전은 연결 없이도 이용할 수 있습니다.':poor?'비상 출격 · 비용 없이 전투하며 보상은 크레딧만 지급됩니다.':'플레이어를 우선 매칭합니다. 상대가 없으면 훈련 기체 또는 몬스터를 만납니다.';
+  const duel=_battleMode==='duel';
+  const brief=duel?'이름으로 상대를 부르거나 무작위로 등록된 플레이어와 붙습니다. 출격비·보상·레이팅 변동이 없는 친선전입니다.':!on?'서버 연결을 확인해 주세요.':poor?'비상 출격 · 비용 없이 전투하며 보상은 크레딧만 지급됩니다.':'플레이어를 우선 매칭합니다. 상대가 없으면 훈련 기체 또는 몬스터를 만납니다.';
   const input=duel&&!searching?`<div class="bv-duel-input"><label for="duelNick">상대 이름</label><input id="duelNick" class="duelin" placeholder="GUEST-0002" maxlength="24" value="${esc(_duelTarget||'')}" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();ROWAR.duelFind()}"></div>`:'';
-  const action=practice?'practiceFind':duel?'duelFind':'findMatch';
+  const action=duel?'duelFind':'findMatch';
+  /* 친선 대전 — 이름으로 부르기 + 무작위(2026-10-07 사용자 결정 · 연습 대전을 대신한다) */
+  const random=duel?`<button class="btn ghost bv-random" onclick="ROWAR.duelRandom()" ${searching||!on?'disabled':''}>무작위 상대 ${icon('chevron')}</button>`:'';
   $('#sc-battle').innerHTML=battleView({mode:_battleMode,allies:[battleUnit(rb)],...battleIdentity(),searching,
-    brief:`<p>${brief}</p>`,costLabel:practice||duel||poor?'무료':fmt(cost)+' 크레딧',rewardLabel:practice||duel?'보상 없음':poor?'크레딧':'상대·승패에 따라 결정',
-    actions:input+`<button class="bv-launch" onclick="ROWAR.${action}()" ${searching||(!on&&!practice)?'disabled':''}>${searching?'탐색 중':practice?'연습 상대 찾기':'상대 찾기'} ${icon('chevron')}</button>`});
+    brief:`<p>${brief}</p>`,costLabel:duel||poor?'무료':fmt(cost)+' 크레딧',rewardLabel:duel?'보상 없음':poor?'크레딧':'상대·승패에 따라 결정',
+    actions:input+`<button class="bv-launch" onclick="ROWAR.${action}()" ${searching||!on?'disabled':''}>${searching?'탐색 중':duel?'이름으로 찾기':'상대 찾기'} ${icon('chevron')}</button>`+random});
 }
 /* ------------------------------- 랭킹 ------------------------------- */
 /* 순위는 서버 크론이 미리 계산해 둔 값을 받아 오기만 한다.
@@ -1867,6 +1870,7 @@ async function findMatch(opts){
     toast(r && r.error==='target is self' ? '자기 자신과는 붙을 수 없습니다'
       : r && r.error==='target not found'
         ? `'${esc(r.target||'')}' 을(를) 찾을 수 없습니다 — 이름이 정확한지, 그 사람이 한 번이라도 접속했는지 확인하세요`
+        : r && r.error==='no opponent' ? '친선 대전을 받아 줄 등록 플레이어가 아직 없습니다'
         : '상대를 찾지 못했습니다'+(r&&r.error?': '+r.error:'')); return;
   }
 
@@ -1882,7 +1886,8 @@ function setPending(o, cost, rescue, tier, mode, duel){
     joint:o.joint||null,                 // 합동전(토벌 보스) — 조준과 요구 조건. 있으면 편성 화면이 뜬다
     /* 지목 대전이면 상대 편성 목록과 지금 고른 칸을 함께 들고 다닌다 —
        상대 카드에서 바로 다른 기체로 바꿔 끼울 수 있어야 하기 때문이다. */
-    choices:(duel&&duel.choices)||null, pick:(duel&&duel.pick)|0, target:(duel&&duel.target)||null } : null;
+    choices:(duel&&duel.choices)||null, pick:(duel&&duel.pick)|0, target:(duel&&duel.target)||null,
+    random:!!(duel&&duel.random) } : null;
 }
 
 /* ── 지목 대전 ── 닉네임으로 특정 상대를 부른다.
@@ -1895,6 +1900,11 @@ async function duelFind(){
   if(!nick){ toast('상대 이름을 입력하세요'); if(el) el.focus(); return; }
   _duelTarget=nick;
   await findMatch({ mode:'duel', target:nick, pick:0 });
+}
+/* 무작위 친선 — 아레나에 등록된 다른 플레이어 중 하나(전투력이 비슷한 쪽부터). 보상 없음 */
+async function duelRandom(){
+  _duelTarget=null;
+  await findMatch({ mode:'duel', random:true });
 }
 /* 상대 카드에서 편성의 다른 기체로 바꿔 끼운다. 서버가 상대를 다시 잡아 주므로
    시드도 새로 나온다 — 같은 기체를 다시 고르면 같은 판이 아니라 새 판이다. */
@@ -2148,33 +2158,17 @@ function nextMatch(){
   toBattle(null,_pendingOpp.mode==='hunt'?'hunt':'battle');
   showOpponent(_pendingOpp);
 }
-/* 연습 대전의 상대. 예전에는 여기에 상대 생성 규칙이 따로 한 벌 있었는데,
-   서버가 js/rewards.js 의 규칙으로 옮겨 간 뒤로 둘이 갈라져 있었다 —
-   연습에서는 아직 ±2 레벨에 등급 보정도 없어서, 같은 화면인데 다른 게임을 하고 있었다.
-   서버와 같은 함수를 부른다. 규칙이 한 곳에만 있어야 갈라지지 않는다. */
-function makeOpponent(){
-  const my=selRobot();
-  const owned=[...new Set(S.robots.map(r=>rarOf(r.type)))];
-  /* 상대 장비는 **내 레이팅**에 맞춘다 — 내가 낀 파츠가 아니라.
-     연습 대전이라 서버에 묻지 않고, 랭킹 화면이 받아 둔 값이 있으면 쓴다.
-     없으면 시작 레이팅(1000)으로 본다. 규칙은 서버와 같은 함수(js/rewards.js)다. */
-  const o=_makeOpponent(owned, my.level, R, ()=>'E'+uid(), false, myRating(), myBand());
-  const rb={uid:'E'+uid(), type:o.type, level:o.level, skillLv:o.skillLv|0, slots:o.slots};
-  return {kind:o.kind==='monster'?'monster':'robot', robot:rb, parts:o.parts, callsign:o.callsign,
-          band:o.band||null, bandTotal:(CONST.MON_BAND||[]).length||null,
-          bandGoal:o.kind==='monster'?bandGoal(myBand(), _band.pts):null};
-}
 /* 상대 카드.
    전투력만 보여 주면 '이길지 질지'만 알 뿐 **무엇을 바꿀지**를 알 수 없다.
    방어·회피·속도를 내 값과 나란히 놓고, 상대 스킬도 함께 보여 준다.
    그래야 편성한 두 기 중 무엇을 낼지, 어떤 파츠를 낄지가 판단이 된다. */
-function showOpponent(opp, practice){
-  if(opp.joint && !practice) return showJoint(opp);   // 토벌 보스는 합동전 편성 화면(2026-09-21)
+function showOpponent(opp){
+  if(opp.joint) return showJoint(opp);   // 토벌 보스는 합동전 편성 화면(2026-09-21)
   shield();
   const T=COMBAT_TYPES[opp.robot.type], monster=!!MONSTER_TYPES[opp.robot.type];
   const confirmed=preparedStats(opp.stats);
   const my=selRobot(), myst=computeStats(my), est=confirmed||computeStats(opp.robot, opp.parts||[]);
-  const enemyKnown=!!(practice||opp.kind!=='player'||confirmed||Array.isArray(opp.robot.circuit));
+  const enemyKnown=!!(opp.kind!=='player'||confirmed||Array.isArray(opp.robot.circuit));
   const num=(k,v)=> isPct(k) ? (v*100).toFixed(0)+'%' : fmt(Math.round(v));
   /* 상대가 더 높은 값은 붉게, 내가 높으면 푸르게. 눈으로 훑어서 바로 읽히게 한다. */
   const cmp=k=>{ const a=est[k], b=myst[k], hi=a>b*1.02, lo=a<b*0.98;
@@ -2195,7 +2189,7 @@ function showOpponent(opp, practice){
   if(enemyKnown && oPow > myPow*1.10) notes.push('전투력이 밀립니다 — 공격력 <b>구간이 넓은</b> 편성이 뒤집을 여지가 큽니다');
   else if(enemyKnown && oPow < myPow*0.90) notes.push('전투력이 앞섭니다 — 구간이 <b>좁을수록</b> 확실합니다');
 
-  const mode=practice?'practice':opp.mode==='duel'?'duel':'arena';
+  const mode=opp.mode==='duel'?'duel':'arena';
   _battleMode=mode;
   const tactics=`<div class="tacwrap"><div class="tachead">전술 지시 <small>상대의 스킬을 보고 고르세요</small></div><div class="tacrow">${Object.entries(CONST.TACTIC||{}).map(([k,t])=>`<button class="btn tacbtn${k===_tactic?' on':''}" data-k="${k}" aria-pressed="${k===_tactic}" onclick="ROWAR.setTactic('${k}')"><b>${t.ko}</b><span>${t.desc||''}</span></button>`).join('')}</div></div>`;
   const choices=opp.mode==='duel'&&opp.choices?.length>1?`<div class="tacwrap"><div class="tachead">상대 편성 <small>대결할 기체를 선택하세요</small></div><div class="tacrow">${opp.choices.map(c=>{
@@ -2203,79 +2197,20 @@ function showOpponent(opp, practice){
     return `<button class="btn tacbtn${c.i===opp.pick?' on':''}" aria-pressed="${c.i===opp.pick}" onclick="ROWAR.duelPick(${c.i|0})"><b>${CT.name} · Lv.${c.level}</b><span>전투력 ${fmt(c.power)}</span></button>`;
   }).join('')}</div></div>`:'';
   const intel=`<details class="bv-intel"><summary>기체 분석 · 스킬과 장비 비교</summary><div class="oppstats">${enemyKnown?['def','eva','spd'].map(cmp).join(''):'<p>상대 능력치는 전투 시작 시 확인할 수 있습니다.</p>'}</div>${oppGear(opp)}<div class="monster-skill"><strong>${T.skill.name}</strong><span class="fxrow">${fxTags(opp.robot.type)}</span><span>${T.skill.desc}</span></div><div class="my-skill"><strong>내 스킬 · ${COMBAT_TYPES[my.type].skill.name}</strong><span class="fxrow">${fxTags(my.type)}</span><span>${COMBAT_TYPES[my.type].skill.desc}</span></div></details>`;
-  const brief=practice?'연습 대전 · 경험치·재화·피로도·전적은 변하지 않습니다.':opp.mode==='duel'?'친선 대전 · 출격비·보상·전적·레이팅 변동이 없습니다.':opp.rescue?'비상 출격 · 출격비 없이 전투합니다. 보상은 크레딧만 지급됩니다.':opp.tier?`토벌 ${HUNT_KO[opp.tier]||opp.tier} · 상대를 확인하고 전술을 선택하세요.`:'기체와 전술을 확인하세요. 전투는 자동으로 진행됩니다.';
+  const brief=opp.mode==='duel'?`친선 대전${opp.random?' · 무작위 상대':''} · 출격비·보상·전적·레이팅 변동이 없습니다.`:opp.rescue?'비상 출격 · 출격비 없이 전투합니다. 보상은 크레딧만 지급됩니다.':opp.tier?`토벌 ${HUNT_KO[opp.tier]||opp.tier} · 상대를 확인하고 전술을 선택하세요.`:'기체와 전술을 확인하세요. 전투는 자동으로 진행됩니다.';
   $('#sc-battle').innerHTML=battleView({mode,allies:[battleUnit(my)],enemies:[{...battleUnit(opp.robot,opp.parts||[],confirmed),statsKnown:enemyKnown}],powerKnown:enemyKnown,powerUnavailableLabel:'상대 능력치 미확인',...battleIdentity(),
     enemyName:opp.callsign,enemyMeta:`${monster?'몬스터 · 위험도 '+T.rarity:opp.kind==='player'?'플레이어':'훈련 기체'}${opp.band?' · 구간 '+opp.band+'/'+(opp.bandTotal||12):''}`,
-    brief:`<p>${esc(brief)}</p>${bandLine(opp.bandGoal)}`,costLabel:practice||opp.mode==='duel'||opp.rescue?'무료':fmt(opp.cost)+' 크레딧',rewardLabel:practice||opp.mode==='duel'?'보상 없음':opp.rescue?'크레딧':'상대·승패에 따라 결정',
-    actions:`<button class="bv-launch" onclick="ROWAR.${practice?'practiceStart':'startBattle'}()">전투 시작 ${icon('chevron')}</button><button class="btn ghost" onclick="ROWAR.battleRetry(${!!practice})">다시 찾기</button>`,
-    details:relayPreview(opp,practice)+choices+tactics+(notes.length?`<div class="oppnote">${notes.map(n=>`<div>· ${n}</div>`).join('')}</div>`:'')+intel});
+    brief:`<p>${esc(brief)}</p>${bandLine(opp.bandGoal)}`,costLabel:opp.mode==='duel'||opp.rescue?'무료':fmt(opp.cost)+' 크레딧',rewardLabel:opp.mode==='duel'?'보상 없음':opp.rescue?'크레딧':'상대·승패에 따라 결정',
+    actions:`<button class="bv-launch" onclick="ROWAR.startBattle()">전투 시작 ${icon('chevron')}</button><button class="btn ghost" onclick="ROWAR.battleRetry()">다시 찾기</button>`,
+    details:relayPreview(opp)+choices+tactics+(notes.length?`<div class="oppnote">${notes.map(n=>`<div>· ${n}</div>`).join('')}</div>`:'')+intel});
 }
-function relayPreview(opp,practice){
+function relayPreview(opp){
   const own=jointBase().map(u=>S.robots.find(r=>r.uid===u)).filter(Boolean);
-  if(practice||!CONST.RELAY.on||opp.mode==='hunt'||own.length<2||!opp.bench?.length)return '';
+  if(!CONST.RELAY.on||opp.mode==='hunt'||own.length<2||!opp.bench?.length)return '';
   const foe=opp.bench[0],rb=own[1];
   const stats=preparedStats(foe.stats),intel=stats?`전투력 ${fmt(powerOf(stats))} · 내구 ${fmt(stats.hp)} · 공격 ${fmt(stats.atk)}`:'능력치 미확인';
   return `<section class="bv-relay ui-surface"><h3>교대 대전 · 양쪽 2기</h3><p>선봉이 격추되면 예비가 이어서 싸웁니다. 위 전력 비교는 선봉 기준입니다. 예비 전술은 선봉의 전술을 따릅니다.</p><div><span>${sprite(rb.type,false)}<b>우리 예비 · ${esc(ROBOT_TYPES[rb.type].name)} · Lv.${rb.level}</b></span><span>${sprite(foe.type,false)}<span class="bv-relay-copy"><b>상대 예비 · ${esc(foe.name||COMBAT_TYPES[foe.type]?.name||foe.type)} · Lv.${foe.level}</b><small>${intel}</small></span></span></div></section>`;
 }
-
-/* ------------------------------- 연습 대전 ------------------------------- */
-/* 서버가 없어도 게임을 보여 주기 위한 모드.
- * **아무것도 얻지 못한다** — 경험치·크레딧·파츠·피로도·전적·순위가 하나도 안 움직인다.
- * 그래야 '끊고 굴린 뒤 올리기'라는 길이 아예 생기지 않는다.
- * (지금은 PUT /api/state 도 닫혀 있지만, 여기서 상태를 안 건드리는 것이 더 확실하다)
- *
- * 상대 생성은 클라의 makeOpponent 를 쓴다 — 서버 판정으로 옮기면서 안 쓰게 된 코드다.
- * 보상이 없으니 상대를 클라가 고르든 말든 부풀릴 것이 없다. */
-let _practiceOpp=null;
-
-function practiceFind(){
-  _battleRequest++;
-  toBattle();
-  const o=makeOpponent();
-  _practiceOpp={ ...o, rating:null, seed:(Math.random()*0xffffffff)>>>0 };
-  showOpponent(_practiceOpp, true);
-}
-
-async function practiceStart(){
-  beginReplay();
-  const opp=_practiceOpp; if(!opp) return;
-  const my=selRobot(); _battleRobot=my;
-
-  /* 지금 피로도 그대로 싸운다(전투에 영향이 있으니까). 다만 늘리지는 않는다. */
-  /* 상대 전술은 서버와 **같은 함수·같은 시드 섞기**로 뽑는다. 규칙이 한 곳에만 있어야
-     연습과 실전이 다른 게임이 되지 않는다. */
-  const tacE=pickTactic(opp.robot.type, mulberry32(((opp.seed>>>0) ^ 0x9e3779b9)>>>0));
-  const P=makeUnit(ROBOT_TYPES[my.type].name, my.type, computeStats(my), _tactic);
-  const E=makeUnit(opp.callsign, opp.robot.type, computeStats(opp.robot, opp.parts), tacE);
-  const events=simulate(P,E,opp.seed);
-  const statP=computeStats(my), statE=computeStats(opp.robot, opp.parts);
-  renderArena(my.type, opp.robot.type, P.name, E.name, null, _tactic, tacE);
-
-  if(rarOf(opp.robot.type)==='BOSS') await bossEntrance();
-  const winner = await playBattle(events,P,E);
-  if(!winner) return;
-  _fight=fight1(events, P, E, statP, statE, _tactic, tacE, opp.seed, events[events.length-1].winner==='P');
-  renderPracticeResult(events[events.length-1].winner==='P', P, E);
-}
-
-function renderPracticeResult(win,P,E){
-  shield();
-  toBattle();
-  $('#sc-battle').innerHTML = `
-    <div class="panel result bv-result">
-      <div class="big ${win?'win':'lose'}">${win?'VICTORY':'DEFEAT'}</div>
-      <div class="hint">${esc(P.name)} vs ${esc(E.name)}</div><div class="bv-result-art">${sprite(P.type,true)}<span>VS</span>${sprite(E.type,false)}</div>
-      <div class="reward"><div class="r" style="color:var(--dim)">연습 대전 · 보상 없음</div>
-        <div class="r" style="color:var(--dim)">경험치·크레딧·파츠·피로도·전적이 그대로입니다</div></div>
-      <div class="row-btns">
-        <button class="btn big gold" onclick="ROWAR.practiceFind()">한 판 더</button>
-        <button class="btn big ghost" onclick="ROWAR.go('hangar')">격납고</button>
-      </div>
-      ${analysisSlot()}
-    </div>`;
-  fillAnalysis();
-}
-
 
 /* 승패와 보상은 서버가 확정한다. 클라는 서버가 준 시드와 스탯으로 같은 전투를
    다시 돌려 애니메이션만 재생한다 — 결정적 시뮬이라 결과가 반드시 일치한다.
@@ -3853,12 +3788,12 @@ window.ROWAR = {
   jointSwap, jointTac,
   pull1: guard(pull1), pull10: guard(pull10),
   findMatch: guard(findMatch, 1000), nextMatch: guard(nextMatch, 1000), startBattle: guard(startBattle, 1000),
-  duelFind: guard(duelFind, 1000), duelPick: guard(duelPick, 1000), rankPage,
+  duelFind: guard(duelFind, 1000), duelRandom: guard(duelRandom, 1000), duelPick: guard(duelPick, 1000), rankPage,
   setRankTab, setCodexGroup, codexClaim: guard(codexClaim, 1000), codexTitle: guard(codexTitle, 800),
   codexActivate: guard(codexActivate, 600),
   setRecruitmentHero, openRecruitmentRates, openRecruitmentPool, openRecruitmentDetails,
   setShopTab, shopBuy: guard(shopBuy, 600), shopRefresh: guard(shopRefresh, 800), shopAssemble: guard(shopAssemble, 800),
-  practiceFind: guard(practiceFind, 1000), practiceStart: guard(practiceStart, 1000), hunt: guard(hunt, 1000),
+  hunt: guard(hunt, 1000),
   setTactic, setBattleMode, battleRetry: guard(battleRetry, 1000),
   sendExped: guard(sendExped), claimExped: guard(claimExped),
   setDispatchFilter,setDispatchTab,setDispatchMission,pickDispatchRobot,selectDispatchRobot,launchDispatch:guard(launchDispatch),
@@ -4031,7 +3966,7 @@ async function afterLogin(r){
   _frontReady=false;_jform={order:[],tac:{}};_jctx=null;_fight=null;
   _dispatchUid=null;_dispatchPending=null;_dispatchTab='missions';_dispatchFilter='all';_dispatchSelected='exped:SHORT';
   ++_rankEpoch;_rankTab='rank';_rankPage=null;_codexRaw=null;_codexAt=0;_codexGroup='monster';
-  ++_battleRequest; _pendingOpp=null; _practiceOpp=null; _battleFindOpts=undefined; _duelTarget=null; _battleMode='arena';
+  ++_battleRequest; _pendingOpp=null; _battleFindOpts=undefined; _duelTarget=null; _battleMode='arena';
   hangarUid=null; hangarTab='info'; hangarInventory=false;
   Object.assign(invF,{slot:'',rar:'',fresh:'',sort:'new',page:0,query:''});
   ++_terrRequest; dropTerrCache(); dropRankCache();

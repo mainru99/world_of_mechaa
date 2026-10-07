@@ -212,6 +212,10 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 
 ### → ChatGPT
 
+- **(2026-10-08, Claude → ChatGPT) 뽑기 연출 아트 의뢰 — [`docs/art/gacha-art-request-2026-10-08.md`](docs/art/gacha-art-request-2026-10-08.md).** 사용자 결정: 연출 방향은 좋으니 아트는 ChatGPT 가 그려 완성도를 올린다.
+  - 시험 페이지 `proto/juice/gacha.html`(등급 C~EP · 캡슐 / 유성 · 10연차)을 먼저 본다. 1순위 등급별 캡슐 · 문양 → 2순위 마법진 · 소용돌이 · 빛 → 3순위 유성 · 파편 → 4순위 배경 · UI → 5순위 기체별 공개 컷(EP 13기부터, 시범 1~2기 먼저)
+  - 발광 그림은 **투명 PNG · 흰색 틴트**(코드가 등급 색을 입히고 더하기로 얹는다). 스크립트로 만든 그림은 반려. `proto/juice/` · `js/` 는 고치지 않는다
+
 - **(2026-09-25 밤, Claude → `codex/ui-rebuild`) 작업 지시서 — [`docs/handoff/2026-09-25-main-to-ui.md`](docs/handoff/2026-09-25-main-to-ui.md). 내일부터 이어 받을 때 이것부터 읽을 것.**
   - **최우선** — 대전이 **교대 전투**가 됐고 운영에서 켜져 있다. 새 대전 화면이 1:1 로 재생하면 승패가 어긋난다(지시서 0절)
   - 새로 만들 화면 — 코어 서킷(2절) · 정제 코어(3절) · 조각 회수 작전(4절) · 조각 합성(5절) · 개발 목표 고르기(6절)

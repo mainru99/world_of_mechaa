@@ -6,7 +6,7 @@
  * 연출 도구 — 레터박스 · 비네트 · 시간 늦추기 · 충격파(화면 일그러짐) · 카메라 줌 · 파편 · 애너모픽 스트릭 · 별 도장. */
 import { ROBOT_TYPES, ROBOT_RARITY } from '../../data/balance.js';
 import { BY_RARITY } from '../../js/gacha.js';
-import { Sfx } from './sfx.js?v=1008e';
+import { Sfx } from './sfx.js?v=1008f';
 
 const $ = s => document.querySelector(s);
 const sfx = new Sfx();
@@ -323,11 +323,12 @@ async function burstAndReveal(ti) {
     el.robot.style.filter = ti >= 1 ? `drop-shadow(0 0 ${8 + ti * 6}px rgba(${T.rgb},.8))` : ''; await sleep(320);
   }
   revealed = true; bobT = 0;
-  /* 7. 별 · 도장 · 이름 */
+  /* 7. 별 · 도장 · 이름 — 레터박스는 여기서 걷는다(검은 띠가 도장과 이름 판을 가리지 않게) */
+  if (hi) { letterbox(false, 450); vignette('#000', 0, 700); }
   if (T.stamp) { el.stamp.textContent = T.stamp.split('').join(' '); el.stamp.style.color = T.col; anim(el.stamp, [{ opacity: 0, transform: 'translateX(-50%) scale(2.4)', filter: 'blur(6px)' }, { opacity: 1, transform: 'translateX(-50%) scale(1)', filter: 'blur(0)', offset: .3 }, { opacity: 1, transform: 'translateX(-50%) scale(1)' }], { duration: 620, fill: 'forwards', easing: 'cubic-bezier(.2,1.2,.4,1)' }); el.stamp.style.opacity = 1; if (hi) shake(.3); }
   await starStamp(ti);
   await nameDrop(ti);
-  if (hi) { letterbox(false, 700); vignette('#000', 0, 900); await dimTo(0, 700); } else await sleep(300);
+  if (hi) await dimTo(0, 700); else await sleep(300);
 }
 
 /* ── 한 판(단발 · 10연차) ── */

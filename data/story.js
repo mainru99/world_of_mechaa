@@ -56,7 +56,7 @@ export const SPEAKERS = {
   doyle:  { ko: '도일 칸', kind: 'person', note: '카론 샐비지 팀장' },
   mech:   { ko: '정비사', kind: 'person' },
   neah:   { ko: '네아', kind: 'person', note: '정찰기' },
-  choir:  { ko: '성가대 리더', kind: 'person', hostile: true },
+  choir:  { ko: '성기사 리더', kind: 'person', hostile: true },
   noct:   { ko: 'NOCT', kind: 'person', hostile: true, note: '융합 프레임' },
   sec:    { ko: '보안국 파일럿', kind: 'person' },
   lab:    { ko: '연맹 연구관', kind: 'person' },
@@ -412,7 +412,7 @@ export const CELL_SCRIPT = {
       { s: 'mina', t: '지금 그게 중요해?' },
       { s: 'aren', t: '나한텐 중요해!' },
     ],
-    /* ③④ 첫 실전 · 백색 성가대 · 합격 · 첫 계약 */
+    /* ③④ 첫 실전 · 백색 성기사 · 합격 · 첫 계약 */
     after: [
       { s: 'rook', t: 'UNKNOWN UNIT DISABLED.', art: 'ch2-drone', bg: 'plain' },
       /* ⑩ 의 '이번에는 떨리고 있었다' 가 이 줄을 받는다 */
@@ -426,7 +426,7 @@ export const CELL_SCRIPT = {
       { s: 'aren', t: '비싼 걸로.' },
       { s: 'mina', t: '그리고 어깨 장갑값도.' },
       { s: '', t: '깨진 장갑 안쪽에 문양이 있었다. 붉은 원. 그 안에 흰색 세로선 세 개.' },
-      { s: 'mina', t: '…백색 성가대.' },
+      { s: 'mina', t: '…백색 성기사.' },
       { s: 'aren', t: '뭔데?' },
       { s: 'mina', t: '나르 기계를 신이라고 부르는 인간들.' },
 
@@ -564,7 +564,7 @@ export const CELL_SCRIPT = {
       { s: '', t: '처음 볼 때 아름답다고 생각한 하이브 제로의 불빛이, 지금은 안전해 보였다. 그 차이가 컸다.' },
       { s: 'aren', t: '30년 전 실종된 인간 화물선 안에 왜 나르 물건이 있어?' },
       { s: 'mina', t: '그게 더 좋은 질문이지.' },
-      { s: 'mina', t: '시험장에 성가대 드론. 우리 화물선 위치도 저쪽이 알고 있었어. 보안망 내부에 누군가 있어.' },
+      { s: 'mina', t: '시험장에 성기사 드론. 우리 화물선 위치도 저쪽이 알고 있었어. 보안망 내부에 누군가 있어.' },
       { s: 'orph', t: '민간 인양선 FINCH-09. 여기는 가디언 연맹 순양함 오르페우스. 미등록 고에너지 신호 감지. 제3군용 도크로 진입하라.' },
       { s: 'mina', t: '오늘 정말 되는 일이 없네.' },
 
@@ -667,7 +667,7 @@ export const CELL_SCRIPT = {
       { s: 'sion', t: '우리가 저게 뭔지 모르니까.' },
       { s: 'ignis', t: 'UNDERSTOOD.' },
       { s: 'ignis', t: 'HOSTILE HUMAN FRAME DETECTED.' },
-      { s: 'kaya', t: '백색 성가대. 목표는 — 우리 격리실.' },
+      { s: 'kaya', t: '백색 성기사. 목표는 — 우리 격리실.' },
 
       { s: 'aren', t: '저놈들 나르 기계를 무시하고 도크로 가.', art: 'ch2-rail', bg: 'ruins' },
       { s: 'sec', t: '우린 민간인 대피가 우선이다. 근거는?' },
@@ -700,7 +700,7 @@ export const CELL_SCRIPT = {
   'c2-6': {
     /* ⑯ 가장 강한 적은 저기 있다. 그런데 출구를 고른다 */
     before: [
-      { s: '', t: '제3군용 도크. 성가대 열둘, 연맹 여덟, 보안국 다섯. 그 한가운데 이그니스가 있었다.', art: 'ch2-duel', bg: 'city' },
+      { s: '', t: '제3군용 도크. 성기사 열둘, 연맹 여덟, 보안국 다섯. 그 한가운데 이그니스가 있었다.', art: 'ch2-duel', bg: 'city' },
       { s: 'aren', t: '저게 어제 처음 탄 사람이라고?' },
       { s: '', t: '도크 측면 벽이 폭발했다. 그 검은 프레임이었다. 결정이 흉부와 목까지 번져 있었다.', art: 'ch2-noct' },
       { s: 'ignis', t: 'FOREIGN HYBRID DETECTED.' },
@@ -798,7 +798,7 @@ export const CHAPTER_CLOSE = {
     { s: 'term', t: '긴급 방어전 참여 보상: 18,000' },
     { s: 'term', t: '민간인 대피 기여 보상: 7,500' },
     { s: 'term', t: '적성 기계 23기 무력화: 4,600' },
-    { s: 'term', t: '백색 성가대 프레임 2기 무력화: 9,000' },
+    { s: 'term', t: '백색 성기사 프레임 2기 무력화: 9,000' },
     { s: 'term', t: '하이브 제로 방위 공로 가산: 5,000' },
     { s: 'aren', t: '이거 진짜 제 돈입니까?' },
     { s: 'clerk', t: '세금은 뺍니다.' },

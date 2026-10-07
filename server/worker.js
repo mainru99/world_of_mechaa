@@ -27,6 +27,7 @@ import { codexRun, codexGet } from './codex.js';
 import { shopView, shopRun } from './shop.js';
 import { refineRun, circuitRun } from './refine.js';
 import { salvageView, salvageRun } from './salvage.js';
+import { brawlView, brawlRank, brawlRun } from './brawl.js';
 import { sendExped, claimExped } from './expedition.js';
 import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion, migrateArena } from './arena.js';
@@ -400,6 +401,26 @@ async function handleApi(request, env, url) {
     if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
     let vbody; try { vbody = await request.json(); } catch { vbody = {}; }
     const r = await salvageRun(env, sess.account_id, Date.now(), vbody);
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  /* 난투(025) — 보기 · 주간 순위(GET) · 시작 · 동작 · 전투 · 포기(POST { action }). 스위치 CONST.BRAWL.on */
+  if (path === '/brawl' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await brawlView(env, sess.account_id, Date.now());
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  if (path === '/brawl/rank' && method === 'GET') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    const r = await brawlRank(env, sess.account_id, Date.now());
+    return json(r, r.ok ? 200 : (r.status || 400));
+  }
+  if (path === '/brawl' && method === 'POST') {
+    const sess = await auth(request, env);
+    if (!sess) return json({ ok: false, error: 'unauthorized' }, 401);
+    let bbody; try { bbody = await request.json(); } catch { bbody = {}; }
+    const r = await brawlRun(env, sess.account_id, Date.now(), bbody);
     return json(r, r.ok ? 200 : (r.status || 400));
   }
 

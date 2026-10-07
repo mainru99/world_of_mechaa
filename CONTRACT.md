@@ -4388,3 +4388,36 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - **난투**(새 모드) — 계획 `docs/plan/brawl-2026-10-07.md`. ① 엔진 `js/brawl-sim.js`(`runBrawl({p, e, seed}) → { events, win, P, E }` ·
   사건은 합동전 모양에 양쪽 `i`, 과열 `{t:'heat', hits:[…]}`). `js/joint.js` 는 `jointHit` · `jointSkill` 을 **내보내기만** 더했다.
   화면(⑤)은 계획 문서의 순서대로 GPT 몫 — 서버 · 규칙이 먼저다
+
+## Claude — 성가대 되돌림 · 난투 ② 런 규칙 · 2026-10-07 (main)
+
+- **'성기사' → '성가대' 되돌림**(사용자 판단) — a012b1c. 9e4f6d1 을 통째로 되돌렸다. 위 절의 '성기사' 줄은 지난 일이다
+- **난투 ② 런 규칙** `js/brawl.js`(새) — 화면이 부를 것:
+  `newRun({seed, day, owned, rentals})` · `act(run, a)`(a = buy{i} · sell{where,i} · move{from,to} · reroll · lock → `{ run, merged }` 또는 `{ error }`, 받은 run 은 안 고친다) ·
+  `settle(run, win)` → `{ run, lost, income }` · `dailyRentals(day, owned)` · `synergiesOf(board)` → `[{ key, ko, n, tier, v, types, fam? }]` ·
+  `teamOf(board)` → `runBrawl` 의 p/e · `incomeOf(run)` · `oddsAt(round)`. run = `{ round, gold, lives, wins, streak, hist, pool, rent, board[4], bench[6], shop[5], locked, done, … }` · 칸 = `{ type, star }`
+- 수치 `CONST.BRAWL`(새 · `on:false`) — balanceVersion 이 바뀐다(CONST 를 해시하므로). 전투 수치는 그대로
+- `js/brawl-sim.js makeSide` — 명세의 `shield`(시작 방벽) · `spX`(SP 충전 배수)를 받는다. 없으면 예전과 같다
+- 검사 `tools/brawlrulecheck.mjs`(새). 화면(⑤)은 여전히 ④ 서버 뒤 — 미리 만들어 보려면 위 함수만 쓰면 된다
+
+## Claude — 난투 ③ 밸런스 · 2026-10-07 (main)
+
+- 도구 `tools/brawlbal.mjs`(새 · 판정 없음) — 봇 런 2000판을 유령 보드 매칭으로 돌려 런 길이 · 전략 · 수집 · 시너지(반사실) · 기체 · 별 · 보상을 잰다. `--set` 으로 한 번만 바꿔 보기
+- `CONST.BRAWL` 값 확정 — ★ 1.3/1.25 · 1.8/1.6 · EP 6 · 이자 5 당 1 · 목숨 손실 4 · 7라운드부터 · 시너지 흡혈 · 정밀 하향.
+  새 칸 **`deck: 6`(출전 목록 — C 아닌 기체, 대여 포함)** · **`norm`(난투 전용 등급 보정)** · **`weight`(기체 하나당 상점 가중치 — `odds` 를 대신한다)** · `reward`
+- `js/brawl.js` — `newRun({…, deck})` · `eligiblePool(owned, rentals, deck)` · `oddsOf(run, round)`(화면이 보여 줄 등급 몫 %) · `weightAt` · `rewardOf(wins, level)` · `arenaWinCr` ·
+  `teamOf(board, { off })`(도구용) · 봇 전략 `BOT_STYLES` · `botTurn(run, rnd, style)`. `oddsAt` 은 없어졌다
+- **정밀**은 SP 충전 배수가 아니라 스킬 위력(skillMul)이다. `js/brawl-sim.js` 의 `spX` 는 걷었다(시작 방벽 `shield` 만 남음)
+- 화면(⑤)이 할 일이 하나 늘었다 — 런 시작 때 **출전 목록 고르기**(보유 C 아닌 기체 중, 대여와 합쳐 6종)
+- **게임성 쪽으로 다시**(사용자) — `norm.EP` 0.90 · `star` ★3 2.2/1.9 · `syn` 3기 단계 상향. 계획 문서 9-1
+
+## Claude — 난투 ④ 서버 · 2026-10-07 (main) — GPT 화면(⑤)이 쓸 API
+
+- **이관 `server/migrations/025_brawl.sql`**(schema 25) — `brawl_run` · `brawl_ghost` · `brawl_week` · `player.brawl`. 운영 배포 전에 돌릴 것
+- `server/brawl.js`(새) · 라우트 `GET /api/brawl` · `GET /api/brawl/rank` · `POST /api/brawl { action: start | act | fight | quit }`. 모양 · 오류 목록은 **계획 문서 10절**
+- 스위치 `CONST.BRAWL.on = false` 그대로 — 켜져 있지 않으면 GET `{ on:false }` · POST 403 `brawl off`. 화면을 만들 때는 로컬에서만 켠다
+- 화면 흐름 — 보기(오늘의 대여 6기에서 고르기 · **출전 목록 고르기**) → start → 상점에서 act(여러 동작을 모아 보내도 된다) → fight(재생: `runBrawl({p: teamOf(me.board), e: teamOf(opponent.board), seed})`) → … → done 이면 result · reward
+- `run.rev` 를 늘 같이 보낸다. 409 `stale rev` 면 응답의 rev 로 다시 GET
+- 청소(`server/cleanup.js`)가 14일 넘은 유령 · 8주 넘은 주간 기록을 지운다
+- schema 25 에 맞춰 `tools/launch-api-check.mjs` · `tools/local-api-ui-check.mjs` · `tools/release-smoke.mjs` 의 schema_version 기대값을 24 → 25 로 고쳤다(GPT 파일 — 숫자 하나씩)
+- 검사 `tools/brawlservercheck.mjs`(새 · 진짜 SQLite) — 스위치 · 시작 검증 · 동작 재검증 · 재생 일치 · 유령 매칭 · 봇 · 두 번 누름 · 첫 런 보상 · 순위 · 날짜 · 청소

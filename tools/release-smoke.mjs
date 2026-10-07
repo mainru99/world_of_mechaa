@@ -45,7 +45,7 @@ for(let i=0;i<files.length;i+=6){
 let health=null;
 try{
  const r=await get('/api/health');assert.equal(r.status,200);health=await r.json();
- assert.equal(health.ok,true);assert.equal(health.db,'connected');assert.equal(Number(health.schema_version),24);assert.equal(health.balance_ver,balanceVersion());
+ assert.equal(health.ok,true);assert.equal(health.db,'connected');assert.equal(Number(health.schema_version),25);assert.equal(health.balance_ver,balanceVersion());
  assert.equal(CONST.PART_BIND.on,true);assert.equal(CONST.LINEAGE.gate,true);
 }catch(e){errors.push(`health: ${e.message}`);}
 for(const path of ['/api/state','/api/salvage','/api/trial','/api/raid']){

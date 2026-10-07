@@ -14,7 +14,7 @@ const nativeFetch=globalThis.fetch,storage=new Map();let count=0;
 globalThis.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)};
 globalThis.fetch=(url,options)=>{count++;return nativeFetch(new URL(url,base),options);};
 const net=await import('../js/net.js'),good=r=>{assert.ok(r&&!r.error&&r.ok!==false,r?.error||'missing response');return r;};
-assert.equal(Number(good(await net.health()).schema_version),24);
+assert.equal(Number(good(await net.health()).schema_version),25);
 await net.connect({create:false});assert.equal(net.state.needGuest,true);
 good(await net.connect({create:true}));let remote=good(await net.pull());
 assert.equal(remote.state.robots.length,1);assert.equal(remote.state.robots[0].level,1);

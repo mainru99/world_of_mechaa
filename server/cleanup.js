@@ -9,6 +9,7 @@
  */
 import { balanceVersion } from './arena.js';
 import { retakeOne } from './territory.js';
+import { brawlCleanup } from './brawl.js';
 
 const CAP = 500;                 // 표 하나당 한 번에 지우는 상한
 const DAY = 24 * 60 * 60 * 1000;
@@ -131,7 +132,11 @@ export async function cleanup(env, now) {
           AND CAST(substr(k, 10) AS INTEGER) NOT IN (SELECT id FROM account)
         LIMIT ${CAP})`, []);
 
-  out.total = out.session + out.login_attempt + out.arena_entry + out.battle + out.meta;
+  /* ⑤-2 난투(025) — 14일 넘은 라운드 보드(유령) · 8주 넘은 주간 기록 */
+  const bw = await brawlCleanup(env, now, CAP);
+  out.brawl_ghost = bw.ghosts; out.brawl_week = bw.weeks;
+
+  out.total = out.session + out.login_attempt + out.arena_entry + out.battle + out.meta + out.brawl_ghost + out.brawl_week;
   out.capped = Object.entries(out).some(([k, v]) => k !== 'total' && v >= CAP);
 
   /* ⑥ 두 달 넘게 접속이 없는 계정.

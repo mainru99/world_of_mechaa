@@ -15,7 +15,7 @@ globalThis.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.
 globalThis.fetch=(path,opts)=>{requests.push([path,opts?.method||'GET']);return nativeFetch(new URL(path,base),opts);};
 const net=await import('../js/net.js');
 const good=r=>{assert.ok(r&&!r.error&&r.ok!==false,r?.error||'missing response');return r;};
-const health=good(await net.health());assert.equal(Number(health.schema_version),24);
+const health=good(await net.health());assert.equal(Number(health.schema_version),25);
 await net.connect({create:false});assert.equal(net.state.needGuest,true);
 good(await net.connect({create:true}));assert.equal(net.state.guest,true);
 const account=net.state.accountId,initial=good(await net.pull());assert.equal(initial.state.robots.length,1);

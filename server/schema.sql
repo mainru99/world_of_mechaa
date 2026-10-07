@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS player (
   m_goal      TEXT,                            -- 개발 목표 기체 type(022). 숙련 조각이 여기로 모인다 — js/mastery.js
   rcores      INTEGER NOT NULL DEFAULT 0 CHECK (rcores >= 0),   -- 정제 코어(023). 코어 10개 → 1개 — server/refine.js
   salv        TEXT,                            -- 조각 회수 작전 오늘 횟수(023). { d: UTC 날짜, n } — js/salvage.js
+  brawl       TEXT,                            -- 난투 오늘 쓴 것(025). { d: UTC 날짜, runs, tickets } — server/brawl.js
 
   -- 레벨은 기체가 아니라 **파일럿**의 것이다. 보유한 기체는 전부 이 레벨로 싸운다.
   -- 예전에는 기체별이었는데, 경험치가 출전한 기체에만 들어가 두 번째 기체를 키울 수가
@@ -347,7 +348,41 @@ BEGIN
 END;
 
 
-INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '24');
+-- ── 난투(025) — 진행 중인 런 · 라운드 보드(유령) · 주간 순위. 설명은 migrations/025 ──
+CREATE TABLE IF NOT EXISTS brawl_run (
+  account_id  INTEGER PRIMARY KEY REFERENCES account(id) ON DELETE CASCADE,
+  run         TEXT    NOT NULL,
+  first       INTEGER NOT NULL DEFAULT 0,
+  met         TEXT,
+  rev         INTEGER NOT NULL DEFAULT 0,
+  started_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS brawl_ghost (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  round       INTEGER NOT NULL,
+  account_id  INTEGER REFERENCES account(id) ON DELETE CASCADE,
+  nickname    TEXT    NOT NULL,
+  board       TEXT    NOT NULL,
+  wins        INTEGER NOT NULL DEFAULT 0,
+  lives       INTEGER NOT NULL DEFAULT 0,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_brawl_ghost ON brawl_ghost(round, id DESC);
+CREATE INDEX IF NOT EXISTS ix_brawl_ghost_at ON brawl_ghost(created_at);
+CREATE TABLE IF NOT EXISTS brawl_week (
+  week        INTEGER NOT NULL,
+  account_id  INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
+  nickname    TEXT    NOT NULL,
+  best        INTEGER NOT NULL DEFAULT 0,
+  lives       INTEGER NOT NULL DEFAULT 0,
+  runs        INTEGER NOT NULL DEFAULT 0,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (week, account_id)
+);
+CREATE INDEX IF NOT EXISTS ix_brawl_week ON brawl_week(week, best DESC, lives DESC);
+
+INSERT OR IGNORE INTO meta (k, v) VALUES ('schema_version', '25');
 
 
 -- =========================================================

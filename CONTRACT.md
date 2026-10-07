@@ -610,6 +610,10 @@ GPT 계획서(`docs/balance/mech-traits-plan-2026-09-22.md`)를 사용자가 보
   **통합 때 할 일** — UI 브랜치 대전 화면이 같은 재생(`simulate(…, bench)` + `swap` 사건)을 해야 한다. 규칙 · 응답은 '교대 전투' 절.
   확인(격리한 로컬 서버) — 양쪽 두 기 · 교대 사건에 이름 · 체력 막대(새 기체 최대치) · 그림이 바뀐다 · 결과 창 두 줄(경험치 60/40 · 피로도) · 저장본 피로도는 숫자
 
+- **2026-10-07 · 코어 서킷 전문 별 연출 · 사용자 지시(동결 예외)** — `js/ui/circuit-svg.js` 만(운영 화면이 이 파일로 서킷을 그린다 — 승인 시안 `docs/balance/core-circuit-draft-2026-09-23.html` 의 같은 수정을 옮겼다).
+  찍은 전문 별(`★`)만 금빛 별 · 도는 햇살 · 숨쉬는 후광 · 반사광, 그 별로 가는 연결선은 금색 발광. 찍을 수 있는 전문 별은 금색 고리가 깜빡인다. 일반 별은 그대로(흰 무늬).
+  움직임은 SVG 안(SMIL)이라 `style.css` · `themes/` 는 건드리지 않았다. `prefers-reduced-motion` 이면 움직임 없이 정지 그림. 노드 ID · 좌표 · 선행 조건 · 클릭 처리는 그대로 — `node tools/circuit-ui-check.mjs` · `tools/circuit-tree-check.mjs` 통과.
+
 #### 전투 분석 · 딜표 — 2026-09-21 밤 2 · Claude (master)
 
 - `js/insight.js` **(새 파일)** — `damageTable` · `insight1` · `insightJoint` · `eventLines`. DOM 없음

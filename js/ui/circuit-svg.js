@@ -45,6 +45,15 @@ function drawSvg() {
     const gradient = el('linearGradient', {id, x1:'0%',y1:'0%',x2:'85%',y2:'100%'}, defs);
     colors.forEach((color,i)=>el('stop',{offset:`${i*100/3}%`,'stop-color':color},gradient));
   }
+  /* 전문 별 연출(2026-10-07 사용자 지시) — 찍은 전문 별만 금빛 별 · 도는 햇살 · 숨쉬는 후광. 움직임은 SVG 안(SMIL)이라 CSS 를 건드리지 않는다 */
+  const still=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sg = el('filter', { id: 'starglow', x: '-100%', y: '-100%', width: '300%', height: '300%' }, defs);
+  el('feGaussianBlur', { stdDeviation: '1.1', result: 'b' }, sg); const sm = el('feMerge', {}, sg); el('feMergeNode', { in: 'b' }, sm); el('feMergeNode', { in: 'b' }, sm); el('feMergeNode', { in: 'SourceGraphic' }, sm);
+  const au = el('radialGradient', { id: 'nb-aura' }, defs);
+  [['0%', '#fff2b8', .95], ['35%', '#ffd35e', .55], ['100%', '#ffb13b', 0]].forEach(([o, c, a]) => el('stop', { offset: o, 'stop-color': c, 'stop-opacity': a }, au));
+  const ray = el('radialGradient', { id: 'nb-ray' }, defs);
+  [['0%', '#fff0b0', .9], ['100%', '#ffc24a', 0]].forEach(([o, c, a]) => el('stop', { offset: o, 'stop-color': c, 'stop-opacity': a }, ray));
+  const anim=(parent,tag,attrs)=>{ if(!still) el(tag,{repeatCount:'indefinite',...attrs},parent); };
   /* 장식 — 이동 경로로 오인하지 않게 흐린 점과 끊긴 호만 */
   const deco = el('g', { 'pointer-events': 'none' }, svg);
   for (const [x, y, r, o] of BG) el('circle', { cx: x, cy: y, r, fill: '#6d86a0', opacity: o * .6 }, deco);
@@ -63,8 +72,9 @@ function drawSvg() {
       // The exact prerequisite edges stay straight: decorative curves must not imply new connections.
       const edge = {x1:prev[0],y1:prev[1],x2:p[0],y2:p[1],'stroke-linecap':'round'};
       el('line',{...edge,stroke:'#070c12','stroke-width':4.6},lines);
-      el('line',{...edge,stroke:on?'#ba9858':'#485052','stroke-width':2.6,'data-edge':id},lines);
-      el('line',{...edge,stroke:on?'#f0dba0':'#151e25','stroke-width':.8},lines);
+      const nbEdge = on && i === 9;
+      el('line',{...edge,stroke:nbEdge?'#e2b650':on?'#ba9858':'#485052','stroke-width':nbEdge?3.2:2.6,'data-edge':id,...(nbEdge?{filter:'url(#glow)'}:{})},lines);
+      el('line',{...edge,stroke:nbEdge?'#fff3c4':on?'#f0dba0':'#151e25','stroke-width':nbEdge?1.1:.8},lines);
       prev = p;
     }
     /* 갈래 이름 — ★ 둘레에서 판 안이고 별을 덮지 않는 첫 자리(tools/circuitlayoutcheck.mjs labelSpot 과 같은 순서) */
@@ -82,6 +92,8 @@ function drawSvg() {
     el('circle', { cx: P.core[0], cy: P.core[1], r: 38, fill: '#0a1016', stroke: '#35485a', 'stroke-width': 2 }, svg);
     el('image', { href: ROBOT_TYPES[st.mech]?.img, x: P.core[0] - 34, y: P.core[1] - 34, width: 68, height: 68, 'clip-path': 'url(#cc)', preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' }, svg);
   }
+  /* 후광 층 — 별보다 아래라 이웃 별을 덮지 않는다 */
+  const aura = el('g', { 'pointer-events': 'none' }, svg);
   /* 별 */
   for (const b of BR) for (let i = 1; i <= 9; i++) {
     const id = b + (i === 9 ? '*' : i), lock = i === 9;
@@ -105,18 +117,35 @@ function drawSvg() {
     circle(r,{fill: taken||available||notable?'url(#socket-metal)':'url(#socket-cold)',stroke:taken?'#f3dca4':'#827451','stroke-width':.5});
     circle(r-1.8,{fill:draft.includes(id)?'url(#socket-draft)':taken?'url(#socket-gem)':'url(#socket-dark)',stroke:'#080e15','stroke-width':1});
     circle(Math.max(1,r-2.8),{fill:'none',stroke:taken?'#a8f9df':available?'#d8c393':'#738387','stroke-width':.45,opacity:taken?.8:.45});
+    if(notable&&taken){
+      /* 찍은 전문 별 — 도는 햇살 · 숨쉬는 후광 · 금색 고리 */
+      let d='';
+      for(let k=0;k<24;k++){const a=-Math.PI/2+k*Math.PI/12, q=k%2?r+3.5:(k%4?r+10:r+16); d+=(k?'L':'M')+(x+q*Math.cos(a)).toFixed(1)+' '+(y+q*Math.sin(a)).toFixed(1);}
+      const rays=el('path',{d:d+'Z',fill:'url(#nb-ray)',opacity:.9},aura);
+      anim(rays,'animateTransform',{attributeName:'transform',type:'rotate',from:`0 ${x} ${y}`,to:`360 ${x} ${y}`,dur:'26s'});
+      const halo=el('circle',{cx:x,cy:y,r:r+8,fill:'url(#nb-aura)'},aura);
+      anim(halo,'animate',{attributeName:'r',values:`${r+6};${r+10};${r+6}`,dur:'2.6s'});
+      anim(halo,'animate',{attributeName:'opacity',values:'.55;1;.55',dur:'2.6s'});
+    } else if(notable&&available){
+      const ready=el('circle',{cx:x,cy:y,r:r+4.5,fill:'none',stroke:'#ffd978','stroke-width':1.3,opacity:.6},aura);
+      anim(ready,'animate',{attributeName:'opacity',values:'.2;.95;.2',dur:'1.5s'});
+    }
     if(notable){
+      if(taken) circle(r+3.6,{fill:'none',stroke:'#ffd978','stroke-width':.9,opacity:.9});
       for(let a=0;a<4;a++) {
         const theta=a*Math.PI/2,dx=Math.cos(theta),dy=Math.sin(theta);
         el('path',{d:`M${x+dx*(r-1)} ${y+dy*(r-1)} L${x+dx*(r+2)-dy*1.5} ${y+dy*(r+2)+dx*1.5} L${x+dx*(r+3)} ${y+dy*(r+3)} L${x+dx*(r+2)+dy*1.5} ${y+dy*(r+2)-dx*1.5} Z`,fill:'url(#socket-metal)'},g);
       }
     }
     // Different silhouettes retain the basic / mixed / specialized node distinction.
-    const ink=taken?'#dbfff0':available?'#f1db9d':notable?'#b89453':'#87999d', s=r*.43;
-    if(notable||kind==='c') el('path',{d:starPath(x,y,s,s*.4),fill:ink},g);
+    /* 찍은 전문 별만 금빛 별이 빛난다(청록 보석 안 · 더 크게). 일반 별은 흰 무늬 그대로 */
+    const lit=taken&&notable;
+    const ink=taken?(notable?'#fff0a8':'#dbfff0'):available?'#f1db9d':notable?'#b89453':'#87999d', s=r*(lit?.66:.43);
+    if(notable||kind==='c') el('path',{d:starPath(x,y,s,s*.4),fill:ink,...(lit?{filter:'url(#starglow)'}:{})},g);
     else if(kind==='b') el('path',{d:`M${x} ${y-s} L${x+s*.8} ${y} L${x} ${y+s} L${x-s*.8} ${y} Z`,fill:ink},g);
     else if(kind==='x') {circle(s,{fill:'none',stroke:ink,'stroke-width':.8});circle(1,{fill:ink});}
     else el('path',{d:`M${x-s*.5} ${y-s} L${x+s*.7} ${y-s*.15} L${x+s*.25} ${y+s} L${x-s*.65} ${y+s*.2} Z`,fill:ink},g);
+    if(lit){ const gr=r-1.8; el('ellipse',{cx:x-gr*.38,cy:y-gr*.45,rx:Math.max(.8,gr*.36),ry:Math.max(.5,gr*.2),fill:'#ffffff',opacity:.55,transform:`rotate(-30 ${(x-gr*.38).toFixed(1)} ${(y-gr*.45).toFixed(1)})`},g); }
     if(node&&Object.values(node[2]||{}).some(v=>v<0)) el('circle',{cx:x+r*.72,cy:y-r*.72,r:1.6,fill:'var(--minus)',stroke:'#10161c','stroke-width':.6},g);
   }
   for(const g of svg.querySelectorAll('.star')){

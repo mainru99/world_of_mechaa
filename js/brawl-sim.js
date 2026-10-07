@@ -41,6 +41,8 @@ export function makeSide(list, side) {
     const u = makeUnit(m.name, m.type, m.stats, m.tactic);
     u.side = side; u.i = slot; u.slot = slot; u.pos = front(slot) ? 'F' : 'B';
     if (!front(slot)) u.atk = Math.max(1, Math.round(u.atk * (J.backAtk || 1)));
+    /* 난투 시너지(js/brawl.js)가 싣는 시작 방벽(절대값) — 없으면 아무것도 안 한다 */
+    if (m.shield > 0) u.shield = Math.round(m.shield);
     out.push(u);
   });
   return out;

@@ -61,6 +61,15 @@ table{border-collapse:collapse;width:100%;font-size:12px}
 td,th{padding:3px 4px;text-align:left;border-bottom:1px solid var(--line)}
 td:last-child{font-family:var(--num);text-align:right;color:var(--sub)}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--c)}
+.robot.rc{opacity:0;clip-path:inset(0 100% 0 0)}
+.vig{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse 80% 75% at 50% 50%,transparent 45%,var(--vc,#000) 100%)}
+.bar{position:absolute;left:0;right:0;height:0;background:#000;pointer-events:none;z-index:4}
+.bar.t{top:0}.bar.b{bottom:0}
+.stars{position:absolute;left:50%;bottom:21%;transform:translateX(-50%);display:flex;gap:.5em;font-size:clamp(18px,3.4vw,34px);pointer-events:none}
+.stars span{opacity:0;color:var(--c);text-shadow:0 0 14px var(--c),0 2px 0 #000;transform:scale(0)}
+#cn.shine{background:linear-gradient(100deg,var(--c) 38%,#fff 50%,var(--c) 62%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;text-shadow:none!important;filter:drop-shadow(0 0 14px var(--c)) drop-shadow(0 3px 0 #000);animation:shine 1.4s ease-out}
+@keyframes shine{from{background-position:100% 0}to{background-position:0% 0}}
+.card .n span{display:inline-block}
 </style>
 </head>
 <body>
@@ -74,14 +83,19 @@ td:last-child{font-family:var(--num);text-align:right;color:var(--sub)}
     <div class="stage" id="stage">
       <div class="cam" id="cam">
         <img class="bg" src="../../assets/backgrounds/gacha.webp" alt="">
+        <canvas id="fxb"></canvas>
         <div class="capsule" id="capsule"><img src="../../assets/gacha/core-capsule.png" alt="캡슐"></div>
         <img class="robot" id="robot" alt="">
+        <img class="robot rc" id="robotC" alt="">
       </div>
       <div class="tint" id="tint"></div>
       <canvas id="fx"></canvas>
+      <div class="vig" id="vig"></div>
       <div class="dim" id="dim"></div>
+      <div class="bar t" id="barT"></div><div class="bar b" id="barB"></div>
       <div class="flash" id="flash"></div>
       <div class="stamp" id="stamp"></div>
+      <div class="stars" id="stars"></div>
       <div class="card" id="card"><div class="r" id="cr"></div><div class="n" id="cn"></div><div class="s" id="cs"></div></div>
       <div class="row" id="row"></div>
       <div class="hud">연출 <b id="modeTxt">켬</b> · 최고 등급 <b id="bestTxt">—</b></div>
@@ -115,6 +129,7 @@ td:last-child{font-family:var(--num);text-align:right;color:var(--sub)}
     <p class="note">기체 등급 가중치는 게임의 <code>ROBOT_RARITY</code> 표를 그대로 씁니다. 연출 길이는 일반 0.8초 → 에픽 약 5초로 늘어납니다.</p>
   </aside>
 </div>
-<script type="module" src="gacha.js?v=1008a"></script>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="shock" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="turbulence" baseFrequency="0.012" numOctaves="1" result="t"/><feDisplacementMap id="shockMap" in="SourceGraphic" in2="t" scale="0" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
+<script type="module" src="gacha.js?v=1008c"></script>
 </body>
 </html>

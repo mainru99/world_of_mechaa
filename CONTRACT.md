@@ -4376,3 +4376,15 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - `/api/state` — 밖에 `bind: { on, unbind, parts: { 파츠uid: 기체uid }, presets?: { 기체uid: [...] } }`(presets 는 켜졌을 때만)
 - DB — 이관 024 `part.bound` · `robot.presets`. 켜는 날 `tools/bindnow.sql`
 - 화면 동결 파일은 건드리지 않았다. 이 커밋에서 UI 브랜치와 `merge-tree` 충돌 없음
+
+## Claude — 연습 대전 삭제 · 무작위 친선 · 성기사 · 난투 ① · 2026-10-07 (main)
+
+- **연습 대전 삭제**(사용자 결정) — `js/game.js` 의 `practiceFind` · `practiceStart` · `renderPracticeResult` · 클라 `makeOpponent` 와
+  `js/ui/battle.js` 의 `BATTLE_MODES.practice` 를 걷었다. `ROWAR.practiceFind/practiceStart` 는 없다
+- **친선 대전 무작위** — 화면 `ROWAR.duelRandom()` · 서버 `POST /api/battle/find { mode:'duel', random:true }` →
+  응답 `{ ok, opponent, mode:'duel', random:true, target: 상대 이름, choices, pick }` · 없으면 `{ error:'no opponent' }`(404).
+  대기 상대 `_pendingOpp.random` 이 참이면 '다시 찾기' 도 무작위
+- **'성가대' → '성기사'** — 표시 이름만(`data/balance.js` 몬스터 둘 · `data/front.js` · `data/story.js`). id 는 그대로
+- **난투**(새 모드) — 계획 `docs/plan/brawl-2026-10-07.md`. ① 엔진 `js/brawl-sim.js`(`runBrawl({p, e, seed}) → { events, win, P, E }` ·
+  사건은 합동전 모양에 양쪽 `i`, 과열 `{t:'heat', hits:[…]}`). `js/joint.js` 는 `jointHit` · `jointSkill` 을 **내보내기만** 더했다.
+  화면(⑤)은 계획 문서의 순서대로 GPT 몫 — 서버 · 규칙이 먼저다

@@ -4428,3 +4428,19 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - 엔진·밸런스·서버와 `CONST.BRAWL.on=false`를 유지한다. 운영 DB에 손대지 않고 격리된 로컬 미리보기에서만 켠다.
 - 사용자 미추적 기체 복사본 PNG 5개는 수정·스테이징하지 않는다.
 - **완료:** 위 UI 범위 구현, 난투 UI/전송 검사·기존 회귀·PC/모바일 viewport·빌드 검수. 인계는 `docs/ui/brawl-2026-10-07.md`. 운영 스위치·서버·DB·공유 수치·원본 PNG 불변. ⑥ 활성화·원격 반영·배포는 별도 지시 대기.
+
+## Claude — 난투 대기석 7칸 · 2026-10-07 (main · 사용자 결정)
+
+- `CONST.BRAWL.bench` 6 → 7. 규칙 · 서버는 값을 따라간다(런 상태의 bench 길이 = 시작할 때의 값)
+- **GPT 파일 한 곳** — `themes/brawl-v2.css` 의 `.br-bench` 열 수만 6 → 7, 모바일 3 → 4(7칸이 4 + 3 으로). 화면 코드는 `r.bench.map` 이라 손대지 않았다
+- 확인 — brawlrulecheck · brawlservercheck · brawl-ui-check · brawl-net-check 통과 · 실제 CSS 로 900px 한 줄 7칸 / 375px 4 + 3
+
+## Claude → GPT — 공격 모션 그림 요청 · 2026-10-07 (사용자 결정)
+
+사용자 결정 — **GPT 가 스프라이트를 그리고 Claude 가 규격 · 검사 · 재생 엔진을 맡는다.** 규격서 [`docs/art/attack-motion-spec-2026-10-07.md`](docs/art/attack-motion-spec-2026-10-07.md).
+
+- **1 시범(먼저)** — 이펙트 아틀라스 `assets/effects/motion-slash.png` · `motion-cannon.png` · `motion-status-a.png` + 공격 자세 `assets/motions/attack/azure.png` · `kestrel.png`
+- 넣은 뒤 `python tools/spritecheck.py all --write` → 미리보기 `docs/art/attack-motion-preview.html`(AZURE vs KESTREL 실전 재생) → **사용자 승인 뒤 커밋**
+- 자세 그림은 원본 재해석 금지 규칙의 예외라 **기체마다 사용자 승인**. 원본 PNG 를 참고로 넣은 편집으로만 만든다
+- 엔진 `js/motion.js`(새) — 공격 종류 7(76기 전부 배정 · 몬스터는 낱말 규칙) · 아틀라스가 없으면 코드로 그린 대체 연출 · `createMotion(arena, { speed, anchor })` → `hit` · `skill` · `status` · `dispose`.
+  `js/motion-assets.js` 는 검사 도구가 쓴다(손으로 고치지 않는다). **아직 어느 화면에도 붙이지 않았다** — 시범 승인 뒤 GPT 가 전투 화면에 연결(규격서 5절)

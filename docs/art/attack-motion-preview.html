@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>공격 모션 미리보기</title>
+<style>
+  :root { --bg:#0b141b; --panel:#13212b; --line:#2e4554; --ink:#dfe9ef; --sub:#8ea7b5; --acc:#efc578; --bad:#ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 'IBM Plex Sans KR', system-ui, sans-serif; }
+  header { padding:14px 16px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:18px; letter-spacing:.5px; }
+  header p { margin:4px 0 0; color:var(--sub); font-size:12px; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin-bottom:12px; }
+  .controls label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--sub); }
+  select, button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:3px; padding:6px 10px; font:inherit; }
+  button { cursor:pointer; } button:hover { border-color:var(--acc); } button.main { background:#3b3524; border-color:var(--acc); }
+  #arena { position:relative; height:380px; border:1px solid var(--line); border-radius:4px; overflow:hidden;
+           background:radial-gradient(ellipse at 50% 120%, #2a3b46 0%, #0e1a22 60%), #0e1a22; }
+  .hpwrap { position:absolute; top:8px; width:42%; font-size:12px; }
+  .hpwrap.p { left:12px; } .hpwrap.e { right:12px; text-align:right; }
+  .bar { height:8px; background:#26343d; border-radius:2px; overflow:hidden; margin-top:3px; }
+  .bar i { display:block; height:100%; background:linear-gradient(90deg,#5fd18b,#b8f07a); transition:width .2s; }
+  .hpwrap.e .bar i { margin-left:auto; background:linear-gradient(90deg,#ff8a6b,#ff5a5a); }
+  .fighter { position:absolute; bottom:16px; width:300px; height:286px; }
+  #fighter-p { left:6%; } #fighter-e { right:6%; }
+  .fighter img { width:100%; height:100%; object-fit:contain; transition:translate .05s; }
+  .fighter img.flip { transform:scaleX(-1); }
+  .fighter.hit { animation:hit .22s; } @keyframes hit { 25% { transform:translateX(-6px); } 75% { transform:translateX(6px); } }
+  .fighter.lungeL { transform:translateX(26px); transition:transform .08s; } .fighter.lungeR { transform:translateX(-26px); transition:transform .08s; }
+  .fighter.recoilL { transform:translateX(-8px); transition:transform .06s; } .fighter.recoilR { transform:translateX(8px); transition:transform .06s; }
+  .dmg { position:absolute; top:30px; font-weight:800; font-size:20px; text-shadow:0 2px 0 #000; animation:up 1s forwards; pointer-events:none; }
+  .dmg.crit { color:#ffe066; font-size:24px; } .dmg.miss { color:#9fb3c0; } .dmg.heal { color:#7dffa8; }
+  @keyframes up { to { transform:translateY(-40px); opacity:0; } }
+  #banner { position:absolute; left:50%; top:46%; transform:translate(-50%,-50%); font-weight:800; font-size:22px; color:var(--acc); opacity:0; text-shadow:0 2px 0 #000; z-index:6; }
+  #banner.on { animation:ban 1s; } @keyframes ban { 15%,70% { opacity:1; } }
+  .info { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; margin-top:12px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:10px 12px; font-size:12px; }
+  .card b { color:var(--acc); } .card .muted { color:var(--sub); }
+  table { width:100%; border-collapse:collapse; font-size:12px; } td, th { padding:3px 6px; border-bottom:1px solid var(--line); text-align:left; }
+  @media (max-width:640px) { #arena { height:300px; } .fighter { width:46%; height:200px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>공격 모션 미리보기</h1>
+  <p>js/motion.js 실제 재생기 · 실제 1 : 1 시뮬레이션(Lv.30 · 파츠 없음) 사건. 그림이 없는 종류는 코드로 그린 대체 연출이다. 전투 결과를 바꾸지 않는다.</p>
+</header>
+<main>
+  <div class="controls">
+    <label>아군 <select id="selP"></select></label>
+    <label>상대 <select id="selE"></select></label>
+    <label>배속 <select id="spd"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></label>
+    <button class="main" id="play">실전 재생</button>
+    <button id="basic">평타 한 번</button>
+    <button id="skillBtn">스킬 한 번</button>
+    <button id="statusBtn">상태 연출 8종</button>
+  </div>
+  <div id="arena">
+    <div class="hpwrap p"><span id="nmP"></span><div class="bar"><i id="hpP" style="width:100%"></i></div></div>
+    <div class="hpwrap e"><span id="nmE"></span><div class="bar"><i id="hpE" style="width:100%"></i></div></div>
+    <div class="fighter" id="fighter-p"></div>
+    <div class="fighter" id="fighter-e"></div>
+    <div id="banner"></div>
+    <div id="flash"></div>
+  </div>
+  <div class="info">
+    <div class="card" id="infoP"></div>
+    <div class="card" id="infoE"></div>
+    <div class="card" id="assets"></div>
+  </div>
+</main>
+<script type="module">
+import { ROBOT_TYPES } from '../../data/balance.js';
+import { computeStats } from '../../js/stats.js';
+import { makeUnit, simulate } from '../../js/sim.js';
+import { createMotion, kindOf, KIND_KO, KIND_LIST, poseOf, atlasSrc } from '../../js/motion.js';
+
+const $ = s => document.querySelector(s);
+const ids = Object.keys(ROBOT_TYPES).filter(t => !ROBOT_TYPES[t].story);
+const E0 = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
+for (const sel of [$('#selP'), $('#selE')]) sel.innerHTML = ids.map(t => `<option value="${t}">${ROBOT_TYPES[t].name} · ${KIND_KO[kindOf(t)]}</option>`).join('');
+$('#selP').value = 'azure'; $('#selE').value = 'kestrel';
+const arena = $('#arena');
+let motion = null, token = 0;
+const speed = () => Number($('#spd').value);
+const sleep = ms => new Promise(r => setTimeout(r, ms / speed()));
+
+function draw() {
+  const p = $('#selP').value, e = $('#selE').value;
+  /* 원본은 왼쪽을 본다 — 왼쪽에 선 아군은 뒤집어 오른쪽을 보게(js/sprites.js 와 같은 규칙) */
+  $('#fighter-p').innerHTML = `<img class="mecha flip" src="../../assets/${p}.png" alt="${p}">`;
+  $('#fighter-e').innerHTML = `<img class="mecha" src="../../assets/${e}.png" alt="${e}">`;
+  $('#nmP').textContent = ROBOT_TYPES[p].name; $('#nmE').textContent = ROBOT_TYPES[e].name;
+  $('#hpP').style.width = $('#hpE').style.width = '100%';
+  for (const [k, t] of [['P', p], ['E', e]]) {
+    const R = ROBOT_TYPES[t];
+    $('#info' + k).innerHTML = `<b>${R.name}</b> <span class="muted">${R.rarity} · ${R.role}</span><br>공격 종류 <b>${KIND_KO[kindOf(t)]}</b>(${kindOf(t)})
+      · 자세 그림 ${poseOf(t) ? '<b>있음</b>' : '<span class="muted">없음(원본 그대로 + 돌진/반동)</span>'}<br>스킬 <b>${R.skill.name}</b> <span class="muted">${R.skill.desc}</span>`;
+  }
+  $('#assets').innerHTML = '<b>이펙트 아틀라스</b><table>' + [...KIND_LIST, 'status-a', 'status-b'].map(k =>
+    `<tr><td>${KIND_KO[k] || k}</td><td>${atlasSrc(k) ? '<b>그림</b>' : '<span class="muted">대체 연출</span>'}</td></tr>`).join('') + '</table>';
+  if (motion) motion.dispose();
+  motion = createMotion(arena, { speed });
+}
+const fighter = k => $('#fighter-' + k);
+function floatDmg(k, text, cls) { const d = document.createElement('div'); d.className = 'dmg ' + cls; d.textContent = text; d.style.left = k === 'p' ? '40%' : '30%'; fighter(k).appendChild(d); setTimeout(() => d.remove(), 1000); }
+function shake(k) { const el = fighter(k); el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+async function move(k, type) {
+  const melee = ['slash', 'smash', 'thrust'].includes(kindOf(type)), el = fighter(k);
+  const cls = melee ? (k === 'p' ? 'lungeL' : 'lungeR') : (k === 'p' ? 'recoilL' : 'recoilR');
+  el.classList.add(cls); await sleep(melee ? 130 : 90); el.classList.remove(cls);
+}
+function banner(t) { const b = $('#banner'); b.textContent = t; b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); }
+const unit = t => makeUnit(ROBOT_TYPES[t].name, t, computeStats({ type: t, level: 30, skillLv: 0, fat: 0, slots: E0 }, []), 'none');
+
+async function oneHit(skill) {
+  const p = $('#selP').value, e = $('#selE').value;
+  if (skill) { motion.skill('p', p); banner(ROBOT_TYPES[p].skill.name); }
+  const n = skill ? (ROBOT_TYPES[p].skill.fx.hits || 1) : 1;
+  for (let i = 0; i < n; i++) {
+    move('p', p);
+    await motion.hit({ a: 'p', d: 'e', type: p, crit: skill && !!ROBOT_TYPES[p].skill.fx.alwaysCrit, index: i, low: true });
+    shake('e'); floatDmg('e', String(100 + i * 7), skill ? 'crit' : 'norm');
+    await sleep(skill ? 120 : 0);
+  }
+}
+async function playReal() {
+  const my = ++token; draw();
+  const p = $('#selP').value, e = $('#selE').value;
+  const P = unit(p), E = unit(e), max = { P: P.maxhp, E: E.maxhp };
+  const ev = simulate(P, E, (Math.random() * 2 ** 32) >>> 0);
+  const key = s => s === 'P' ? 'p' : 'e', typeOf = s => s === 'P' ? p : e;
+  await sleep(300);
+  for (const x of ev) {
+    if (my !== token) return;
+    if (x.t === 'skill') { motion.skill(key(x.side), typeOf(x.side)); banner(x.name); await sleep(250); continue; }
+    if (x.t === 'hit') {
+      const a = key(x.side), d = key(x.dside);
+      move(a, typeOf(x.side));
+      await motion.hit({ a, d, type: typeOf(x.side), miss: !!x.miss, crit: !!x.crit, index: x.hitIdx || 0, low: x.thp / max[x.dside] < 0.35 });
+      if (x.miss) floatDmg(d, 'MISS', 'miss');
+      else { shake(d); floatDmg(d, (x.crit ? 'CRIT ' : '') + x.dmg, x.crit ? 'crit' : 'norm'); $('#hp' + x.dside).style.width = Math.max(0, x.thp / max[x.dside] * 100) + '%'; }
+      await sleep(260); continue;
+    }
+    if (x.t === 'heal') { motion.status('repair', key(x.side)); floatDmg(key(x.side), '+' + x.amt, 'heal'); $('#hp' + x.side).style.width = (x.hp / max[x.side] * 100) + '%'; await sleep(200); continue; }
+    if (x.t === 'shield') { motion.status('shield', key(x.side)); await sleep(200); continue; }
+    if (x.t === 'mark') { motion.status('mark', key(x.dside)); await sleep(150); continue; }
+    if (x.t === 'jam') { motion.status('jam', key(x.dside)); await sleep(150); continue; }
+    if (x.t === 'end') { banner(x.winner === 'P' ? '승리' : '패배'); return; }
+  }
+}
+async function statusAll() { for (const k of ['shield', 'repair', 'mark', 'jam', 'crit', 'pierce', 'execute']) { motion.status(k, k === 'shield' || k === 'repair' ? 'p' : 'e'); banner(k); await sleep(600); } motion.status('drain', 'p', 'e'); banner('drain'); }
+
+$('#selP').onchange = $('#selE').onchange = () => { token++; draw(); };
+$('#play').onclick = playReal;
+$('#basic').onclick = () => oneHit(false);
+$('#skillBtn').onclick = () => oneHit(true);
+$('#statusBtn').onclick = statusAll;
+draw();
+window.__motionPreview = { oneHit, playReal, statusAll };
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@
  * 연출 도구 — 레터박스 · 비네트 · 시간 늦추기 · 충격파(화면 일그러짐) · 카메라 줌 · 파편 · 애너모픽 스트릭 · 별 도장. */
 import { ROBOT_TYPES, ROBOT_RARITY } from '../../data/balance.js';
 import { BY_RARITY } from '../../js/gacha.js';
-import { Sfx } from './sfx.js?v=1008d';
+import { Sfx } from './sfx.js?v=1008e';
 
 const $ = s => document.querySelector(s);
 const sfx = new Sfx();
@@ -34,7 +34,7 @@ function fit() { const r = stage.getBoundingClientRect(); W = r.width; H = r.hei
   for (const [c, g] of [[cvF, gF], [cvB, gB]]) { c.width = W * d; c.height = H * d; g.setTransform(d, 0, 0, d, 0, 0); } }
 new ResizeObserver(fit).observe(stage); fit();
 const capImg = new Image(); capImg.src = '../../assets/gacha/core-capsule.png';
-const CX = () => W / 2, CY = () => H * .52, FLOOR = () => H * .84;
+const CX = () => W / 2, CY = () => H * .5, FLOOR = () => H * .72;
 const add = o => { o.age = o.age ?? 0; o.L = o.L || 'f'; parts.push(o); return o; };
 
 const spark = (x, y, n, { col = ['#fff', '#ffe58a'], v = .5, life = 600, up = 0, spread = Math.PI * 2, dir = 0, grav = .0007, L = 'f' } = {}) => {
@@ -181,7 +181,7 @@ function resetStage() {
   el.robotC.style.clipPath = 'inset(0 100% 0 0)';
   el.cap.getAnimations().forEach(a => a.cancel()); el.cap.style.opacity = 0; el.cap.style.transform = 'translate(-50%,-50%)'; el.capImg.style.filter = '';
   for (const e of [el.card, el.stamp, el.stars, el.vig]) { e.getAnimations().forEach(a => a.cancel()); e.style.opacity = 0; }
-  el.stars.innerHTML = ''; el.card.querySelector('#cn').classList.remove('shine');
+  el.stars.innerHTML = ''; el.card.querySelector('#cn').classList.remove('shine'); $('#cs').style.opacity = 1;
   el.dim.getAnimations().forEach(a => a.cancel()); el.dim.style.opacity = 0; el.row.innerHTML = '';
   for (const b of [el.barT, el.barB]) { b.getAnimations().forEach(a => a.cancel()); b.style.height = '0%'; }
   cam.style.filter = ''; shockBusy = false;
@@ -192,6 +192,7 @@ function setCard(ti) { const T = TIERS[ti]; $('#cr').textContent = `${T.ko} · $
 /* 별 도장 — 하나씩 튀어 나오며 소리가 올라간다 */
 async function starStamp(ti) {
   const T = TIERS[ti]; el.stars.style.opacity = 1; el.stars.innerHTML = '';
+  $('#cn').textContent = ''; $('#cs').style.opacity = 0; el.card.getAnimations().forEach(a => a.cancel()); el.card.style.opacity = 1;     // 판은 먼저 깔고, 이름은 별 다음에 떨어진다
   for (let i = 0; i < T.stars; i++) {
     const s = document.createElement('span'); s.textContent = '★'; el.stars.appendChild(s);
     s.animate([{ opacity: 0, transform: 'scale(0) rotate(-90deg)' }, { opacity: 1, transform: 'scale(1.8) rotate(10deg)', offset: .55 }, { opacity: 1, transform: 'scale(1) rotate(0)' }], { duration: 380, fill: 'forwards', easing: 'ease-out' });
@@ -204,7 +205,7 @@ async function starStamp(ti) {
 /* 이름 — 글자가 하나씩 떨어지고, 높은 등급은 빛이 한 번 훑고 지나간다 */
 async function nameDrop(ti) {
   const T = TIERS[ti], cn = $('#cn'), name = cn.dataset.name; cn.classList.remove('shine'); cn.textContent = '';
-  el.card.style.opacity = 1; el.card.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, fill: 'forwards' });
+  $('#cs').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: name.length * 45, fill: 'forwards' });
   [...name].forEach((ch, i) => { const s = document.createElement('span'); s.textContent = ch === ' ' ? ' ' : ch; cn.appendChild(s);
     s.animate([{ opacity: 0, transform: `translateY(${-30 - ti * 6}px) scale(1.6)`, filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 360, delay: i * 45, fill: 'backwards', easing: 'cubic-bezier(.2,1.3,.4,1)' }); });
   await sleep(name.length * 45 + 300);

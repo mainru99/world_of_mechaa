@@ -3386,7 +3386,7 @@ async function frontFix(list){
 async function renderTerr(){
   const request=++_terrRequest, accountId=net.state.accountId;
   const el=$('#sc-terr');
-  const wrap = inner => `<div class="ui-pagehead"><div><span class="ui-eyebrow">TERRITORY CONTROL</span><h1>점령</h1></div></div>${inner}`;
+  const wrap = inner => `<div class="ui-pagehead"><div><span class="ui-eyebrow">TERRITORY CONTROL</span><h1>점령</h1></div><button class="ui-text-button" onclick="ROWAR.enterFront()">전선 →</button></div>${inner}`;   // 불러오는 중 · 오프라인에도 전선으로 갈 수 있게(2026-10-08 사용자 제보)
   if(!net.state.online){
     el.innerHTML = wrap(commonMessage({title:'서버 연결이 필요합니다',description:'점령 지도는 모든 플레이어가 공유합니다. 서버 연결 후 거점을 확인할 수 있습니다.'}));
     return;

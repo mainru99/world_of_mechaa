@@ -622,6 +622,9 @@ GPT 계획서(`docs/balance/mech-traits-plan-2026-09-22.md`)를 사용자가 보
   찍은 전문 별(`★`)만 금빛 별 · 도는 햇살 · 숨쉬는 후광 · 반사광, 그 별로 가는 연결선은 금색 발광. 찍을 수 있는 전문 별은 금색 고리가 깜빡인다. 일반 별은 그대로(흰 무늬).
   움직임은 SVG 안(SMIL)이라 `style.css` · `themes/` 는 건드리지 않았다. `prefers-reduced-motion` 이면 움직임 없이 정지 그림. 노드 ID · 좌표 · 선행 조건 · 클릭 처리는 그대로 — `node tools/circuit-ui-check.mjs` · `tools/circuit-tree-check.mjs` 통과.
 
+- **2026-10-08 · 점령 화면에서 전선으로 가는 길이 없다 · 사용자 제보(동결 예외)** — UI 개편 때 전선 → 점령 단추(`js/ui/front.js` '점령 지도')만 남고 반대 방향이 빠졌다(옛 화면은 전선 · 점령 전환 탭).
+  `js/ui/territory.js` `territoryView` 머리에 '전선' 단추(`ROWAR.enterFront()`) · `js/game.js` `renderTerr` 의 불러오는 중 · 오프라인 머리에도 '전선 →'. `territory` · `front` · `common` · `battle` · `hangar` UI 검사 통과
+
 #### 전투 분석 · 딜표 — 2026-09-21 밤 2 · Claude (master)
 
 - `js/insight.js` **(새 파일)** — `damageTable` · `insight1` · `insightJoint` · `eventLines`. DOM 없음

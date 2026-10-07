@@ -1,6 +1,7 @@
 /* Presentation only. Arrays support the two-allies / one-boss adapter;
  * this module never selects a squad, simulates combat or grants rewards. */
 import {COMBAT_TYPES} from '../units.js';
+import {CONST} from '../../data/balance.js';
 import {sprite} from '../sprites.js?v=20260912-hangar10-recovery';
 import {icon,escapeHtml as esc} from './icons.js';
 
@@ -32,7 +33,7 @@ export function battleView({mode='arena',allies,enemies=[],playerName,playerMeta
   const ratio=powerKnown&&e?Math.max(5,Math.min(95,a/(a+e)*100)):50;
   const verdict=!powerKnown?esc(powerUnavailableLabel):!enemies.length?'상대 확인 후 비교':a>e*1.1?'아군 우세':e>a*1.1?'적군 우세':'접전 예상';
   return `<div class="bv-layout">
-    <aside class="bv-rail">${rail}<div class="bv-poster"><strong>${operation?.poster||'FIGHT<br>FOR YOUR PRIDE.'}</strong><p>${operation?.desc||'당신의 기체, 당신의 전술.'}</p></div><div class="bv-links"><button onclick="ROWAR.go('hunt')">${icon('hunt')} 토벌 · 원정 ${icon('chevron')}</button><button onclick="ROWAR.go('trial')">${icon('trial')} 시련 · 레이드 ${icon('chevron')}</button></div></aside>
+    <aside class="bv-rail">${rail}${!operation&&CONST.BRAWL?.on?`<button class="bv-mode br-entry" onclick="ROWAR.brawlHome()">${icon('battle')}<span><b>난투</b><small>4 vs 4 · BUILD & SURVIVE</small></span>${icon('chevron')}</button>`:''}<div class="bv-poster"><strong>${operation?.poster||'FIGHT<br>FOR YOUR PRIDE.'}</strong><p>${operation?.desc||'당신의 기체, 당신의 전술.'}</p></div><div class="bv-links"><button onclick="ROWAR.go('hunt')">${icon('hunt')} 토벌 · 원정 ${icon('chevron')}</button><button onclick="ROWAR.go('trial')">${icon('trial')} 시련 · 레이드 ${icon('chevron')}</button></div></aside>
     <div class="bv-main"><div class="bv-matchup">
       ${team({units:allies,side:'ally',name:playerName,meta:playerMeta})}
       <div class="bv-versus" aria-hidden="true"><b>VS</b><span>${allies.length}:${enemies.length||1}</span></div>

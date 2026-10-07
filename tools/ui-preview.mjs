@@ -36,6 +36,7 @@ const sampleFrontChapter2=process.argv.includes('--sample-front-chapter2');
 const sampleFrontOffline=process.argv.includes('--sample-front-offline');
 const sampleFrontDelay=process.argv.includes('--sample-front-delay');
 const samplePerformance=process.argv.includes('--sample-performance');
+const sampleBrawl=process.argv.includes('--sample-brawl');
 let previewFailPull=false;
 let previewIdentity=sampleLogin?null:{id:'preview',guest:false,loginId:'지휘관_01'};
 const previewToken='ui-preview-only';
@@ -51,6 +52,7 @@ if(samplePerformance){
  for(const type of Object.keys(ROBOT_TYPES).filter(type=>!robots.some(r=>r.type===type)))robots.push({uid:`preview-robot-${type}`,type,level:32,exp:0,fat:0,fatAt:Date.now(),skillLv:2,slots:Object.fromEntries(SLOTS.map(s=>[s,null]))});
 }
 if(sampleFront)state.campaign=sampleFrontNew?'':sampleFrontChapter2?'11111100000':'11000000000';
+const brawlFixture=sampleBrawl?(await import('./brawl-ui-fixture.mjs')).createBrawlFixture(state):null;
 const sampleNewType=Object.keys(ROBOT_TYPES).find(type=>!robots.some(r=>r.type===type));
 if(sampleShop){state.credits=250000;state.items[shardKey('ranger')]=shardNeed('ranger');state.items[shardKey(sampleNewType)]=Math.max(1,Math.floor(shardNeed(sampleNewType)*.55));}
 let sampleShopState={p:periodOf(Date.now()),n:0,lv:32,b:[]};
@@ -87,7 +89,10 @@ const server=http.createServer(async(req,res)=>{
    let raw='';for await(const c of req){raw+=c;if(raw.length>16384){json(res,413,{error:'too large'});return;}}
    let body={};try{body=raw?JSON.parse(raw):{};}catch{json(res,400,{error:'invalid json'});return;}
    if(sampleFront&&sampleFrontOffline&&['/api/me','/api/state'].includes(url.pathname)){json(res,503,{error:'sample offline'});return;}
-   if(url.pathname==='/api/health'){json(res,200,{ok:true,preview:true,schema_version:21});return;}
+   if(url.pathname==='/api/health'){json(res,200,{ok:true,preview:true,schema_version:25});return;}
+   if(sampleBrawl&&['/api/brawl','/api/brawl/rank'].includes(url.pathname)){
+    const r=await brawlFixture.request(url.pathname,req.method,body);json(res,r.status||200,r);return;
+   }
    if(sampleLogin&&url.pathname==='/api/auth/guest'&&req.method==='POST'){
     previewIdentity={id:'preview-guest',guest:true,loginId:null};json(res,200,{ok:true,token:previewToken});return;
    }
@@ -111,6 +116,7 @@ const server=http.createServer(async(req,res)=>{
     json(res,200,{ok:true,account_id:previewIdentity.id,guest:previewIdentity.guest,login_id:previewIdentity.loginId});return;
    }
    if(url.pathname==='/api/state'&&req.method==='GET'){
+    if(sampleBrawl){json(res,200,{ok:true,nickname:'난투_검수',rating:1480,server_now:Date.now(),...brawlFixture.snapshot()});return;}
     if(sampleLogin&&(!previewIdentity||req.headers.authorization!==`Bearer ${previewToken}`)){json(res,401,{error:'not signed in'});return;}
     if(previewFailPull){previewFailPull=false;json(res,503,{error:'sample state retry'});return;}
     json(res,200,{ok:true,rev:previewRev,nickname:previewIdentity.loginId||'게스트',rating:1480,state,server_now:Date.now(),band:{i:2,pts:1},items:state.items,presets:[],...(sampleArchive?{codex:sampleCodex}:{})});return;
@@ -260,6 +266,7 @@ const server=http.createServer(async(req,res)=>{
   const file=resolve(root,'.'+name);
   if(!allowed||!file.startsWith(root+sep)||!mime[extname(file)]||!(await stat(file)).isFile()){res.writeHead(404);res.end('Not found');return;}
   let content=await readFile(file);
+  if(sampleBrawl&&name==='/data/balance.js')content=content.toString().replace(/(BRAWL: \{\r?\n\s*on:) false/,'$1 true');
   if(name==='/index.html'){
    if(samplePerformance)content=content.toString().replace('</head>','<script type="module" src="/__performance.js"></script></head>');
    const seed=JSON.stringify(state).replaceAll('<','\\u003c');
@@ -267,7 +274,8 @@ const server=http.createServer(async(req,res)=>{
    const bootstrap=`<script>${sampleFront?`localStorage.setItem('rowar.seen.v1',${JSON.stringify(JSON.stringify(seen))});`:''}${sampleLogin?"localStorage.removeItem('rowar.session');":"localStorage.setItem('rowar.session','ui-preview-only');"}localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
    content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleFront?'샘플 전선 검수 · 가상 진행/재화 / 운영 계정과 무관합니다':sampleChallenge?'샘플 주간 도전 검수 · 가상 기록/재화 / 운영 계정과 무관합니다':sampleLogin?'샘플 로그인 검수 · 가상 계정 / tester · password123 / 운영 계정과 무관합니다':sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':sampleShop?'샘플 보급 상점 검수 · 가상 진열/재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
   }
+  if(sampleBrawl&&name==='/index.html')content=content.toString().replace('<div class="ui-preview-ribbon">','<div class="ui-preview-ribbon">난투 SQLite 메모리 검수 · 운영과 무관 / ');
   res.writeHead(200,{'content-type':mime[extname(file)],'cache-control':'no-store','x-content-type-options':'nosniff'});res.end(content);
  }catch(e){res.writeHead(404);res.end('Not found');}
 });
-server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleFront?'in-memory sample campaign enabled':sampleChallenge?'in-memory sample challenge enabled':sampleLogin?'in-memory sample login enabled':sampleArchive?'in-memory sample archive enabled':sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':sampleShop?'in-memory sample shop enabled':'spending/claiming disabled'}`));
+server.listen(port,'127.0.0.1',()=>console.log(`ROWAR isolated UI preview http://127.0.0.1:${port} · synthetic account · ${sampleBrawl?'in-memory SQLite brawl enabled':sampleFront?'in-memory sample campaign enabled':sampleChallenge?'in-memory sample challenge enabled':sampleLogin?'in-memory sample login enabled':sampleArchive?'in-memory sample archive enabled':sampleDispatch?'in-memory sample expedition enabled':samplePulls?'in-memory sample pulls enabled':sampleShop?'in-memory sample shop enabled':'spending/claiming disabled'}`));

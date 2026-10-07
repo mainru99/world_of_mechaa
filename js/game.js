@@ -50,6 +50,7 @@ import { recruitmentPool, recruitmentView, recruitmentRates, recruitmentCatalog,
 import { createCircuitManager } from './ui/circuit-manager.js';
 import { createDevelopmentManager } from './ui/development-manager.js';
 import { createShardManager } from './ui/shard-manager.js';
+import { createBrawlManager } from './ui/brawl-manager.js';
 import { salvageResultView } from './ui/shard-view.js';
 import { runSalvage } from './salvage.js';
 import { nextMastery } from './ui/development-view.js';
@@ -529,6 +530,13 @@ function renderWallet(){ $('#w-credit').textContent=fmt(S.credits); $('#w-core')
 function renderAll(){ renderWallet(); if(cur==='home')renderHome(); else if(cur==='hangar')renderHangar(); else if(cur==='gacha')renderGacha(); else if(cur==='terr')renderTerrHome(); else if(cur==='hunt')renderHunt(); else if(cur==='rank')renderRank(); }
 const modalController=createModal($('#modal'));
 function openModal(html){shield();modalController.open(html);}
+// Only entering/changing a modal needs the click-through shield. Brawl redraws
+// after each selection/event; rearming it would swallow moves and replay Skip.
+function openBrawlModal(html){
+ const previous=$('#modal .br-app'),phase=/data-brawl-phase="([a-z]+)"/.exec(html)?.[1];
+ if(!$('#modal').open||!previous||previous.dataset.brawlPhase!==phase)shield();
+ modalController.open(html);
+}
 function closeModal(){modalController.close();}
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
@@ -3722,7 +3730,7 @@ function guard(fn, coolMs = 0){
     /* 하나가 도는 동안 들어온 것은 버린다. 끝난 뒤에도 coolMs 동안은 다시 받지 않는다 —
        동작이 짧게 끝나는 조작(상대 찾기 같은)은 그 사이에 남은 클릭이 도착할 수 있다. */
     const key = fn.name || String(_cool.size);
-    if(_busy || (typeof loadout!=='undefined'&&loadout.busy()) || (typeof shards!=='undefined'&&shards.busy()) || (typeof growth!=='undefined'&&growth.busy()) || Date.now() < (_cool.get(key) || 0)) return;
+    if(_busy || brawl.busy() || (typeof loadout!=='undefined'&&loadout.busy()) || (typeof shards!=='undefined'&&shards.busy()) || (typeof growth!=='undefined'&&growth.busy()) || Date.now() < (_cool.get(key) || 0)) return;
     _busy = true;
     document.body.classList.add('busy');
     /* 예외를 반드시 드러낸다. 예전에는 그냥 던졌는데, onclick 에서 부르는 async 함수라
@@ -3741,8 +3749,8 @@ function guard(fn, coolMs = 0){
 /* 속도 토글·화면 이동·모달 닫기는 문지기를 지나지 않는다 —
    전투가 재생되는 동안에도 눌러야 하는 것들이다. */
 
-const development=createCircuitManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,onRemote:r=>growth.adopt(r),blocked:()=>!!_pullPending||!!_shopPending||_busy||growth.busy()||shards.busy()||loadout.busy()});
-const growth=createDevelopmentManager({state:()=>S,net,openModal,commit:commitLocal,toast,mobile:()=>matchMedia('(max-width:700px)').matches,onRemote:r=>{development.adopt(r);loadout.adopt(r);development.wallet();},blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||shards.busy()||loadout.busy()});
+const development=createCircuitManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,onRemote:r=>growth.adopt(r),blocked:()=>brawl.busy()||!!_pullPending||!!_shopPending||_busy||growth.busy()||shards.busy()||loadout.busy()});
+const growth=createDevelopmentManager({state:()=>S,net,openModal,commit:commitLocal,toast,mobile:()=>matchMedia('(max-width:700px)').matches,onRemote:r=>{development.adopt(r);loadout.adopt(r);development.wallet();},blocked:()=>brawl.busy()||_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||shards.busy()||loadout.busy()});
 let _salvageReturnTo='hunt';
 async function replaySalvage(r,returnTo,same,checked){
  if(!same())return;
@@ -3757,9 +3765,11 @@ async function replaySalvage(r,returnTo,same,checked){
  _fight=null;shield();toBattle(null,returnTo);
  $('#sc-battle').innerHTML=salvageResultView(r,returnTo,checked);
 }
-const shards=createShardManager({state:()=>S,robot:selRobot,net,openModal,closeModal,commit:commitLocal,toast,goal:()=>growth.info(),onRemote:r=>{growth.adopt(r);development.adopt(r);loadout.adopt(r);development.wallet();},paint:()=>growth.paintCards(),applyShop:shopApply,replay:replaySalvage,returnTo:()=>cur==='battle'?_salvageReturnTo:cur==='gacha'?'gacha':'hunt',blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||growth.busy()||loadout.busy()});
-const loadout=createLoadoutManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,balance:development.balance,setBalance:v=>{development.setBalance(v);development.wallet();},onRemote:r=>{growth.adopt(r);development.adopt(r);development.wallet();},partMarkup:p=>'<div class="pchip ic">'+partIco(p)+'<div class="pn">'+esc(p.name)+' '+rarTag(p)+setTag(p)+affixTags(p)+'</div><div class="ps">'+partStatLine(p,true)+'</div></div>',blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||growth.busy()||shards.busy()});
+const shards=createShardManager({state:()=>S,robot:selRobot,net,openModal,closeModal,commit:commitLocal,toast,goal:()=>growth.info(),onRemote:r=>{growth.adopt(r);development.adopt(r);loadout.adopt(r);development.wallet();},paint:()=>growth.paintCards(),applyShop:shopApply,replay:replaySalvage,returnTo:()=>cur==='battle'?_salvageReturnTo:cur==='gacha'?'gacha':'hunt',blocked:()=>brawl.busy()||_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||growth.busy()||loadout.busy()});
+const loadout=createLoadoutManager({state:()=>S,robot:hangarRobot,net,openModal,commit:commitLocal,toast,balance:development.balance,setBalance:v=>{development.setBalance(v);development.wallet();},onRemote:r=>{growth.adopt(r);development.adopt(r);development.wallet();},partMarkup:p=>'<div class="pchip ic">'+partIco(p)+'<div class="pn">'+esc(p.name)+' '+rarTag(p)+setTag(p)+affixTags(p)+'</div><div class="ps">'+partStatLine(p,true)+'</div></div>',blocked:()=>brawl.busy()||_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||growth.busy()||shards.busy()});
+const brawl=createBrawlManager({state:()=>S,net,openModal:openBrawlModal,commit:commitLocal,onRemote:r=>{growth.adopt(r);development.adopt(r);loadout.adopt(r);development.wallet();},paint:()=>{renderWallet();growth.paintCards();},blocked:()=>_busy||!!_pullPending||!!_shopPending||!!_dispatchPending||challengePending()||development.busy()||growth.busy()||shards.busy()||loadout.busy()});
 window.ROWAR = {
+  ...brawl.actions,
   ...development.actions,
   ...growth.actions,
   ...shards.actions,

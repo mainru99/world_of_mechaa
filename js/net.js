@@ -295,6 +295,17 @@ export async function growthState(){
   return account===state.accountId&&r.ok&&r.data?.ok?r.data:null;
 }
 
+// Brawl revision belongs to the run, NOT rowar.rev (the player snapshot).
+async function brawlRequest(path,body){
+  if(!state.online)return {error:'offline'};
+  const account=state.accountId,session=token();
+  const r=await call(path,body?{method:'POST',body,timeout:30000}:{});
+  if(account!==state.accountId||session!==token())return {error:'account changed'};
+  return r.ok&&r.data?.ok?r.data:{...(r.data||{}),error:r.data?.error||r.error||'request failed',status:r.status};
+}
+export const brawl=body=>brawlRequest('/api/brawl',body);
+export const brawlRank=()=>brawlRequest('/api/brawl/rank');
+
 /* 주간 시련. 읽기는 GET, 도전은 POST — 도전은 기록을 바꾸므로 GET 이면 안 된다. */
 export async function trial(run) {
   const r = await call('/api/trial', run ? { method: 'POST', body: {} } : {});

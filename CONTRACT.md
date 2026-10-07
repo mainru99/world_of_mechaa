@@ -4421,3 +4421,10 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - 청소(`server/cleanup.js`)가 14일 넘은 유령 · 8주 넘은 주간 기록을 지운다
 - schema 25 에 맞춰 `tools/launch-api-check.mjs` · `tools/local-api-ui-check.mjs` · `tools/release-smoke.mjs` 의 schema_version 기대값을 24 → 25 로 고쳤다(GPT 파일 — 숫자 하나씩)
 - 검사 `tools/brawlservercheck.mjs`(새 · 진짜 SQLite) — 스위치 · 시작 검증 · 동작 재검증 · 재생 일치 · 유령 매칭 · 봇 · 두 번 누름 · 첫 런 보상 · 순위 · 날짜 · 청소
+# 2026-10-07 GPT — 난투 ⑤ UI 작업 재개
+
+- Claude 인계의 엔진·규칙·서버 완료 이후 대여·출전 목록, 상점·배치, 전투 재생, 결과·순위 UI를 구현한다.
+- 범위: `js/ui/brawl-*`, `themes/brawl-v2.css`, `js/net.js`, `js/game.js`, `js/ui/battle.js`, `js/ui/modal.js`, `index.html`, 로컬 검증 도구 및 기록.
+- 엔진·밸런스·서버와 `CONST.BRAWL.on=false`를 유지한다. 운영 DB에 손대지 않고 격리된 로컬 미리보기에서만 켠다.
+- 사용자 미추적 기체 복사본 PNG 5개는 수정·스테이징하지 않는다.
+- **완료:** 위 UI 범위 구현, 난투 UI/전송 검사·기존 회귀·PC/모바일 viewport·빌드 검수. 인계는 `docs/ui/brawl-2026-10-07.md`. 운영 스위치·서버·DB·공유 수치·원본 PNG 불변. ⑥ 활성화·원격 반영·배포는 별도 지시 대기.

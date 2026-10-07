@@ -416,7 +416,7 @@ export const MONSTER_TYPES = {
 
      그림은 assets/monsters/<id>.png — 2026-09-18 에 셋 다 들어와 빌려 쓰던 `sprite` 줄을 지웠다.
      다음에 그림 없이 몬스터를 먼저 낼 때는 `sprite:'<빌릴 id>'` 한 줄을 달면 된다(js/sprites.js 가 따른다) */
-  choir_drone:{ id:'choir_drone', name:'성기사 무장 드론', rarity:'C', role:'자동포 제압형 · 식별 지워짐',
+  choir_drone:{ id:'choir_drone', name:'성가대 무장 드론', rarity:'C', role:'자동포 제압형 · 식별 지워짐',
     base:{"hp":418,"atk":82,"def":43,"spd":61,"crit":0.09,"eva":0.1}, grow:{"hp":43.6,"atk":11.1,"def":4.8,"spd":5.4}, spread:.2,
     /* 원작 — 프레임 절반 크기에 군용 자동포. 훈련탄이 아니라 실탄이다 */
     skill:{"name":"실탄 난사","desc":"0.45배 자동포를 3회. 훈련탄이 아니다.","fx":{"mult":0.45,"hits":3}} },
@@ -424,7 +424,7 @@ export const MONSTER_TYPES = {
     base:{"hp":388,"atk":84,"def":40,"spd":64,"crit":0.11,"eva":0.12}, grow:{"hp":40,"atk":11.2,"def":4.4,"spd":5.6}, spread:.2,
     /* 원작 — 작은 칼날이 장갑 틈으로 들어온다. 사람보다 기계를 먼저 문다 */
     skill:{"name":"관절 절단","desc":"장갑 틈을 파고드는 1.55배 칼날. 빗나가지 않음.","fx":{"mult":1.55,"noMiss":true}} },
-  choir_frame:{ id:'choir_frame', name:'백색 성기사 프레임', rarity:'UC', role:'융합 개조형 · 흑백 도장',
+  choir_frame:{ id:'choir_frame', name:'백색 성가대 프레임', rarity:'UC', role:'융합 개조형 · 흑백 도장',
     base:{"hp":598,"atk":84,"def":70,"spd":46,"crit":0.075,"eva":0.045}, grow:{"hp":59.4,"atk":9.4,"def":7.2,"spd":3.7}, spread:.27,
     /* 원작 — 인간 기체에 나르 결정을 심었다. 움직임이 너무 부드럽다 */
     skill:{"name":"검은 결정 칼날","desc":"방어력 30%를 관통하는 1.8배 결정 칼날.","fx":{"mult":1.8,"ignoreDef":0.3}} },

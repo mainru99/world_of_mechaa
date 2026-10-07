@@ -40,6 +40,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .center{left:50%;top:50%;transform:translate(-50%,-50%)}
 /* 강화 */
 .part{width:112px;height:112px;object-fit:contain;filter:drop-shadow(0 6px 10px #000a)}
+/* 가운데 맞춤을 transform 이 아니라 여백으로 — 강화 연출이 transform 을 쓰면 가운데 맞춤이 풀려 오른쪽 아래로 밀렸다 */
+.part.center{transform:none;margin:-56px 0 0 -56px}
 .lvl{font-family:var(--num);font-weight:700;font-size:26px;color:var(--gold);text-shadow:0 2px 0 #000,0 0 12px #ffb03a88;white-space:nowrap}
 .tag{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);font-weight:700;letter-spacing:.2em;font-size:22px;opacity:0;white-space:nowrap;text-shadow:0 2px 0 #000}
 .rate{position:absolute;left:12px;top:10px;font-size:12px;color:var(--sub)}
@@ -165,6 +167,6 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
     <p class="note">누르면 살짝 들어갔다 나오고, 눌린 자리에서 물결이 퍼지고, 소리가 납니다. 마지막 버튼은 지금 눌러야 할 것을 알려 주는 맥박입니다. "지금 게임"에서는 색만 바뀝니다.</p>
   </section>
 </div>
-<script type="module" src="growth.js?v=1007h"></script>
+<script type="module" src="growth.js?v=1007i"></script>
 </body>
 </html>

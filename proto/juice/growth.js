@@ -3,7 +3,7 @@
  * '지금 게임' 은 숫자와 글자만 바뀌는 현재 화면을 흉내 낸다. '연출 켬' 은 그 위에 소리 · 입자 · 움직임을 얹는다. */
 import { enhRate, expNeed, battleExp, computeStats } from '../../js/stats.js';
 import { CONST } from '../../data/balance.js';
-import { Sfx } from './sfx.js?v=1007h';
+import { Sfx } from './sfx.js?v=1007i';
 
 const $ = s => document.querySelector(s);
 const sfx = new Sfx();

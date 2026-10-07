@@ -10,7 +10,8 @@ export class Sfx {
   async loadFiles() {
     if (this.loading) return this.loading;
     const names = ['hit_light_a','hit_light_b','hit_heavy_a','hit_heavy_b','crit','miss','parry','windup','shot_sniper','shot_shell','shot_missile','shot_gatling',
-                   'beam_charge','beam_fire','skill_charge','explosion','land','heal','shield','win','lose'];
+                   'beam_charge','beam_fire','skill_charge','explosion','land','heal','shield','win','lose',
+                   'ui_click','ui_confirm','anvil_hit','enh_success','enh_fail','enh_charge','levelup','coin_tick','reward_claim','rare_reveal'];
     this.loading = Promise.all(names.map(async n => {
       try { const r = await fetch(`sfx/${n}.wav`); if (!r.ok) return; this.bufs[n] = await this.ctx.decodeAudioData(await r.arrayBuffer()); } catch (e) { /* 없으면 합성음 */ }
     }));

@@ -107,7 +107,11 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
 - **④ 서버** `server/brawl.js`(새) · 이관 025(schema 25 — 런 · 라운드 보드(유령) · 주간 순위 · 오늘 쓴 것) · 라우트 `/api/brawl`(보기 · 순위 · start/act/fight/quit).
   클라가 보낸 동작을 서버가 같은 규칙으로 다시 돌린다 · 상대는 같은 라운드의 남의 보드(없으면 훈련 봇) · 쓰기는 rev 조건 한 트랜잭션 · 첫 런만 보상 · 스위치 꺼 둠
   - 검사 `tools/brawlservercheck.mjs`(새 · 진짜 SQLite) 통과 — 같은 시드 재생 일치 · 두 번 눌러도 한 번 · 보상 · 순위 · 날짜 · 청소. API 는 계획 문서 10절
-  - 다음 ⑤ 화면(GPT) → ⑥ 배포(이관 025 먼저)(런 상태 · 대여 · 출전 목록 · 유령 보드 · 보상 · 스위치 꺼 둠)
+  - 다음 ⑤ 화면(GPT) → ⑥ 배포(이관 025 먼저)
+
+**배포 95b7fc3d**(2026-10-07 · cdd59fb) — 운영 DB 이관 025 먼저(schema 24 → 25 · 표 셋 · player.brawl) 뒤 배포. 확인 — health schema 25 · balance_ver 4mrn9o(로컬과 같다) ·
+`data/balance.js` · `js/brawl.js` · `js/brawl-sim.js` · `js/joint.js` 운영 파일 = 로컬 · `/api/brawl` 인증 없이 401 · 운영 `CONST.BRAWL.on` = false(난투는 안 보인다) ·
+몬스터 이름 '성가대 무장 드론' 반영(a012b1c) · 첫 화면 콘솔 오류 없음(런 상태 · 대여 · 출전 목록 · 유령 보드 · 보상 · 스위치 꺼 둠)
 
 **'성기사' → '성가대' 되돌림**(사용자 판단 '성가대가 낫다') — a012b1c. 위의 이름 바꾸기를 통째로 되돌렸다(몬스터 둘 · 전선 · 스토리 · 그림 · 각색 문서). 운영 반영은 다음 배포
 

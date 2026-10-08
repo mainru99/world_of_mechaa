@@ -48,3 +48,8 @@
 
 - `release-check` 38종 통과(`circuitcheck` 는 이 PC 에서 약 2분이라 제한을 5분으로) · `specialcheck` · `spritecheck all` · `motion-path-check` · `pose-sequence-check` · `check_ignis_rain_renderer`
 - 로컬 검수 서버 — 격납고 · 뽑기(10연차) · 점령 지도 · 순위 · 시련 전투를 돌며 **깨진 그림 0 · PNG 요청 0**, 소리 시험 · 전투 소리 23개 200 · 디코딩 실패 안내 없음
+
+## 배포
+
+- 코드 `34e6c4d` · 깨끗한 checkout 에서 빌드(`dist` 45MB · PNG 는 공격 모션만 · WAV 0) → Worker **b2a2dbf2-bd0c-4451-af55-eba418c437dd**(이전 45075172 — 되돌리기 `wrangler rollback 45075172-3c01-424d-8353-67eee145a9cf`). 186파일 업로드 · 240 재사용
+- 운영 — 바꾼 파일 15종 해시 일치 · WebP `Cache-Control: public, max-age=86400` · MP3 `audio/mpeg` · 옛 PNG · WAV · `.blend` · 36프레임 대기 그림 404 · health 200(schema 25 · balance o282jp) · 첫 화면 깨진 그림 0 · PNG 요청 0 · 콘솔 오류 0

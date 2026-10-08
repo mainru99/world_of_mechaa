@@ -13,7 +13,9 @@ export const GACHA_TIERS = [
   { k: 'UQ', ko: '유니크', col: '#b58cff', rgb: '181,140,255', stamp: 'UNIQUE', stars: 4 },
   { k: 'EP', ko: '에픽',   col: '#ffab4d', rgb: '255,171,77',  stamp: 'EPIC',   stars: 5 },
 ];
-const asset = p => new URL('../../assets/' + p, import.meta.url).href;
+/* 같은 이름으로 그림을 덮어쓰면(아트 교체) 이 값을 올린다 — /assets/* 는 하루 캐시된다(_headers) */
+const GACHA_ART_V = '20261008-webp';
+const asset = p => new URL('../../assets/' + p + '?v=' + GACHA_ART_V, import.meta.url).href;
 const sleep0 = ms => new Promise(r => setTimeout(r, ms));
 const rnd = (a, b) => a + Math.random() * (b - a);
 const ease = { out: u => 1 - (1 - u) ** 3, in: u => u * u };
@@ -25,10 +27,10 @@ let loaded = false;
 export function preloadGachaFx() {
   if (loaded || typeof Image === 'undefined') return; loaded = true;
   for (const n of ['rune-a', 'rune-b', 'rune-c', 'rune-d', 'swirl-energy', 'swirl-cloud', 'ray-burst', 'flare-star', 'flare-streak', 'meteor-head', 'meteor-trail']) {
-    const im = new Image(); im.src = asset(`gacha/fx/${n}.${/^meteor/.test(n) ? 'png' : 'webp'}`); IMG[n] = im;
+    const im = new Image(); im.src = asset(`gacha/fx/${n}.webp`); IMG[n] = im;
   }
-  for (const k of ['c', 'uc', 'r', 'uq', 'ep', 'uq-crack1', 'ep-crack1', 'ep-crack2']) { const im = new Image(); im.src = asset(`gacha/capsule-${k}.png`); CAPS[k] = im; }
-  const base = new Image(); base.src = asset('gacha/core-capsule.png'); CAPS.base = base;
+  for (const k of ['c', 'uc', 'r', 'uq', 'ep', 'uq-crack1', 'ep-crack1', 'ep-crack2']) { const im = new Image(); im.src = asset(`gacha/capsule-${k}.webp`); CAPS[k] = im; }
+  const base = new Image(); base.src = asset('gacha/core-capsule.webp'); CAPS.base = base;
 }
 const ok = im => im && im.complete && im.naturalWidth > 0;
 const tintCache = new Map();
@@ -250,7 +252,7 @@ export function playGacha({ tier = 0, hero = {}, name = '', sub = '', rk = '', c
   const CHARGE = [450, 700, 1100, 1700, 2600];
   async function capsuleSeq() {
     const cx = CX(), cy = CY(), hi = tier >= 3, epic = tier === 4, ck = T.k.toLowerCase();
-    el.capImg.src = asset(`gacha/capsule-${ck}.png`); shardImg = ok(CAPS[ck]) ? CAPS[ck] : CAPS.base;
+    el.capImg.src = asset(`gacha/capsule-${ck}.webp`); shardImg = ok(CAPS[ck]) ? CAPS[ck] : CAPS.base;
     el.cap.style.opacity = 1;
     anim(el.cap, [{ transform: 'translate(-50%,-200%) scale(.9)' }, { transform: 'translate(-50%,-50%) scale(1.1,.88)', offset: .55 }, { transform: 'translate(-50%,-58%) scale(.96,1.05)', offset: .75 }, { transform: 'translate(-50%,-50%) scale(1)' }], { duration: 560, easing: 'ease-in' });
     await wait(520); snd('land', { gain: .6, max: .6 });
@@ -277,9 +279,9 @@ export function playGacha({ tier = 0, hero = {}, name = '', sub = '', rk = '', c
     }
     el.capImg.style.filter = '';
     /* 터지기 직전 — 어두워지고 갈라진다. 에픽은 줌 인 + 정지 */
-    if (hi) { el.capImg.src = asset(`gacha/capsule-${ck}-crack1.png`); dimTo(epic ? .62 : .4, 300).catch(() => {}); crackP(cx, cy, 900 + tier * 200); glow(cx, cy, 130, '255,240,200', 600); snd('parry', { gain: .8, max: .6 }); shake(.35); await wait(epic ? 480 : 320); }
+    if (hi) { el.capImg.src = asset(`gacha/capsule-${ck}-crack1.webp`); dimTo(epic ? .62 : .4, 300).catch(() => {}); crackP(cx, cy, 900 + tier * 200); glow(cx, cy, 130, '255,240,200', 600); snd('parry', { gain: .8, max: .6 }); shake(.35); await wait(epic ? 480 : 320); }
     if (epic) {
-      el.capImg.src = asset('gacha/capsule-ep-crack2.png'); crackP(cx, cy, 1100); glow(cx, cy, 190, '255,210,140', 700); shake(.55); snd('parry', { gain: 1, max: .6, rate: .8 });
+      el.capImg.src = asset('gacha/capsule-ep-crack2.webp'); crackP(cx, cy, 1100); glow(cx, cy, 190, '255,210,140', 700); shake(.55); snd('parry', { gain: 1, max: .6, rate: .8 });
       zoom = .14; zoomT = zoomDur = 1800; roll = -.8; await wait(420);
       el.capImg.style.filter = 'brightness(3) saturate(.3) drop-shadow(0 0 40px #fff)'; anim(el.cap, [{ transform: 'translate(-50%,-50%) scale(1.06)' }, { transform: 'translate(-50%,-50%) scale(1.22)' }], { duration: 380, fill: 'forwards', easing: 'ease-in' });
       await wait(380);

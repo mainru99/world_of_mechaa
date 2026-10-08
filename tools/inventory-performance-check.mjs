@@ -46,5 +46,5 @@ try{
  preloadSprites([MONSTER_IDS[0]]);assert.equal(requested.at(-1),assetPath(MONSTER_IDS[0]));
  assert.ok(!requested.some(p=>p.includes('undefined')||p.includes('missing')));
 }finally{if(previousImage===undefined)delete globalThis.Image;else globalThis.Image=previousImage;}
-assert.ok(!sprite('ignis',false).includes('.webp'));assert.ok(sprite('ignis',false,{idle:true}).includes('ignis-idle-10f.webp'));
+assert.ok(!sprite('ignis',false).includes('ignis-idle'));assert.ok(sprite('ignis',false,{idle:true}).includes('ignis-idle-10f.webp'));
 console.log('Inventory/performance passed: 1,000 parts, every spare UID reachable, 60-card cap, combined full-pool search, equipped exclusion, removal clamp, native UID buttons, focus, 24-card equip/fuse unchanged, selective sprite preload/static-idle contract.');

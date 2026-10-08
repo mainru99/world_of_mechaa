@@ -38,6 +38,13 @@
 
 밸런스 수치는 ChatGPT 담당이다. 작업 지시와 측정 절차는 `BALANCE.md` 에 있다.
 
+**2026-10-08 용량 정리(사용자 결정) — 게임 그림은 WebP, 효과음은 MP3 로 싣는다.**
+- 그림은 지금처럼 **PNG 로 만들어 `assets/` 에 넣고 `python tools/webp_assets.py` 를 돌린다** — 기체 · 몬스터 · 파츠 · 아이콘은 무손실(보이는 픽셀이 원본과 같음, 도구가 확인), 뽑기 캡슐 · 영토 지도는 손실 q90. PNG 는 도구가 지운다. 코드는 `assets/<id>.webp` 를 읽는다
+- 공격 모션(`assets/motions/**` · `assets/effects/motion-*`)은 PNG 그대로다(spritecheck 매니페스트)
+- 같은 이름으로 그림을 덮어쓰면 쓰는 쪽의 `?v=` 를 올린다 — `/assets/*` 는 하루 캐시된다(`_headers`)
+- 효과음 원본은 `proto/juice/sfx/*.wav`, 게임용은 `sh tools/sfx_encode.sh` 로 만든 `assets/sfx/*.mp3`
+- 3D 원본(`.blend` · `.glb`)은 배포하지 않는 `docs/art/models/` 에 둔다
+
 ## main 작업 원칙 — 2026-09-21 사용자 결정
 
 - **주도권** — 운영 `main` 은 Claude 메인 · ChatGPT 서브, UI 개편 브랜치 `codex/ui-rebuild` 는 ChatGPT 메인 · Claude 서브.

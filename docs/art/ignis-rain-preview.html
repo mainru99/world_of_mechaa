@@ -20,8 +20,8 @@ main{max-width:900px;margin:auto}header{display:flex;gap:16px;justify-content:sp
   <div class="grid"></div><div class="vs">VS</div>
   <div class="hpwrap p"><div class="nm"><span id="name-p">IGNIS</span><small>PLAYER</small></div><div class="hpbar"><i style="width:100%"></i></div><div class="spbar"><i style="width:100%"></i></div></div>
   <div class="hpwrap e"><div class="nm"><small>OPPONENT</small><span id="name-e">VANGUARD</span></div><div class="hpbar"><i style="width:100%"></i></div><div class="spbar"><i style="width:40%"></i></div></div>
-  <div class="fighter left" id="fighter-p"><img class="mecha flip" id="robot-p" src="../../assets/ignis.png" alt="IGNIS"></div>
-  <div class="fighter right" id="fighter-e"><img class="mecha" id="robot-e" src="../../assets/vanguard.png" alt="VANGUARD"></div>
+  <div class="fighter left" id="fighter-p"><img class="mecha flip" id="robot-p" src="../../assets/ignis.webp" alt="IGNIS"></div>
+  <div class="fighter right" id="fighter-e"><img class="mecha" id="robot-e" src="../../assets/vanguard.webp" alt="VANGUARD"></div>
   <canvas id="scrub" aria-label="불비 효과 타임라인 미리보기" style="position:absolute;left:0;top:0;pointer-events:none;image-rendering:pixelated"></canvas>
   <div class="flash" id="flash"></div><div class="skillbanner" id="skillbanner">이그니스 레인</div>
 </div>
@@ -46,7 +46,7 @@ function draw(){
 }
 $('#time').addEventListener('input',()=>{stop();draw();});
 $('#stop').onclick=()=>{stop();draw();$('#status').textContent='정지 · 슬라이더로 장면을 확인할 수 있습니다.';};
-$('#direction').onclick=()=>{stop();side=side==='p'?'e':'p';for(const s of ['p','e']){const id=s===side?'ignis':'vanguard';$('#robot-'+s).src='../../assets/'+id+'.png';$('#robot-'+s).alt=id.toUpperCase();$('#name-'+s).textContent=id.toUpperCase();}$('#direction').textContent=side==='p'?'방향: 아군 → 적군':'방향: 적군 → 아군';draw();};
+$('#direction').onclick=()=>{stop();side=side==='p'?'e':'p';for(const s of ['p','e']){const id=s===side?'ignis':'vanguard';$('#robot-'+s).src='../../assets/'+id+'.webp';$('#robot-'+s).alt=id.toUpperCase();$('#name-'+s).textContent=id.toUpperCase();}$('#direction').textContent=side==='p'?'방향: 아군 → 적군':'방향: 적군 → 아군';draw();};
 $('#miss').onchange=()=>{stop();draw();};
 $('#play').onclick=async()=>{
   stop();size();const token=run,speed=Number($('#speed').value);effect=createIgnisRain(arena);effect.cast(side);

@@ -22,7 +22,7 @@ assert.ok(view('rust').includes('id="dg-goal-submit" onclick="ROWAR.developmentG
 for(const type of ['mule','atlas','orbit','swift'])assert.match(view(type),/id="dg-goal-submit"[^>]*disabled/);
 assert.ok(!view('atlas').includes(ROBOT_TYPES.atlas.name));
 const publicView=view('mule');
-for(const id of ['atlas','ignis','orbit']){assert.ok(!publicView.includes(`src="assets/${id}.png"`));assert.ok(!publicView.includes(ROBOT_TYPES[id].name));}
+for(const id of ['atlas','ignis','orbit']){assert.ok(!publicView.includes(`src="assets/${id}.webp"`));assert.ok(!publicView.includes(ROBOT_TYPES[id].name));}
 const revealed=developmentVisibility(['mule'],'mule','bastion');
 assert.ok(revealed('mule')&&revealed('bastion'));assert.ok(!revealed('rust')&&!revealed('atlas'));
 assert.ok(!developmentVisibility(['mule','dune'],'dune','bastion')('wraith'));

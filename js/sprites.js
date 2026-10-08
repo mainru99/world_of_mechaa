@@ -1,8 +1,8 @@
 /* 스프라이트 — id 목록을 밸런스 데이터에서 파생한다.
  * 기체/몬스터를 추가할 때 이 파일을 고칠 필요가 없다(예전엔 목록이 여기 박혀 있었다).
  *
- *   기체   assets/<id>.png
- *   몬스터 assets/monsters/<id>.png
+ *   기체   assets/<id>.webp(무손실 · 2026-10-08 PNG 에서 변환 — tools/webp_assets.py)
+ *   몬스터 assets/monsters/<id>.webp
  * 모두 440x420 투명 캔버스, 바닥 그림자 제거, 발끝 y=408 정렬.
  *
  * [방향 규칙] 원본 그림은 전부 '왼쪽'을 본다(장비·날개가 오른쪽으로 뻗음).
@@ -15,13 +15,13 @@ import { ROBOT_IDS, MONSTER_IDS, isMonster } from './units.js';
 import { MONSTER_TYPES } from '../data/balance.js';
 
 const FACE_RIGHT = {};                  // 원본이 이미 오른쪽을 보는 id
-const CACHE_BUST = '?v=20260917-nhar';
+const CACHE_BUST = '?v=20261008-webp';
 const IDLE_SPRITES = { ignis: 'assets/motions/ignis-idle-10f.webp?v=20260912-hangar10-recovery' };
 
 /* 그림이 아직 없는 몬스터는 MONSTER_TYPES[id].sprite 의 그림을 빌려 쓴다(2장 적 셋이 그렇다).
    빌려 온 id 가 기체면 기체 폴더에서 찾는다. 그림 파일이 들어오면 balance.js 의 sprite 줄만 지운다. */
 const artId = id => (MONSTER_TYPES[id] && MONSTER_TYPES[id].sprite) || id;
-export const assetPath = id => { const a = artId(id); return 'assets/' + (isMonster(a) ? 'monsters/' : '') + a + '.png' + CACHE_BUST; };
+export const assetPath = id => { const a = artId(id); return 'assets/' + (isMonster(a) ? 'monsters/' : '') + a + '.webp' + CACHE_BUST; };
 
 export function sprite(id, faceRight, { idle: animateIdle = false } = {}) {
   const known = ROBOT_IDS.includes(id) || MONSTER_IDS.includes(id);

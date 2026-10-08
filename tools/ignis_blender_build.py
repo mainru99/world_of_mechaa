@@ -1,7 +1,7 @@
 """Ignis approximate full-body 3D build (Blender 5.2 headless).
 Ref: Downloads/newenw 3-view (front/side/back T-pose, white+dark armor, orange crystal wings).
 Run: blender --background --python tools/ignis_blender_build.py
-Out: assets/models/ignis/ignis_full.blend + ignis_30k.glb + preview_*.png
+Out: docs/art/models/ignis/ignis_full.blend + ignis_30k.glb + preview_*.png
 Budget: <= 30000 tris (design target ~5k, assert enforced).
 """
 import bpy
@@ -12,7 +12,7 @@ import os
 from mathutils import Matrix, Euler, Vector
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_DIR = os.path.join(REPO, "assets", "models", "ignis")
+OUT_DIR = os.path.join(REPO, "docs", "art", "models", "ignis")  # 원본 소스 — 배포하지 않는다(2026-10-08)
 os.makedirs(OUT_DIR, exist_ok=True)
 
 BLEND_PATH = os.path.join(OUT_DIR, "ignis_full.blend")

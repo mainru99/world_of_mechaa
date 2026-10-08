@@ -16,7 +16,7 @@ const checks=[
  'circuitcheck','synthcheck','lineagecheck','feature-activation-check','check_ignis_rain_integration'
 ];
 for(const name of checks){
- const r=spawnSync(process.execPath,['--no-warnings',`tools/${name}.mjs`],{cwd:root,encoding:'utf8',timeout:60000,maxBuffer:4*1024*1024});
+ const r=spawnSync(process.execPath,['--no-warnings',`tools/${name}.mjs`],{cwd:root,encoding:'utf8',timeout:name==='circuitcheck'?300000:60000,maxBuffer:4*1024*1024});
  if(r.status!==0){process.stderr.write(`${name} FAILED\n${r.stdout||''}${r.stderr||''}${r.error?.message||''}\n`);process.exit(1);}
  console.log(`PASS ${name}`);
 }

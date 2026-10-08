@@ -111,9 +111,11 @@ console.log('\n== ③ 스토리 기체는 어디에도 안 나온다 ==');
 
 console.log('\n== ④ 그림 ==');
 for (const id of [...NEW, ...STORY]) {
-  const b = readFileSync(new URL(`../assets/${id}.png`, import.meta.url));
-  const w = b.readUInt32BE(16), h = b.readUInt32BE(20), ct = b[25];
-  if (!(w === 440 && h === 420 && (ct === 6 || ct === 3))) ok(false, `${id}.png ${w}x${h} 색형식 ${ct}`);
+  /* 2026-10-08 부터 무손실 WebP(VP8L) — 헤더의 14비트 너비 · 높이와 알파 비트를 읽는다 */
+  const b = readFileSync(new URL(`../assets/${id}.webp`, import.meta.url));
+  const vp8l = b.toString('ascii', 12, 16) === 'VP8L', bits = b.readUInt32LE(21);
+  const w = (bits & 0x3fff) + 1, h = ((bits >> 14) & 0x3fff) + 1, alpha = (bits >> 28) & 1;
+  if (!(vp8l && w === 440 && h === 420 && alpha)) ok(false, `${id}.webp ${w}x${h} ${vp8l ? 'VP8L' : '손실/기타'} 알파 ${alpha}`);
 }
 ok(true, `17장 모두 440x420 · 투명`);
 

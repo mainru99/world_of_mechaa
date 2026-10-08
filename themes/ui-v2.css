@@ -67,7 +67,7 @@ body.ui-v2 .topbar{backdrop-filter:none;-webkit-backdrop-filter:none}
 .ui-home-unit .sprite{border:0;border-radius:0;background:radial-gradient(ellipse,#233341aa,transparent 72%);margin:16px -8px 8px;aspect-ratio:1.0476}
 .ui-home-unit .sprite:after{display:none}
 .ui-home-unit .btn{margin-top:auto}
-.ui-v2 .ui-home-map{position:relative;min-height:470px;padding:28px;background:linear-gradient(0deg,#050c15 1%,#07111a10 80%),url('../assets/backgrounds/territory-map-v2.png') center/cover;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.ui-v2 .ui-home-map{position:relative;min-height:470px;padding:28px;background:linear-gradient(0deg,#050c15 1%,#07111a10 80%),url('../assets/backgrounds/territory-map-v2.webp') center/cover;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
 .ui-home-map:before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 35% 40%,#df243b18,transparent 50%);pointer-events:none}
 .ui-home-map h2{font-size:36px;line-height:1.3;margin:8px 0}
 .ui-home-map p{font-size:14px;color:#c7d6df;max-width:330px;margin:0 0 20px}

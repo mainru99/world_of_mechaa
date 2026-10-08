@@ -90,8 +90,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms / speed()));
 function draw() {
   const p = $('#selP').value, e = $('#selE').value;
   /* 원본은 왼쪽을 본다 — 왼쪽에 선 아군은 뒤집어 오른쪽을 보게(js/sprites.js 와 같은 규칙) */
-  $('#fighter-p').innerHTML = `<img class="mecha flip" src="../../assets/${p}.png" alt="${p}">`;
-  $('#fighter-e').innerHTML = `<img class="mecha" src="../../assets/${e}.png" alt="${e}">`;
+  $('#fighter-p').innerHTML = `<img class="mecha flip" src="../../assets/${p}.webp" alt="${p}">`;
+  $('#fighter-e').innerHTML = `<img class="mecha" src="../../assets/${e}.webp" alt="${e}">`;
   $('#nmP').textContent = ROBOT_TYPES[p].name; $('#nmE').textContent = ROBOT_TYPES[e].name;
   $('#hpP').style.width = $('#hpE').style.width = '100%';
   for (const [k, t] of [['P', p], ['E', e]]) {

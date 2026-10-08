@@ -36,3 +36,9 @@
   Cache-Control: no-cache
 /themes/*
   Cache-Control: no-cache
+#
+# 그림 · 소리는 하루 동안 다시 묻지 않는다(2026-10-08 용량 정리). 예전엔 접속마다 그림 수백 장을
+# 하나하나 304 로 확인했다. **같은 이름으로 그림을 덮어쓸 때는 쓰는 쪽의 ?v= 를 올린다**
+# (sprites.js CACHE_BUST · game.js PART_ICON_V · gacha-fx.js GACHA_ART_V · ignis-rain.js). 안 올리면 최대 하루 옛 그림이 보인다.
+/assets/*
+  Cache-Control: public, max-age=86400

@@ -54,7 +54,7 @@ export function createAudio(options={}){
   if(loading.has(name))return loading.get(name);
   const promise=new Promise(resolve=>{queue.push({resolve,run:async()=>{
    if(disposed)return null;
-   const response=await fetcher(new URL('../assets/sfx/'+name+'.wav',import.meta.url));
+   const response=await fetcher(new URL('../assets/sfx/'+name+'.mp3',import.meta.url));
    if(!response.ok)throw new Error('sound unavailable');
    const buffer=await ctx.decodeAudioData(await response.arrayBuffer());
    if(!disposed)buffers.set(name,buffer);return buffer;

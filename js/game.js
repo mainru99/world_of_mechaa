@@ -597,15 +597,15 @@ function openBrawlModal(html){
 function closeModal(){for(const scope of ['sample','gacha','brawl','brawl-result'])audio.stop(scope);modalController.close();}
 
 function rarTag(p){ return `<span class="tag rar-${p.rarity}">${p.rarity}${p.enh?` +${p.enh}`:''}</span>`; }
-/* 파츠 그림 — assets/parts/<베이스>.png (128×128 투명, assets/parts/README.md).
+/* 파츠 그림 — assets/parts/<베이스>.webp (128×128 투명, assets/parts/README.md).
    **등급은 그림에 없다** — 테두리 색으로 친다(.pico.r-SR). 그래서 84장이 아니라 21장이다.
    베이스 그림이 없으면(베이스가 없는 옛 저장본, 그림이 아직 없는 새 베이스) 슬롯 그림으로 떨어진다.
    크기 — xs 22 (글줄 안) · sm 38 (목록 칩) · md 56 (장착 칸·상점) · lg 120 (뽑기·합성 결과) */
-const PART_ICON_V = '?v=20260919';
-const slotIconSrc = sl => `assets/parts/slot-${String(sl || 'weapon').toLowerCase()}.png${PART_ICON_V}`;
+const PART_ICON_V = '?v=20261008-webp';
+const slotIconSrc = sl => `assets/parts/slot-${String(sl || 'weapon').toLowerCase()}.webp${PART_ICON_V}`;
 function partIco(p, size){
   const sl = p && p.slot;
-  const src = p && p.base ? `assets/parts/${p.base}.png${PART_ICON_V}` : slotIconSrc(sl);
+  const src = p && p.base ? `assets/parts/${p.base}.webp${PART_ICON_V}` : slotIconSrc(sl);
   return `<span class="pico ${size || 'sm'}${p && p.rarity ? ' r-' + p.rarity : ''}"><img src="${src}" alt="" decoding="async"
     onerror="this.onerror=null;this.src='${slotIconSrc(sl)}'"></span>`;
 }
@@ -1196,8 +1196,8 @@ function gachaStageHtml(){
     <div class="capsule-rig" aria-hidden="true">
       <div class="capsule-aura"></div>
       <div class="capsule-heart"><span></span></div>
-      <div class="capsule-half capsule-top"><img src="assets/gacha/core-capsule.png" alt="" draggable="false"></div>
-      <div class="capsule-half capsule-bottom"><img src="assets/gacha/core-capsule.png" alt="" draggable="false"></div>
+      <div class="capsule-half capsule-top"><img src="assets/gacha/core-capsule.webp" alt="" draggable="false"></div>
+      <div class="capsule-half capsule-bottom"><img src="assets/gacha/core-capsule.webp" alt="" draggable="false"></div>
       <div class="capsule-lock"></div>
     </div>
     <div class="gacha-plinth" aria-hidden="true"><i></i><b></b><i></i></div>
@@ -1443,10 +1443,10 @@ function pullTier(res){
   return res.kind==='core'?3:res.kind==='credit'?1:0;
 }
 function pullArt(res){
-  if(res.kind==='robot'||res.kind==='dupe')return {src:`assets/${res.type}.png`,flip:true};
-  if(res.kind==='part'||res.kind==='scrap')return {src:res.part?.base?`assets/parts/${res.part.base}.png${PART_ICON_V}`:slotIconSrc(res.part?.slot)};
-  if(res.kind==='core'||res.kind==='credit')return {src:`assets/ui/coin-${res.kind}.png`};
-  return {src:'assets/gacha/core-capsule.png'};
+  if(res.kind==='robot'||res.kind==='dupe')return {src:`assets/${res.type}.webp`,flip:true};
+  if(res.kind==='part'||res.kind==='scrap')return {src:res.part?.base?`assets/parts/${res.part.base}.webp${PART_ICON_V}`:slotIconSrc(res.part?.slot)};
+  if(res.kind==='core'||res.kind==='credit')return {src:`assets/ui/coin-${res.kind}.webp`};
+  return {src:'assets/gacha/core-capsule.webp'};
 }
 function pullLabel(res){
   if(res.kind==='robot'||res.kind==='dupe')return ROBOT_TYPES[res.type].name;
@@ -1518,7 +1518,7 @@ function rankOf(res){
   return (PRIZE_RANK[prizeOf(res)] || 0) * 10 + (KIND_TIE[res.kind] || 0);
 }
 function currencyArt(kind){
-  return `<img class="currency-art" src="assets/ui/coin-${kind}.png" alt="" width="120" height="120">`; }
+  return `<img class="currency-art" src="assets/ui/coin-${kind}.webp" alt="" width="120" height="120">`; }
 function bigIconArt(ch,col){
   return `<div style="width:120px;height:120px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:46px;color:${col};background:radial-gradient(circle at 40% 30%,#233a63,#0c1220);border:2px solid ${col}">${ch}</div>`; }
 /* 예전엔 120px 칸에 슬롯 이름 첫 글자('무')를 크게 찍었다. 파츠 그림이 생겨 그 자리에 그림을 둔다 */

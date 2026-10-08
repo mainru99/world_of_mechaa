@@ -19,7 +19,7 @@ for(const allies of [[unit('ignis')],[unit('ignis'),unit('ranger')]]){
  assert.equal((html.match(/data-unit=/g)||[]).length,allies.length+1);
  assert.ok(html.includes(`${allies.length}:1`));
  assert.ok(html.includes('A&amp;B'));assert.ok(!html.includes('<script>'));
- assert.ok(!html.includes('.webp'),'combat cards remain static PNG sprites');
+ assert.ok(!html.includes('assets/motions/'),'combat cards remain static sprites (no idle animation)');
  assert.ok(html.includes(Math.round(allies.reduce((n,u)=>n+u.power,0)).toLocaleString('ko-KR')));
 }
 const source=await readFile(new URL('../js/game.js',import.meta.url),'utf8');

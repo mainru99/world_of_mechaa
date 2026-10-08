@@ -63,6 +63,6 @@ for(const win of [true,false]){
  const html=territoryResultView({...response,win,mechs:[{type:'ignis',name:'<bad>',level:32}]},{ko:'A&B',terrain:'plain'},'<div>reward</div>');
  assert.ok(html.includes('A&amp;B')&&html.includes('&lt;bad&gt;'));
  assert.ok(html.includes("ROWAR.enterTerritory()")&&html.includes("ROWAR.prepareTerritory()"));
- assert.ok(html.includes('assets/ignis.png')&&!html.includes('ignis-idle'),'result sprites stay static');
+ assert.ok(html.includes('assets/ignis.webp')&&!html.includes('ignis-idle'),'result sprites stay static');
 }
 console.log('Territory UI passed: authoritative rewards after navigation; account isolation; late failure/income guards; replay boundary cancellation; selected-map return and static result sprites.');

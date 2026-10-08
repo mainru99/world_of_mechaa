@@ -30,7 +30,7 @@ const props={missions,selected:'exped:SHORT',robot:{type:'ignis',level:24},robot
  expedition:null,expeditionRobot:null,online:true,canSend:true,weeklyReset:'일요일 0시',now};
 const html=dispatchView(props);
 assert.match(html,/파견 시작/);assert.match(html,/9<\/span>/);assert.match(html,/단기 정찰/);
-assert.match(html,/assets\/ignis\.png/);assert.doesNotMatch(html,/\.webp[^"']*ignis/);
+assert.match(html,/assets\/ignis\.webp/);assert.doesNotMatch(html,/ignis-idle/);
 assert.match(dispatchView({...props,online:false}),/서버 연결 필요/);
 assert.match(dispatchView({...props,canSend:false}),/남길 기체가 필요합니다/);
 assert.match(dispatchView({...props,expedition:{tier:'SHORT',uid:'one',level:24,endsAt:now-1}}),/보상 받기/);

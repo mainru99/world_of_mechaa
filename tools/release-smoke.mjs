@@ -30,7 +30,7 @@ async function walk(dir){
  }return out;
 }
 const files=['index.html','style.css','core-circuit-preview.html',...await walk('js'),...await walk('data'),...await walk('themes'),
- 'assets/backgrounds/territory-map-v2.png','assets/ignis.png','assets/motions/ignis-idle-10f.webp',
+ 'assets/backgrounds/territory-map-v2.webp','assets/ignis.webp','assets/motions/ignis-idle-10f.webp',
  'docs/art/attack-motion-preview.html','docs/art/attack-motion-review.html','docs/art/azure-dagger-sequence-preview.html',
  'assets/effects/motion-slash.png','assets/effects/motion-cannon.png','assets/effects/motion-status-a.png',
  ...await walk('assets/motions/attack'),...await walk('assets/motions/sequence'),...await walk('assets/gacha')];

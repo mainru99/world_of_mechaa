@@ -97,11 +97,11 @@ def iou(a, b):
 
 
 def check_pose(rid):
-    p = POSE_DIR / f'{rid}.png'; base = ROOT / 'assets' / f'{rid}.png'
+    p = POSE_DIR / f'{rid}.png'; base = ROOT / 'assets' / f'{rid}.webp'
     out = {'file': rel(p), 'id': rid, 'ok': True, 'errors': [], 'warn': [], 'info': {}}
     def bad(m): out['ok'] = False; out['errors'].append(m)
     if not p.exists(): bad('파일 없음'); return out
-    if not base.exists(): bad(f'원본 없음 assets/{rid}.png'); return out
+    if not base.exists(): bad(f'원본 없음 assets/{rid}.webp'); return out
     img = Image.open(p); org = Image.open(base).convert('RGBA')
     out['info']['size'] = img.size
     if img.mode != 'RGBA': bad(f'RGBA 가 아니다({img.mode})'); img = img.convert('RGBA')

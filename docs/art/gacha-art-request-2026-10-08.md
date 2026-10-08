@@ -18,6 +18,11 @@
 **그대로 의뢰하는 것(Claude 가 만들 수 없다)** — 등급 문양(`emblem-*`) · 등급별 배경(`bg-*`) · UI 틀(이름 판 · 별 · 리본 · NEW) · **기체별 공개 컷**(`splash/<id>-*`, EP 13기 시범부터).
 생성본을 덮어쓸 때는 **같은 파일 이름 · 같은 크기 · 흰색 틴트**를 지키면 코드를 고치지 않아도 바로 교체된다.
 
+## 상태 갱신 — 2026-10-08 밤 · 형식 (Claude)
+
+- 게임은 이제 **WebP** 를 읽는다. 그림은 아래 표의 이름 그대로 **PNG 로 그려 넣고 `python tools/webp_assets.py` 를 돌리면** 같은 이름의 `.webp` 가 된다(캡슐은 손실 q90 · 나머지 무손실). 덮어쓴 뒤에는 `js/ui/gacha-fx.js` 의 `GACHA_ART_V` 를 올린다
+- 쓰이지 않던 생성본(`fx/shard-1~8` · `spark` · `ember` · `smoke` · `rune-floor`)은 지웠다 — 연출이 쓰지 않는다(캡슐 파편은 캡슐 그림을 잘라 만든다). 그리게 되면 연출 코드도 같이 붙인다
+
 ## 먼저 볼 것
 
 1. **시험 페이지** — 리포 루트에서 `python -m http.server 5181` → `http://localhost:5181/proto/juice/gacha.html`

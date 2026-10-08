@@ -34,7 +34,7 @@ export function percentText(value) {
 
 const number=value=>Number(value).toLocaleString('ko-KR');
 const labels={robot:'기체',part:'파츠',core:'코어',credit:'크레딧',bust:'꽝'};
-const money=currency=>currency==='rcore'?'<span class="cv-rcore-icon" aria-hidden="true">◆</span>':`<img src="assets/ui/coin-${currency==='core'?'core':'credit'}.png" alt="" aria-hidden="true">`;
+const money=currency=>currency==='rcore'?'<span class="cv-rcore-icon" aria-hidden="true">◆</span>':`<img src="assets/ui/coin-${currency==='core'?'core':'credit'}.webp" alt="" aria-hidden="true">`;
 
 export function recruitmentView({currency,featured,cores,credits,rcores=0,online,stageHtml}) {
   const channel=RECRUITMENT_CHANNELS[currency],pool=recruitmentPool(currency);

@@ -27,3 +27,5 @@ node_modules/
 
 # 마이그레이션 도구가 만들어 내는 SQL 등 — 한 번 쓰고 버리는 것들
 .tmp/
+*.blend1
+__pycache__/

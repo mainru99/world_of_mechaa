@@ -57,9 +57,9 @@ body{
 .asec .btn{width:100%;margin-top:10px}
 .coin .ic{width:24px;height:24px;flex:0 0 24px;display:inline-block;
   background-position:center;background-size:contain;background-repeat:no-repeat}
-.ic-credit{background-image:url('assets/ui/coin-credit.png')}
-.ic-core{background-image:url('assets/ui/coin-core.png')}
-.ic-scrap{background-image:url('assets/ui/coin-scrap.png')}
+.ic-credit{background-image:url('assets/ui/coin-credit.webp')}
+.ic-core{background-image:url('assets/ui/coin-core.webp')}
+.ic-scrap{background-image:url('assets/ui/coin-scrap.webp')}
 
 /* ---- nav ---- */
 .nav{display:flex;gap:6px;padding:10px 12px;position:sticky;top:var(--topbar-height,57px);z-index:15;

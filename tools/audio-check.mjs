@@ -23,13 +23,15 @@ assert.equal(AUDIO_NAMES.length,31);assert.equal(new Set(AUDIO_NAMES).size,31);
 assert.deepEqual(audioPrefs(null),{volume:.45,muted:false});assert.equal(audioPrefs({volume:9}).volume,1);assert.equal(audioPrefs({volume:-1}).volume,0);
 assert.equal(audioPrefs({volume:'0.8',muted:'true'}).volume,.45);assert.equal(audioPrefs({volume:NaN}).volume,.45);
 assert.deepEqual(audioPrefs({volume:.3,muted:true}),{volume:.3,muted:true});
-const files=(await readdir(new URL('../assets/sfx/',import.meta.url))).filter(n=>n.endsWith('.wav')).sort();
-assert.deepEqual(files,AUDIO_NAMES.map(n=>n+'.wav').sort());
-let total=0;
+// 2026-10-08 용량 정리 — 게임에는 MP3(128kbps · tools/sfx_encode.sh)만 싣는다. 원본 WAV 는 proto/juice/sfx 에 그대로 남는다.
+const files=(await readdir(new URL('../assets/sfx/',import.meta.url))).filter(n=>/\.(mp3|wav)$/.test(n)).sort();
+assert.deepEqual(files,AUDIO_NAMES.map(n=>n+'.mp3').sort(),'only encoded MP3s ship');
+let total=0,source=0;
 for(const name of AUDIO_NAMES){
- const data=await readFile(new URL('../assets/sfx/'+name+'.wav',import.meta.url)),original=await readFile(new URL('../proto/juice/sfx/'+name+'.wav',import.meta.url));
- assert.equal(createHash('sha256').update(data).digest('hex'),createHash('sha256').update(original).digest('hex'),name+' preserves trimmed original');
- assert.equal(data.toString('ascii',0,4),'RIFF');assert.equal(data.toString('ascii',8,12),'WAVE');assert.equal(data.readUInt32LE(4)+8,data.length);total+=data.length;
+ const data=await readFile(new URL('../assets/sfx/'+name+'.mp3',import.meta.url)),original=await readFile(new URL('../proto/juice/sfx/'+name+'.wav',import.meta.url));
+ assert.ok(data.toString('ascii',0,3)==='ID3'||(data[0]===0xff&&(data[1]&0xe0)===0xe0),name+' is MPEG audio');
+ assert.equal(original.toString('ascii',0,4),'RIFF',name+' original WAV preserved');
+ assert.ok(data.length<original.length/4,name+' is compressed');total+=data.length;source+=original.length;
 }
 {
  const f=fixture();await f.audio.preload(AUDIO_NAMES);assert.equal(await f.audio.play('ui_click'),false);assert.equal(f.created(),0);assert.equal(f.requests.length,0,'no autoplay/downloads before input');
@@ -37,7 +39,7 @@ for(const name of AUDIO_NAMES){
  f.doc.emit('keydown',{isTrusted:true,repeat:true});await flush();assert.equal(f.created(),0);
  f.doc.emit('pointerdown',{isTrusted:true});await flush();assert.equal(f.created(),1);assert.equal(f.audio.state().ready,true);
  await f.audio.preload(['ui_click']);assert.equal(await f.audio.play('ui_click'),true);assert.equal(await f.audio.play('ui_click'),false,'cooldown');
- f.advance(100);await f.audio.play('ui_click');assert.equal(f.requests.filter(u=>u.endsWith('ui_click.wav')).length,1,'decode/cache reused');
+ f.advance(100);await f.audio.play('ui_click');assert.equal(f.requests.filter(u=>u.endsWith('ui_click.mp3')).length,1,'decode/cache reused');
  f.audio.setVolume(.72);f.audio.setMuted(true);assert.equal(JSON.parse(f.storage.get(AUDIO_KEY)).volume,.72);assert.equal(await f.audio.play('win'),false);
  f.audio.setMuted(false);f.audio.setVolume(0);assert.equal(await f.audio.play('win'),false);f.audio.setVolume(2);assert.equal(f.audio.state().volume,1);
  f.audio.setVolume(NaN);assert.equal(f.audio.state().volume,1);
@@ -135,4 +137,4 @@ for(const player of ['playBattle','playJoint'])for(const mode of ['normal','skip
   else if(mode==='skip')assert.equal(f.sources.length,0,player+' skip does not start old sounds');
   else{assert.equal(f.sources.length,navigationVoices,player+' never starts another sound after navigation');assert.ok(f.sources.every(s=>s.stops>=2),'prior combat voices stopped in finally');}
 }
-console.log(`Audio checks passed: ${AUDIO_NAMES.length} byte-identical WAVs (${total} bytes); preferences, no autoplay, lazy/cache/concurrency, failures, voice cap, lifecycle cancellation, mute/unmute, combat mapping, growth server-result hooks, accessible settings.`);
+console.log(`Audio checks passed: ${AUDIO_NAMES.length} MP3s (${total} bytes, WAV originals ${source} bytes preserved); preferences, no autoplay, lazy/cache/concurrency, failures, voice cap, lifecycle cancellation, mute/unmute, combat mapping, growth server-result hooks, accessible settings.`);

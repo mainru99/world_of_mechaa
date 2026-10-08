@@ -4532,3 +4532,14 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - 판정 · 서버 · DB · `data/balance.js` · `proto/juice/` 는 고치지 않았다
 - 아트 의뢰(Codex) — 이 PC 의 Codex Windows 샌드박스가 'setup refresh had errors' 로 실행 불가. 사용자 결정으로 **나중에**. 의뢰서는 그대로 `docs/art/gacha-art-request-2026-10-08.md`
 - 검사 하네스 7종에 연출 대역을 넣었다(조건 그대로). `check_ignis_rain_integration` 은 효과음 연결 뒤부터 깨져 있던 것을 같이 고쳤다
+
+## 용량 정리 — 2026-10-08 밤 · Claude (사용자 결정 "전부 진행 · ffmpeg 설치 · 그림은 추천대로")
+
+**2026-10-08 용량 정리(사용자 결정) — 게임 그림은 WebP, 효과음은 MP3 로 싣는다.**
+- 그림은 지금처럼 **PNG 로 만들어 `assets/` 에 넣고 `python tools/webp_assets.py` 를 돌린다** — 기체 · 몬스터 · 파츠 · 아이콘은 무손실(보이는 픽셀이 원본과 같음, 도구가 확인), 뽑기 캡슐 · 영토 지도는 손실 q90. PNG 는 도구가 지운다. 코드는 `assets/<id>.webp` 를 읽는다
+- 공격 모션(`assets/motions/**` · `assets/effects/motion-*`)은 PNG 그대로다(spritecheck 매니페스트)
+- 같은 이름으로 그림을 덮어쓰면 쓰는 쪽의 `?v=` 를 올린다 — `/assets/*` 는 하루 캐시된다(`_headers`)
+- 효과음 원본은 `proto/juice/sfx/*.wav`, 게임용은 `sh tools/sfx_encode.sh` 로 만든 `assets/sfx/*.mp3`
+- 3D 원본(`.blend` · `.glb`)은 배포하지 않는 `docs/art/models/` 에 둔다
+- 결과 — 그림 PNG 163장 26.0MB → WebP 13.2MB · 효과음 5.1MB → 0.5MB · 안 쓰던 파일 6.2MB 제거(`ignis-idle-36f-articulated.webp` · 뽑기 fx 12장 · 3D 원본 이동). 기록 `docs/ui/asset-optimization-2026-10-08.md`
+- GPT 도구 영향 — `spritecheck.py pose` 는 `assets/<id>.webp` 와 비교한다(PIL). `specialcheck` 는 VP8L 헤더로 440×420 · 알파를 본다. `robot_art.py` · `story_art.py` 는 PNG 를 쓰므로 끝에 `webp_assets.py` 를 돌린다

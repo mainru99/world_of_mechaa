@@ -71,7 +71,7 @@ const nodes=TERRITORY.map((n,i)=>{
   return {id:n.id,owner,ownerName:owner==='me'?'지휘관_01':owner?'ARES':null,lines:n.mon.length+(owner?1:0),hp:Array.from({length:n.mon.length+(owner?1:0)},(_,j)=>i===5?(j===0?0:.72):1),pw:1700+n.lv*140,lv:n.lv,minLv:n.minLv,locked:n.minLv>32,protectUntil:i===4?Date.now()+45*60000:null,...(owner==='me'?{income:{cr:n.crH*4,sc:n.scH*4,core:0,h:4}}:{})};
 });
 let pending={cr:0,sc:0,core:0};for(const n of nodes)if(n.owner==='me'){pending.cr+=n.income.cr;pending.sc+=n.income.sc;}
-const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.wav':'audio/wav'};
+const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.mp3':'audio/mpeg','.webp':'image/webp','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.wav':'audio/wav'};
 const json=(res,code,data)=>{res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});res.end(JSON.stringify(data));};
 const server=http.createServer(async(req,res)=>{
  try{

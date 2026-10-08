@@ -230,7 +230,7 @@ npm run dev                 # 빌드 + wrangler dev (http://localhost:8787)
 
 | 경로 | 설명 |
 |---|---|
-| `assets/*.png` | 기체 30종 (440×420 투명, 발끝 y=408 정렬) |
+| `assets/*.webp` | 기체 (440×420 투명, 발끝 y=408 정렬 · 2026-10-08 부터 무손실 WebP — PNG 로 만들어 `tools/webp_assets.py`) |
 | `assets/monsters/*.png` | 몬스터·보스 |
 | `assets/backgrounds/*.webp` | 화면 배경 |
 | `tools/*.mjs` | 밸런스 측정 도구. 자세한 것은 `tools/README.md` |

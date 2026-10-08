@@ -27,7 +27,7 @@ export function dispatchMissions({expeditionLevel,huntLevel,sortieCost,bossLevel
  });
  return [...expeditions,...hunts];
 }
-const rewardToken=(kind,label)=>`<span class="dv-reward"><img src="assets/ui/coin-${kind}.png" alt="" aria-hidden="true"><b>${label}</b></span>`;
+const rewardToken=(kind,label)=>`<span class="dv-reward"><img src="assets/ui/coin-${kind}.webp" alt="" aria-hidden="true"><b>${label}</b></span>`;
 function rewards(m){
  const r=m.reward;
  return `<div class="dv-rewards">${m.kind==='exped'?rewardToken('credit',fmt(r.cr))+rewardToken('scrap',fmt(r.sc)):rewardToken('scrap','스크랩 ×'+r.scX)}${r.coreP?rewardToken('core',Math.round(r.coreP*100)+'%'):''}${r.partP?`<span class="dv-reward">${icon('gacha')}<b>파츠 ${Math.round(r.partP*100)}%</b></span>`:''}</div>`;

@@ -1,7 +1,7 @@
 /* IGNIS RAIN — visual playback only. Combat events and damage stay in sim.js.
  * One transparent atlas, copied on an integer pixel grid; the robot is untouched.
  */
-export const IGNIS_RAIN_ATLAS = new URL('../assets/effects/ignis-rain-atlas.png?v=20260913-rain1', import.meta.url).href;
+export const IGNIS_RAIN_ATLAS = new URL('../assets/effects/ignis-rain-atlas.webp?v=20261008-webp', import.meta.url).href;
 let atlasPromise;
 export function loadIgnisRainAtlas() {
   if (!atlasPromise) atlasPromise = new Promise(resolve => {

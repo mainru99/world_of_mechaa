@@ -33,6 +33,7 @@ import { territoryView, attackNode, claimTerritory } from './territory.js';
 import { registerArena, balanceVersion, migrateArena } from './arena.js';
 import { hashPassword, verifyPassword, checkCredentials,
          attemptKeys, checkBlocked, noteFailure, clearAttempts } from './auth.js';
+import { readMany, firstOf, later } from './dbread.js';
 
 /* 시작 기체는 커먼에서 하나. 클라의 freshState() 와 같은 규칙이다.
    시작 재화(크레딧 600·코어 12·스크랩 30)는 schema.sql 의 DEFAULT 에 있다 —
@@ -131,7 +132,7 @@ async function guestLogin(request, env) {
     .bind(accountId, 'GUEST-' + String(accountId).padStart(4, '0'), now).run();
 
   await ensureStarter(env, accountId, now);
-  await registerArena(env, accountId, now);   // 만들어지자마자 남의 상대가 될 수 있게
+  await later(env, () => registerArena(env, accountId, now));   // 만들어지자마자 남의 상대가 될 수 있게
 
   const s = await newSession(env, accountId, now);
   return json({ ok: true, isNew: true, account_id: accountId, ...s });
@@ -208,15 +209,14 @@ async function me(env, sess) {
   await ensureStarter(env, sess.account_id, now);   // 반쪽 계정 자가 복구
   await ensureSquad(env, sess.account_id, now);    // 편성이 비어 있으면 채운다
 
-  const player = await env.DB
-    .prepare(`SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rank_cached, sel_robot
-                FROM player WHERE account_id = ?1`)
-    .bind(sess.account_id).first();
-  const robots = await env.DB
-    .prepare('SELECT id, type, level, exp, fat, fat_at FROM robot WHERE account_id = ?1 ORDER BY id')
-    .bind(sess.account_id).all();
-
-  const acc = await env.DB.prepare('SELECT login_id FROM account WHERE id = ?1').bind(sess.account_id).first();
+  /* 세 읽기를 한 번에(server/dbread.js) */
+  const [pr, robotRows, accr] = await readMany(env, [
+    env.DB.prepare(`SELECT nickname, credits, cores, scrap, wins, losses, pulls, rating, rank_cached, sel_robot
+                FROM player WHERE account_id = ?1`).bind(sess.account_id),
+    env.DB.prepare('SELECT id, type, level, exp, fat, fat_at FROM robot WHERE account_id = ?1 ORDER BY id').bind(sess.account_id),
+    env.DB.prepare('SELECT login_id FROM account WHERE id = ?1').bind(sess.account_id),
+  ]);
+  const player = firstOf(pr), robots = { results: robotRows }, acc = firstOf(accr);
 
   return json({
     ok: true,
@@ -301,7 +301,7 @@ async function handleApi(request, env, url) {
     const now = Date.now();
     const r = await saveState(env, sess.account_id, clean.state, now);
     if (!r.ok) return json({ ok: false, error: r.error }, 500);
-    await registerArena(env, sess.account_id, now);          // 이관된 편성으로 다시 등록
+    await later(env, () => registerArena(env, sess.account_id, now));          // 이관된 편성으로 다시 등록
     await noteMigration(env, sess.account_id, clean.clamped, now);
     if (clean.clamped.length) console.log('migration clamped', sess.account_id, clean.clamped.slice(0, 10));
     return json({ ok: true, rev: r.rev, wrote: r.wrote, clamped: clean.clamped, server_now: now });
@@ -643,12 +643,14 @@ function withSecurityHeaders(res) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
+      /* 응답 뒤로 미룰 일(server/dbread.js later) — 아레나 재등록처럼 사용자가 기다릴 필요 없는 쓰기 */
+      const e = ctx && typeof ctx.waitUntil === 'function' ? { ...env, __defer: p => ctx.waitUntil(p) } : env;
       try {
-        return await handleApi(request, env, url);
+        return await handleApi(request, e, url);
       } catch (e) {
         // 예외를 그대로 흘리면 Cloudflare 기본 오류 페이지가 나온다. JSON 으로 돌려준다.
         return json({ ok: false, error: String(e && e.message || e) }, 500);

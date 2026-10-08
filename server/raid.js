@@ -16,6 +16,7 @@ import { weekOf, weekEnd, raidOf, runRaid, raidSeeds, raidReward,
 import { PART_COLS, partOf } from './parts.js';
 import { MONSTER_TYPES, ROBOT_TYPES } from '../data/balance.js';
 import { jointOrder, jointTactics } from '../js/joint.js';
+import { readMany, firstOf } from './dbread.js';
 
 const TOP_N = 10;
 const err = (status, error) => ({ ok: false, status, error });
@@ -24,13 +25,15 @@ const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', C
 /* 편성 전체를 읽는다. 시련은 한 기지만 레이드는 편성 둘이 **한꺼번에** 싸운다(합동전 · js/joint.js).
    여기서 읽는 순서는 기본 자리일 뿐이다 — 전위·후위는 도전 요청이 고른다(raidRun). */
 async function loadSquad(env, acc) {
-  const p = await env.DB.prepare(
-    'SELECT nickname, credits, scrap, rev, sel_robot, squad1, squad2 FROM player WHERE account_id = ?1')
-    .bind(acc).first();
+  /* 플레이어 · 기체 · 파츠를 한 번에(server/dbread.js) */
+  const [pr, robots, parts] = await readMany(env, [
+    env.DB.prepare('SELECT nickname, credits, scrap, rev, sel_robot, squad1, squad2 FROM player WHERE account_id = ?1').bind(acc),
+    env.DB.prepare(`SELECT id, uid, type, level, fat, skill_lv, circuit, ${Object.values(SLOT_COL).join(', ')}
+       FROM robot WHERE account_id = ?1 ORDER BY id`).bind(acc),
+    env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`).bind(acc),
+  ]);
+  const p = firstOf(pr);
   if (!p) return null;
-  const robots = (await env.DB.prepare(
-    `SELECT id, uid, type, level, fat, skill_lv, circuit, ${Object.values(SLOT_COL).join(', ')}
-       FROM robot WHERE account_id = ?1 ORDER BY id`).bind(acc).all()).results || [];
   if (!robots.length) return null;
 
   /* 편성 순서대로. 선봉은 sel_robot 이다 — 점령전과 같은 규칙이라 화면이 보여 주는
@@ -42,8 +45,6 @@ async function loadSquad(env, acc) {
   for (const id of ids) { const r = robots.find(x => x.id === id); if (r && !ordered.includes(r)) ordered.push(r); }
   if (!ordered.length) ordered.push(robots[0]);
 
-  const parts = (await env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`)
-    .bind(acc).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
 
   const mechs = ordered.map(row => {
@@ -62,8 +63,10 @@ async function loadSquad(env, acc) {
 }
 
 /* 이번 주 막대. 없으면 만든다 — 주가 바뀌는 순간 처음 들어온 사람이 연다. */
-async function getBar(env, r, now) {
-  let row = await env.DB.prepare('SELECT * FROM raid WHERE week = ?1').bind(r.week).first();
+const barQ = (env, r) => env.DB.prepare('SELECT * FROM raid WHERE week = ?1').bind(r.week);
+/* pre — 이미 읽어 둔 막대 행(raidView 가 다른 읽기와 한 번에 읽는다). undefined 면 여기서 읽는다 */
+async function getBar(env, r, now, pre) {
+  let row = pre !== undefined ? pre : await barQ(env, r).first();
   if (!row) {
     await env.DB.prepare(
       `INSERT OR IGNORE INTO raid (week, boss, level, max_hp, dealt, updated_at)
@@ -84,13 +87,15 @@ async function getBar(env, r, now) {
   return row;
 }
 
-async function board(env, acc, week) {
-  const top = (await env.DB.prepare(
+const boardTopQ = (env, week) => env.DB.prepare(
     `SELECT account_id, nickname, damage, best FROM raid_hit
-      WHERE week = ?1 AND damage > 0 ORDER BY damage DESC, account_id LIMIT ?2`)
-    .bind(week, TOP_N).all()).results || [];
-  const cnt = await env.DB.prepare(
-    'SELECT COUNT(*) AS n FROM raid_hit WHERE week = ?1 AND damage > 0').bind(week).first();
+      WHERE week = ?1 AND damage > 0 ORDER BY damage DESC, account_id LIMIT ?2`).bind(week, TOP_N);
+const boardCntQ = (env, week) => env.DB.prepare('SELECT COUNT(*) AS n FROM raid_hit WHERE week = ?1 AND damage > 0').bind(week);
+async function board(env, acc, week) {
+  const [top, cntRows] = await readMany(env, [boardTopQ(env, week), boardCntQ(env, week)]);
+  return boardOf(acc, top, firstOf(cntRows));
+}
+function boardOf(acc, top, cnt) {
   return {
     top: top.map((x, i) => ({ rank: i + 1, nickname: x.nickname, damage: x.damage,
                               best: x.best, me: x.account_id === acc })),
@@ -116,11 +121,15 @@ function view(r, bar, mine, now) {
 
 export async function raidView(env, acc, now) {
   const r = raidOf(weekOf(now));
-  const bar = await getBar(env, r, now);
-  const mine = await env.DB.prepare(
-    'SELECT damage, best, tries, day, today FROM raid_hit WHERE week = ?1 AND account_id = ?2')
-    .bind(r.week, acc).first();
-  return { ...view(r, bar, mine, now), ...(await board(env, acc, r.week)) };
+  /* 막대 · 내 기록 · 순위 · 참가 수를 한 번에(server/dbread.js). 이번 주 막대가 아직 없으면 getBar 가 만든다 */
+  const [barRows, mineRows, top, cntRows] = await readMany(env, [
+    barQ(env, r),
+    env.DB.prepare('SELECT damage, best, tries, day, today FROM raid_hit WHERE week = ?1 AND account_id = ?2').bind(r.week, acc),
+    boardTopQ(env, r.week),
+    boardCntQ(env, r.week),
+  ]);
+  const bar = await getBar(env, r, now, firstOf(barRows));
+  return { ...view(r, bar, firstOf(mineRows), now), ...boardOf(acc, top, firstOf(cntRows)) };
 }
 
 export async function raidRun(env, acc, now, body) {

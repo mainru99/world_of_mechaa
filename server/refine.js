@@ -11,6 +11,7 @@
  */
 import { CONST, ROBOT_TYPES } from '../data/balance.js';
 import {registerArena} from './arena.js';
+import { later } from './dbread.js';
 import { traitPoints } from '../js/stats.js';
 import { parseCircuit, circuitKey, checkTaken, circuitResetCost, openNotables } from '../js/circuit.js';
 
@@ -58,7 +59,7 @@ export async function circuitRun(env, acc, now, body) {
     const res = await env.DB.prepare('UPDATE robot SET circuit = ?3 WHERE id = ?1 AND circuit IS ?2')
       .bind(row.id, row.circuit, circuitKey(next)).run();
     if ((res.meta?.changes ?? 0) !== 1) return err(409, 'circuit changed, retry');
-    await registerArena(env,acc,now);
+    await later(env, () => registerArena(env,acc,now));
     return { ok: true, ...view({ ...row, circuit: circuitKey(next) }, p.rcores) };
   }
 
@@ -76,7 +77,7 @@ export async function circuitRun(env, acc, now, body) {
                        WHERE account_id = ?1 AND rcores >= ?2 AND changes() = 1`).bind(acc, cost, now),
     ]);
     if (((out && out[1] && out[1].meta && out[1].meta.changes) ?? 0) !== 1) return err(409, 'circuit changed, retry');
-    await registerArena(env,acc,now);
+    await later(env, () => registerArena(env,acc,now));
     return { ok: true, spent: cost, ...view({ ...row, circuit: null }, p.rcores - cost) };
   }
 

@@ -46,6 +46,8 @@ function fakeDB(rows){
       return null;
     },
     async all(){
+      /* 실제 D1 처럼 — 한 행 문장도 all() 이면 { results: [...] }(server/dbread.js 가 묶어 읽을 때 쓴다) */
+      if(/power BETWEEN|WHERE nickname = \?1/.test(sql)){ const r=await this.first(); return { results: r ? [r] : [] }; }
       if(/balance_ver != \?1/.test(sql)){
         const [ver,lim]=this.args;
         return { results: rows.filter(r=>r.balance_ver!==ver).slice(0,lim)
@@ -122,7 +124,7 @@ console.log('== registerArena — 편성 두 기를 담는가 ==');
   const envOf = pl => ({ DB:{ prepare(sql){ return { args:[],
     bind(...a){ this.args=a; return this; },
     async first(){ return /FROM player/.test(sql) ? pl : null; },
-    async all(){ return { results: /FROM robot/.test(sql) ? robots : [] }; },
+    async all(){ return { results: /FROM robot/.test(sql) ? robots : /FROM player/.test(sql) ? (pl ? [pl] : []) : [] }; },   // 실제 D1 처럼 플레이어 행도 all() 로 읽힌다(server/dbread.js)
     async run(){ if(/INSERT INTO arena_entry/.test(sql)) saved=this.args; return {meta:{changes:1}}; },
   }; } } });
   const r=await A.registerArena(envOf(player), 1, 12345);

@@ -18,6 +18,7 @@ import { makeOpponent, makeHuntTarget, rollBattleRewards, rollHuntRewards, pickT
          bandStart, bandStep, bandGoal,
          readHuntWeek, huntLeft, huntCap, huntResetAt, huntWeekView } from '../js/rewards.js';
 import { codexMonsterStmt } from './codex.js';
+import { readMany, firstOf, later } from './dbread.js';
 import { registerArena, pickOpponentFromArena, pickOpponentByNickname, pickOpponentRandom, ratingDelta } from './arena.js';
 import { makeUnit, simulate, mulberry32, relayOut } from '../js/sim.js';
 
@@ -54,13 +55,18 @@ const COMBAT = { ...ROBOT_TYPES, ...MONSTER_TYPES };
    새로 얻은 기체는 Lv.1 부터 시작한다. 상대는 출전한 기체의 레벨에 맞춰 생성되므로
    저레벨 기체도 제 또래를 만나 정상적으로 벌 수 있다.
    나갈 수 있는 것은 편성(squad1/squad2)에 든 두 기뿐이다. */
+/* 플레이어 · 기체 · 파츠 — 한 번에 묻는다(서로 기다릴 필요가 없다 · server/dbread.js).
+   startBattle 은 이 세 문장을 자기 첫 읽기와 같은 묶음에 넣는다 */
+const fighterQueries = (env, accountId) => [
+  env.DB.prepare('SELECT sel_robot, credits, rating, mband, mband_pts, squad1, squad2, hunt_wk FROM player WHERE account_id = ?1').bind(accountId),
+  env.DB.prepare('SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, circuit, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id').bind(accountId),
+  env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`).bind(accountId),
+];
 async function loadFighter(env, accountId) {
-  const p = await env.DB.prepare(
-    'SELECT sel_robot, credits, rating, mband, mband_pts, squad1, squad2, hunt_wk FROM player WHERE account_id = ?1')
-    .bind(accountId).first();
-  const robots = (await env.DB.prepare(
-    'SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, circuit, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
-    .bind(accountId).all()).results || [];
+  return buildFighter(await readMany(env, fighterQueries(env, accountId)));
+}
+function buildFighter([pr, robots, parts]) {
+  const p = firstOf(pr);
   if (!robots.length) return null;
   const squad = [p && p.squad1, p && p.squad2].filter(Boolean);
   const inSquad = id => !squad.length || squad.includes(id);
@@ -68,8 +74,6 @@ async function loadFighter(env, accountId) {
            || robots.find(r => inSquad(r.id))
            || robots[0];
 
-  const parts = (await env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`)
-    .bind(accountId).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 
@@ -290,8 +294,11 @@ const PENDING_TTL = 10 * 60 * 1000;   // 상대를 찾아 놓고 10분 넘게 �
 const validTactic = t => (typeof t === 'string' && CONST.TACTIC && CONST.TACTIC[t]) ? t : 'none';
 
 export async function startBattle(env, accountId, now, body) {
-  const prow = await env.DB.prepare('SELECT pending_match, credits, cores, scrap, wins, losses, rev, hunt_wk FROM player WHERE account_id = ?1')
-    .bind(accountId).first();
+  /* 잡아 둔 상대 · 지갑과 전투원(플레이어 · 기체 · 파츠)을 한 번에 읽는다. 아래 '선점' 은 pending_match 만 비우므로 읽은 전투원은 그대로 쓸 수 있다 */
+  const [prr, ...fr] = await readMany(env, [
+    env.DB.prepare('SELECT pending_match, credits, cores, scrap, wins, losses, rev, hunt_wk FROM player WHERE account_id = ?1').bind(accountId),
+    ...fighterQueries(env, accountId)]);
+  const prow = firstOf(prr);
   if (!prow || !prow.pending_match) return { ok: false, status: 400, error: 'no pending match' };
 
   let pend;
@@ -316,7 +323,7 @@ export async function startBattle(env, accountId, now, body) {
   if ((claim.meta?.changes ?? 0) !== 1)
     return { ok: false, status: 409, error: 'battle already started' };
 
-  const me = await loadFighter(env, accountId);
+  const me = buildFighter(fr);
   if (!me) return { ok: false, status: 400, error: 'no robot' };
 
   /* 출격비. 비상 출격이면 0 이다.
@@ -474,8 +481,7 @@ export async function startBattle(env, accountId, now, body) {
   let delta = 0;
   const ranked = mode === 'arena' && !rescue && opp.kind !== 'monster';
   if (ranked) {
-    const myRating = (await env.DB.prepare('SELECT rating FROM player WHERE account_id = ?1')
-      .bind(accountId).first())?.rating ?? 1000;
+    const myRating = me.rating ?? 1000;               // 위에서 같이 읽었다(쓰기는 rating + delta 로 상대 갱신이라 사이에 바뀌어도 안전)
     const K = opp.kind === 'player' ? CONST.RATING_K.pvp : CONST.RATING_K.pve;
     delta = ratingDelta(myRating, opp.rating ?? myRating, win, K);
     stmts.push(env.DB.prepare('UPDATE player SET rating = MAX(0, rating + ?1) WHERE account_id = ?2')
@@ -503,7 +509,7 @@ export async function startBattle(env, accountId, now, body) {
   await env.DB.batch(stmts);
 
   /* 내 편성은 그대로지만 레벨이 올랐을 수 있다. 올랐을 때만 아레나를 갱신한다. */
-  if (lv.to > lv.from || (lv2 && lv2.to > lv2.from)) await registerArena(env, accountId, now);
+  if (lv.to > lv.from || (lv2 && lv2.to > lv2.from)) await later(env, () => registerArena(env, accountId, now));
 
   return {
     ok: true,
@@ -600,7 +606,7 @@ async function startJoint(env, accountId, now, body, ctx) {
   if (cs) stmts.push(cs);
   await env.DB.batch(stmts);
 
-  if (robots.some(x => x.lv.to > x.lv.from)) await registerArena(env, accountId, now);
+  if (robots.some(x => x.lv.to > x.lv.from)) await later(env, () => registerArena(env, accountId, now));
 
   const lead = robots[0];
   return {

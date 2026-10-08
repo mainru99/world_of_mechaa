@@ -12,6 +12,7 @@ import { ROBOT_TYPES, MONSTER_TYPES, PART_BASES, AFFIXES, AFFIX_TIER, AFFIX_ROLL
 import { POWER_K } from '../data/powercal.js';
 import { computeStats, power } from '../js/stats.js';
 import { PART_COLS, partOf } from './parts.js';
+import { readMany, firstOf } from './dbread.js';
 
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 
@@ -50,13 +51,14 @@ const EMPTY_SLOTS = { WEAPON: null, FRAME: null, BOOSTER: null, CORE: null };
    **첫 칸은 항상 출전 기체**로 둔다 — power 컬럼과 무작위 매칭이 그 기체를 기준으로
    돌기 때문이다. 매칭 쪽 읽기 비용은 그대로다(여전히 한 행이다). */
 export async function registerArena(env, accountId, now) {
-  const p = await env.DB.prepare(
-    'SELECT nickname, rating, sel_robot, squad1, squad2 FROM player WHERE account_id = ?1').bind(accountId).first();
+  /* 플레이어 · 기체 · 파츠를 한 번에(server/dbread.js) — 레벨업 · 장착 · 대전 뒤마다 불려서 왕복을 아끼는 효과가 크다 */
+  const [pr, robots, parts] = await readMany(env, [
+    env.DB.prepare('SELECT nickname, rating, sel_robot, squad1, squad2 FROM player WHERE account_id = ?1').bind(accountId),
+    env.DB.prepare('SELECT id, uid, type, level, skill_lv, circuit, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id').bind(accountId),
+    env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`).bind(accountId),
+  ]);
+  const p = firstOf(pr);
   if (!p) return null;
-
-  const robots = (await env.DB.prepare(
-    'SELECT id, uid, type, level, skill_lv, circuit, s_weapon, s_frame, s_booster, s_core FROM robot WHERE account_id = ?1 ORDER BY id')
-    .bind(accountId).all()).results || [];
   if (!robots.length) return null;
   const primary = robots.find(r => r.id === p.sel_robot) || robots[0];
 
@@ -68,8 +70,6 @@ export async function registerArena(env, accountId, now) {
     .filter(r => r && r.id !== primary.id);
   const ordered = [primary, ...squad];
 
-  const parts = (await env.DB.prepare(`SELECT ${PART_COLS} FROM part WHERE account_id = ?1`)
-    .bind(accountId).all()).results || [];
   const byId = new Map(parts.map(x => [x.id, x]));
 
   /* 기체 한 기를 스냅샷 한 칸으로. 피로도는 0 으로 고정한다 —
@@ -210,10 +210,11 @@ export async function pickOpponentFromArena(env, accountId, myPower, span = 0.15
       WHERE power BETWEEN ?1 AND ?2 AND rnd ${dir === 'up' ? '>=' : '<'} ?3
         AND account_id != ?4
       ORDER BY power, rnd ${dir === 'up' ? 'ASC' : 'DESC'} LIMIT 1`)
-    .bind(lo, hi, cut, accountId).first();
+    .bind(lo, hi, cut, accountId);
 
-  /* rnd 가 끝까지 갔으면 앞쪽에서 다시 찾는다(원형 탐색) */
-  const row = (await q('up')) || (await q('down'));
+  /* rnd 가 끝까지 갔으면 앞쪽에서 다시 찾는다(원형 탐색). 두 방향을 한 번에 묻는다(server/dbread.js) */
+  const [up, down] = await readMany(env, [q('up'), q('down')]);
+  const row = firstOf(up) || firstOf(down);
   if (!row) return null;
   return rowToOpponent(row, balanceVersion(), 0);
 }

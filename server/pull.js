@@ -7,6 +7,7 @@
 import { CONST } from '../data/balance.js';
 import { rollPull, PULL_CUR, PULL_COL } from '../js/gacha.js';
 import { insertPart } from './parts.js';
+import { readMany, firstOf } from './dbread.js';
 
 /* 서버 난수. 클라가 보낸 값에 의존하지 않는다. */
 function cryptoRnd() {
@@ -24,8 +25,13 @@ export async function serverPull(env, accountId, count, now, cur) {
   const kind = Object.prototype.hasOwnProperty.call(PULL_CUR, cur) ? cur : 'core';
   const C = PULL_CUR[kind];
 
-  const player = await env.DB.prepare(
-    'SELECT credits, cores, rcores, scrap, pulls, rev FROM player WHERE account_id = ?1').bind(accountId).first();
+  /* 지갑 · 보유 기체 · 최고 레벨을 한 번에(server/dbread.js) */
+  const [pr, robots, lvRows] = await readMany(env, [
+    env.DB.prepare('SELECT credits, cores, rcores, scrap, pulls, rev FROM player WHERE account_id = ?1').bind(accountId),
+    env.DB.prepare('SELECT uid, type FROM robot WHERE account_id = ?1').bind(accountId),
+    env.DB.prepare('SELECT MAX(level) AS lv FROM robot WHERE account_id = ?1').bind(accountId),
+  ]);
+  const player = firstOf(pr), lvRow = firstOf(lvRows);
   if (!player) return { ok: false, status: 404, error: 'no player' };
 
   const spend = n * C.cost;
@@ -33,10 +39,6 @@ export async function serverPull(env, accountId, count, now, cur) {
   if (player[col] < spend)
     return { ok: false, status: 400, error: 'not enough ' + col, [col]: player[col] };
 
-  const robots = (await env.DB.prepare('SELECT uid, type FROM robot WHERE account_id = ?1')
-    .bind(accountId).all()).results || [];
-  const lvRow = await env.DB.prepare('SELECT MAX(level) AS lv FROM robot WHERE account_id = ?1')
-    .bind(accountId).first();
   const level = Math.max(1, (lvRow && lvRow.lv) || 1);
 
   const owned = new Set(robots.map(r => r.type));

@@ -45,17 +45,12 @@
 - 효과음 원본은 `proto/juice/sfx/*.wav`, 게임용은 `sh tools/sfx_encode.sh` 로 만든 `assets/sfx/*.mp3`
 - 3D 원본(`.blend` · `.glb`)은 배포하지 않는 `docs/art/models/` 에 둔다
 
-## main 작업 원칙 — 2026-09-21 사용자 결정
+## main 작업 원칙 — 2026-10-08 사용자 결정으로 갱신
 
-- **주도권** — 운영 `main` 은 Claude 메인 · ChatGPT 서브, UI 개편 브랜치 `codex/ui-rebuild` 는 ChatGPT 메인 · Claude 서브.
-  위 파일별 담당은 main 안의 협업 참고이며 이 주도권을 바꾸지 않는다.
-- **UI 개편이 끝날 때까지 두 브랜치를 합치지 않는다** — 어느 방향이든 merge · rebase · cherry-pick · 파일 복사 금지. 통합은 사용자 지시로 따로 한다.
-- **화면 파일 동결** — 그동안 main 에서 `index.html` · `style.css` · `themes/` · `js/game.js` 를 고치지 않고 `js/ui/` 를 만들지 않는다.
-  UI 브랜치가 같은 파일을 새로 짜고 있어서, main 이 보탠 화면은 통합 때 충돌하거나 새 화면에 다시 만들어야 한다.
-  - 예외는 사용자가 지시한 급한 버그뿐이다. 가장 적은 줄로 고치고 `CONTRACT.md` '화면 파일 동결' 절에 파일 · 함수 · 고친 줄을 적는다 — 통합 때 UI 브랜치에 다시 넣어야 한다.
-- **main 에서 계속 하는 것** — `server/*` · DB 이관 · `data/balance.js` · `assets/` · DOM 없는 공용 모듈(`js/sim.js` · `js/joint.js` 등) · `tools/` · 문서.
-  공용 모듈의 인자나 API 응답 모양을 바꾸면 `CONTRACT.md` 에 입출력을 적는다 — UI 브랜치 화면이 그것을 읽는다.
-- **화면이 필요한 새 기능**은 서버 · 로직까지만 main 에 넣고 화면은 UI 개편 뒤로 미룬다. 플레이어에게 보이는 것은 그다음이다.
+- **화면 파일 동결 · 브랜치 분리는 끝났다(2026-10-08).** 09-21 에 UI 개편 브랜치(`codex/ui-rebuild`)와 충돌을 막으려고 정한 규칙인데, 09-30 에 UI 개편을 main 에 합쳐 운영에 냈으므로 필요 없다.
+  이제 **모든 작업은 `main` 에서** 한다 — 서버 · 공용 로직 · 화면(`index.html` · `style.css` · `themes/` · `js/game.js` · `js/ui/`) 모두.
+  옛 브랜치(`codex/ui-rebuild` · `codex/ui-integration`)는 기록으로만 남는다 — 거기서 새로 시작하지 않는다.
+- **역할(2026-10-08)** — 구현은 Claude, 아트는 ChatGPT(Codex). 공용 모듈의 인자나 API 응답 모양을 바꾸면 `CONTRACT.md` 에 입출력을 적는다.
 - **내려받기 · 올리기** — 먼저 폴더 경로 · 현재 브랜치 · 미커밋 변경 · upstream 을 확인한다.
   각 브랜치는 같은 이름의 원격 브랜치에서만 받고, 푸시할 때는 대상 브랜치를 적는다(`git push origin main`).
 

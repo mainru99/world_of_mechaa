@@ -16,6 +16,7 @@
  * 전체 인원 수도 크론 때 재어 meta 에 넣어 둔다. COUNT(*) 는 인덱스를 훑어도
  * 결국 전원을 읽으므로, 조회할 때마다 세면 실시간 계산과 같은 문제가 된다.
  */
+import { readMany, firstOf } from './dbread.js';
 
 const TOP_N = 50;
 const STATS_KEY = 'rank_stats';
@@ -45,24 +46,25 @@ export async function refreshRanks(env, now) {
   return { changed: upd.meta?.changes ?? 0, count: stats.count, avgPower: stats.avgPower };
 }
 
-async function loadStats(env) {
-  const row = await env.DB.prepare('SELECT v FROM meta WHERE k = ?1').bind(STATS_KEY).first();
+function parseStats(row) {
   if (!row) return { count: 0, at: 0 };
   try { return JSON.parse(row.v); } catch { return { count: 0, at: 0 }; }
 }
 
 /* 조회 비용을 상수로 묶는다 — 상위 50행 + 내 1행 + 통계 1행. 인원이 늘어도 그대로다. */
 export async function ranking(env, accountId) {
-  const top = (await env.DB.prepare(
-    `SELECT account_id, nickname, rating, wins, losses, json_extract(codex, '$.t') AS title
-       FROM player ORDER BY rating DESC, account_id LIMIT ?1`).bind(TOP_N).all()).results || [];
-
-  const me = await env.DB.prepare(
-    `SELECT nickname, rating, wins, losses, rank_cached, rank_at, json_extract(codex, '$.t') AS title
-       FROM player WHERE account_id = ?1`).bind(accountId).first();
+  /* 상위 · 나 · 통계를 한 번에(server/dbread.js) */
+  const [top, meRows, statRows] = await readMany(env, [
+    env.DB.prepare(`SELECT account_id, nickname, rating, wins, losses, json_extract(codex, '$.t') AS title
+       FROM player ORDER BY rating DESC, account_id LIMIT ?1`).bind(TOP_N),
+    env.DB.prepare(`SELECT nickname, rating, wins, losses, rank_cached, rank_at, json_extract(codex, '$.t') AS title
+       FROM player WHERE account_id = ?1`).bind(accountId),
+    env.DB.prepare('SELECT v FROM meta WHERE k = ?1').bind(STATS_KEY),
+  ]);
+  const me = firstOf(meRows);
   if (!me) return { ok: false, status: 404, error: 'no player' };
 
-  let stats = await loadStats(env);
+  let stats = parseStats(firstOf(statRows));
   /* 크론이 아직 한 번도 안 돈 상태(배포 직후·새 DB)면 인원 수가 0으로 보인다.
      그때만 그 자리에서 센다. 크론이 한 번 돌면 다시는 여기 오지 않는다. */
   if (!stats.at) {

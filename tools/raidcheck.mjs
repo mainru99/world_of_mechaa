@@ -159,7 +159,9 @@ console.log('\n== ⑤ 서버 — 가짜 env.DB ==');
     return null;
   };
   const env = { DB: { prepare: sql => ({ bind: (...a) => ({
-    first: async () => run(sql, a), all: async () => run(sql, a) || { results: [] }, run: async () => run(sql, a) }) }),
+    first: async () => run(sql, a),
+    /* 실제 D1 처럼 all() 은 늘 { results: [...] } — 한 행을 돌려주는 문장도 배열로 싼다(server/dbread.js 가 기댄다) */
+    all: async () => { const v = run(sql, a); return v && Array.isArray(v.results) ? v : { results: v ? [v] : [] }; }, run: async () => run(sql, a) }) }),
     batch: async l => { for (const x of l) await x.run(); return []; } } };
 
   const v = await raidView(env, 1, now);

@@ -14,6 +14,7 @@ import { registerArena } from './arena.js';
 import { partOf, insertPart } from './parts.js';
 import { parsePresets, cleanName, presetCheck, PRESET_MAX } from '../js/preset.js';
 import { bindOn, unbindCost, equipCheck, fuseBind, presetBindFilter } from '../js/bind.js';
+import { readMany, firstOf, later } from './dbread.js';
 
 const SLOT_COL = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 const err = (status, error) => ({ ok: false, status, error });
@@ -25,9 +26,6 @@ const getPart = (env, acc, uid) => env.DB
 /* 귀속된 기체의 uid — 오류 응답이 '어느 기체 것인지' 를 알려 준다 */
 const boundUid = async (env, id) => id == null ? null
   : ((await env.DB.prepare('SELECT uid FROM robot WHERE id = ?1').bind(id).first()) || {}).uid || null;
-const getPlayer = (env, acc) => env.DB
-  .prepare('SELECT credits, cores, scrap, rev, sel_robot, squad1, squad2, pending_match, expd_robot, presets FROM player WHERE account_id = ?1')
-  .bind(acc).first();
 
 /* 재화를 깎고 rev 를 올린다. 두 곳에서 같은 문장을 쓰지 않으려고 묶었다. */
 const spend = (env, acc, p, { credits = 0, scrap = 0 }, now) => env.DB
@@ -51,14 +49,25 @@ export function bulkTargets(parts, worn, keepEnhanced) {
 
 export async function hangarAction(env, acc, body, now) {
   const action = body && body.action;
-  const p = await getPlayer(env, acc);
+  /* 플레이어 행과 요청에 적힌 기체 · 파츠를 한 번에 읽는다(server/dbread.js) — 레벨업 · 장착 · 강화가 모두 이 길이다.
+     아래 각 동작은 robotOf · partOne 으로 이 값을 받는다(같은 요청 안이라 다시 읽을 필요가 없다) */
+  const rUid = body && typeof body.robotUid === 'string' ? body.robotUid : null;
+  const pUid = body && typeof body.partUid === 'string' ? body.partUid : null;
+  const qs = [env.DB.prepare('SELECT credits, cores, scrap, rev, sel_robot, squad1, squad2, pending_match, expd_robot, presets FROM player WHERE account_id = ?1').bind(acc)];
+  if (rUid) qs.push(env.DB.prepare('SELECT * FROM robot WHERE account_id = ?1 AND uid = ?2').bind(acc, rUid));
+  if (pUid) qs.push(env.DB.prepare('SELECT * FROM part WHERE account_id = ?1 AND uid = ?2').bind(acc, pUid));
+  const rs = await readMany(env, qs);
+  const p = firstOf(rs[0]);
+  const preRobot = rUid ? firstOf(rs[1]) : null, prePart = pUid ? firstOf(rs[rUid ? 2 : 1]) : null;
+  const robotOf = async uid => (uid === rUid && rUid ? preRobot : await getRobot(env, acc, uid));
+  const partOne = async uid => (uid === pUid && pUid ? prePart : await getPart(env, acc, uid));
   if (!p) return err(404, 'no player');
 
   /* ── 장착 ── */
   if (action === 'equip') {
-    const rb = await getRobot(env, acc, body.robotUid);
+    const rb = await robotOf(body.robotUid);
     if (!rb) return err(404, 'robot not found');
-    const pt = await getPart(env, acc, body.partUid);
+    const pt = await partOne(body.partUid);
     if (!pt) return err(404, 'part not found');            // 남의 파츠도 여기서 걸린다(account_id 로 찾으므로)
     const col = SLOT_COL[body.slot];
     if (!col) return err(400, 'bad slot');
@@ -79,7 +88,7 @@ export async function hangarAction(env, acc, body, now) {
     stmts.push(env.DB.prepare('UPDATE player SET rev = ?1, updated_at = ?2 WHERE account_id = ?3')
       .bind(p.rev + 1, now, acc));
     await env.DB.batch(stmts);
-    await registerArena(env, acc, now);   // 방어 편성이 바뀌었다
+    await later(env, () => registerArena(env, acc, now));   // 방어 편성이 바뀌었다
     return { ok: true, rev: p.rev + 1, ...(bindOn() ? { bound: rb.uid } : {}) };
   }
 
@@ -87,7 +96,7 @@ export async function hangarAction(env, acc, body, now) {
      (다른 기체가 끼면 그때 떼어 가고 그 기체에 귀속된다). 서킷 비우기와 같은 한 묶음 — 풀었는데 안 치름 · 치렀는데 안 풂이 없다 */
   if (action === 'unbind') {
     if (!bindOn()) return err(400, 'bind off');
-    const pt = await getPart(env, acc, body.partUid);
+    const pt = await partOne(body.partUid);
     if (!pt) return err(404, 'part not found');
     if (pt.bound == null) return err(400, 'not bound');
     const cost = unbindCost();
@@ -114,7 +123,7 @@ export async function hangarAction(env, acc, body, now) {
     const perRobot = bindOn();
     /* 계정 프리셋 지우기는 기체를 받지 않는다(예전 요청 모양) — 기체가 필요할 때만 찾는다 */
     const needRobot = perRobot || action !== 'presetDelete';
-    const rb = needRobot && typeof body.robotUid === 'string' ? await getRobot(env, acc, body.robotUid) : null;
+    const rb = needRobot && typeof body.robotUid === 'string' ? await robotOf(body.robotUid) : null;
     if (needRobot && !rb) return err(404, 'robot not found');
     const list = parsePresets(perRobot ? rb.presets : p.presets);
     const savePresets = l => perRobot
@@ -166,14 +175,14 @@ export async function hangarAction(env, acc, body, now) {
     for (const sl of chk.empty) stmts.push(env.DB.prepare(`UPDATE robot SET ${SLOT_COL[sl]} = NULL WHERE id = ?1`).bind(rb.id));
     stmts.push(env.DB.prepare('UPDATE player SET rev = ?1, updated_at = ?2 WHERE account_id = ?3').bind(p.rev + 1, now, acc));
     await env.DB.batch(stmts);
-    await registerArena(env, acc, now);   // 방어 편성이 바뀌었다
+    await later(env, () => registerArena(env, acc, now));   // 방어 편성이 바뀌었다
     return { ok: true, rev: p.rev + 1, applied: chk.ok, emptied: chk.empty, missing: chk.missing,
              ...(bindOn() ? { bound: bf.blocked } : {}) };
   }
 
   /* ── 해제 ── */
   if (action === 'unequip') {
-    const rb = await getRobot(env, acc, body.robotUid);
+    const rb = await robotOf(body.robotUid);
     if (!rb) return err(404, 'robot not found');
     const col = SLOT_COL[body.slot];
     if (!col) return err(400, 'bad slot');
@@ -181,13 +190,13 @@ export async function hangarAction(env, acc, body, now) {
       env.DB.prepare(`UPDATE robot SET ${col} = NULL WHERE id = ?1`).bind(rb.id),
       env.DB.prepare('UPDATE player SET rev = ?1, updated_at = ?2 WHERE account_id = ?3').bind(p.rev + 1, now, acc),
     ]);
-    await registerArena(env, acc, now);   // 방어 편성이 바뀌었다
+    await later(env, () => registerArena(env, acc, now));   // 방어 편성이 바뀌었다
     return { ok: true, rev: p.rev + 1 };
   }
 
   /* ── 파츠 강화 (스크랩) ── */
   if (action === 'enhance') {
-    const pt = await getPart(env, acc, body.partUid);
+    const pt = await partOne(body.partUid);
     if (!pt) return err(404, 'part not found');
     if (pt.enh >= enhMax()) return err(400, 'max enhanced');
     const cost = enhCost(pt.enh);
@@ -209,7 +218,7 @@ export async function hangarAction(env, acc, body, now) {
     const worn = await env.DB.prepare(
       `SELECT 1 FROM robot WHERE account_id = ?1 AND id = ?2
          AND ?3 IN (s_weapon, s_frame, s_booster, s_core)`).bind(acc, p.sel_robot, pt.id).first();
-    if (worn) await registerArena(env, acc, now);
+    if (worn) await later(env, () => registerArena(env, acc, now));
     return { ok: true, rev: p.rev + 1, scrap: p.scrap - cost, enh: pt.enh + 1, cost };
   }
 
@@ -217,7 +226,7 @@ export async function hangarAction(env, acc, body, now) {
   /* 레벨은 기체마다 따로다(007). 키우는 과정이 곧 보상이라, 새로 뽑은 기체는
      Lv.1 부터 시작해 제 또래 상대와 싸우며 큰다. */
   if (action === 'levelup') {
-    const rb = await getRobot(env, acc, body.robotUid);
+    const rb = await robotOf(body.robotUid);
     if (!rb) return err(404, 'robot not found');
     if (rb.level >= CONST.MAXLV) return err(400, 'max level');
     const cost = lvCost(rb.level);
@@ -226,13 +235,13 @@ export async function hangarAction(env, acc, body, now) {
       env.DB.prepare('UPDATE robot SET level = ?1, exp = 0 WHERE id = ?2').bind(rb.level + 1, rb.id),
       spend(env, acc, p, { credits: cost }, now),
     ]);
-    await registerArena(env, acc, now);
+    await later(env, () => registerArena(env, acc, now));
     return { ok: true, rev: p.rev + 1, credits: p.credits - cost, level: rb.level + 1, cost };
   }
 
   /* ── 정비 (크레딧) ── */
   if (action === 'service') {
-    const rb = await getRobot(env, acc, body.robotUid);
+    const rb = await robotOf(body.robotUid);
     if (!rb) return err(404, 'robot not found');
     /* 서버 시각으로 자연 회복부터 정산한다. 그래야 '이미 회복된 만큼'을 돈 주고 사지 않는다. */
     const r = { level: rb.level, fat: rb.fat, fatAt: rb.fat_at };
@@ -249,14 +258,14 @@ export async function hangarAction(env, acc, body, now) {
 
   /* ── 이번에 나갈 기체 고르기 ── 편성에 든 두 기 중에서만 고를 수 있다. */
   if (action === 'select') {
-    const rb = await getRobot(env, acc, body.robotUid);
+    const rb = await robotOf(body.robotUid);
     if (!rb) return err(404, 'robot not found');
     if (rb.id === p.expd_robot) return err(400, 'robot on expedition');
     const squad = [p.squad1, p.squad2].filter(Boolean);
     if (squad.length && !squad.includes(rb.id)) return err(400, 'not in squad');
     await env.DB.prepare('UPDATE player SET sel_robot = ?1, rev = ?2, updated_at = ?3 WHERE account_id = ?4')
       .bind(rb.id, p.rev + 1, now, acc).run();
-    await registerArena(env, acc, now);   // 출전 기체가 곧 방어 기체다
+    await later(env, () => registerArena(env, acc, now));   // 출전 기체가 곧 방어 기체다
     return { ok: true, rev: p.rev + 1 };
   }
 
@@ -282,7 +291,7 @@ export async function hangarAction(env, acc, body, now) {
       `UPDATE player SET squad1 = ?1, squad2 = ?2, sel_robot = ?3, pending_match = NULL,
          rev = ?4, updated_at = ?5 WHERE account_id = ?6`)
       .bind(ids[0], ids[1] ?? null, sel, p.rev + 1, now, acc).run();
-    await registerArena(env, acc, now);   // 나갈 기체가 곧 방어 기체다
+    await later(env, () => registerArena(env, acc, now));   // 나갈 기체가 곧 방어 기체다
     return { ok: true, rev: p.rev + 1, squad: uids.slice(0, ids.length), dropped };
   }
 
@@ -290,7 +299,7 @@ export async function hangarAction(env, acc, body, now) {
      성공 판정은 반드시 서버가 한다 — 클라가 굴리면 될 때까지 다시 보내면 그만이다.
      실패해도 재화는 나간다. 그게 이 장치의 값이다. */
   if (action === 'skillup') {
-    const rb = await getRobot(env, acc, body.robotUid);
+    const rb = await robotOf(body.robotUid);
     if (!rb) return err(404, 'robot not found');
     const lv = rb.skill_lv | 0;
     if (lv >= skillMax()) return err(400, 'max skill');
@@ -305,7 +314,7 @@ export async function hangarAction(env, acc, body, now) {
     const stmts = [spend(env, acc, p, { credits: c.cr, scrap: c.sc }, now)];
     if (ok) stmts.push(env.DB.prepare('UPDATE robot SET skill_lv = ?1 WHERE id = ?2').bind(lv + 1, rb.id));
     await env.DB.batch(stmts);
-    if (ok) await registerArena(env, acc, now);   // 방어 기체의 위력이 달라졌다
+    if (ok) await later(env, () => registerArena(env, acc, now));   // 방어 기체의 위력이 달라졌다
 
     return { ok: true, rev: p.rev + 1, success: ok, skillLv: ok ? lv + 1 : lv,
              credits: p.credits - c.cr, scrap: p.scrap - c.sc, cost: c, rate: skillRate(lv) };
@@ -369,7 +378,7 @@ export async function hangarAction(env, acc, body, now) {
   }
 
   if (action === 'scrap') {
-    const pt = await getPart(env, acc, body.partUid);
+    const pt = await partOne(body.partUid);
     if (!pt) return err(404, 'part not found');
     const worn = await env.DB.prepare(
       `SELECT id FROM robot WHERE account_id = ?1

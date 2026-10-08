@@ -16,6 +16,7 @@ import { bindOn, unbindCost } from '../js/bind.js';
 import { huntWeekView } from '../js/rewards.js';
 import { masteryView } from '../js/mastery.js';
 import { commitMastery, MASTERY_RETRIES } from './mastery.js';
+import { readMany, firstOf } from './dbread.js';
 import { parseCircuit } from '../js/circuit.js';
 import { salvLeft, salvDaily } from '../js/salvage.js';
 import { ROBOT_TYPES, RARITY, SLOTS, PART_NAMES, STAT_ROLL, COST_ROLL, SPREAD_ROLL, CONST } from '../data/balance.js';
@@ -195,17 +196,22 @@ export async function noteMigration(env, accountId, clamped, now) {
 
 /* ── 읽기 ──────────────────────────────────────────────── */
 export async function loadState(env, accountId) {
-  let p,robots,mast;
-  for(let attempt=0;attempt<MASTERY_RETRIES;attempt++){
-    p = await env.DB.prepare(
+  let p,robots,mast,parts;
+  /* 플레이어 · 기체 · 파츠를 한 번에 묻는다(server/dbread.js). 숙련 정산이 겹쳐 다시 읽을 때는 플레이어 · 기체만 — 파츠는 정산이 안 바꾼다 */
+  const playerQ = () => env.DB.prepare(
       `SELECT nickname, credits, cores, rcores, scrap, wins, losses, pulls, rating, rev, mband, mband_pts, codex, items, presets,
               campaign, hunt_wk, m_goal, salv, sel_robot, squad1, squad2, expd_robot, expd_tier, expd_lv, expd_end
-         FROM player WHERE account_id = ?1`).bind(accountId).first();
-    if (!p) return null;
-
-    robots = (await env.DB.prepare(
+         FROM player WHERE account_id = ?1`).bind(accountId);
+  const robotQ = () => env.DB.prepare(
       `SELECT id, uid, type, level, exp, fat, fat_at, skill_lv, m_lv, circuit, presets, s_weapon, s_frame, s_booster, s_core
-         FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
+         FROM robot WHERE account_id = ?1 ORDER BY id`).bind(accountId);
+  for(let attempt=0;attempt<MASTERY_RETRIES;attempt++){
+    let pr;
+    if (attempt === 0) [pr, robots, parts] = await readMany(env, [playerQ(), robotQ(),
+      env.DB.prepare(`SELECT ${PART_COLS}, bound FROM part WHERE account_id = ?1 ORDER BY id`).bind(accountId)]);
+    else [pr, robots] = await readMany(env, [playerQ(), robotQ()]);
+    p = firstOf(pr);
+    if (!p) return null;
 
     /* ── 숙련 조각 정산(022) ──────────────────────────────────────
        레벨이 오르는 길은 여럿이지만(대전 · 전선 · 점령 · 레벨업 구매) 상태 조회와 목표 변경은 같은 조건부 정산을 쓴다.
@@ -217,9 +223,6 @@ export async function loadState(env, accountId) {
     }
     ({p,robots,mast}=settled);break;
   }
-  const parts = (await env.DB.prepare(
-    `SELECT ${PART_COLS}, bound FROM part WHERE account_id = ?1 ORDER BY id`).bind(accountId).all()).results || [];
-
   const byId = new Map(parts.map(x => [x.id, x.uid]));
   const col = { WEAPON: 's_weapon', FRAME: 's_frame', BOOSTER: 's_booster', CORE: 's_core' };
 

@@ -25,6 +25,7 @@ import { mulberry32 } from '../js/sim.js';
 import { applyTerrain, runBreach, regenLines, maxRounds, rarAllowed, withSpread } from '../js/breach.js';
 import { registerArena } from './arena.js';
 import { PART_COLS, partOf } from './parts.js';
+import { readMany, firstOf, later } from './dbread.js';
 
 const err = (status, error) => ({ ok: false, status, error });
 const HOUR = 3600000;
@@ -43,7 +44,9 @@ const RANK_STATS_KEY = 'rank_stats';
 let _world = { at: 0, avg: 0 };
 async function worldAvgPower(env, now) {
   if (now - _world.at < 5 * 60000) return _world.avg;          // 아이솔레이트 안에서 5분 캐시
-  const row = await env.DB.prepare('SELECT v FROM meta WHERE k = ?1').bind(RANK_STATS_KEY).first();
+  return worldAvgFrom(await env.DB.prepare('SELECT v FROM meta WHERE k = ?1').bind(RANK_STATS_KEY).first(), now);
+}
+function worldAvgFrom(row, now) {
   let avg = 0;
   try { avg = Math.max(0, JSON.parse(row?.v || '{}').avgPower || 0); } catch { avg = 0; }
   _world = { at: now, avg };
@@ -188,21 +191,22 @@ function protectLeft(row, now) {
 
 /* ── 지도 보기 ─────────────────────────────────────────── */
 export async function territoryView(env, accountId, now) {
-  const rows = (await env.DB.prepare(
-    `SELECT node, owner_id, owner_name, hp_left, hp_at, taken_at, claimed_at FROM territory`)
-    .all()).results || [];
-  const byId = new Map(rows.map(r => [r.node, r]));
-
-  /* 해금 판정에 쓸 내 최고 레벨. 편성이 비어 있으면 보유 기체 중 최고로 본다. */
-  const lvRow = await env.DB.prepare(
-    `SELECT MAX(r.level) AS lv FROM robot r
+  /* 지도 · 내 최고 레벨(편성 · 보유) · 세계 평균 전투력을 한 번에(server/dbread.js). 평균은 아이솔레이트 캐시가 살아 있으면 묻지 않는다 */
+  const cached = now - _world.at < 5 * 60000;
+  const [rows, lvRows, fbRows, statRows] = await readMany(env, [
+    env.DB.prepare(`SELECT node, owner_id, owner_name, hp_left, hp_at, taken_at, claimed_at FROM territory`),
+    env.DB.prepare(`SELECT MAX(r.level) AS lv FROM robot r
        JOIN player p ON p.account_id = r.account_id
-      WHERE r.account_id = ?1 AND (p.squad1 = r.id OR p.squad2 = r.id)`).bind(accountId).first();
-  const fallback = await env.DB.prepare(
-    'SELECT MAX(level) AS lv FROM robot WHERE account_id = ?1').bind(accountId).first();
+      WHERE r.account_id = ?1 AND (p.squad1 = r.id OR p.squad2 = r.id)`).bind(accountId),
+    env.DB.prepare('SELECT MAX(level) AS lv FROM robot WHERE account_id = ?1').bind(accountId),
+    ...(cached ? [] : [env.DB.prepare('SELECT v FROM meta WHERE k = ?1').bind(RANK_STATS_KEY)]),
+  ]);
+  const byId = new Map(rows.map(r => [r.node, r]));
+  /* 해금 판정에 쓸 내 최고 레벨. 편성이 비어 있으면 보유 기체 중 최고로 본다. */
+  const lvRow = firstOf(lvRows), fallback = firstOf(fbRows);
   const myLv = (lvRow && lvRow.lv) || (fallback && fallback.lv) || 1;
 
-  const avgPower = await worldAvgPower(env, now);
+  const avgPower = cached ? _world.avg : worldAvgFrom(firstOf(statRows), now);
 
   let cr = 0, sc = 0, core = 0, mine = 0;
   const nodes = TERRITORY.map(n => {
@@ -407,7 +411,7 @@ export async function attackNode(env, accountId, now, nodeId, wantRaid) {
 
   /* 점령했으면 내 방어 스냅샷을 최신으로 올려 둔다 — 이제 이 칸을 내 기체가 지킨다.
      (레벨이 올랐을 때도 갱신되어야 하므로 어차피 필요한 호출이다) */
-  if (r.win || expOut.some(e => e.to > e.from)) await registerArena(env, accountId, now);
+  if (r.win || expOut.some(e => e.to > e.from)) await later(env, () => registerArena(env, accountId, now));
 
   return {
     ok: true, node: nodeId, win: r.win, cost, terrain: node.terrain,

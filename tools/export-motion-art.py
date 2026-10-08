@@ -82,4 +82,3 @@ if __name__ == '__main__':
     if kind == 'fx': export_fx(src, dst)
     elif kind == 'pose': export_pose(src, dst, args[0])
     else: raise ValueError('fx or pose required')
-

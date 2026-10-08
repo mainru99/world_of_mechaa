@@ -179,4 +179,3 @@ export function createPoseSequence(canvas, opts = {}) {
   }
   return { ready, showFrame, play, dispose };
 }
-

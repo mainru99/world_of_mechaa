@@ -18,7 +18,7 @@
       "outputSha256": "ad6a7f9f621f8760770101c98f62b6b5a15246cc9c72967d5bcf7b16b5400e3d"
     }
   ],
-  "status": "six-frame prototype complete; user approval pending; no production hookup/commit/push/deploy",
+  "status": "six-frame prototype complete; user authorized archive/commit/push/public preview deployment 2026-10-08; detail polish pending; no live combat hookup",
   "export": {
     "tool": "tools/export-azure-sequence.py",
     "manifest": "assets/motions/sequence/azure-dagger-v1/sequence.json",

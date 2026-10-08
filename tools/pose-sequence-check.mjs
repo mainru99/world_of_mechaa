@@ -292,4 +292,3 @@ for (const cancelKind of ['cancel', 'dispose']) {
   else check(h.draws.at(-1) === 'idle.png', 'held contact cancel restores idle');
 }
 console.log('pose-sequence-check: ' + checks + ' checks passed');
-

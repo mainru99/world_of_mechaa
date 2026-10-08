@@ -27,4 +27,3 @@ for rid in ['azure','kestrel']:
     source=ROOT/'docs'/'art'/'attack-motion-sources'/f'{rid}.png'
     result.append({'id':rid,'sha256':sha(path),'sourceSha256':sha(source),'originalSha256':sha(ROOT/'assets'/f'{rid}.png'),'check':check})
 print(json.dumps(result,ensure_ascii=False,indent=2))
-

@@ -90,3 +90,7 @@ python tools/export-azure-sequence.py docs/art/attack-motion-sources/azure-dagge
 node tools/motion-art-preview.mjs 8124
 ```
 로컬 URL: http://127.0.0.1:8124/docs/art/azure-dagger-sequence-preview.html
+
+## 이후 사용자 승인 — 자료 저장·공개 시범 배포
+
+2026-10-08 사용자가 어제 효과음 작업과 함께 보존·커밋·푸시·배포를 지시했다. 위 미커밋·미배포는 시범 제작 당시 상태다. [원격 통합·배포 최신 기록](motion-release-2026-10-08.md)을 따른다. 공개 승인과 프레임 정밀 보정/실전 엔진 통합 완료를 구별한다.

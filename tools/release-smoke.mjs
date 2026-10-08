@@ -26,11 +26,14 @@ async function deniedPost(path){
 }
 async function walk(dir){
  const out=[];for(const f of await readdir(resolve(root,'dist',dir),{withFileTypes:true})){
-  const path=`${dir}/${f.name}`;if(f.isDirectory())out.push(...await walk(path));else if(/\.(js|css)$/.test(f.name))out.push(path);
+  const path=`${dir}/${f.name}`;if(f.isDirectory())out.push(...await walk(path));else if(/\.(js|css|png|webp|json)$/.test(f.name))out.push(path);
  }return out;
 }
 const files=['index.html','style.css','core-circuit-preview.html',...await walk('js'),...await walk('data'),...await walk('themes'),
- 'assets/backgrounds/territory-map-v2.png','assets/ignis.png','assets/motions/ignis-idle-10f.webp'];
+ 'assets/backgrounds/territory-map-v2.png','assets/ignis.png','assets/motions/ignis-idle-10f.webp',
+ 'docs/art/attack-motion-preview.html','docs/art/attack-motion-review.html','docs/art/azure-dagger-sequence-preview.html',
+ 'assets/effects/motion-slash.png','assets/effects/motion-cannon.png','assets/effects/motion-status-a.png',
+ ...await walk('assets/motions/attack'),...await walk('assets/motions/sequence'),...await walk('assets/gacha')];
 for(let i=0;i<files.length;i+=6){
  const batch=files.slice(i,i+6);
  const results=await Promise.allSettled(batch.map(async path=>{
@@ -54,7 +57,9 @@ for(const path of ['/api/state','/api/salvage','/api/trial','/api/raid']){
 for(const path of ['/api/hangar','/api/circuit','/api/refine','/api/battle/start']){
  try{const r=await deniedPost(path);await r.arrayBuffer();records.push({path,method:'POST',status:r.status,authenticationRequired:r.status===401});assert.equal(r.status,401,path);}catch(e){errors.push(`${path}: ${e.message}`);}
 }
-for(const path of ['/CONTRACT.md','/server/schema.sql','/tools/ui-performance-probe.js']){
+for(const path of ['/CONTRACT.md','/server/schema.sql','/tools/ui-performance-probe.js',
+ '/docs/art/azure-dagger-sequence-prompts-2026-10-08.json','/docs/art/attack-motion-sources/azure-dagger-sequence-v1.png',
+ '/docs/handoff/2026-10-08-juice-to-ui.md','/proto/juice/gacha.html','/proto/juice/sfx/hit_light_a.wav']){
  try{const r=await get(path);await r.arrayBuffer();records.push({path,status:r.status,privatePathBlocked:r.status===404});assert.equal(r.status,404,path);}catch(e){errors.push(`${path}: ${e.message}`);}
 }
 const report={at:new Date().toISOString(),base,tag,mode:'anonymous GET + credential-free empty POST rejected by auth; no production account mutation',ok:errors.length===0,health,flags:{bind:CONST.PART_BIND.on,lineage:CONST.LINEAGE.gate},fileCount:files.length,records,errors};

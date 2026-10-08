@@ -45,4 +45,11 @@ for (const name of INCLUDE) {
 // 사용자 승인 공개 시안 하나만 포함한다. docs/ 전체를 공개하지 않는다.
 await cp(join(ROOT, 'docs/balance/core-circuit-draft-2026-09-23.html'), join(DIST, 'core-circuit-preview.html'));
 console.log('  복사: core-circuit-preview.html (계정 저장 없는 미리보기)');
-console.log(`\ndist/ 준비 완료 — ${n + 1}개 항목. 이제 npx wrangler dev 또는 npx wrangler deploy`);
+// 2026-10-08 사용자 승인: 공격 시범 HTML만 공개. 내부 기록/생성 원본은 제외.
+const MOTION_PREVIEWS = ['attack-motion-preview.html', 'attack-motion-review.html', 'azure-dagger-sequence-preview.html'];
+await mkdir(join(DIST, 'docs/art'), { recursive: true });
+for (const name of MOTION_PREVIEWS) {
+  await cp(join(ROOT, 'docs/art', name), join(DIST, 'docs/art', name));
+  console.log(`  복사: docs/art/${name} (독립 시범 · 실전 미연결)`);
+}
+console.log(`\ndist/ 준비 완료 — ${n + 1 + MOTION_PREVIEWS.length}개 항목. 이제 npx wrangler dev 또는 npx wrangler deploy`);

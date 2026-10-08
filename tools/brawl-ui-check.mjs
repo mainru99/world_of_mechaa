@@ -11,7 +11,7 @@ import {battleView} from '../js/ui/battle.js';
 const clone=v=>JSON.parse(JSON.stringify(v));
 function soundSpy(){const versions=new Map(),plays=[];return {plays,stop:s=>versions.set(s,(versions.get(s)||0)+1),ticket:s=>({scope:s,v:versions.get(s)||0}),current:t=>t.v===(versions.get(t.scope)||0),preload:async()=>[],play:(name,config)=>plays.push([name,config])};}
 const deferred=()=>{let resolve;return {promise:new Promise(r=>resolve=r),resolve:v=>resolve(v)};};
-assert.equal(CONST.BRAWL.on,false,'production switch remains off');
+assert.equal(CONST.BRAWL.on,true,'production switch on (2026-10-08 user decision)');
 assert.equal(synergyText({key:'precise',v:.15}),'스킬 위력 +15%');
 
 const base={credits:1000,cores:10,scrap:500,items:{},robots:['mule','ranger','azure'].map((type,i)=>({type,uid:'ui-'+i,level:30}))};
@@ -67,7 +67,7 @@ try{
 }finally{fixture.close();}
 {
  const t=setup();t.override(async()=>({ok:true,on:false}));await t.a.brawlHome();assert.match(t.html,/난투 준비 중/);const count=t.calls.length;await t.a.brawlStart();assert.equal(t.calls.length,count,'off mode sends no POST');
- assert.ok(!battleView({allies:[],playerName:'QA',playerMeta:''}).includes('ROWAR.brawlHome()'),'production menu remains hidden');
+ assert.ok(battleView({allies:[],playerName:'QA',playerMeta:''}).includes('ROWAR.brawlHome()'),'production menu shows brawl entry (switch on 2026-10-08)');
  t.net.state.online=false;await t.a.brawlRefresh();assert.match(t.html,/서버에 연결되어 있지 않습니다/);
 }
 
@@ -99,4 +99,4 @@ assert.ok(!brawlView({...session,notice:'<script>bad()</script>'}).includes('<sc
 const rank=brawlView({...session,phase:'rank',rank:{top:[{rank:1,nickname:'<img onerror=bad()>',best:10,lives:5,runs:1}]}});assert.ok(!rank.includes('<img onerror='));
 const netSource=await readFile(new URL('../js/net.js',import.meta.url),'utf8');
 const request=netSource.slice(netSource.indexOf('async function brawlRequest'),netSource.indexOf('export const brawl='));assert.ok(!request.includes('setSyncedRev'),'run revision cannot advance player sync revision');
-assert.equal(CONST.BRAWL.on,false);console.log('PASS · 90 full event replays, sparse slot IDs, HTML escaping, production switch, separate revision contract');
+assert.equal(CONST.BRAWL.on,true);console.log('PASS · 90 full event replays, sparse slot IDs, HTML escaping, production switch, separate revision contract');

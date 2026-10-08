@@ -4557,3 +4557,9 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - 확인: `node --no-warnings tools/ui-preview.mjs 8807 --sample-brawl` (메모리 SQLite · 운영과 무관)
 - **코드 · CSS 는 고치지 않는다** — 연결과 PC · 모바일 크롭은 Claude 가 한다. 운영 난투 스위치(`CONST.BRAWL.on`)는 여전히 꺼져 있다
 - **완료(같은 날 밤)** — opencode(GPT)로 도트 후보를 그려 사용자가 1번을 골랐다. `assets/backgrounds/brawl-arena.webp` 연결 완료, 기록 `docs/art/brawl-arena-2026-10-08.md`. ChatGPT 가 따로 할 일은 없다(다듬을 때만 같은 이름으로 덮어쓰기)
+
+### → ChatGPT — 난투 운영 활성화 (2026-10-08 밤 · Claude, main · 사용자 결정)
+
+사용자 지시 "난투도 켜고 모든 기능 활성화 시키자" — `data/balance.js` `CONST.BRAWL.on = true` 로 바꿔 운영에 배포한다. 운영 DB 는 10-07 이관 025 로 이미 준비돼 있다.
+- 난투 수치를 고치면 이제 **바로 플레이어에게 간다** — 고칠 때는 `tools/brawlbal.mjs` 를 다시 돌리고 기록을 남긴다
+- `tools/brawl-ui-check.mjs` 는 스위치가 **켜져 있음**을 확인하도록 바꿨다

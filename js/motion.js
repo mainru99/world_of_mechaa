@@ -74,9 +74,11 @@ const STATUS_COLOR = { shield: '#8fd3ff', repair: '#7dffa8', mark: '#ff5a5a', ja
 
 /* ── 그림 읽기 ─────────────────────────────────────────── */
 const images = new Map();
+// Manifest paths are repo-relative, independent of page depth and CSP base-uri.
+export const motionAssetUrl = src => src ? new URL(src, new URL('../', import.meta.url)).href : null;
 function load(src) {
   if (!src) return Promise.resolve(null);
-  if (!images.has(src)) images.set(src, new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }));
+  if (!images.has(src)) images.set(src, new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = motionAssetUrl(src); }));
   return images.get(src);
 }
 export const atlasSrc = name => (MOTION_ASSETS.atlas || {})[name] || null;
@@ -167,11 +169,11 @@ export function createMotion(arena, opts = {}) {
     load(P.src).then(pi => {
       if (!pi || disposed || !img.isConnected) return;
       const keep = img.getAttribute('src'), keepT = img.style.translate;
-      img.setAttribute('src', P.src);
+      img.setAttribute('src', motionAssetUrl(P.src));
       /* 정렬 — 원본 440 × 420 기준 픽셀을 지금 그려진 크기로 줄인다. 뒤집힌 그림이면 dx 도 뒤집는다 */
       const k = (img.clientWidth || 440) / 440, flip = img.classList.contains('flip') ? -1 : 1;
       img.style.translate = `${(P.dx || 0) * k * flip}px ${(P.dy || 0) * k}px`;
-      setTimeout(() => { if (img.isConnected && img.getAttribute('src') === P.src) { img.setAttribute('src', keep); img.style.translate = keepT; } }, hold / speed());
+      setTimeout(() => { if (img.isConnected && img.getAttribute('src') === motionAssetUrl(P.src)) { img.setAttribute('src', keep); img.style.translate = keepT; } }, hold / speed());
     });
   }
 

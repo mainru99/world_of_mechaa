@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<base href="../../"><title>AZURE 단검 · 6프레임 베기 시범</title>
+<title>AZURE 단검 · 6프레임 베기 시범</title>
 <style>
 :root{color-scheme:dark;--ink:#dce7ee;--sub:#98afbc;--gold:#ecc57f;--line:#344b59}
 *{box-sizing:border-box}body{margin:0;background:#0b141b;color:var(--ink);font:14px/1.6 system-ui,sans-serif}
@@ -38,7 +38,7 @@ label.check{flex-direction:row;align-items:center;padding-bottom:8px}#arena{heig
 <div id="arena">
 <div class="hpwrap azure">AZURE · 6프레임<b></b></div><div class="hpwrap enemy">KESTREL · 원본 표시<b></b></div>
 <div id="fighter-azure" class="fighter"><canvas id="sprite" width="440" height="420" role="img" aria-label="AZURE 단검 연속 자세"></canvas></div>
-<div id="fighter-enemy" class="fighter"><img id="enemyImg" src="assets/kestrel.png" alt="상대 KESTREL 원본"><span id="damage"></span></div>
+<div id="fighter-enemy" class="fighter"><img id="enemyImg" src="../../assets/kestrel.png" alt="상대 KESTREL 원본"><span id="damage"></span></div>
 <div id="banner"></div><div id="flash"></div>
 </div>
 <div class="info"><strong id="frameState">프레임 준비 중…</strong><span id="timing">한 타 400ms · 접촉 180ms / 1배속</span><span id="trace" aria-live="polite">그림 로딩 중</span></div>
@@ -47,7 +47,7 @@ label.check{flex-direction:row;align-items:center;padding-bottom:8px}#arena{heig
 <div class="notes">
 <p>원본 기체와 기존 단검1장·승인된 이펙트·KESTREL 자세는 수정하지 않았습니다. AI 편집 프레임이므로 장갑·머리·발 간격의 세부 일관성은 검수 대상입니다. 이 페이지는 판정 없는 동작 시험이며 숫자 “HIT”도 연출 확인용입니다.</p>
 <p>6프레임 공통 축척 · 발끝 y407 · 단검과 안테나 잘림 없음. 칼끝 여백을 위해 공통 발 중심을 원본보다 약18px 옮겼습니다. 무장 준비 자세를 시범 idle로 사용해 칼이 갑자기 사라지지 않게 했습니다. 기존 비무장 idle 연결·실전 사건 통합은 Claude 검토 후 별도 작업입니다.</p>
-<a href="docs/art/attack-motion-review.html">기존 단일 자세 비교</a> · <a href="assets/motions/sequence/azure-dagger-v1/atlas.png">6프레임 시트</a>
+<a href="attack-motion-review.html">기존 단일 자세 비교</a> · <a href="../../assets/motions/sequence/azure-dagger-v1/atlas.png">6프레임 시트</a>
 </div>
 </main><script type="module">
 import {createPoseSequence} from '../../js/pose-sequence.js';
@@ -56,7 +56,8 @@ const $ = s => document.querySelector(s), arena=$('#arena');
 let sequence, motion, runToken=0, attackSpeed=0.5, active=null, damagedTimer=0, traceFrames=new Set();
 const isReduced=()=>$('#reduced').checked || matchMedia('(prefers-reduced-motion: reduce)').matches;
 const flip=()=>$('#direction').value==='right';
-const data=await fetch('assets/motions/sequence/azure-dagger-v1/sequence.json').then(r=>{if(!r.ok)throw Error('sequence.json load failed');return r.json()});
+const data=await fetch('../../assets/motions/sequence/azure-dagger-v1/sequence.json').then(r=>{if(!r.ok)throw Error('sequence.json load failed');return r.json()});
+data.frames=data.frames.map(f=>({...f,src:'../../'+f.src}));
 function recordFrame(i){
   const index=i<0?0:i;
   $('#frameState').textContent=(i<0?'준비':'프레임 '+(i+1)+'/6')+' · '+data.frames[index].label;

@@ -1,0 +1,984 @@
+{
+  "at": "2026-10-08T01:31:23.173Z",
+  "base": "https://rowar.hun7539.workers.dev",
+  "tag": "6856fbc-motion",
+  "mode": "anonymous GET + credential-free empty POST rejected by auth; no production account mutation",
+  "ok": true,
+  "health": {
+    "ok": true,
+    "db": "connected",
+    "schema_version": "25",
+    "tables": 16,
+    "accounts": 35,
+    "arena": 35,
+    "balance_ver": "o282jp",
+    "ms": 622
+  },
+  "flags": {
+    "bind": true,
+    "lineage": true
+  },
+  "fileCount": 137,
+  "records": [
+    {
+      "path": "js/brawl.js",
+      "status": 200,
+      "bytes": 25594,
+      "matches": true
+    },
+    {
+      "path": "style.css",
+      "status": 200,
+      "bytes": 113200,
+      "matches": true
+    },
+    {
+      "path": "js/bind.js",
+      "status": 200,
+      "bytes": 2510,
+      "matches": true
+    },
+    {
+      "path": "js/brawl-sim.js",
+      "status": 200,
+      "bytes": 8437,
+      "matches": true
+    },
+    {
+      "path": "index.html",
+      "status": 200,
+      "bytes": 8167,
+      "matches": true
+    },
+    {
+      "path": "core-circuit-preview.html",
+      "status": 200,
+      "bytes": 1067354,
+      "matches": true
+    },
+    {
+      "path": "js/codex.js",
+      "status": 200,
+      "bytes": 12898,
+      "matches": true
+    },
+    {
+      "path": "js/circuit.js",
+      "status": 200,
+      "bytes": 13239,
+      "matches": true
+    },
+    {
+      "path": "js/breach.js",
+      "status": 200,
+      "bytes": 8443,
+      "matches": true
+    },
+    {
+      "path": "js/front.js",
+      "status": 200,
+      "bytes": 7212,
+      "matches": true
+    },
+    {
+      "path": "js/gacha.js",
+      "status": 200,
+      "bytes": 12784,
+      "matches": true
+    },
+    {
+      "path": "js/circuitlayout.js",
+      "status": 200,
+      "bytes": 7073,
+      "matches": true
+    },
+    {
+      "path": "js/ignis-rain.js",
+      "status": 200,
+      "bytes": 7368,
+      "matches": true
+    },
+    {
+      "path": "js/mastery.js",
+      "status": 200,
+      "bytes": 5361,
+      "matches": true
+    },
+    {
+      "path": "js/insight.js",
+      "status": 200,
+      "bytes": 8344,
+      "matches": true
+    },
+    {
+      "path": "js/joint.js",
+      "status": 200,
+      "bytes": 18043,
+      "matches": true
+    },
+    {
+      "path": "js/game.js",
+      "status": 200,
+      "bytes": 292416,
+      "matches": true
+    },
+    {
+      "path": "js/lineage.js",
+      "status": 200,
+      "bytes": 3839,
+      "matches": true
+    },
+    {
+      "path": "js/preset.js",
+      "status": 200,
+      "bytes": 2295,
+      "matches": true
+    },
+    {
+      "path": "js/net.js",
+      "status": 200,
+      "bytes": 19696,
+      "matches": true
+    },
+    {
+      "path": "js/motion-assets.js",
+      "status": 200,
+      "bytes": 901,
+      "matches": true
+    },
+    {
+      "path": "js/raid.js",
+      "status": 200,
+      "bytes": 7028,
+      "matches": true
+    },
+    {
+      "path": "js/pose-sequence.js",
+      "status": 200,
+      "bytes": 8214,
+      "matches": true
+    },
+    {
+      "path": "js/motion.js",
+      "status": 200,
+      "bytes": 22166,
+      "matches": true
+    },
+    {
+      "path": "js/shop.js",
+      "status": 200,
+      "bytes": 6171,
+      "matches": true
+    },
+    {
+      "path": "js/salvage.js",
+      "status": 200,
+      "bytes": 4688,
+      "matches": true
+    },
+    {
+      "path": "js/shardsynth.js",
+      "status": 200,
+      "bytes": 4649,
+      "matches": true
+    },
+    {
+      "path": "js/rewards.js",
+      "status": 200,
+      "bytes": 21792,
+      "matches": true
+    },
+    {
+      "path": "js/sprites.js",
+      "status": 200,
+      "bytes": 2897,
+      "matches": true
+    },
+    {
+      "path": "js/sim.js",
+      "status": 200,
+      "bytes": 24414,
+      "matches": true
+    },
+    {
+      "path": "js/trial.js",
+      "status": 200,
+      "bytes": 5907,
+      "matches": true
+    },
+    {
+      "path": "js/ui/battle.js",
+      "status": 200,
+      "bytes": 5817,
+      "matches": true
+    },
+    {
+      "path": "js/stats.js",
+      "status": 200,
+      "bytes": 24444,
+      "matches": true
+    },
+    {
+      "path": "js/ui/battle-stats.js",
+      "status": 200,
+      "bytes": 436,
+      "matches": true
+    },
+    {
+      "path": "js/ui/brawl-manager.js",
+      "status": 200,
+      "bytes": 10071,
+      "matches": true
+    },
+    {
+      "path": "js/ui/brawl-replay.js",
+      "status": 200,
+      "bytes": 1800,
+      "matches": true
+    },
+    {
+      "path": "js/ui/brawl-view.js",
+      "status": 200,
+      "bytes": 15034,
+      "matches": true
+    },
+    {
+      "path": "js/ui/circuit-manager.js",
+      "status": 200,
+      "bytes": 7836,
+      "matches": true
+    },
+    {
+      "path": "js/ui/challenge.js",
+      "status": 200,
+      "bytes": 9514,
+      "matches": true
+    },
+    {
+      "path": "js/ui/circuit-svg.js",
+      "status": 200,
+      "bytes": 13020,
+      "matches": true
+    },
+    {
+      "path": "js/ui/circuit-view.js",
+      "status": 200,
+      "bytes": 7227,
+      "matches": true
+    },
+    {
+      "path": "js/ui/common.js",
+      "status": 200,
+      "bytes": 18296,
+      "matches": true
+    },
+    {
+      "path": "js/ui/development-visibility.js",
+      "status": 200,
+      "bytes": 630,
+      "matches": true
+    },
+    {
+      "path": "js/ui/front.js",
+      "status": 200,
+      "bytes": 8938,
+      "matches": true
+    },
+    {
+      "path": "js/ui/development-view.js",
+      "status": 200,
+      "bytes": 9144,
+      "matches": true
+    },
+    {
+      "path": "js/ui/development-manager.js",
+      "status": 200,
+      "bytes": 9229,
+      "matches": true
+    },
+    {
+      "path": "js/ui/development-graph.js",
+      "status": 200,
+      "bytes": 4911,
+      "matches": true
+    },
+    {
+      "path": "js/ui/dispatch.js",
+      "status": 200,
+      "bytes": 9128,
+      "matches": true
+    },
+    {
+      "path": "js/ui/icons.js",
+      "status": 200,
+      "bytes": 2133,
+      "matches": true
+    },
+    {
+      "path": "js/ui/loadout-model.js",
+      "status": 200,
+      "bytes": 1360,
+      "matches": true
+    },
+    {
+      "path": "js/ui/loadout-manager.js",
+      "status": 200,
+      "bytes": 10086,
+      "matches": true
+    },
+    {
+      "path": "js/ui/part-window.js",
+      "status": 200,
+      "bytes": 888,
+      "matches": true
+    },
+    {
+      "path": "js/ui/loadout-view.js",
+      "status": 200,
+      "bytes": 7477,
+      "matches": true
+    },
+    {
+      "path": "js/ui/modal.js",
+      "status": 200,
+      "bytes": 3519,
+      "matches": true
+    },
+    {
+      "path": "js/ui/shard-manager.js",
+      "status": 200,
+      "bytes": 8513,
+      "matches": true
+    },
+    {
+      "path": "js/ui/recruitment.js",
+      "status": 200,
+      "bytes": 9043,
+      "matches": true
+    },
+    {
+      "path": "js/ui/shard-view.js",
+      "status": 200,
+      "bytes": 12339,
+      "matches": true
+    },
+    {
+      "path": "js/ui/ranking.js",
+      "status": 200,
+      "bytes": 5104,
+      "matches": true
+    },
+    {
+      "path": "js/units.js",
+      "status": 200,
+      "bytes": 2151,
+      "matches": true
+    },
+    {
+      "path": "js/ui/territory.js",
+      "status": 200,
+      "bytes": 10547,
+      "matches": true
+    },
+    {
+      "path": "data/front.js",
+      "status": 200,
+      "bytes": 13374,
+      "matches": true
+    },
+    {
+      "path": "data/lineage.js",
+      "status": 200,
+      "bytes": 8578,
+      "matches": true
+    },
+    {
+      "path": "data/powercal.js",
+      "status": 200,
+      "bytes": 1705,
+      "matches": true
+    },
+    {
+      "path": "data/circuit.js",
+      "status": 200,
+      "bytes": 22294,
+      "matches": true
+    },
+    {
+      "path": "data/circuit_layout.js",
+      "status": 200,
+      "bytes": 55591,
+      "matches": true
+    },
+    {
+      "path": "data/balance.js",
+      "status": 200,
+      "bytes": 130760,
+      "matches": true
+    },
+    {
+      "path": "themes/brawl-v2.css",
+      "status": 200,
+      "bytes": 9060,
+      "matches": true
+    },
+    {
+      "path": "themes/circuit-v2.css",
+      "status": 200,
+      "bytes": 5746,
+      "matches": true
+    },
+    {
+      "path": "themes/battle-v2.css",
+      "status": 200,
+      "bytes": 15555,
+      "matches": true
+    },
+    {
+      "path": "themes/challenge-v2.css",
+      "status": 200,
+      "bytes": 11807,
+      "matches": true
+    },
+    {
+      "path": "data/story.js",
+      "status": 200,
+      "bytes": 54321,
+      "matches": true
+    },
+    {
+      "path": "themes/common-v2.css",
+      "status": 200,
+      "bytes": 10282,
+      "matches": true
+    },
+    {
+      "path": "themes/dispatch-v2.css",
+      "status": 200,
+      "bytes": 10507,
+      "matches": true
+    },
+    {
+      "path": "themes/development-v2.css",
+      "status": 200,
+      "bytes": 9581,
+      "matches": true
+    },
+    {
+      "path": "themes/front-v2.css",
+      "status": 200,
+      "bytes": 12580,
+      "matches": true
+    },
+    {
+      "path": "themes/loadout-v2.css",
+      "status": 200,
+      "bytes": 4809,
+      "matches": true
+    },
+    {
+      "path": "themes/hangar-v2.css",
+      "status": 200,
+      "bytes": 16580,
+      "matches": true
+    },
+    {
+      "path": "themes/login-v2.css",
+      "status": 200,
+      "bytes": 8589,
+      "matches": true
+    },
+    {
+      "path": "themes/territory-v2.css",
+      "status": 200,
+      "bytes": 15504,
+      "matches": true
+    },
+    {
+      "path": "themes/ranking-v2.css",
+      "status": 200,
+      "bytes": 12314,
+      "matches": true
+    },
+    {
+      "path": "themes/recruitment-v2.css",
+      "status": 200,
+      "bytes": 12471,
+      "matches": true
+    },
+    {
+      "path": "themes/scenes.css",
+      "status": 200,
+      "bytes": 33847,
+      "matches": true
+    },
+    {
+      "path": "themes/shard-v2.css",
+      "status": 200,
+      "bytes": 9118,
+      "matches": true
+    },
+    {
+      "path": "themes/supply-v2.css",
+      "status": 200,
+      "bytes": 8095,
+      "matches": true
+    },
+    {
+      "path": "themes/ui-v2.css",
+      "status": 200,
+      "bytes": 13490,
+      "matches": true
+    },
+    {
+      "path": "docs/art/attack-motion-review.html",
+      "status": 200,
+      "bytes": 4018,
+      "matches": true
+    },
+    {
+      "path": "assets/ignis.png",
+      "status": 200,
+      "bytes": 256860,
+      "matches": true,
+      "sha256": "60a6415c54cb9a4a21dbda9b9aaf7de2f6a7e76fe0ed8c5cc6dfc6285328164b"
+    },
+    {
+      "path": "assets/motions/ignis-idle-10f.webp",
+      "status": 200,
+      "bytes": 1590556,
+      "matches": true,
+      "sha256": "896834483e0e48cafd102abead15e77fc9e24c509f19078d7b8622367929c1fb"
+    },
+    {
+      "path": "docs/art/attack-motion-preview.html",
+      "status": 200,
+      "bytes": 10803,
+      "matches": true
+    },
+    {
+      "path": "assets/backgrounds/territory-map-v2.png",
+      "status": 200,
+      "bytes": 3387518,
+      "matches": true,
+      "sha256": "3e06efdd9d1118a0488b0d62c3dfc37c29e602b5f698f5e3a7c83c74f8c60599"
+    },
+    {
+      "path": "assets/motions/attack/kestrel.png",
+      "status": 200,
+      "bytes": 114830,
+      "matches": true,
+      "sha256": "427290dedb0629744a886152e2aefd90266a0d7b7a3d466029f26a21fa05991b"
+    },
+    {
+      "path": "assets/effects/motion-slash.png",
+      "status": 200,
+      "bytes": 13534,
+      "matches": true,
+      "sha256": "6689d5d072736a91297cb9ae45f1a04a4c16387acfc9fa4011b0f960f7ff6199"
+    },
+    {
+      "path": "assets/effects/motion-status-a.png",
+      "status": 200,
+      "bytes": 8544,
+      "matches": true,
+      "sha256": "8b37eb5bb650d0c4cb641ffdbf653e8bce8c210ef4496a54df8a67d599399bcf"
+    },
+    {
+      "path": "assets/effects/motion-cannon.png",
+      "status": 200,
+      "bytes": 12134,
+      "matches": true,
+      "sha256": "c43cdfc3d4a43edebd2b3504eac0e4c20e0dfd5b2fe162c51eaa74755f8f392d"
+    },
+    {
+      "path": "assets/motions/attack/azure.png",
+      "status": 200,
+      "bytes": 123566,
+      "matches": true,
+      "sha256": "ca4db5371b2af8835fab87e998d671dc79e78e0e80fbb737a7ac62dc9b79c31b"
+    },
+    {
+      "path": "docs/art/azure-dagger-sequence-preview.html",
+      "status": 200,
+      "bytes": 10391,
+      "matches": true
+    },
+    {
+      "path": "assets/motions/sequence/azure-dagger-v1/frame-05.png",
+      "status": 200,
+      "bytes": 122381,
+      "matches": true,
+      "sha256": "5dbe1037d73a4160b2d12b8dff294f937f98c11f86aeaed410a695a72a2ac18f"
+    },
+    {
+      "path": "assets/motions/sequence/azure-dagger-v1/frame-01.png",
+      "status": 200,
+      "bytes": 112761,
+      "matches": true,
+      "sha256": "8b244147919a20498eff3f482afd9ebe0d44af33ef9eaff18eee67ff59d71770"
+    },
+    {
+      "path": "assets/motions/sequence/azure-dagger-v1/frame-02.png",
+      "status": 200,
+      "bytes": 122844,
+      "matches": true,
+      "sha256": "6ff3298f64eb88e2bd6db03f01d46532dff17c948901b75c890471426ad8e4d1"
+    },
+    {
+      "path": "assets/motions/sequence/azure-dagger-v1/frame-04.png",
+      "status": 200,
+      "bytes": 123316,
+      "matches": true,
+      "sha256": "b464571bc5c0c143ca603adacd154f931235ecf64c6ce187d9e124d9102fbff4"
+    },
+    {
+      "path": "assets/motions/sequence/azure-dagger-v1/frame-03.png",
+      "status": 200,
+      "bytes": 121695,
+      "matches": true,
+      "sha256": "6ca235dde1540e0b1523029604be7cad3240b36ebf072b27a90defbb0751bac3"
+    },
+    {
+      "path": "assets/motions/sequence/azure-dagger-v1/atlas.png",
+      "status": 200,
+      "bytes": 714007,
+      "matches": true,
+      "sha256": "97bacf4b9499f3b6b5c93899ae4834c70250e5a87d5e3588dea2de6482a2d1d6"
+    },
+    {
+      "path": "assets/motions/sequence/azure-dagger-v1/sequence.json",
+      "status": 200,
+      "bytes": 2696,
+      "matches": true,
+      "sha256": "183241141851b090543ef726893e0180e30aa438f58010cf2783e6e83a8d52a8"
+    },
+    {
+      "path": "assets/motions/sequence/azure-dagger-v1/frame-06.png",
+      "status": 200,
+      "bytes": 114702,
+      "matches": true,
+      "sha256": "e59de50bf034a8b09ee45d0a1e0caa609f2a608d207a10019f8a85028b32ee35"
+    },
+    {
+      "path": "assets/gacha/capsule-ep-crack1.png",
+      "status": 200,
+      "bytes": 506671,
+      "matches": true,
+      "sha256": "7a7af15fcd52f838c63065b33b94d2b4fe06f6b90b929b15428e21dc873fcf68"
+    },
+    {
+      "path": "assets/gacha/capsule-c.png",
+      "status": 200,
+      "bytes": 458584,
+      "matches": true,
+      "sha256": "e6c3432095d6055c90e27bf2b7001999517b23e5b6ab72292b592a9bc1f8fd6e"
+    },
+    {
+      "path": "assets/gacha/capsule-ep-crack2.png",
+      "status": 200,
+      "bytes": 504156,
+      "matches": true,
+      "sha256": "5959b6dd29636b199d22090d5c86d3bce517c5ecd80da442a63007e622d5fb16"
+    },
+    {
+      "path": "assets/motions/sequence/azure-dagger-v1/preview.webp",
+      "status": 200,
+      "bytes": 471092,
+      "matches": true,
+      "sha256": "34f8d42e2efd78cb04ee522ec7eb095a51d0d9498d8a4f7cdfb50ac5943daa55"
+    },
+    {
+      "path": "assets/gacha/capsule-uc.png",
+      "status": 200,
+      "bytes": 517428,
+      "matches": true,
+      "sha256": "fc2b25d34790f49cc6afae8edc1d46a91c0b12e34783aab377e25c81c1f57f74"
+    },
+    {
+      "path": "assets/gacha/capsule-ep.png",
+      "status": 200,
+      "bytes": 500729,
+      "matches": true,
+      "sha256": "8c4194492067402515d37d581ae4bcea63d69735d84257a89fd0cc1516adf6c0"
+    },
+    {
+      "path": "assets/gacha/capsule-uq.png",
+      "status": 200,
+      "bytes": 517446,
+      "matches": true,
+      "sha256": "cc7e4e718559898aad907ad3febdceedd3098bbdf9564c56bef66a74ae0cfb45"
+    },
+    {
+      "path": "assets/gacha/capsule-uq-crack1.png",
+      "status": 200,
+      "bytes": 519976,
+      "matches": true,
+      "sha256": "ec271d0cb77cd51a3117f1d2f93c48792fe311c4a4e861c6af73db6ef2d44a3a"
+    },
+    {
+      "path": "assets/gacha/capsule-r.png",
+      "status": 200,
+      "bytes": 520094,
+      "matches": true,
+      "sha256": "3c99bacc9253bb733c589118eebd46fa5e26616c824ad3e008c3ed9068cb19a1"
+    },
+    {
+      "path": "assets/gacha/core-capsule.png",
+      "status": 200,
+      "bytes": 643290,
+      "matches": true,
+      "sha256": "7569884c4edc17e4553ba9803b96613d91c3426b4b4abbb379d039a06965a884"
+    },
+    {
+      "path": "assets/gacha/fx/flare-star.webp",
+      "status": 200,
+      "bytes": 37136,
+      "matches": true,
+      "sha256": "d7e47a82aca047904baec14077d561f6978144043e7246f31cf4847dc216fe96"
+    },
+    {
+      "path": "assets/gacha/fx/ember.png",
+      "status": 200,
+      "bytes": 1336,
+      "matches": true,
+      "sha256": "7643d2cca2199081231207ae8a552406505533eae052827e412046d9fae7d262"
+    },
+    {
+      "path": "assets/gacha/fx/meteor-head.png",
+      "status": 200,
+      "bytes": 9557,
+      "matches": true,
+      "sha256": "de2f1781366df548b184147acf1654714d7f865a908f2624515554ff7470cdd0"
+    },
+    {
+      "path": "assets/gacha/fx/flare-streak.webp",
+      "status": 200,
+      "bytes": 4534,
+      "matches": true,
+      "sha256": "efe2aa7073cbdab01b79e67b934984b1f727a5304884bbb92988d0401491be91"
+    },
+    {
+      "path": "assets/gacha/fx/ray-burst.webp",
+      "status": 200,
+      "bytes": 182826,
+      "matches": true,
+      "sha256": "49937ee9155cf89e9a05e61d644a083fcfe73c53178823b02f76eb2e0459b09a"
+    },
+    {
+      "path": "assets/gacha/fx/meteor-trail.png",
+      "status": 200,
+      "bytes": 3705,
+      "matches": true,
+      "sha256": "820288acd16e19aaf0b1d1b18c43e37fac4ed0d78fbe7e0d4d2f9041d44b83c6"
+    },
+    {
+      "path": "assets/gacha/fx/rune-a.webp",
+      "status": 200,
+      "bytes": 118722,
+      "matches": true,
+      "sha256": "0d41dd668269c47f22e14ef9fbc147b1bf230c23db3698498f07439f6aaf34e4"
+    },
+    {
+      "path": "assets/gacha/fx/shard-1.png",
+      "status": 200,
+      "bytes": 8327,
+      "matches": true,
+      "sha256": "d4303df523edc344cc81e268b370f20eebba51e9e5582d8de9cc2b33a3edc8ee"
+    },
+    {
+      "path": "assets/gacha/fx/rune-d.webp",
+      "status": 200,
+      "bytes": 77394,
+      "matches": true,
+      "sha256": "420cea014a82f48c02b90f5ea1984a0637eca5ea387fd105d98b6dd08dd1e45d"
+    },
+    {
+      "path": "assets/gacha/fx/rune-b.webp",
+      "status": 200,
+      "bytes": 88160,
+      "matches": true,
+      "sha256": "4d73f23f20f62c8520cef9015a25d6dcfbbb5703ec73810e701b1e22aeedd266"
+    },
+    {
+      "path": "assets/gacha/fx/rune-c.webp",
+      "status": 200,
+      "bytes": 61826,
+      "matches": true,
+      "sha256": "07debea9e8ba349df1dd2b16bac4685e399470b9be2a14dcbaacfc4d83199abc"
+    },
+    {
+      "path": "assets/gacha/fx/rune-floor.webp",
+      "status": 200,
+      "bytes": 273744,
+      "matches": true,
+      "sha256": "0289cc96c6ab5f7081bd62f161b5d2581332f1649bd8391ea5dea637d89dd629"
+    },
+    {
+      "path": "assets/gacha/fx/shard-2.png",
+      "status": 200,
+      "bytes": 11251,
+      "matches": true,
+      "sha256": "eb112677215d7e256f0880bd70d7d9bdd38c5ce4518797eb06f0ea93ce280c5f"
+    },
+    {
+      "path": "assets/gacha/fx/shard-6.png",
+      "status": 200,
+      "bytes": 17196,
+      "matches": true,
+      "sha256": "3ef3f5a9ca1f8a81e204085ec1bcd9b311731bc024e4fc35419f02cf6556b1f6"
+    },
+    {
+      "path": "assets/gacha/fx/shard-3.png",
+      "status": 200,
+      "bytes": 15627,
+      "matches": true,
+      "sha256": "4eba4476442f71003a521833824d6066bec4279e0d3c053468a011aa84152989"
+    },
+    {
+      "path": "assets/gacha/fx/shard-4.png",
+      "status": 200,
+      "bytes": 8125,
+      "matches": true,
+      "sha256": "6734f082e25b2a3084663979466ec1854ecf0d881c963454dc8756ea1f3608c3"
+    },
+    {
+      "path": "assets/gacha/fx/shard-5.png",
+      "status": 200,
+      "bytes": 11656,
+      "matches": true,
+      "sha256": "7fb565d8b01f08c7ee44f6bb48fec35324ba0826e3fb4c058970748b01a90f5b"
+    },
+    {
+      "path": "assets/gacha/fx/shard-7.png",
+      "status": 200,
+      "bytes": 11586,
+      "matches": true,
+      "sha256": "e5d617d5892d76bdbaf34c61d35c8bbdac1be878418cfcdc849b01f4053164fd"
+    },
+    {
+      "path": "assets/gacha/fx/shard-8.png",
+      "status": 200,
+      "bytes": 11742,
+      "matches": true,
+      "sha256": "b8eac608e8e19a25101da893b6985497d0f791496fb188f8cbdc75cb5420b33a"
+    },
+    {
+      "path": "assets/gacha/fx/smoke.png",
+      "status": 200,
+      "bytes": 10425,
+      "matches": true,
+      "sha256": "bedcbf6d90f715fe3ee70c7c490e6faf281b81caec1d6e36708e60278d2eaf25"
+    },
+    {
+      "path": "assets/gacha/fx/spark.png",
+      "status": 200,
+      "bytes": 1029,
+      "matches": true,
+      "sha256": "a0cc9a317c6e9b3837585aebbd1e8683d5b6b9690dc6ae5985776da7793fbdab"
+    },
+    {
+      "path": "assets/gacha/fx/swirl-energy.webp",
+      "status": 200,
+      "bytes": 234594,
+      "matches": true,
+      "sha256": "c2a73c9446b8b855c2199c44a9ac121035841192ac04912b2bafb0b6e9e72cfc"
+    },
+    {
+      "path": "assets/gacha/fx/swirl-cloud.webp",
+      "status": 200,
+      "bytes": 209486,
+      "matches": true,
+      "sha256": "df58291c3fcf4637b3f1ced1874a195e13b76e8f0ac21b08644d545ff7cc7f16"
+    },
+    {
+      "path": "/api/state",
+      "method": "GET",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/salvage",
+      "method": "GET",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/trial",
+      "method": "GET",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/raid",
+      "method": "GET",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/hangar",
+      "method": "POST",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/circuit",
+      "method": "POST",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/refine",
+      "method": "POST",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/api/battle/start",
+      "method": "POST",
+      "status": 401,
+      "authenticationRequired": true
+    },
+    {
+      "path": "/CONTRACT.md",
+      "status": 404,
+      "privatePathBlocked": true
+    },
+    {
+      "path": "/server/schema.sql",
+      "status": 404,
+      "privatePathBlocked": true
+    },
+    {
+      "path": "/tools/ui-performance-probe.js",
+      "status": 404,
+      "privatePathBlocked": true
+    },
+    {
+      "path": "/docs/art/azure-dagger-sequence-prompts-2026-10-08.json",
+      "status": 404,
+      "privatePathBlocked": true
+    },
+    {
+      "path": "/docs/art/attack-motion-sources/azure-dagger-sequence-v1.png",
+      "status": 404,
+      "privatePathBlocked": true
+    },
+    {
+      "path": "/docs/handoff/2026-10-08-juice-to-ui.md",
+      "status": 404,
+      "privatePathBlocked": true
+    },
+    {
+      "path": "/proto/juice/gacha.html",
+      "status": 404,
+      "privatePathBlocked": true
+    },
+    {
+      "path": "/proto/juice/sfx/hit_light_a.wav",
+      "status": 404,
+      "privatePathBlocked": true
+    }
+  ],
+  "errors": []
+}

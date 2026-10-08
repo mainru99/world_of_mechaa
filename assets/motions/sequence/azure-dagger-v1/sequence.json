@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "candidate": true,
+  "approval": "pending",
+  "source": "docs/art/attack-motion-sources/azure-dagger-sequence-v1.png",
+  "sourceSha256": "ad6a7f9f621f8760770101c98f62b6b5a15246cc9c72967d5bcf7b16b5400e3d",
+  "originalSha256": "b443e107612c8228375393550908e6b656137efe4a0b59e968c6c7e34d80ef80",
+  "grid": [
+    3,
+    2
+  ],
+  "cell": [
+    440,
+    420
+  ],
+  "scale": 0.774818401937046,
+  "feetAnchor": 234,
+  "anchorDeltaFromOriginal": 18.197,
+  "total": 400,
+  "effectAt": 110,
+  "impactAt": 180,
+  "frames": [
+    {
+      "src": "assets/motions/sequence/azure-dagger-v1/frame-01.png",
+      "duration": 70,
+      "label": "준비",
+      "packing": [
+        32,
+        16
+      ],
+      "sha256": "8b244147919a20498eff3f482afd9ebe0d44af33ef9eaff18eee67ff59d71770"
+    },
+    {
+      "src": "assets/motions/sequence/azure-dagger-v1/frame-02.png",
+      "duration": 70,
+      "label": "당기기",
+      "packing": [
+        28,
+        16
+      ],
+      "sha256": "6ff3298f64eb88e2bd6db03f01d46532dff17c948901b75c890471426ad8e4d1"
+    },
+    {
+      "src": "assets/motions/sequence/azure-dagger-v1/frame-03.png",
+      "duration": 40,
+      "label": "베기 시작",
+      "packing": [
+        4,
+        16
+      ],
+      "sha256": "6ca235dde1540e0b1523029604be7cad3240b36ebf072b27a90defbb0751bac3"
+    },
+    {
+      "src": "assets/motions/sequence/azure-dagger-v1/frame-04.png",
+      "duration": 50,
+      "label": "접촉",
+      "packing": [
+        -8,
+        44
+      ],
+      "sha256": "b464571bc5c0c143ca603adacd154f931235ecf64c6ce187d9e124d9102fbff4"
+    },
+    {
+      "src": "assets/motions/sequence/azure-dagger-v1/frame-05.png",
+      "duration": 80,
+      "label": "후속",
+      "packing": [
+        24,
+        44
+      ],
+      "sha256": "5dbe1037d73a4160b2d12b8dff294f937f98c11f86aeaed410a695a72a2ac18f"
+    },
+    {
+      "src": "assets/motions/sequence/azure-dagger-v1/frame-06.png",
+      "duration": 90,
+      "label": "복귀",
+      "packing": [
+        36,
+        44
+      ],
+      "sha256": "e59de50bf034a8b09ee45d0a1e0caa609f2a608d207a10019f8a85028b32ee35"
+    }
+  ],
+  "atlas": "assets/motions/sequence/azure-dagger-v1/atlas.png",
+  "atlasSha256": "97bacf4b9499f3b6b5c93899ae4834c70250e5a87d5e3588dea2de6482a2d1d6",
+  "animatedPreview": "assets/motions/sequence/azure-dagger-v1/preview.webp",
+  "animatedPreviewSpeed": 0.5,
+  "notes": [
+    "Built-in image_gen edit; mechanical nearest-neighbor packing only.",
+    "Common scale/shared feet anchor; binary alpha threshold128, no recoloring.",
+    "Armed ready frame is preview idle; original unarmed idle unchanged.",
+    "Identity/detail continuity still requires visual approval."
+  ]
+}

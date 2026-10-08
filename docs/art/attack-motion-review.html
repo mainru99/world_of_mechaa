@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROWAR 공격 모션 시범 · 승인 대기</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b141b;color:#dde8ef;font:14px/1.6 system-ui,sans-serif}
+main{max-width:1100px;margin:auto;padding:24px}h1{font-size:24px;margin:0}h2{font-size:18px;margin:26px 0 10px}
+p{color:#9fb5c4;margin:8px 0}a{color:#efc578}.badge{color:#efc578}section{background:#14232d;border:1px solid #324a59;padding:16px;border-radius:6px}
+.poses{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.fx{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+figure{margin:0}figure img{display:block;width:100%;height:auto;image-rendering:pixelated;background:#101920}
+figcaption{font-size:13px;padding-top:8px;text-align:center}.fx figcaption{text-align:left}
+.stage{display:flex;gap:10px;align-items:center;margin-top:14px}.stage a{padding:10px 14px;border:1px solid #d0ac68;border-radius:4px;text-decoration:none}
+@media(max-width:650px){main{padding:16px}.poses{grid-template-columns:repeat(2,1fr)}.fx{grid-template-columns:1fr}.fx img{max-width:320px;margin:auto}.stage{display:block}}
+</style></head><body><main>
+<h1>ROWAR · 공격 모션 시범 1차</h1>
+<p class="badge">이펙트 3종·KESTREL 승인 · AZURE 단검 후보 선택 / 최종 자세 승인 대기 · 게임 미연결 / 미커밋 / 미배포</p>
+<p>기체 원본은 보존했습니다. 자세는 원본 PNG를 참고한 편집본입니다. 개별 장갑·관절의 세부 픽셀까지 동일하다는 의미는 아니므로 기체별로 확인해 주세요.</p>
+<div class="stage"><a href="attack-motion-preview.html">AZURE vs KESTREL 실제 재생 보기 →</a><p>평타 / 스킬 / 상태 · 좌우 기체 교체 · 0.5 / 1 / 2 / 4배속</p></div>
+<div class="stage"><a href="azure-dagger-sequence-preview.html">새 AZURE 단검 6프레임 휘두르기 →</a><p>단일 자세와 별개의 연속 동작 후보 · 사용자 검수 대기</p></div>
+<h2>공격 자세 · 원본과 비교</h2><section class="poses">
+<figure><img src="../../assets/azure.png" alt="AZURE 원본"><figcaption>AZURE · 원본</figcaption></figure>
+<figure><img src="../../assets/motions/attack/azure.png?v=20261008-dagger" alt="AZURE 단검 참격 자세 시안"><figcaption>AZURE · 선택한 단검 후보</figcaption></figure>
+<figure><img src="../../assets/kestrel.png" alt="KESTREL 원본"><figcaption>KESTREL · 원본</figcaption></figure>
+<figure><img src="../../assets/motions/attack/kestrel.png" alt="KESTREL 승인된 공격 자세"><figcaption>KESTREL · 승인</figcaption></figure>
+</section><p>AZURE 맨손 자세는 반려되었습니다. 사용자 지시에 따라 칼을 추가했고, 긴 검 대신 선택한 단검 참격 후보로 교체했습니다. KESTREL과 이펙트는 승인본 그대로입니다. 캔버스 440×420 · 원본 키 100% · 발끝 y407 · 원본 파일 보존.</p>
+<h2>승인된 이펙트 · 각 시트 2×2</h2><section class="fx">
+<figure><img src="../../assets/effects/motion-slash.png" alt="참격 4칸"><figcaption>참격 · 궤적 / 칼끝 번뜩임 / 충돌 / 빛 파편</figcaption></figure>
+<figure><img src="../../assets/effects/motion-cannon.png" alt="포격 4칸"><figcaption>포격 · 포탄 / 포구 화염 / 폭발 / 연기·파편</figcaption></figure>
+<figure><img src="../../assets/effects/motion-status-a.png" alt="상태 4칸"><figcaption>상태 A · 방벽 / 수리 / 표적 / 재밍</figcaption></figure>
+</section><p>1024×1024 RGBA · 논리 64×64/칸 · 시트 전체 최대 8색 · 이진 알파 · 칸 여백 최소 12.5%. 형태와 읽기 쉬움은 실전 재생에서 판단합니다.</p>
+<p>AZURE 단검 자세의 최종 승인은 아직 대기 중입니다. 커밋·푸시·배포·전투 화면 연결은 하지 않았습니다. 나머지 이펙트 6종과 다른 기체 자세는 후속 작업입니다.</p>
+</main></body></html>
+

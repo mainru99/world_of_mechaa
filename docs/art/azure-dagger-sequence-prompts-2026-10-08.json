@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-08",
+  "mode": "built-in image_gen",
+  "inputRoles": {
+    "original": "assets/azure.png: identity/edit target",
+    "dagger": "assets/motions/attack/azure.png: selected dagger reference"
+  },
+  "prompts": [
+    {
+      "purpose": "six-frame edit",
+      "text": "Use case: precise-object-edit\nAsset type: six-frame gameplay sprite animation sheet for ROWAR AZURE dagger slash.\nInput image 1: EDIT TARGET / strict robot identity reference, original AZURE robot. Input image 2: supporting approved-choice dagger design and attack-pose reference. Preserve that exact robot and that SHORT dagger.\nPrimary request: edit the robot into SIX distinct chronological full-body poses of one real downward diagonal DAGGER SWING, arranged EXACTLY THREE COLUMNS by TWO ROWS, equal square cells, reading left to right on top row then bottom row. This is NOT six copies of the same pose.\nEvery frame faces LEFT in the same original three-quarter side view. Keep same compact stocky robot, same helmet/cyan visor, right-back single antenna, blue armor, silver helmet/chest/shins, small yellow gold square accents, black joints, and same restrained crisp pixel-art rendering. Same short silver dagger with cyan cutting edge and blue grip IN THE SAME FRONT HAND in ALL SIX frames. Not a long sword, not a gun, no new equipment.\nFrame 1 top left READY: braced feet, dagger hand drawn close before chest, blade pointing upward-left.\nFrame 2 top middle WIND-UP: SAME front weapon arm raised, bent elbow at shoulder/head level, dagger pointing upward and slightly backward, preparing an overhand downward cut. Head unobscured.\nFrame 3 top right SWING START: shoulder and forearm rotate forward, elbow extends, dagger sweeps across upper-left space, blade points diagonally upward-left, hand visibly moved forward.\nFrame 4 bottom left CONTACT: weapon arm extends toward LEFT around waist height, dagger points horizontally-left/slightly-down, torso leans subtly forward, unmistakable cutting motion not a martial arts punch.\nFrame 5 bottom middle FOLLOW-THROUGH: weapon hand below waist, dagger tip low at lower-left, same dagger only rotated, body completes small rotation.\nFrame 6 bottom right RECOVERY: weapon arm retracts to EXACT same ready guard as frame1, same braced feet and proportions.\nComposition: equal virtual square cells, each robot centered at the SAME local x coordinate, head/antenna scale fixed, boot soles at SAME local y baseline, same visible robot height in every cell. Feet must stay planted in the SAME stance with no sliding, no jumping. Generous fully transparent margin at every cell boundary, blade/antenna uncut, no overlap between cells. One sprite per cell only. Sheet landscape 3:2 aspect, preferably 1536x1024; each virtual cell512x512. No grid lines.\nStyle: pixel-art matching input, crisp stepped silhouettes, flat pixel clusters, no smooth illustration or photorealism. Body proportions and color blocks stay consistent across all frames. Genuine alpha-zero transparent background, not painted black, white or checkerboard.\nAvoid: labels, numbers, captions, dividers, borders, floor, shadows, VFX trails, slash crescents, sparks, motion blur, extra robots, extra arms, switched sword hand, blade-length changes, zooming, camera turns, back view, mirrored right-facing character. Draw only the six sequential robot-and-dagger poses.",
+      "output": "initial candidate not selected; backdrop-like RGB in image display prompted cleanup (not proof of opaque background)"
+    },
+    {
+      "purpose": "transparency cleanup",
+      "text": "Use case: background-extraction\nInput image 1 is the EDIT TARGET: the just-created 3-column by 2-row AZURE dagger animation sheet. Input image2 original AZURE identity reference, input image3 selected short dagger reference.\nChange ONLY transparency cleanup: remove ALL of the gray ambient haze, radial glow, floor shadows and dark painted backdrop surrounding the six sprites. Preserve exactly all six robot poses, their positions, scale, same armor/helmet/cyan visor/yellow accents and same short dagger. DO NOT redraw poses or add anything. Each robot and dagger must be solid opaque, hard-edged crisp pixel art; every space outside robot/weapon silhouettes must be fully transparent alpha0, including inside gaps between limbs. No semitransparent glow or smoke. Exactly 3 columns by 2 rows equal512x512 virtual cells, same1536x1024 sheet. No resizing, no labels, no grid, no additional VFX. Keep all antenna/feet/blade tips uncut. This is a game sprite atlas, not a presentation illustration.",
+      "output": "docs/art/attack-motion-sources/azure-dagger-sequence-v1.png",
+      "outputSha256": "ad6a7f9f621f8760770101c98f62b6b5a15246cc9c72967d5bcf7b16b5400e3d"
+    }
+  ],
+  "status": "six-frame prototype complete; user approval pending; no production hookup/commit/push/deploy",
+  "export": {
+    "tool": "tools/export-azure-sequence.py",
+    "manifest": "assets/motions/sequence/azure-dagger-v1/sequence.json",
+    "transform": "One nearest-neighbor scale 0.774818401937046; shared feet x234/y407; alpha threshold128; zero RGB for alpha0. No artwork repaint or per-frame scaling.",
+    "outputs": "six 440x420 PNGs, 1320x840 atlas, sequence.json, lossless animated preview.webp at0.5x",
+    "hashes": "Source/original/each frame/atlas SHA256 recorded in manifest.",
+    "review": "docs/art/azure-dagger-sequence-handoff-2026-10-08.md"
+  }
+}

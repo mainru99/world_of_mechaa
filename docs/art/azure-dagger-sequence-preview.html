@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="../../"><title>AZURE 단검 · 6프레임 베기 시범</title>
+<style>
+:root{color-scheme:dark;--ink:#dce7ee;--sub:#98afbc;--gold:#ecc57f;--line:#344b59}
+*{box-sizing:border-box}body{margin:0;background:#0b141b;color:var(--ink);font:14px/1.6 system-ui,sans-serif}
+main{max-width:1080px;margin:auto;padding:20px}h1{margin:0;font-size:24px}h2{font-size:16px;margin:20px 0 10px}
+p{color:var(--sub);margin:8px 0}.tag,a{color:var(--gold)}.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:16px 0}
+button,select,input{font:inherit}button,select{color:var(--ink);background:#14232d;border:1px solid var(--line);border-radius:5px;padding:8px 12px}
+button{cursor:pointer}button:hover,button:focus-visible{border-color:var(--gold)}button.main{background:#3b3322;border-color:var(--gold)}
+button:disabled{opacity:.4;cursor:wait}label{display:flex;flex-direction:column;color:var(--sub);font-size:12px;gap:3px}
+label.check{flex-direction:row;align-items:center;padding-bottom:8px}#arena{height:370px;position:relative;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:radial-gradient(ellipse at 50% 120%,#253e4a,#101d26 65%)}
+#arena:after{content:"";position:absolute;bottom:21px;left:0;right:0;border-top:1px solid #354b58;pointer-events:none}
+.fighter{position:absolute;bottom:20px;width:330px;height:315px}#fighter-azure{right:5%}#fighter-enemy{left:5%}
+#arena.right #fighter-azure{left:5%;right:auto}#arena.right #fighter-enemy{right:5%;left:auto}
+.fighter canvas,.fighter img{display:block;width:100%;height:100%;image-rendering:pixelated;object-fit:contain}
+#enemyImg{transform:scaleX(-1)}#arena.right #enemyImg{transform:none}
+.hpwrap{position:absolute;top:12px;color:var(--sub);font-size:12px;width:40%}.hpwrap.azure{right:16px;text-align:right}.hpwrap.enemy{left:16px}
+#arena.right .hpwrap.azure{left:16px;right:auto;text-align:left}#arena.right .hpwrap.enemy{right:16px;left:auto;text-align:right}
+.hpwrap b{display:block;height:5px;background:#6ddaba;margin-top:4px}#banner{position:absolute;top:80px;left:0;right:0;text-align:center;color:var(--gold);z-index:6;font-weight:700}
+#damage{position:absolute;top:35px;left:40%;font-size:23px;font-weight:800;color:#edf6ff}
+.info{display:flex;justify-content:space-between;gap:12px;margin-top:10px;color:var(--sub);flex-wrap:wrap}.info strong{color:var(--gold)}
+#frames{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}#frames button{padding:0;overflow:hidden;text-align:center}
+#frames button img{display:block;width:100%;height:auto;background:repeating-conic-gradient(#11222c 0 25%,#182c36 0 50%) 0/20px 20px;image-rendering:pixelated}
+#frames button span{display:block;padding:6px 2px;font-size:12px}#frames button.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.notes{border-top:1px solid var(--line);margin-top:18px;padding-top:10px;font-size:12px}.scrub{display:flex;gap:10px;align-items:center;margin-top:12px}.scrub input{flex:1;min-width:80px}.scrub label{white-space:nowrap}
+@media(max-width:640px){main{padding:14px}h1{font-size:20px}#arena{height:290px}.fighter{width:48%;height:235px}#fighter-azure{right:0}#fighter-enemy{left:0}#arena.right #fighter-azure{left:0}#arena.right #fighter-enemy{right:0}#frames{grid-template-columns:repeat(3,minmax(0,1fr))}.controls{gap:7px}button,select{padding:7px 9px}}
+</style></head><body><main>
+<h1>AZURE · 단검 6프레임 베기</h1>
+<p class="tag">연속 자세 시범 · 사용자 승인 대기 · 게임 미연결 / 미커밋 / 미배포</p>
+<p>같은 단검을 위로 당긴 뒤 전방으로 베고, 아래로 후속 동작을 거쳐 복귀합니다. 기존 단일 자세와 별개의 후보입니다.</p>
+<div class="controls">
+<label>배속<select id="speed"><option value="0.5" selected>0.5 · 자세 확인</option><option value="1">1 · 기본</option><option value="2">2</option><option value="4">4</option></select></label>
+<label>공격 방향<select id="direction"><option value="left">왼쪽으로 베기</option><option value="right">오른쪽으로 베기</option></select></label>
+<button id="once" class="main" disabled>한 번 베기</button><button id="triple" disabled>3연속 베기</button><button id="loop" disabled>반복 재생</button><button id="stop">정지 / 준비</button>
+<label class="check"><input type="checkbox" id="effects" checked>참격 이펙트</label><label class="check"><input type="checkbox" id="reduced">자세 모션 줄이기 시험</label>
+</div>
+<div id="arena">
+<div class="hpwrap azure">AZURE · 6프레임<b></b></div><div class="hpwrap enemy">KESTREL · 원본 표시<b></b></div>
+<div id="fighter-azure" class="fighter"><canvas id="sprite" width="440" height="420" role="img" aria-label="AZURE 단검 연속 자세"></canvas></div>
+<div id="fighter-enemy" class="fighter"><img id="enemyImg" src="assets/kestrel.png" alt="상대 KESTREL 원본"><span id="damage"></span></div>
+<div id="banner"></div><div id="flash"></div>
+</div>
+<div class="info"><strong id="frameState">프레임 준비 중…</strong><span id="timing">한 타 400ms · 접촉 180ms / 1배속</span><span id="trace" aria-live="polite">그림 로딩 중</span></div>
+<h2>프레임별 확인 · 클릭하면 정지해서 볼 수 있습니다</h2><div id="frames"></div>
+<div class="scrub"><label for="scrub">프레임 선택</label><input id="scrub" type="range" min="0" max="5" step="1" value="0" disabled></div>
+<div class="notes">
+<p>원본 기체와 기존 단검1장·승인된 이펙트·KESTREL 자세는 수정하지 않았습니다. AI 편집 프레임이므로 장갑·머리·발 간격의 세부 일관성은 검수 대상입니다. 이 페이지는 판정 없는 동작 시험이며 숫자 “HIT”도 연출 확인용입니다.</p>
+<p>6프레임 공통 축척 · 발끝 y407 · 단검과 안테나 잘림 없음. 칼끝 여백을 위해 공통 발 중심을 원본보다 약18px 옮겼습니다. 무장 준비 자세를 시범 idle로 사용해 칼이 갑자기 사라지지 않게 했습니다. 기존 비무장 idle 연결·실전 사건 통합은 Claude 검토 후 별도 작업입니다.</p>
+<a href="docs/art/attack-motion-review.html">기존 단일 자세 비교</a> · <a href="assets/motions/sequence/azure-dagger-v1/atlas.png">6프레임 시트</a>
+</div>
+</main><script type="module">
+import {createPoseSequence} from '../../js/pose-sequence.js';
+import {createMotion} from '../../js/motion.js';
+const $ = s => document.querySelector(s), arena=$('#arena');
+let sequence, motion, runToken=0, attackSpeed=0.5, active=null, damagedTimer=0, traceFrames=new Set();
+const isReduced=()=>$('#reduced').checked || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const flip=()=>$('#direction').value==='right';
+const data=await fetch('assets/motions/sequence/azure-dagger-v1/sequence.json').then(r=>{if(!r.ok)throw Error('sequence.json load failed');return r.json()});
+function recordFrame(i){
+  const index=i<0?0:i;
+  $('#frameState').textContent=(i<0?'준비':'프레임 '+(i+1)+'/6')+' · '+data.frames[index].label;
+  $('#scrub').value=index;
+  document.querySelectorAll('#frames button').forEach((b,n)=>b.classList.toggle('active',n===index));
+  if(i>=0)traceFrames.add(i+1);
+}
+$('#frames').innerHTML=data.frames.map((f,i)=>'<button data-frame="'+i+'" aria-label="프레임 '+(i+1)+' '+f.label+'"><img src="'+f.src+'" alt="'+f.label+'"><span>'+(i+1)+' · '+f.label+' / '+f.duration+'ms</span></button>').join('');
+function makeMotion(){motion=createMotion(arena,{speed:()=>attackSpeed,anchor:k=>$('#fighter-'+k)})}
+function reset(){
+  runToken++; if(active)active.cancel(); active=null;
+  clearTimeout(damagedTimer);$('#damage').textContent='';$('#banner').textContent='';
+  if(motion)motion.dispose();makeMotion();
+  if(sequence)sequence.showFrame(0);
+  $('#trace').textContent='정지 · 준비 자세';
+}
+sequence=createPoseSequence($('#sprite'),{frames:data.frames,speed:()=>attackSpeed,reduced:isReduced,flip,onFrame:recordFrame});
+makeMotion();
+const ok=await sequence.ready();
+if(!ok){$('#trace').textContent='프레임 로딩 실패 · 생성 파일을 확인하세요';throw Error('Frame load failed')}
+for(const id of ['once','triple','loop','scrub'])$('#'+id).disabled=false;
+$('#trace').textContent='6프레임 로딩 완료 · 재생 준비';
+async function attack(token){
+  attackSpeed=Number($('#speed').value);traceFrames=new Set(isReduced()?[]:[1]);
+  const reduced=isReduced(), useEffects=$('#effects').checked;
+  let impacts=0;
+  $('#damage').textContent='';
+  active=sequence.play({effectAt:reduced?0:data.effectAt,impactAt:reduced?70:data.impactAt,
+    onEffect:()=>{if(token===runToken && useEffects)motion.hit({a:'azure',d:'enemy',type:'azure'});},
+    onImpact:()=>{if(token!==runToken)return;impacts++;$('#damage').textContent='HIT';$('#banner').textContent='단검 참격 · 접촉';
+      clearTimeout(damagedTimer);damagedTimer=setTimeout(()=>{$('#damage').textContent='';$('#banner').textContent=''},180/attackSpeed)}});
+  const result=await active.finished;
+  if(token===runToken){active=null;$('#trace').textContent=(result.cancelled?'중단':'완료')+' · 표시 프레임 '+[...traceFrames].join('→')+' · 접촉 '+impacts+'회'+(reduced?' · 모션 줄이기':'');}
+  return result;
+}
+async function play(count){
+  reset();const token=runToken;
+  for(let i=0;token===runToken && i<count;i++){
+    const result=await attack(token);if(result.cancelled || token!==runToken)return;
+    await new Promise(r=>setTimeout(r,180/attackSpeed));
+  }
+}
+$('#once').onclick=()=>play(1);$('#triple').onclick=()=>play(3);$('#loop').onclick=()=>play(Infinity);
+$('#stop').onclick=reset;
+$('#speed').onchange=reset;
+$('#direction').onchange=()=>{reset();arena.classList.toggle('right',flip());sequence.showFrame(0)};
+$('#effects').onchange=$('#reduced').onchange=reset;
+$('#frames').onclick=e=>{const b=e.target.closest('button[data-frame]');if(b){reset();sequence.showFrame(Number(b.dataset.frame))}};
+$('#scrub').oninput=()=>{const index=Number($('#scrub').value);reset();sequence.showFrame(index)};
+addEventListener('pagehide',()=>{runToken++;clearTimeout(damagedTimer);sequence.dispose();motion.dispose()},{once:true});
+</script></body></html>

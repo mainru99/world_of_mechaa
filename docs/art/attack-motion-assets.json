@@ -1,0 +1,335 @@
+{
+  "date": "2026-10-07",
+  "mode": "built-in image_gen",
+  "status": "effects and KESTREL approved; AZURE dagger selected, final pose approval pending; no commit/deployment",
+  "assets": [
+    {
+      "id": "slash",
+      "file": "assets/effects/motion-slash.png",
+      "source": "docs/art/attack-motion-sources/slash.png",
+      "intent": "generate",
+      "reference": null,
+      "prompt": "Use case: stylized-concept\nAsset type: production VFX sprite atlas for ROWAR 2D pixel-art robot battle game. One square RGBA PNG, exactly 2 columns by 2 rows, four equal square cells, no dividing lines. Draw ONLY four isolated silver ice-blue SLASH effects on genuinely fully transparent alpha background, no robot, no scene. Primary request: slash attack facing RIGHT to LEFT. Top-left cell: one bold narrow crescent sword-swing trail opening toward the right, convex leading sharp edge on LEFT, silver-white blade edge and icy blue inner stepped trail, reads as a fast strike toward a foe on the left. Top-right cell: compact blade-tip glint, white diagonal four-point sparkle with two small blue flecks. Bottom-left cell: slashed impact flash, jagged diagonal white cut and compact icy-blue sparks. Bottom-right cell: sparse separated blue and silver square light fragments dissipating, mostly empty center. Style: STRICT hand-placed arcade pixel art; logical 128x128 whole sheet, 64x64 per cell, exact uniform square pixel grid and nearest-neighbor enlargement; at most 8 colors (blue-black, deep blue, slate blue, cyan-blue, ice blue, pale blue, silver, white). Flat solid colored blocks, crisp stepped edges, binary alpha, no smooth shading. Composition: effects centered at 25%/75% of each axis, each contained within its own cell with at least 8 logical pixels (12.5%) fully transparent margin on ALL edges. Output square at least 1024px. Avoid checkerboard pattern, any painted white/gray/black background, text, labels, borders, grid lines, floor, shadows, gradients, glow haze, blur, antialiasing, tiny noise, weapon handles, robot characters.",
+      "export": "each cell fitted to 64 logical pixels with 8px margins; one shared maximum8-color palette across atlas; binary alpha; nearest-neighbor 1024 export",
+      "sha256": "6689d5d072736a91297cb9ae45f1a04a4c16387acfc9fa4011b0f960f7ff6199",
+      "sourceSha256": "dbd6411818c8e5deeb9417d1d0f889a502f5d80042d6d45252e1fa396bc789d7",
+      "validation": {
+        "file": "assets/effects/motion-slash.png",
+        "ok": true,
+        "errors": [],
+        "warn": [],
+        "info": {
+          "size": [
+            1024,
+            1024
+          ],
+          "mode": "RGBA",
+          "transparent": 0.877,
+          "checker": 0.01,
+          "semi": 0,
+          "cell0": [
+            64,
+            80,
+            448,
+            432
+          ],
+          "cell1": [
+            72,
+            64,
+            432,
+            448
+          ],
+          "cell2": [
+            64,
+            72,
+            448,
+            440
+          ],
+          "cell3": [
+            64,
+            80,
+            448,
+            424
+          ]
+        }
+      },
+      "colorsPerCell": [
+        8,
+        7,
+        8,
+        8
+      ]
+    },
+    {
+      "id": "cannon",
+      "file": "assets/effects/motion-cannon.png",
+      "source": "docs/art/attack-motion-sources/cannon.png",
+      "intent": "generate",
+      "reference": null,
+      "prompt": "Use case: stylized-concept\nAsset type: production CANNON VFX sprite atlas for ROWAR 2D arcade pixel robot battle. Square RGBA PNG at least 1024px; EXACTLY 2 columns by 2 rows, four equal square cells, no dividing lines. ONLY four isolated orange-red cannon effects on genuinely transparent alpha background. Facing RIGHT to LEFT. Top-left: ONE thick pointed heavy shell, hot cream/orange front on LEFT and tapering jagged red-orange flame tail extending RIGHT, horizontal flying projectile. Top-right: ONE big compact cannon muzzle flash firing LEFT, white-hot core with short jagged orange-red tongues and detached square embers. Bottom-left: ONE heavy explosion flash, compact angular cream-hot star center surrounded by stepped orange-red explosion lobes and a few dark debris blocks. Bottom-right: ONE dissipating explosion, broken charcoal-gray smoke ring with orange embers and dark debris, mostly transparent center, never dense cloud. STRICT hand-placed arcade pixel art, whole sheet logical128x128, each cell64x64, exact uniform square grid, nearest-neighbor enlargement. MAXIMUM EIGHT flat colors: ivory #fff1c2, pale gold #ffd77b, gold #ffb24a, orange #f87b28, red-orange #d84423, dark red #843523, slate #625d5b, charcoal #34393e. No smooth shading, no semi-transparent haze; crisp stepped silhouettes and binary alpha. Each effect centered in its own quadrant with at least 8 logical pixels(12.5%) empty transparent margin on every cell edge. Avoid ANY checkerboard, painted black/white/gray background, grid, separators, borders, labels, text, robot, weapons, floor, cast shadows, blur, glow, gradients, anti-aliasing, noisy fine texture, photorealism.",
+      "export": "each cell fitted to 64 logical pixels with 8px margins; one shared maximum8-color palette across atlas; binary alpha; nearest-neighbor 1024 export",
+      "sha256": "c43cdfc3d4a43edebd2b3504eac0e4c20e0dfd5b2fe162c51eaa74755f8f392d",
+      "sourceSha256": "37de253912071e5e24ba4b4aed02b6c19a50cea4be656dbf72aad24214d44706",
+      "validation": {
+        "file": "assets/effects/motion-cannon.png",
+        "ok": true,
+        "errors": [],
+        "warn": [],
+        "info": {
+          "size": [
+            1024,
+            1024
+          ],
+          "mode": "RGBA",
+          "transparent": 0.816,
+          "checker": 0,
+          "semi": 0,
+          "cell0": [
+            64,
+            176,
+            448,
+            328
+          ],
+          "cell1": [
+            64,
+            88,
+            448,
+            424
+          ],
+          "cell2": [
+            64,
+            72,
+            448,
+            440
+          ],
+          "cell3": [
+            64,
+            80,
+            448,
+            424
+          ]
+        }
+      },
+      "colorsPerCell": [
+        5,
+        5,
+        8,
+        7
+      ]
+    },
+    {
+      "id": "status-a",
+      "file": "assets/effects/motion-status-a.png",
+      "source": "docs/art/attack-motion-sources/status-a.png",
+      "intent": "generate",
+      "reference": null,
+      "prompt": "Use case: stylized-concept\nAsset type: production STATUS-A VFX sprite atlas for ROWAR 2D pixel-art robot battle. One square RGBA image at least 1024px, EXACTLY 2 columns by 2 rows, FOUR equal square cells, no dividers. Draw ONLY four separate isolated status effects on genuinely fully transparent alpha background. Top-left cell: cyan-blue protective hexagonal barrier outline, hollow large central hexagon with three small attached hexagonal facets, interrupted bright icy-blue rim; empty center shows the robot beneath. Top-right cell: green repair light represented by ONE strong solid blocky green medical plus with two smaller rising plus sparks and short straight healing streaks. Bottom-left cell: red target reticle, hollow red octagonal sight ring with four disconnected cardinal crosshair ticks and tiny centered aiming dot, extremely readable. Bottom-right cell: violet jamming glitch made of 5 staggered disconnected horizontal purple pixel bars and small displaced square fragments; no letters or symbols. Style: STRICT hand-placed arcade pixel art, logical 128x128 sheet, 64x64 each cell, uniform square pixel grid and exact nearest-neighbor enlargement; each effect has at most 8 flat colors in its own hue ramp, blue shield / green repair / red target / purple jam, crisp hard stepped silhouettes, binary alpha. Four effects centered independently at quadrant centers, keep 8 logical pixels (12.5%) FULLY TRANSPARENT margin on every edge of every cell. No scene, robot, floor, shadow, text, labels, frame, grid lines, checkerboard, painted background, gradients, smooth outlines, glow haze, soft blur, antialiasing, tiny noise. Empty space must be alpha zero, not black or white paint.",
+      "export": "each cell fitted to 64 logical pixels with 8px margins; one shared maximum8-color palette across atlas; binary alpha; nearest-neighbor 1024 export; fixed separate blue/green/red/purple hue pairs prevent cross-status hue mixing",
+      "sha256": "8b37eb5bb650d0c4cb641ffdbf653e8bce8c210ef4496a54df8a67d599399bcf",
+      "sourceSha256": "f936d9df9cdcfd3f1bbf08d1671a21b2d9d6deba41937e5f05a96ddd4275fc62",
+      "validation": {
+        "file": "assets/effects/motion-status-a.png",
+        "ok": true,
+        "errors": [],
+        "warn": [],
+        "info": {
+          "size": [
+            1024,
+            1024
+          ],
+          "mode": "RGBA",
+          "transparent": 0.821,
+          "checker": 0,
+          "semi": 0,
+          "cell0": [
+            64,
+            72,
+            448,
+            440
+          ],
+          "cell1": [
+            72,
+            64,
+            432,
+            448
+          ],
+          "cell2": [
+            64,
+            64,
+            448,
+            440
+          ],
+          "cell3": [
+            64,
+            88,
+            448,
+            416
+          ]
+        }
+      },
+      "colorsPerCell": [
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "id": "azure",
+      "file": "assets/motions/attack/azure.png",
+      "source": "docs/art/attack-motion-sources/azure.png",
+      "intent": "edit of original PNG",
+      "reference": "assets/azure.png",
+      "export": "uniform nearest-neighbor resize to original opaque height; transparent packing at original feet center and baseline",
+      "sha256": "ca4db5371b2af8835fab87e998d671dc79e78e0e80fbb737a7ac62dc9b79c31b",
+      "sourceSha256": "51b14270a7373624fa52ebf01e75579deb299a2db007ae1e7fc72fe51d199269",
+      "originalSha256": "b443e107612c8228375393550908e6b656137efe4a0b59e968c6c7e34d80ef80",
+      "validation": {
+        "file": "assets/motions/attack/azure.png",
+        "id": "azure",
+        "ok": true,
+        "errors": [],
+        "warn": [],
+        "info": {
+          "size": [
+            440,
+            420
+          ],
+          "checker": 0.009,
+          "bbox": [
+            29,
+            88,
+            343,
+            408
+          ],
+          "orig_bbox": [
+            119,
+            88,
+            320,
+            408
+          ],
+          "foot_y": 407,
+          "height_ratio": 1,
+          "dx": 0,
+          "dy": 0,
+          "iou": 0.56,
+          "iou_mirror": 0.556,
+          "color": 0.83
+        }
+      },
+      "revision": "2026-10-08 short-sword candidate selected by user; final pose approval pending",
+      "referenceRoles": [
+        "assets/azure.png: original identity reference",
+        "long-sword generation: edit target"
+      ],
+      "parentGeneration": {
+        "sha256": "c7f184417c4a48be98d449c0f39ed998bc8a2dc6d52a666c8110605d2c564f9a",
+        "promptSummary": "Edit original AZURE into a left-facing blade-swing follow-through, add a silver sword with cyan edge, preserve blue/silver/gold armor and full silhouette."
+      },
+      "rejectedUnarmed": {
+        "file": "docs/art/attack-motion-rejected/azure-unarmed.png",
+        "source": "docs/art/attack-motion-rejected/azure-unarmed-source.png",
+        "sha256": "e98742de79f27371d9631574df1b56e18ecb99ad5079d6e1c529c954d42a5b03",
+        "sourceSha256": "a98200a9e9ed6e62c0fc75db2ef3651edb2ee08404b56aff76c950983a9633f2",
+        "prompt": "Use case: precise-object-edit\nInput image 1 is the EDIT TARGET: existing ROWAR AZURE robot sprite. Edit this exact robot, not a new character. Keep EXACTLY its rounded gray/white helmet with blue armored rear, single cyan visor, thin antenna on right-back, blue shoulder/forearm/thigh/ankle armor, silver chest and shin plates, gold-yellow rectangular accents, black joints, compact stocky proportions, and the original crisp small pixel clusters. Keep facing LEFT, original three-quarter side view. Change ONLY pose to a sweeping melee strike FOLLOW-THROUGH: lean torso slightly toward LEFT, extend front armored forearm diagonally left/down in a strong sweep, pull rear fist back near waist, front foot braced left, rear foot braced right. The original has NO sword or handheld weapon: do NOT invent one; both same gauntleted hands stay empty. Must unmistakably be the same robot from image1. Keep full body uncut, approximately same original visible height and scale, antenna/head/feet inside canvas. Output one single pose sprite, not a sheet. Canvas 440x420 RGBA, same scale as attached, feet on y408 ground line. Real transparent background alpha0; no checkerboard, no floor, no shadows, no effects/trails/muzzle flash, no text. Preserve original restrained pixel-art rendering and paint, do not turn into smooth illustration, do not add armor, symbols or weapons, do not flip right.",
+        "reason": "User rejected empty-hand martial-arts-like pose; slash must wield blade"
+      },
+      "promptSummary": "Original AZURE PNG as identity reference; long-sword candidate as edit target. Shorten the silver/cyan blade to about 50% of its length while preserving the robot, attack pose, left-facing direction, pixel-art style, and genuine transparency.",
+      "promptRecordKind": "Reconstructed instruction summary; exact two revision prompts not retained in this record."
+    },
+    {
+      "id": "kestrel",
+      "file": "assets/motions/attack/kestrel.png",
+      "source": "docs/art/attack-motion-sources/kestrel.png",
+      "intent": "edit of original PNG",
+      "reference": "assets/kestrel.png",
+      "prompt": "Use case: precise-object-edit\nInput image1 is EDIT TARGET: existing ROWAR KESTREL sprite. Edit this exact robot. Keep EXACTLY same olive-green and sandy tan armor, helmet's front green scope eye facing LEFT, tall thin gray antenna behind head on upper-right, black/dark joints, original small yellow-gold triangle/chest details, compact stocky body proportions, green shoulder blocks, same weapons: large cylindrical drumlike cannon with green circular bore on imageRIGHT forearm and smaller black angular gun imageLEFT. Do NOT add guns or change the weapon geometry. Keep LEFT-facing original three-quarter view, same camera and pixel-art rendering as source. Change ONLY attack pose: feet braced wider apart and knees slightly flexed, torso leaned slightly back for cannon recoil, rotate existing cannon-bearing forearm across chest so its SAME green bore now aims toward LEFT enemy; support arm keeps original smaller gun down, full body visible. Braced just-after-firing pose but absolutely NO fire/flash/smoke/projectile because those are separate assets. Helmet, paint, armor plate layout, equipment and antenna remain identical. Output a SINGLE character pose, not sprite sheet. 440x420 RGBA canvas, approximately source visible height and same scale, feet y408, no cropping. Genuinely transparent alpha0 background, no checkerboard, no floor, no shadow, no effects, no text. Strict source-like crisp pixel-art at original pixel density; no smooth vector art or photorealism, no redesign, no extra motifs, no right-facing flip.",
+      "export": "uniform nearest-neighbor resize to original opaque height; transparent packing at original feet center and baseline",
+      "sha256": "427290dedb0629744a886152e2aefd90266a0d7b7a3d466029f26a21fa05991b",
+      "sourceSha256": "6edb5c83e95c8c94e6ef5dc1fffd038f18419f523ed8d5783db1c62a19be83b0",
+      "originalSha256": "302bda0c18b1f731ad7573d34f72a7e25558f7c61d277f3ffa88745499db68aa",
+      "validation": {
+        "file": "assets/motions/attack/kestrel.png",
+        "id": "kestrel",
+        "ok": true,
+        "errors": [],
+        "warn": [],
+        "info": {
+          "size": [
+            440,
+            420
+          ],
+          "checker": 0,
+          "bbox": [
+            64,
+            106,
+            332,
+            408
+          ],
+          "orig_bbox": [
+            79,
+            106,
+            361,
+            408
+          ],
+          "foot_y": 407,
+          "height_ratio": 1,
+          "dx": 0,
+          "dy": 0,
+          "iou": 0.64,
+          "iou_mirror": 0.612,
+          "color": 0.94
+        }
+      }
+    }
+  ],
+  "browserVerification": {
+    "previewBase": "../../",
+    "pcWidth": 1200,
+    "mobileWidth": 390,
+    "imageErrors": 0,
+    "horizontalOverflow": false,
+    "realSimulationFinishedAtSpeeds": [
+      1,
+      2,
+      4
+    ],
+    "skillPoseAndAtlasObserved": [
+      "azure",
+      "kestrel"
+    ],
+    "statusAObserved": true,
+    "limitations": "Initial prototype browser checks; no production screen hookup, live account use or real phone QA. See approvalStatus for later individual approvals."
+  },
+  "daggerBrowserVerification": {
+    "date": "2026-10-08",
+    "comparisonImageErrors": 0,
+    "comparisonHorizontalOverflow": false,
+    "skillSpeed": 0.5,
+    "azureAttackSrcObserved": "assets/motions/attack/azure.png?v=1791415679",
+    "browserWarningsAndErrors": 0,
+    "scope": "Comparison page and skill pose DOM transition; not a repeat of full initial PC/mobile suite"
+  },
+  "approvalStatus": {
+    "recordedAt": "2026-10-08",
+    "approvedEffects": [
+      "slash",
+      "cannon",
+      "status-a"
+    ],
+    "approvedPoses": [
+      "kestrel"
+    ],
+    "azure": "short-sword candidate selected; final pose approval pending",
+    "rejectedAzure": "empty-handed pose",
+    "unselectedAzure": "long-sword candidate",
+    "gameHookup": false,
+    "commitPushDeployment": false
+  },
+  "notes": [
+    "Status-a initial built-in generation failed with a network error; same built-in prompt retried successfully. No CLI/API fallback used.",
+    "User rejected unarmed AZURE, authorized a blade-swing pose, and selected the dagger candidate. Original PNG and rejected unarmed files are preserved; final revised pose approval pending.",
+    "Poses are generated edits, not pixel-identical original cutout rearrangements. Per-mech visual approval remains required.",
+    "Preview base href ../../ resolves manifest asset paths; engine/validator/combat/server unchanged."
+  ]
+}

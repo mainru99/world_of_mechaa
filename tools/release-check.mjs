@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {resolve,dirname} from 'node:path';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const checks=[
+ 'audio-check',
  'battle-ui-check','challenge-ui-check','circuit-ui-check','combat-integration-ui-check',
  'common-ui-check','development-ui-check','dispatch-ui-check','front-ui-check',
  'hangar-ui-check','inventory-performance-check','launch-ui-check','login-ui-check',

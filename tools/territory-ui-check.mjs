@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createAudio} from '../js/audio.js';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {territoryResultView} from '../js/ui/territory.js';
@@ -9,7 +10,7 @@ function deferred(){let resolve;const promise=new Promise(r=>resolve=r);return {
 const response={ok:true,node:'n01',win:true,reward:{},player:{credits:101,cores:3,scrap:8}};
 function setup(name){
  const d=deferred(),events=[],el={innerHTML:''};
- const c=vm.createContext({S:{credits:100},cur:'terr',_frontTab:'terr',_battleRequest:0,_territorySelected:'n01',
+ const c=vm.createContext({audio:createAudio(),S:{credits:100},cur:'terr',_frontTab:'terr',_battleRequest:0,_territorySelected:'n01',
   net:{state:{online:true,accountId:'a'},territory:()=>d.promise},NODE_BY:{n01:{ko:'거점',terrain:'plain',minLv:5}},commonMessage,
   closeModal(){},setTerrain(){},toBattle:()=>{c.cur='battle';},$:()=>el,sleep:async()=>{},
   toast:x=>events.push(['toast',x]),ERR_KO:{},dur:String,fmt:String,commitLocal:()=>events.push(['save']),

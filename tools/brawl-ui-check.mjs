@@ -9,6 +9,7 @@ import {replayState,applyReplayEvent} from '../js/ui/brawl-replay.js';
 import {createBrawlFixture} from './brawl-ui-fixture.mjs';
 import {battleView} from '../js/ui/battle.js';
 const clone=v=>JSON.parse(JSON.stringify(v));
+function soundSpy(){const versions=new Map(),plays=[];return {plays,stop:s=>versions.set(s,(versions.get(s)||0)+1),ticket:s=>({scope:s,v:versions.get(s)||0}),current:t=>t.v===(versions.get(t.scope)||0),preload:async()=>[],play:(name,config)=>plays.push([name,config])};}
 const deferred=()=>{let resolve;return {promise:new Promise(r=>resolve=r),resolve:v=>resolve(v)};};
 assert.equal(CONST.BRAWL.on,false,'production switch remains off');
 assert.equal(synergyText({key:'precise',v:.15}),'스킬 위력 +15%');
@@ -17,10 +18,10 @@ const base={credits:1000,cores:10,scrap:500,items:{},robots:['mule','ranger','az
 const fixture=createBrawlFixture(clone(base));
 function setup(){
  let owner=clone(base),visible=true,html='',commits=0,paints=0;
- const calls=[],timers=new Map();let seq=0,override=null;
+ const calls=[],timers=new Map(),audio=soundSpy();let seq=0,override=null;
  const net={state:{online:true,accountId:1},brawl:async body=>{calls.push(body?clone(body):'GET');if(override)return override(body);return clone(await fixture.request('/api/brawl',body?'POST':'GET',body));},brawlRank:()=>fixture.request('/api/brawl/rank'),growthState:async()=>({ok:true,...clone(fixture.snapshot())})};
- const manager=createBrawlManager({state:()=>owner,net,document:{querySelector:q=>q.includes('.br-app')&&visible?{}:null},openModal:v=>{html=v;visible=true;},commit:()=>commits++,paint:()=>paints++,setTimeout:fn=>{timers.set(++seq,fn);return seq;},clearTimeout:id=>timers.delete(id)});
- return {manager,a:manager.actions,net,calls,timers,get html(){return html;},get visible(){return visible;},get owner(){return owner;},get commits(){return commits;},get paints(){return paints;},override:fn=>override=fn,close:()=>visible=false,changeAccount:()=>{owner=clone(base);net.state.accountId=2;visible=false;}};
+ const manager=createBrawlManager({state:()=>owner,net,audio,document:{querySelector:q=>q.includes('.br-app')&&visible?{}:null},openModal:v=>{html=v;visible=true;},commit:()=>commits++,paint:()=>paints++,setTimeout:fn=>{timers.set(++seq,fn);return seq;},clearTimeout:id=>timers.delete(id)});
+ return {manager,a:manager.actions,net,audio,calls,timers,step:()=>{const [id,fn]=timers.entries().next().value||[];if(fn){timers.delete(id);fn();}},get html(){return html;},get visible(){return visible;},get owner(){return owner;},get commits(){return commits;},get paints(){return paints;},override:fn=>override=fn,close:()=>visible=false,changeAccount:()=>{owner=clone(base);net.state.accountId=2;visible=false;}};
 }
 try{
  const t=setup();await t.a.brawlHome();assert.match(t.html,/오늘의 대여/);assert.match(t.html,/보상 런 시작/);
@@ -39,7 +40,11 @@ try{
  t.a.brawlSlot('board',0);const before=t.calls.length;t.a.brawlSell();assert.equal(t.calls.length,before,'sale requires confirmation');
  t.a.brawlSlot('board',0); // cancel selected slot without selling
  await t.a.brawlFight();assert.match(t.html,/COMBAT REPLAY/);assert.equal(t.timers.size,1);
+ for(let n=0;n<6&&!t.audio.plays.length&&t.timers.size;n++)t.step();
+ assert.ok(t.audio.plays.length>0,'authoritative brawl events drive audio');
+ const staleStep=t.timers.values().next().value,played=t.audio.plays.length;
  t.a.brawlSpeed();assert.match(t.html,/속도 ×2/);t.a.brawlSkip();assert.equal(t.timers.size,0);assert.match(t.html,/라운드 (승리|패배)/);
+ staleStep?.();assert.equal(t.audio.plays.length,played,'skipped brawl callback stays silent');
  await t.a.brawlRank();assert.match(t.html,/주간 난투 순위/);t.a.brawlBack();assert.match(t.html,/ROUND 1 COMPLETE/);await t.a.brawlContinue();assert.match(t.html,/2라운드 출격/);
  // Another tab changes the revision. This UI must read, never resubmit.
  const stale=(await fixture.request('/api/brawl')).run;await fixture.request('/api/brawl','POST',{action:'act',rev:stale.rev,actions:[{t:'lock'}]});

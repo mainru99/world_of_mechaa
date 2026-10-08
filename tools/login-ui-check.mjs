@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createAudio} from '../js/audio.js';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 
@@ -10,7 +11,7 @@ function fn(name){
 }
 function setup(pull){
  const old={owner:'old'},events=[];
- const c=vm.createContext({S:old,cur:'home',net:{state:{loginId:'new',accountId:'new',online:true,guest:false},pull,cancelSync:()=>events.push(['cancel'])},
+ const c=vm.createContext({audio:createAudio(),stopBattleAudio(){},S:old,cur:'home',net:{state:{loginId:'new',accountId:'new',online:true,guest:false},pull,cancelSync:()=>events.push(['cancel'])},
   frontAfterState:()=>events.push(['frontState']),stopScript:()=>events.push(['stopStory']),_frontIntroAttempted:new Set(['old:intro']),
   _frontReady:true,_jform:{order:['old-unit'],tac:{}},_jctx:()=>{},_fight:{old:true},
   _dispatchUid:null,_dispatchPending:null,_dispatchTab:'',_dispatchFilter:'',_dispatchSelected:'',_rankEpoch:0,_rankTab:'',_rankPage:0,_codexRaw:null,_codexAt:0,_codexGroup:'',

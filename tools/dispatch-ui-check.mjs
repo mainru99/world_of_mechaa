@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createAudio} from '../js/audio.js';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {CONST} from '../data/balance.js';
@@ -37,7 +38,7 @@ function fn(name){const start=source.indexOf(`function ${name}(`),end=source.ind
 function deferred(){let resolve;return {promise:new Promise(r=>resolve=r),resolve:v=>resolve(v)};}
 function setup(){
  const answer=deferred(),events=[],state={robots:[{uid:'one',level:32},{uid:'two',level:24}],squad:['one','two'],sel:0,credits:100,cores:1,scrap:10,expd:null};
- const c=vm.createContext({S:state,cur:'hunt',net:{state:{online:true,accountId:'A'},expedition:async (...args)=>{events.push(['request',...args]);return answer.promise;}},
+ const c=vm.createContext({audio:createAudio(),S:state,cur:'hunt',net:{state:{online:true,accountId:'A'},expedition:async (...args)=>{events.push(['request',...args]);return answer.promise;}},
   CONST:{EXPED:{SHORT:{ko:'단기 정찰',h:1}}},_dispatchPending:null,renderHunt:()=>events.push(['render']),closeModal:()=>events.push(['close']),
   commitLocal:()=>events.push(['commit']),renderAll:()=>events.push(['all']),renderWallet:()=>events.push(['wallet']),toast:x=>events.push(['toast',x]),
   ERR_KO:{},fmt:String,addPart:()=>events.push(['part']),_pendingOpp:null});

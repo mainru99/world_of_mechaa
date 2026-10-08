@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="themes/development-v2.css?v=20260930-visibility1">
 <link rel="stylesheet" href="themes/shard-v2.css?v=20260930-shards1">
 <link rel="stylesheet" href="themes/loadout-v2.css?v=20260930-loadout1">
+<link rel="stylesheet" href="themes/audio-v2.css?v=20261008-sfx1">
 </head>
 <body class="ui-v2" data-scene="hangar">
 <!-- 화면별 배경 연출 레이어. 전부 pointer-events:none 이라 조작을 막지 않는다 -->
@@ -84,6 +85,7 @@
       <button class="coin cv-refine-wallet" onclick="ROWAR.openRefine()" data-tip="정제 코어 · 코어 정제, 서킷 비우기와 캡슐에 사용" title="정제 코어"><span class="cv-rcore-icon" aria-hidden="true">◆</span><b id="w-rcore">—</b><span class="sr-only">정제 코어 정제하기</span></button>
       <span class="coin" data-tip="스크랩 · 파츠 강화에 사용" title="스크랩"><i class="ic ic-scrap"></i><b id="w-scrap">0</b></span>
       <span class="coin acct" id="acct" data-tip="확인 중">···</span>
+      <button class="coin audio" id="audio-settings" onclick="ROWAR.audioSettings()" aria-label="소리 설정" title="소리 설정">소리</button>
       <button class="coin help" id="helpbtn" data-tip="게임 설명" title="게임 설명"
         onclick="ROWAR.guide()" aria-label="게임 설명"><span data-icon="help"></span></button>
     </div>
@@ -115,6 +117,6 @@
 
 <!-- ES 모듈이라 file:// 로 직접 열면 동작하지 않는다. README 의 로컬 서버 안내 참고.
      인라인 onclick="ROWAR.x()" 는 js/game.js 가 window.ROWAR 를 대입하므로 그대로 동작한다. -->
-<script type="module" src="js/game.js?v=20260930-loadout1"></script>
+<script type="module" src="js/game.js?v=20261008-sfx1"></script>
 </body>
 </html>

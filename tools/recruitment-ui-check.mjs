@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createAudio} from '../js/audio.js';
 import {recruitmentPool,percentText} from '../js/ui/recruitment.js';
 import {MONSTER_TYPES,ROBOT_TYPES} from '../data/balance.js';
 import {readFile} from 'node:fs/promises';
@@ -35,6 +36,7 @@ function setup(){
   let resolve;
   const pending=new Promise(r=>{resolve=r;});
   const ctx=vm.createContext({
+    audio:createAudio(),PRIZE_RANK:{SSR:6},
     S:{credits:10000,cores:20,scrap:500,stat:{pulls:0}},gCur:'core',_gTab:'pull',cur:'gacha',_pullPending:null,
     PULL_CUR:{core:{cost:1,ko:'코어'},credit:{cost:500,ko:'크레딧'}},
     net:{state:{online:true,accountId:'sample'},pullServer:async(count,currency)=>{events.push(['request',count,currency]);return await pending;},cancelSync:()=>events.push(['sync'])},

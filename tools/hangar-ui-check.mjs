@@ -3,6 +3,7 @@
  * the inspected UID, including when inspection changes while a request waits.
  */
 import assert from 'node:assert/strict';
+import {createAudio} from '../js/audio.js';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 const source=await readFile(new URL('../js/game.js',import.meta.url),'utf8');
@@ -17,6 +18,7 @@ const makeRobot=uid=>({uid,type:uid,level:10,skillLv:1,fat:9,slots:{WEAPON:null,
 const robots=[makeRobot('lead'),makeRobot('reserve')], calls=[];
 let reply={}, pending=null;
 const ctx=vm.createContext({
+  audio:createAudio(),
   S:{robots,sel:0,squad:['lead'],credits:900,scrap:800,parts:[],presets:[]},
   hangarUid:null,hangarTab:'info',hangarInventory:false,
   selRobot:()=>robots[0],SLOTS:['WEAPON','FRAME','BOOSTER','CORE'],

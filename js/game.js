@@ -39,6 +39,11 @@ import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 import {createAudio} from './audio.js';
 import {createCombatAudio} from './audio-events.js';
 import {audioSettingsView,audioStatus} from './ui/audio-settings.js';
+import {createGrowthFx} from './ui/growth-fx.js';
+import {centerOf} from './ui/fx-layer.js';
+import {playGacha,preloadGachaFx} from './ui/gacha-fx.js';
+import {createBattleFx,leadOf,shotCat} from './ui/battle-fx.js';
+import {createMotion} from './motion.js';
 import { icon, emblem } from './ui/icons.js';
 import { dispatchView, dispatchMissions, expeditionEstimate, expeditionProgress } from './ui/dispatch.js';
 import { rankShell, rankingView } from './ui/ranking.js';
@@ -72,6 +77,15 @@ async function audioTest(){
  await audio.preload(['ui_confirm']);
  if(audio.valid(token))void audio.play('ui_confirm',{scope:'sample',ticket:token});
 }
+// Display-only growth effects (charge while waiting for the server, strike, result).
+const growthFx=createGrowthFx({sound:(name,o)=>void audio.play(name,{scope:'growth-fx',...o})});growthFx.bindButtons();
+function enhAnchor(key){
+ const act=document.activeElement;
+ if(act?.getAttribute?.('onclick')?.includes(key))return act;
+ const all=[...document.querySelectorAll('button[onclick]')].filter(b=>b.getAttribute('onclick').includes(key));
+ return all.find(b=>b.offsetParent)||all[0]||null;
+}
+const walletNow=()=>({credit:S.credits,scrap:S.scrap,core:S.cores});
 function stopBattleAudio(){for(const scope of ['battle','battle-result','brawl','brawl-result'])audio.stop(scope);}
 const PULL_KO = { robot:'로봇', core:'코어', credit:'크레딧', part:'파츠', bust:'꽝' };
 const SLOT_KO = {WEAPON:'무장',FRAME:'프레임',BOOSTER:'부스터',CORE:'코어'};
@@ -351,11 +365,18 @@ async function skillUp(){
   const rb=hangarRobot(); if(!rb) return;
   const slv=rb.skillLv|0;
   if(slv>=skillMax()){ toast('최대 강화입니다'); return; }
-  const soundTicket=audio.ticket('growth');void audio.preload(['enh_success','enh_fail']);
-  const r=await srvHangar('skillup',{robotUid:rb.uid}); if(!r) return;
+  const soundTicket=audio.ticket('growth');void audio.preload(['enh_charge','anvil_hit','enh_success','enh_fail']);
+  void audio.play('enh_charge',{scope:'charge'});
+  const show=growthFx.enhance(enhAnchor('ROWAR.skillUp()'));
+  let r;try{r=await srvHangar('skillup',{robotUid:rb.uid});}finally{if(!r){audio.stop('charge');show.cancel();}}
+  if(!r) return;
+  await show.ready;audio.stop('charge');
+  void audio.play('anvil_hit',{scope:'growth',ticket:soundTicket});
+  await show.strike();
   rb.skillLv=r.skillLv; S.credits=r.credits; S.scrap=r.scrap;
   commitLocal(); renderWallet(); renderHangar();
   void audio.play(r.success?'enh_success':'enh_fail',{scope:'growth',ticket:soundTicket});
+  show.result(!!r.success,{text:r.success?`스킬 +${r.skillLv}`:'실패…',find:()=>enhAnchor('ROWAR.skillUp()')});
   toast(r.success ? `스킬 강화 성공 · +${r.skillLv}` : `강화 실패 · +${r.skillLv} 그대로 (성공률 ${Math.round(r.rate*100)}%)`);
 }
 
@@ -364,11 +385,16 @@ async function enhancePart(u){
   const was=p.enh|0;
   const soundTicket=audio.ticket('growth');void audio.preload(['enh_charge','anvil_hit','enh_success','enh_fail']);
   void audio.play('enh_charge',{scope:'charge'});
-  let r;try{r=await srvHangar('enhance',{partUid:u});}finally{audio.stop('charge');}
+  /* 서버를 기다리는 시간 = 충전 연출(최소 0.9초) → 모루 → 결과. 판정은 서버가 이미 끝냈다 */
+  const show=growthFx.enhance(enhAnchor(`ROWAR.enhance('${u}')`));
+  let r;try{r=await srvHangar('enhance',{partUid:u});}finally{if(!r){audio.stop('charge');show.cancel();}}
   if(!r) return;
+  await show.ready;audio.stop('charge');
   void audio.play('anvil_hit',{scope:'growth',ticket:soundTicket});
+  await show.strike();
   void audio.play(r.failed?'enh_fail':'enh_success',{scope:'growth',ticket:soundTicket});
   p.enh=r.enh; S.scrap=r.scrap; commitLocal();
+  show.result(!r.failed,{text:r.failed?'실패…':`+${r.enh}`,sub:r.failed?'':'강화 성공!',find:()=>enhAnchor(`ROWAR.enhance('${u}')`)});
   /* 실패해도 단계는 그대로다. 그래도 **말은 해 줘야 한다** — 스크랩만 줄고 아무 말이
      없으면 눌린 건지 아닌지 모른다. 다음 확률을 같이 적어 다시 누를지 고르게 한다. */
   if(r.failed) toast(`${p.name} 강화 실패 · 스크랩 −${fmt(r.cost)} (다음도 ${Math.round(enhRate(was)*100)}%)`);
@@ -388,6 +414,7 @@ async function levelUp(){
   const r=await srvHangar('levelup',{robotUid:rb.uid}); if(!r) return;
   if(r.level>beforeLevel)void audio.play('levelup',{scope:'growth',ticket:soundTicket});
   S.credits=r.credits; rb.level=r.level; rb.exp=0; commitLocal();
+  if(r.level>beforeLevel&&cur==='hangar')growthFx.levelUp({hero:document.querySelector('#sc-hangar .hg-hero'),bar:document.querySelector('#sc-hangar .hv-exp i'),from:beforeLevel,to:r.level,before:computeStats({...rb,level:beforeLevel}),after:computeStats(rb)});
   toast(ROBOT_TYPES[rb.type].name+' Lv.'+rb.level);
   if(typeof growth!=='undefined')await growth.settleFor({});
 }
@@ -1356,7 +1383,7 @@ async function doPull(count){
   if(have<C.cost*count){toast(C.ko+'가 부족합니다');return;}
   if(!net.state.online){toast('뽑기는 서버 연결이 필요합니다');return;}
   const owner=S,account=net.state.accountId,token={};_pullPending=token;
-  const soundTicket=audio.ticket('gacha');void audio.preload(['rare_reveal','ui_confirm','coin_tick','skill_charge']);
+  const soundTicket=audio.ticket('gacha');void audio.preload(GACHA_SOUNDS);preloadGachaFx();
   const stage=$('#stage'),animation=$('.gv-animation');
   const actions=$('.gv-actions');
   if(actions){actions.setAttribute('aria-busy','true');actions.querySelectorAll('button').forEach(b=>b.disabled=true);}
@@ -1366,19 +1393,14 @@ async function doPull(count){
     if(animation)animation.hidden=false;
     stage?.scrollIntoView({block:'nearest'});
     stage?.classList.add('charging');
-    void audio.play('skill_charge',{scope:'gacha',ticket:soundTicket});
+    void audio.play('beam_charge',{scope:'gacha',ticket:soundTicket});
     const started=performance.now();
     const r=await net.pullServer(count,currency);
-    await sleep(Math.max(0,(reduced?120:760)-(performance.now()-started)));
+    await sleep(Math.max(0,(reduced?120:600)-(performance.now()-started)));
     if(!stillOwner())return;
     if(!r||r.error){toast(!r?'뽑기는 서버 연결이 필요합니다':r.error==='not enough cores'?'코어가 부족합니다':r.error==='not enough credits'?'크레딧이 부족합니다':r.error==='not enough rcores'?'정제 코어가 부족합니다':'뽑기 실패: '+r.error);return;}
     stage?.classList.remove('charging');
-    stage?.classList.add('rolling','prize-'+bestPrize(r.results));
-    await sleep(reduced?100:520);
-    stage?.classList.remove('rolling');stage?.classList.add('opening');
-    await sleep(reduced?120:700);
-    if(!stillOwner())return;
-    // Completed server rewards survive navigation; only the result modal is scene-scoped.
+    // Completed server rewards survive navigation; only the reveal and result modal are scene-scoped.
     for(const res of r.results)applyPull(res);
     S.credits=r.credits;S.cores=r.cores;S.scrap=r.scrap;
     if(typeof development!=='undefined')development.setBalance(r.rcores);
@@ -1387,8 +1409,9 @@ async function doPull(count){
     net.cancelSync();renderWallet();
     _pullPending=null;
     if(cur==='gacha'&&_gTab==='pull'){
-      renderGacha();showReveal(r.results);
-      void audio.play(PRIZE_RANK[bestPrize(r.results)]>=5?'rare_reveal':bestPrize(r.results)==='GOLD'?'coin_tick':'ui_confirm',{scope:'gacha',ticket:soundTicket});
+      /* 캡슐 공개 연출 → 결과 창. 연출은 표시만 한다 — 보상은 위에서 이미 반영했다 */
+      await playGacha(gachaShow(r.results,soundTicket));
+      if(stillOwner()&&cur==='gacha'&&_gTab==='pull'){renderGacha();showReveal(r.results);}
     }
     else{renderAll();toast('뽑기 완료 · 획득한 보상을 보관했습니다');}
     if(typeof growth!=='undefined'&&r.results.some(x=>x.kind==='robot'))await growth.settleFor({});
@@ -1410,6 +1433,39 @@ function revealCardHtml(res){
   if(res.kind==='bust') return `<div class="pchip" style="opacity:.6"><div class="pn" style="color:var(--dim)">꽝</div><div class="ps">아무것도 나오지 않았습니다</div></div>`;
   if(res.kind==='scrap') return `<div class="pchip ic">${partIco(res.part)}<div class="pn">${esc(res.part.name)} <span class="tag rar-${res.part.rarity}">${res.part.rarity}</span></div><div class="ps" style="color:var(--sub)">자동 분해 → 스크랩 +${res.n}</div></div>`;
   const p=res.part; return `<div class="pchip ic${enhClass(p)}">${partIco(p)}<div class="pn">${esc(p.name)} ${rarTag(p)}${setTag(p)}${affixTags(p)}</div><div class="ps">${SLOT_KO[p.slot]}${partStatLine(p)}</div></div>`;
+}
+/* 뽑기 공개 연출에 넘길 값 — 그 판의 최고 결과(rankOf)와 10연차 칸 */
+const GACHA_SOUNDS=['beam_charge','land','windup','parry','hit_heavy_a','hit_heavy_b','explosion','miss','ui_confirm','shield','rare_reveal','win','hit_light_b','ui_click','beam_fire'];
+const PART_TIER={C:0,UC:1,R:2,SR:3,SSR:4};
+function pullTier(res){
+  if(res.kind==='robot'||res.kind==='dupe')return RIDX[rarOf(res.type)]||0;
+  if(res.kind==='part')return PART_TIER[res.part.rarity]||0;
+  return res.kind==='core'?3:res.kind==='credit'?1:0;
+}
+function pullArt(res){
+  if(res.kind==='robot'||res.kind==='dupe')return {src:`assets/${res.type}.png`,flip:true};
+  if(res.kind==='part'||res.kind==='scrap')return {src:res.part?.base?`assets/parts/${res.part.base}.png${PART_ICON_V}`:slotIconSrc(res.part?.slot)};
+  if(res.kind==='core'||res.kind==='credit')return {src:`assets/ui/coin-${res.kind}.png`};
+  return {src:'assets/gacha/core-capsule.png'};
+}
+function pullLabel(res){
+  if(res.kind==='robot'||res.kind==='dupe')return ROBOT_TYPES[res.type].name;
+  if(res.kind==='part'||res.kind==='scrap')return res.part?.name||'파츠';
+  if(res.kind==='core')return '코어 +'+res.n;
+  if(res.kind==='credit')return '크레딧 +'+fmt(res.cr);
+  return '꽝';
+}
+function gachaShow(results,ticket){
+  const best=results.reduce((a,b)=>rankOf(b)>rankOf(a)?b:a,results[0]);
+  const sub=best.kind==='robot'?'신규 기체 · '+ROBOT_TYPES[best.type].role
+    :best.kind==='dupe'?'보유 중 · 자원으로 전환'
+    :best.kind==='part'?SLOT_KO[best.part.slot]+' 파츠 · '+best.part.rarity
+    :best.kind==='scrap'?'자동 분해 → 스크랩 +'+fmt(best.n||0)
+    :best.kind==='bust'?'아무것도 나오지 않았습니다':'';
+  const rk=x=>x.kind==='part'||x.kind==='scrap'?x.part?.rarity||'':'';
+  return {tier:pullTier(best),hero:pullArt(best),name:pullLabel(best),sub,rk:rk(best),
+    cells:results.length>1?results.map(x=>({...pullArt(x),tier:pullTier(x),label:pullLabel(x),rk:rk(x)})):[],
+    sound:(name,o)=>void audio.play(name,{scope:'gacha',ticket,...o}),stop:()=>audio.stop('gacha')};
 }
 function showReveal(results){
   const best=results.reduce((a,b)=> rankOf(b)>rankOf(a)?b:a, results[0]);
@@ -1871,13 +1927,13 @@ async function codexActivate(key){
   toast(`${r.activated.length}칸 활성화 · ${costTxt(r.spent)}` + (due?` · 이정표 ${due}개 달성 — 받기를 누르세요`:''));
 }
 async function codexClaim(){
-  const soundTicket=audio.ticket('reward');
+  const soundTicket=audio.ticket('reward'),from=centerOf(enhAnchor('ROWAR.codexClaim()')),before=walletNow();
   const account=net.state.accountId,state=S;
   const r = await net.codex('claim');
   if(account!==net.state.accountId||state!==S)return;
   if(!r || r.error) return codexRetry(r, '받지 못했습니다');
   codexApply(r);
-  if(r.claimed?.length)void audio.play('reward_claim',{scope:'reward',ticket:soundTicket});
+  if(r.claimed?.length){void audio.play('reward_claim',{scope:'reward',ticket:soundTicket});growthFx.wallet(from,before,walletNow());}
   const cx = parseCodex(_codexRaw);
   for(const x of r.claimed) cx.c[x.key]=1;
   _codexRaw = cx; _codexAt = 0;                  // 돌려받은 칸 표시(rf)는 서버에서 다시 받는다
@@ -2122,7 +2178,7 @@ async function sendExped(tier, uid){
   toast(CONST.EXPED[tier].ko+' 출발 · '+CONST.EXPED[tier].h+'시간 뒤 귀환');
 }
 async function claimExped(){
-  const soundTicket=audio.ticket('reward');
+  const soundTicket=audio.ticket('reward'),from=centerOf(enhAnchor('ROWAR.claimExped()')),before=walletNow();
   if(_dispatchPending||!net.state.online||!S.expd||S.expd.endsAt>Date.now())return;
   const r=await dispatchRequest('claim',{});
   if(!r) return;
@@ -2131,6 +2187,7 @@ async function claimExped(){
   S.credits=r.player.credits; S.cores=r.player.cores; S.scrap=r.player.scrap;
   if(r.reward.part) addPart(r.reward.part);
   S.expd=null; commitLocal(); if(cur==='hunt')renderHunt();else renderAll(); renderWallet();
+  growthFx.wallet(from,before,walletNow());
   const g=[`크레딧 +${fmt(r.reward.cr)}`,`스크랩 +${fmt(r.reward.sc)}`];
   if(r.reward.core) g.push(`코어 +${r.reward.core}`);
   if(r.reward.part) g.push(`파츠 ${r.reward.part.name}`);
@@ -2492,10 +2549,14 @@ async function playBattle(events,P,E,o){
   const mx=k=>cu[k].max;
   const battleAudio=createCombatAudio(audio,{active:()=>!stopped(),unit:side=>cu[side==='P'?'p':'e']&&{...cu[side==='P'?'p':'e'],maxhp:cu[side==='P'?'p':'e'].max}});
   const nameOf=s=> s==='P'?`<span class="k">${cu.p.name}</span>`:`<span style="color:var(--bad);font-weight:700">${cu.e.name}</span>`;
+  /* 타격감(2026-10-08 사용자 결정) — 대기 모션 뺀 전부. 줄인 움직임이면 null(예전 재생) */
+  const juice=createBattleFx(arena,{speed:()=>battleSpeed});
+  const motion=juice?createMotion(arena,{speed:()=>battleSpeed}):null;
+  let fxPre=new Set();             // 미리 준비한 타의 번호 — 이 재생에만 속한다
   const swapIn=(x,draw)=>{ const k=x.side==='P'?'p':'e'; cu[k]={name:x.name,max:x.maxhp,type:x.type};
     if(draw){ const f=AR('#fighter-'+k); if(f) f.innerHTML=sprite(x.type,k==='p');
       const nm=AR('.hpwrap.'+k+' .nm span'); if(nm) nm.textContent=x.name; }
-    setHP(k,x.hp,x.maxhp); setSP(k,0); };
+    setHP(k,x.hp,x.maxhp); setSP(k,0); juice?.hp(k,x.hp,x.maxhp,true); };
   try{
     /* 아레나는 simulate 가 끝난 뒤에 재생하므로 P.hp 가 이미 최종값이다 — 그래서 만땅으로 시작한다.
        점령전은 방어선 사이에 체력이 이어지므로 '들어갈 때의 값'을 따로 받는다. */
@@ -2503,7 +2564,11 @@ async function playBattle(events,P,E,o){
     setHP('e', o&&o.eHp!=null?o.eHp:E.maxhp, E.maxhp);
     setSP('p', (o&&o.pSp)||0); setSP('e', (o&&o.eSp)||0);
     blog(`전투 개시! <b>${P.name}</b> vs <b>${E.name}</b>`);
-    const sl=ms=>sleep(ms/battleSpeed);
+    const sl=ms=>juice?juice.wait(ms,()=>stopped()||_skipReplay):sleep(ms/battleSpeed);
+    if(juice){
+      juice.hp('p',o&&o.pHp!=null?o.pHp:P.maxhp,P.maxhp,true); juice.hp('e',o&&o.eHp!=null?o.eHp:E.maxhp,E.maxhp,true);
+      fxPre=planBattleFx(events,battleTimeline(events),{p:P.type,e:E.type},juice,motion,mx,!!rain);
+    }
     /* 건너뛰기 — 남은 이벤트를 애니메이션 없이 한 번에 반영하고 끝낸다.
        마지막 체력·게이지를 그대로 그려 두므로 화면이 결과와 어긋나지 않는다. */
     const finishNow=(from)=>{
@@ -2523,38 +2588,45 @@ async function playBattle(events,P,E,o){
        두 기체의 행동이 가까우면 겹쳐 움직인다. 기다림은 지금 배속으로 나눈다(도중에 배속을 바꿔도 바로 먹는다) */
     const tl=battleTimeline(events);
     let clock=0;
-    const until=async t=>{ const w=t-clock; clock=Math.max(clock,t); if(w>0) await sl(w); };
-    await sl(400);
+    const until=juice?t=>juice.until(t,()=>stopped()||_skipReplay):async t=>{ const w=t-clock; clock=Math.max(clock,t); if(w>0) await sl(w); };
+    if(juice)juice.intro(['p','e'],[cu.p.name,cu.e.name]); else await sl(400);
     for(let i=0;i<events.length;i++){
       const e=events[i];
       if(e.t!=='end') await until(tl[i]);
       if(stopped()) return null;                 // 보상 판정은 서버에 있으며 화면 재생만 중단한다.
       if(_skipReplay) return finishNow(0);   // 처음부터 다시 그린다 — 몇 번 그려도 결과는 같다
       if(e.t!=='end'&&e.t!=='hit')battleAudio.event(e);
-      if(e.t==='turn'){ rainSkill=null; setSP(e.side==='P'?'p':'e', e.sp); continue; }
-      if(e.t==='swap'){ rainSkill=null; swapIn(e,true); banner('교대!'); blog(`교대 — ${nameOf(e.side)} 출격`); continue; }
+      if(e.t==='turn'){ rainSkill=null; setSP(e.side==='P'?'p':'e', e.sp); juice?.turn(e.side==='P'?'p':'e'); continue; }
+      if(e.t==='swap'){ rainSkill=null;
+        if(juice){ const k=e.side==='P'?'p':'e'; cu[k]={name:e.name,max:e.maxhp,type:e.type}; juice.swap(k,()=>swapIn(e,true),e.name); }
+        else{ swapIn(e,true); banner('교대!'); }
+        blog(`교대 — ${nameOf(e.side)} 출격`); continue; }
       if(e.t==='skill'){
         rainSkill=null;
         if(rain&&cu[e.side==='P'?'p':'e'].type==='ignis'){
           rainSkill={side:e.side,index:0,left:COMBAT_TYPES.ignis.skill.fx.hits};
           rain.cast(e.side==='P'?'p':'e');
         }
-        banner(e.name); blog(`${nameOf(e.side)} 스킬 <b>${e.name}</b>!`); continue;
+        if(juice){ const k=e.side==='P'?'p':'e', ty=cu[k].type; juice.skill(k,COMBAT_TYPES[ty]?.skill?.fx,e.name); if(!rainSkill)motion.skill(k,ty); }
+        else banner(e.name);
+        blog(`${nameOf(e.side)} 스킬 <b>${e.name}</b>!`); continue;
       }
       if(e.t==='heal'){ const hS=e.side==='P'?'p':'e';
-        setHP(hS, e.hp, mx(hS)); floatDmg(hS,'+'+e.amt,'heal');
+        setHP(hS, e.hp, mx(hS));
+        if(juice){ juice.heal(hS,e.amt,e.src,hS==='p'?'e':'p'); juice.hp(hS,e.hp,mx(hS)); } else floatDmg(hS,'+'+e.amt,'heal');
         blog(`${nameOf(e.side)} 체력 <span class="h">+${e.amt}</span> ${e.src==='repair'?'수리':'흡수'}`); continue; }
       /* 특화기술 — 방벽 · 표적 · 재밍 (js/sim.js afterSkill) */
-      if(e.t==='shield'){ const k=e.side==='P'?'p':'e'; floatDmg(k,'방벽 '+e.amt,'heal');
+      if(e.t==='shield'){ const k=e.side==='P'?'p':'e'; if(juice)juice.shield(k,e.amt,e.now); else floatDmg(k,'방벽 '+e.amt,'heal');
         blog(`${nameOf(e.side)} <span class="h">방벽 ${e.amt}</span>`); continue; }
-      if(e.t==='mark'){ blog(`${nameOf(e.side)} → ${nameOf(e.dside)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); continue; }
-      if(e.t==='jam'){ const k=e.dside==='P'?'p':'e'; setSP(k, e.sp); floatDmg(k,'JAM','miss');
+      if(e.t==='mark'){ juice?.mark(e.dside==='P'?'p':'e'); blog(`${nameOf(e.side)} → ${nameOf(e.dside)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); continue; }
+      if(e.t==='jam'){ const k=e.dside==='P'?'p':'e'; setSP(k, e.sp); if(juice)juice.jam(k); else floatDmg(k,'JAM','miss');
         blog(`${nameOf(e.side)} 재밍 — ${nameOf(e.dside)} SP −${e.amt} · 행동 지연`); continue; }
       /* 흘려내기 — 친 쪽이 돌진했다가 튕겨 나간다. 흘린 쪽에 PARRY */
       if(e.t==='parry'){ const pS=e.side==='P'?'p':'e', aS=e.dside==='P'?'p':'e';
-        lunge(aS);
+        if(juice) juice.parry(pS,aS,cu[aS].type,fxPre.has(i));
+        else{ lunge(aS);
         if(stopped()) return null;
-        floatDmg(pS,'PARRY','parry'); shakeF(aS);
+        floatDmg(pS,'PARRY','parry'); shakeF(aS); }
         blog(`${nameOf(e.side)} <span class="c">흘려내기!</span> ${nameOf(e.dside)} 의 공격을 흘리고 · ${nameOf(e.dside)} 행동 지연`);
         continue; }
       if(e.t==='hit'){
@@ -2565,22 +2637,50 @@ async function playBattle(events,P,E,o){
           const index=rainSkill.index++;
           if(--rainSkill.left<=0) rainSkill=null;
           await rain.strike(aS,{miss:!!e.miss,index,speed:battleSpeed});
-        }else{ rainSkill=null; lunge(aS); }   // 돌진은 기다리지 않는다 — 다른 기체의 행동과 겹쳐 보이게
+        }else{ rainSkill=null;
+          if(!juice) lunge(aS);   // 돌진은 기다리지 않는다 — 다른 기체의 행동과 겹쳐 보이게
+          else if(!fxPre.has(i)){ juice.quick(aS,dS,cu[aS].type,!!e.miss); motion.hit({a:aS,d:dS,type:cu[aS].type,miss:!!e.miss,crit:!!e.crit,low:e.thp<mx(dS)*.35}); }
+        }
         if(stopped()) return null;
         battleAudio.event(e);
-        if(e.miss){ floatDmg(dS,'MISS','miss'); blog(`${nameOf(e.side)} 의 공격을 ${nameOf(e.dside)} 이(가) <span class="m">회피!</span>`); }
-        else{ if(!isRain) flash(); shakeF(dS); floatDmg(dS,(e.crit?'CRIT ':'')+e.dmg,e.crit?'crit':'norm');
+        if(juice) juice.impact(aS,dS,e,{maxhp:mx(dS),kind:isRain?null:shotCat(cu[aS].type)});
+        if(e.miss){ if(!juice)floatDmg(dS,'MISS','miss'); blog(`${nameOf(e.side)} 의 공격을 ${nameOf(e.dside)} 이(가) <span class="m">회피!</span>`); }
+        else{ if(!juice){ if(!isRain) flash(); shakeF(dS); floatDmg(dS,(e.crit?'CRIT ':'')+e.dmg,e.crit?'crit':'norm'); }
           setHP(dS,e.thp, mx(dS));
           blog(`${nameOf(e.side)} → ${nameOf(e.dside)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해${e.absorb?` <span class="m">(방벽 −${e.absorb})</span>`:''}`); }
         continue;
       }
-      if(e.t==='end'){ await until(tl[i]); await sl(300); if(!stopped()&&!_skipReplay)battleAudio.event(e); return stopped()?null:e.winner; }
+      if(e.t==='end'){ await until(tl[i]); await sl(300); if(!stopped()&&!_skipReplay)battleAudio.event(e);
+        if(juice&&!stopped()&&!_skipReplay){ juice.finish(e.winner==='P',e.winner==='P'?'p':'e'); await sl(1100); }
+        return stopped()?null:e.winner; }
     }
     return stopped()?null:'P';
   }finally{
     battleAudio.stop();
     if(rain) rain.dispose();
+    if(juice){ juice.dispose(); motion.dispose(); }
   }
+}
+/* 타격감 미리 준비 — 사건열을 처음에 한 번 훑어 각 행동의 첫 타를 시각표보다 먼저 건다.
+   근접은 90ms 먼저 움츠렸다 돌진하고, 원거리는 겨눔 + 탄이 날아갈 시간만큼 먼저 쏴서 닿는 순간이 명중 사건과 맞는다.
+   돌려준 번호 모음에 든 타에서는 재생 루프가 다시 돌진 · 사격하지 않는다. 이그니스 레인 스킬은 레인이 맡는다 */
+function planBattleFx(events,tl,start,juice,motion,mx,hasRain){
+  const pre=new Set(),cur={...start};
+  events.forEach((e,i)=>{
+    if(e.t==='swap')cur[e.side==='P'?'p':'e']=e.type;
+    if(e.t!=='turn')return;
+    let j=-1,skill=false;
+    for(let n=i+1;n<events.length;n++){const t=events[n].t;if(t==='turn'||t==='end')break;if(t==='skill')skill=true;if(t==='hit'||t==='parry'){j=n;break;}}
+    if(j<0)return;
+    const x=events[j],aSide=x.t==='hit'?x.side:x.dside;
+    if(aSide!==e.side)return;
+    const aK=aSide==='P'?'p':'e',dK=aK==='p'?'e':'p',type=cur[aK];
+    if(hasRain&&type==='ignis'&&skill)return;
+    pre.add(j);
+    const miss=x.t==='hit'&&!!x.miss,crit=x.t==='hit'&&!!x.crit,low=x.t==='hit'&&x.thp<mx(dK)*.35;
+    juice.plan(tl[j],leadOf(type),()=>juice.fire(aK,dK,type,miss,()=>motion.hit({a:aK,d:dK,type,miss,crit,low})));
+  });
+  return pre;
 }
 
 /* ── 실시간 재생 시간표 (2026-09-21 · 사용자 결정) ──────────────────
@@ -2662,6 +2762,7 @@ function renderResult(win,rw,P,E,opp){
     </div>`;
   fillAnalysis();
   renderWallet();
+  growthFx.rewardLines($('#sc-battle .reward'));
 }
 function toggleSpeed(){ battleSpeed = battleSpeed>=8?1:battleSpeed*2; const b=$('#spdbtn'); if(b)b.textContent='속도 x'+battleSpeed; }
 
@@ -2899,12 +3000,14 @@ async function playJoint(events, team, boss,active=()=>true){
   const key =(side,i)=> side==='E' ? 'e' : 'p'+(i|0);
   const unit=(side,i)=> side==='E' ? boss : team[i|0];
   const battleAudio=createCombatAudio(audio,{active:()=>!stopped(),unit});
+  /* 타격감 — 1:1 과 같은 연출 층. 합동전은 미리 준비 없이(전위 돌진 · 후위 사격은 그대로) 맞는 순간 이후만 얹는다 */
+  const juice=createBattleFx(arena,{speed:()=>battleSpeed});
   const nm  =(side,i)=> side==='E' ? `<span style="color:var(--bad);font-weight:700">${esc(boss.name)}</span>`
                                    : `<span class="k">${esc(team[i|0].name)}</span>`;
-  team.forEach((u,i)=>{ setHP('p'+i, u.maxhp, u.maxhp); setSP('p'+i, 0); });
-  setHP('e', boss.maxhp, boss.maxhp); setSP('e', 0);
+  team.forEach((u,i)=>{ setHP('p'+i, u.maxhp, u.maxhp); setSP('p'+i, 0); juice?.hp('p'+i,u.maxhp,u.maxhp,true); });
+  setHP('e', boss.maxhp, boss.maxhp); setSP('e', 0); juice?.hp('e',boss.maxhp,boss.maxhp,true);
   blog(`합동전 개시! <b>${team.map(u=>esc(u.name)).join(' · ')}</b> vs <b>${esc(boss.name)}</b>`);
-  const sl=ms=>sleep(ms/battleSpeed);
+  const sl=ms=>juice?juice.wait(ms,()=>stopped()||_skipReplay):sleep(ms/battleSpeed);
   const down=new Set();
   const finishNow=(from)=>{
     for(let k=from;k<events.length;k++){ const x=events[k];
@@ -2921,19 +3024,19 @@ async function playJoint(events, team, boss,active=()=>true){
   /* 실시간 재생 — playBattle 과 같은 시간표(battleTimeline). 전위 · 후위 · 보스가 각자의 박자로 움직인다 */
   const tl=battleTimeline(events);
   let clock=0;
-  const until=async t=>{ const w=t-clock; clock=Math.max(clock,t); if(w>0) await sl(w); };
+  const until=juice?t=>juice.until(t,()=>stopped()||_skipReplay):async t=>{ const w=t-clock; clock=Math.max(clock,t); if(w>0) await sl(w); };
   const strike=(aK,dK,side,i)=>{ if(side==='P' && i===1) shoot(aK,dK); else lunge(aK); };   // 기다리지 않는다
   try{
-  await sl(400);
+  if(juice)juice.intro([...team.map((_,i)=>'p'+i),'e'],[team.map(u=>u.name).join(' · '),boss.name]); else await sl(400);
   for(let ix=0;ix<events.length;ix++){
     const e=events[ix];
     if(e.t!=='end') await until(tl[ix]);
     if(stopped()) return null;
     if(_skipReplay) return finishNow(0);
     if(e.t!=='end')battleAudio.event(e);
-    if(e.t==='turn'){ setSP(key(e.side,e.i), e.sp); continue; }
+    if(e.t==='turn'){ setSP(key(e.side,e.i), e.sp); juice?.turn(key(e.side,e.i)); continue; }
     if(e.t==='skill'){
-      banner(e.name);
+      if(juice)juice.skill(key(e.side,e.i),COMBAT_TYPES[unit(e.side,e.i).type]?.skill?.fx,e.name); else banner(e.name);
       blog(`${nm(e.side,e.i)} 스킬 <b>${esc(e.name)}</b>!${e.aim==='all'?' <span class="m">광역</span>':e.aim==='back'?' <span class="m">후위 저격</span>':''}`);
       continue;
     }
@@ -2942,20 +3045,21 @@ async function playJoint(events, team, boss,active=()=>true){
       const pK=key(e.side,e.i), aK=key(e.dside,e.di);
       strike(aK,pK,e.dside,e.di);
       if(stopped()) return null;
-      floatDmg(pK,'PARRY','parry'); shakeF(aK);
+      if(juice)juice.parry(pK,aK,unit(e.dside,e.di).type,true); else{ floatDmg(pK,'PARRY','parry'); shakeF(aK); }
       blog(`${nm(e.side,e.i)} <span class="c">흘려내기!</span> ${nm(e.dside,e.di)} 의 공격을 흘리고 · ${nm(e.dside,e.di)} 행동 지연`);
       continue;
     }
     if(e.t==='heal'){
       const k=key(e.side,e.i);
-      setHP(k, e.hp, unit(e.side,e.i).maxhp); floatDmg(k,'+'+e.amt,'heal');
+      setHP(k, e.hp, unit(e.side,e.i).maxhp);
+      if(juice){ juice.heal(k,e.amt,e.src==='regen'?'regen':e.src,null); juice.hp(k,e.hp,unit(e.side,e.i).maxhp); } else floatDmg(k,'+'+e.amt,'heal');
       blog(`${nm(e.side,e.i)} 체력 <span class="h">+${e.amt}</span> ${e.src==='regen'?'재생':e.src==='repair'?'수리':'흡수'}`);
       continue;
     }
-    if(e.t==='shield'){ const k=key(e.side,e.i); floatDmg(k,'방벽 '+e.amt,'heal');
+    if(e.t==='shield'){ const k=key(e.side,e.i); if(juice)juice.shield(k,e.amt,e.now); else floatDmg(k,'방벽 '+e.amt,'heal');
       blog(`${nm(e.side,e.i)} <span class="h">방벽 ${e.amt}</span>`); continue; }
-    if(e.t==='mark'){ blog(`${nm(e.side,e.i)} → ${nm(e.dside,e.di)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); continue; }
-    if(e.t==='jam'){ const k=key(e.dside,e.di); setSP(k,e.sp); floatDmg(k,'JAM','miss');
+    if(e.t==='mark'){ juice?.mark(key(e.dside,e.di)); blog(`${nm(e.side,e.i)} → ${nm(e.dside,e.di)} <span class="m">표적 +${Math.round(e.amt*100)}%</span>`); continue; }
+    if(e.t==='jam'){ const k=key(e.dside,e.di); setSP(k,e.sp); if(juice)juice.jam(k); else floatDmg(k,'JAM','miss');
       blog(`${nm(e.side,e.i)} 재밍 — ${nm(e.dside,e.di)} SP −${e.amt} · 행동 지연`); continue; }
     if(e.t==='down'){
       down.add(e.i);
@@ -2968,18 +3072,21 @@ async function playJoint(events, team, boss,active=()=>true){
       const aK=key(e.side,e.i), dK=key(e.dside,e.di);
       strike(aK,dK,e.side,e.i);
       if(stopped()) return null;
-      if(e.miss){ floatDmg(dK,'MISS','miss'); blog(`${nm(e.side,e.i)} 의 공격을 ${nm(e.dside,e.di)} 이(가) <span class="m">회피!</span>`); }
+      if(juice)juice.impact(aK,dK,e,{maxhp:unit(e.dside,e.di).maxhp,kind:e.side==='P'&&e.i===1?'shot':shotCat(unit(e.side,e.i).type)});
+      if(e.miss){ if(!juice)floatDmg(dK,'MISS','miss'); blog(`${nm(e.side,e.i)} 의 공격을 ${nm(e.dside,e.di)} 이(가) <span class="m">회피!</span>`); }
       else{
-        flash(); shakeF(dK); floatDmg(dK,(e.crit?'CRIT ':'')+e.dmg, e.crit?'crit':'norm');
+        if(!juice){ flash(); shakeF(dK); floatDmg(dK,(e.crit?'CRIT ':'')+e.dmg, e.crit?'crit':'norm'); }
         setHP(dK, e.thp, unit(e.dside,e.di).maxhp);
         blog(`${nm(e.side,e.i)} → ${nm(e.dside,e.di)} ${e.crit?'<span class="c">치명타 </span>':''}<b>${e.dmg}</b> 피해${e.cut?` <span class="m">(역장 −${e.cut})</span>`:''}${e.absorb?` <span class="m">(방벽 −${e.absorb})</span>`:''}`);
       }
       continue;
     }
-    if(e.t==='end'){ await until(tl[ix]); await sl(300); if(!stopped()&&!_skipReplay)battleAudio.event(e); return stopped()?null:e.winner; }
+    if(e.t==='end'){ await until(tl[ix]); await sl(300); if(!stopped()&&!_skipReplay)battleAudio.event(e);
+      if(juice&&!stopped()&&!_skipReplay){ juice.finish(e.winner==='P',e.winner==='P'?'p0':'e'); await sl(1100); }
+      return stopped()?null:e.winner; }
   }
   return stopped()?null:'E';
-  }finally{battleAudio.stop();}
+  }finally{battleAudio.stop();juice?.dispose();}
 }
 
 /* 토벌 보스 출격 — 서버가 정한 자리·전술·스탯·시드로 재생하고, 두 기의 정산을 받아 적는다 */
@@ -3401,6 +3508,7 @@ function renderFrontResult(r, c){
   _fight=fightBreach(r);
   $('#sc-battle').innerHTML=frontResultView(r,c,{rewards:lines.join('')+(typeof growth!=='undefined'?growth.rewardSlot(r):''),repair:frontFixHtml((r.fat||[]).map(f=>f.uid))})+analysisSlot();
   fillAnalysis();
+  growthFx.rewardLines($('#sc-battle .reward'));
 }
 
 /* 전선 결과에서 바로 정비 — 방금 싸운 기체만(편성 두 기가 같이 나간다).
@@ -3726,10 +3834,11 @@ function renderBreachResult(r){
   _fight=fightBreach(r);
   $('#sc-battle').innerHTML=territoryResultView(r,node,lines.join('')+(typeof growth!=='undefined'?growth.rewardSlot(r):''))+analysisSlot();
   fillAnalysis();
+  growthFx.rewardLines($('#sc-battle .reward'));
 }
 
 async function claimTerr(){
-  const soundTicket=audio.ticket('reward');
+  const soundTicket=audio.ticket('reward'),from=centerOf(enhAnchor('ROWAR.claimTerr()')),before=walletNow();
   const owner=S,account=net.state.accountId;
   const r=await net.territory('claim');
   if(S!==owner||account!==net.state.accountId)return;
@@ -3739,6 +3848,7 @@ async function claimTerr(){
   S.credits=r.player.credits; S.scrap=r.player.scrap;
   if(r.player.cores!=null) S.cores=r.player.cores;
   commitLocal(); dropTerrCache(); renderWallet();
+  growthFx.wallet(from,before,walletNow());
   if(cur==='terr'&&_frontTab==='terr')renderTerr();
   toast(`점령지 ${r.nodes}칸 · 크레딧 +${fmt(r.cr)} · 스크랩 +${fmt(r.sc)}${r.core?` · 코어 +${r.core}`:''}`);
 }

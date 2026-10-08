@@ -60,7 +60,7 @@ function skillMarks(type) {
 }
 
 /* 종류마다의 시간(ms · 배속 1)과 대체 연출 색 */
-const TIME = {
+export const TIME = {
   shot:    { pre: 40,  fly: 90,  hit: 110, fade: 220, color: '#ffe08a', core: '#fff6d8' },
   cannon:  { pre: 90,  fly: 150, hit: 150, fade: 320, color: '#ff9a3c', core: '#ffe2a8' },
   missile: { pre: 60,  fly: 280, hit: 160, fade: 340, color: '#ff7a3c', core: '#ffd28a' },

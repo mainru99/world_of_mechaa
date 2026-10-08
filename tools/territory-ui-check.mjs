@@ -4,13 +4,15 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {territoryResultView} from '../js/ui/territory.js';
 import {commonMessage} from '../js/ui/common.js';
+// Display-only juice layers (js/ui/growth-fx.js · battle-fx.js) are not under test here — inert stand-ins.
+const FX_STUBS={growthFx:{enhance:()=>({ready:Promise.resolve(),strike:async()=>{},result(){},cancel(){}}),levelUp(){},wallet(){},rewardLines(){}},enhAnchor:()=>null,centerOf:()=>null,walletNow:()=>({}),createBattleFx:()=>null,createMotion:()=>null};
 const source=await readFile(new URL('../js/game.js',import.meta.url),'utf8');
 function fn(name){const start=source.indexOf(`function ${name}(`),end=source.indexOf('\n}',start);assert.ok(start>=0&&end>=0,name);return source.slice(source.slice(start-6,start)==='async '?start-6:start,end+2);}
 function deferred(){let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};}
 const response={ok:true,node:'n01',win:true,reward:{},player:{credits:101,cores:3,scrap:8}};
 function setup(name){
  const d=deferred(),events=[],el={innerHTML:''};
- const c=vm.createContext({audio:createAudio(),S:{credits:100},cur:'terr',_frontTab:'terr',_battleRequest:0,_territorySelected:'n01',
+ const c=vm.createContext({...FX_STUBS,audio:createAudio(),S:{credits:100},cur:'terr',_frontTab:'terr',_battleRequest:0,_territorySelected:'n01',
   net:{state:{online:true,accountId:'a'},territory:()=>d.promise},NODE_BY:{n01:{ko:'거점',terrain:'plain',minLv:5}},commonMessage,
   closeModal(){},setTerrain(){},toBattle:()=>{c.cur='battle';},$:()=>el,sleep:async()=>{},
   toast:x=>events.push(['toast',x]),ERR_KO:{},dur:String,fmt:String,commitLocal:()=>events.push(['save']),

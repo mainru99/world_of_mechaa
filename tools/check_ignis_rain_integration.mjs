@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
+// Display-only juice layers (js/ui/growth-fx.js · battle-fx.js) are not under test here — inert stand-ins.
+const FX_STUBS={growthFx:{enhance:()=>({ready:Promise.resolve(),strike:async()=>{},result(){},cancel(){}}),levelUp(){},wallet(){},rewardLines(){}},enhAnchor:()=>null,centerOf:()=>null,walletNow:()=>({}),createBattleFx:()=>null,createMotion:()=>null};
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 const repo=process.argv[2]||path.resolve(here,'..');
@@ -24,7 +26,7 @@ async function run(events,P=basic(),E=basic('mule'),hooks={},speed=1){
   const state={arena:{isConnected:true},sleeps:0};
   // playBattle 은 모듈 바깥의 _skipReplay 를 읽는다. 잘라 온 조각에는 선언이 없으므로
   // 여기서 세워 준다 — 빠지면 ReferenceError 로 검사가 통째로 죽는다(실제로 그랬다).
-  const ctx={COMBAT_TYPES,cur:'battle',battleSpeed:speed,_skipReplay:false,
+  const ctx={...FX_STUBS,audio:{},createCombatAudio:()=>({event(){},stop(){}}),COMBAT_TYPES,cur:'battle',battleSpeed:speed,_skipReplay:false,
     document:{getElementById:()=>state.arena},
     setHP:(...v)=>calls.push(['hp',...v]), setSP:(...v)=>calls.push(['sp',...v]),
     blog:v=>calls.push(['log',v]), banner:v=>calls.push(['banner',v]),
@@ -145,7 +147,7 @@ assert(of(skipped,'log').some(c=>String(c[1]).includes('건너뜀')));
 
 // Unexpected rendering errors still release the effect owner.
 let disposed=0;
-const ctx={cur:'battle',document:{getElementById:()=>arena},createIgnisRain:()=>({dispose:()=>disposed++}),setHP:()=>{throw Error('fixture');}};
+const ctx={...FX_STUBS,audio:{},createCombatAudio:()=>({event(){},stop(){}}),cur:'battle',document:{getElementById:()=>arena},createIgnisRain:()=>({dispose:()=>disposed++}),setHP:()=>{throw Error('fixture');}};
 const arena={isConnected:true};
 vm.createContext(ctx); vm.runInContext(playback+'\nglobalThis.testPlay=playBattle;',ctx);
 await assert.rejects(ctx.testPlay([],basic(),basic('mule')),/fixture/);

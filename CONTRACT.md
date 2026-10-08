@@ -4523,3 +4523,12 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - 뽑기 소리는 성장 소리와 겹친다(사용자) → 기존 31종에서 겹치지 않게 다시 배정(9-1 표). 새 소리 생성(agent-audio)은 이 PC 메모리 7.7GB 라 보류
 - 순서 — 성장 → 뽑기 → 전투. 단계마다 로컬 확인 뒤 커밋
 - 참고 — 효과음 연결(ab818cb)은 로컬 커밋만 됐고 **푸시 · 배포 전**이다
+
+## 역할 변경 · 연출 게임 연결 완료 — 2026-10-08 오후 · Claude (사용자 결정)
+
+- 사용자: **"역할 바꾸고 성장 연출, 뽑기, 타격감까지 커밋, 푸시, 배포하자."** 바로 위 절의 '구현 GPT · Claude 검토'를 **구현 Claude · 아트 Codex** 로 바꾼다. 화면 파일(`js/game.js` · `index.html` · `themes/` · `js/ui/`)을 이번에 Claude 가 고쳤다
+- 한 것 — 인계서 9절 그대로: 성장 연출 · 뽑기 캡슐식(+건너뛰기 · 9-1 소리) · 전투 타격감(대기 모션 제외 · 판 길이 그대로 · `js/motion.js` 와 합침). 기록 [`docs/ui/juice-integration-2026-10-08.md`](docs/ui/juice-integration-2026-10-08.md)
+- 새 모듈 `js/ui/fx-layer.js` · `growth-fx.js` · `gacha-fx.js` · `battle-fx.js` · `themes/fx-v2.css` — 전부 표시 전용. `js/motion.js` 는 `TIME` export 만(값 그대로)
+- 판정 · 서버 · DB · `data/balance.js` · `proto/juice/` 는 고치지 않았다
+- 아트 의뢰(Codex) — 이 PC 의 Codex Windows 샌드박스가 'setup refresh had errors' 로 실행 불가. 사용자 결정으로 **나중에**. 의뢰서는 그대로 `docs/art/gacha-art-request-2026-10-08.md`
+- 검사 하네스 7종에 연출 대역을 넣었다(조건 그대로). `check_ignis_rain_integration` 은 효과음 연결 뒤부터 깨져 있던 것을 같이 고쳤다

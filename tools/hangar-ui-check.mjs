@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import {createAudio} from '../js/audio.js';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
+// Display-only juice layers (js/ui/growth-fx.js · battle-fx.js) are not under test here — inert stand-ins.
+const FX_STUBS={growthFx:{enhance:()=>({ready:Promise.resolve(),strike:async()=>{},result(){},cancel(){}}),levelUp(){},wallet(){},rewardLines(){}},enhAnchor:()=>null,centerOf:()=>null,walletNow:()=>({}),createBattleFx:()=>null,createMotion:()=>null};
 const source=await readFile(new URL('../js/game.js',import.meta.url),'utf8');
 function fn(name){
   const match=new RegExp(`(?:async )?function ${name}\\(`).exec(source);
@@ -18,6 +20,7 @@ const makeRobot=uid=>({uid,type:uid,level:10,skillLv:1,fat:9,slots:{WEAPON:null,
 const robots=[makeRobot('lead'),makeRobot('reserve')], calls=[];
 let reply={}, pending=null;
 const ctx=vm.createContext({
+  ...FX_STUBS,cur:'hangar',document:{querySelector:()=>null},computeStats:()=>({}),
   audio:createAudio(),
   S:{robots,sel:0,squad:['lead'],credits:900,scrap:800,parts:[],presets:[]},
   hangarUid:null,hangarTab:'info',hangarInventory:false,

@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 import {TERRITORY,SLOTS,MONSTER_TYPES,ROBOT_TYPES,CONST} from '../data/balance.js';
 import {battleView} from '../js/ui/battle.js';
 import {codexView,codexActivatable,codexRewards,codexTitles} from '../js/codex.js';
-import {computeStats,power,serviceCost,fatOf,gainExp,addFat,battleExp} from '../js/stats.js';
+import {computeStats,power,serviceCost,fatOf,gainExp,addFat,battleExp,enhCost,enhRate,enhMax,skillCost,skillRate,skillMax,lvCost} from '../js/stats.js';
 import {rollPart,rollPull,PULL_CUR} from '../js/gacha.js';
 import {periodOf,periodEnd,refreshCost,rollShop,slotSig,shardNeed,shardKey,bagView} from '../js/shop.js';
 import {mulberry32} from '../js/sim.js';
@@ -37,6 +37,8 @@ const sampleFrontOffline=process.argv.includes('--sample-front-offline');
 const sampleFrontDelay=process.argv.includes('--sample-front-delay');
 const samplePerformance=process.argv.includes('--sample-performance');
 const sampleBrawl=process.argv.includes('--sample-brawl');
+// Opt-in growth effects review: enhance/skill/level-up with real rates and ~1.1s latency. In-memory only.
+const sampleGrowth=process.argv.includes('--sample-growth');
 let previewFailPull=false;
 let previewIdentity=sampleLogin?null:{id:'preview',guest:false,loginId:'지휘관_01'};
 const previewToken='ui-preview-only';
@@ -257,6 +259,25 @@ const server=http.createServer(async(req,res)=>{
      const cr=200,sc=40;state.credits+=cr;state.scrap+=sc;state.expd=null;
      json(res,200,{ok:true,rev:++previewRev,player:{credits:state.credits,cores:state.cores,scrap:state.scrap},reward:{cr,sc,core:0,part:null}});return;
     }
+   }
+   if(sampleGrowth&&url.pathname==='/api/hangar'&&req.method==='POST'&&['enhance','skillup','levelup'].includes(body.action)){
+    await new Promise(r=>setTimeout(r,1100));
+    if(body.action==='enhance'){
+     const p=state.parts.find(x=>x.uid===body.partUid),lv=p?.enh|0,cost=enhCost(lv);
+     if(!p||lv>=enhMax()||state.scrap<cost){json(res,400,{error:'invalid sample enhance'});return;}
+     state.scrap-=cost;const ok=rng()<enhRate(lv);if(ok)p.enh=lv+1;
+     json(res,200,{ok:true,rev:++previewRev,enh:p.enh|0,failed:!ok,scrap:state.scrap,cost});return;
+    }
+    const rb=state.robots.find(r=>r.uid===body.robotUid);if(!rb){json(res,400,{error:'no robot'});return;}
+    if(body.action==='skillup'){
+     const slv=rb.skillLv|0,c=skillCost(slv);
+     if(slv>=skillMax()||state.credits<c.cr||state.scrap<c.sc){json(res,400,{error:'invalid sample skillup'});return;}
+     state.credits-=c.cr;state.scrap-=c.sc;const rate=skillRate(slv),ok=rng()<rate;if(ok)rb.skillLv=slv+1;
+     json(res,200,{ok:true,rev:++previewRev,skillLv:rb.skillLv|0,success:ok,rate,credits:state.credits,scrap:state.scrap});return;
+    }
+    const cost=lvCost(rb.level);if(state.credits<cost||rb.level>=CONST.MAXLV){json(res,400,{error:'invalid sample levelup'});return;}
+    state.credits-=cost;rb.level++;rb.exp=0;
+    json(res,200,{ok:true,rev:++previewRev,credits:state.credits,level:rb.level});return;
    }
    if(url.pathname==='/api/territory'&&body.action==='view'){json(res,200,{ok:true,nodes,mine:3,pending,world:{avgPower:8500},myLv:32,at:Date.now()});return;}
    json(res,403,{error:'로컬 디자인 미리보기에서는 재화를 사용하거나 보상을 수령하지 않습니다'});return;

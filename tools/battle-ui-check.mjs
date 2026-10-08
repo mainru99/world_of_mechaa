@@ -4,6 +4,8 @@ import vm from 'node:vm';
 import {battleView} from '../js/ui/battle.js';
 import {computeStats,power} from '../js/stats.js';
 import {MONSTER_TYPES} from '../data/balance.js';
+// Display-only juice layers (js/ui/growth-fx.js · battle-fx.js) are not under test here — inert stand-ins.
+const FX_STUBS={growthFx:{enhance:()=>({ready:Promise.resolve(),strike:async()=>{},result(){},cancel(){}}),levelUp(){},wallet(){},rewardLines(){}},enhAnchor:()=>null,centerOf:()=>null,walletNow:()=>({}),createBattleFx:()=>null,createMotion:()=>null};
 const unit=type=>{const r={type,level:32,slots:{},fat:0};return {...r,stats:computeStats(r,[]),power:power(r,[])};};
 const boss=Object.values(MONSTER_TYPES).find(t=>t.rarity==='BOSS').id;
 {
@@ -109,7 +111,7 @@ console.log('Battle UI passed: 1:1/2:1 rosters and power; static sprites; escapi
 }
 for(const hunt of [null,{tier:'C',done:false},{tier:'EP',done:true}]){
  const el={innerHTML:''};let nav;
- const c=vm.createContext({analysisSlot:()=>'',fillAnalysis(){},shield(){},toBattle:(bg,origin)=>nav=origin,$:()=>el,renderWallet(){},sprite:()=>'',esc:String,fmt:String,FAT_MAX:100,
+ const c=vm.createContext({...FX_STUBS,analysisSlot:()=>'',fillAnalysis(){},shield(){},toBattle:(bg,origin)=>nav=origin,$:()=>el,renderWallet(){},sprite:()=>'',esc:String,fmt:String,FAT_MAX:100,
   huntNow:()=>({tiers:{},resetAt:0}),HUNT_KO:{},huntResetTxt:()=>'',bandText:()=>''});
  vm.runInContext(fn('renderResult'),c);
  c.renderResult(true,{hunt,lv:{amt:5,from:1,to:1},cr:1,sc:0,fat:{add:0}},{name:'A',type:'ignis'},{name:'B',type:'ranger'},{});

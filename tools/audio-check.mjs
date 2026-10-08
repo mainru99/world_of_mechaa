@@ -100,15 +100,16 @@ const html=audioSettingsView({volume:.45,muted:true});assert.match(html,/효과�
 // failure gets enh_fail, and a navigation-invalidated response keeps its reward.
 const game=await readFile(new URL('../js/game.js',import.meta.url),'utf8');
 function fn(name){const p=game.indexOf(`async function ${name}(`);assert.ok(p>=0);return game.slice(p,game.indexOf('\n}',p)+2);}
+const fxStub={enhance:()=>({ready:Promise.resolve(),strike:async()=>{},result(){},cancel(){}}),levelUp(){},wallet(){},rewardLines(){}};
 for(const result of [null,{failed:true,enh:3,scrap:99,cost:1},{failed:false,enh:4,scrap:99}]){
  const f=fixture();await f.audio.unlock();await f.audio.preload(['enh_charge','anvil_hit','enh_success','enh_fail']);const part={uid:'p',enh:3,name:'sample'};
- const c=vm.createContext({audio:f.audio,findPart:()=>part,S:{parts:[part]},srvHangar:async()=>result,commitLocal(){},toast(){},fmt:String,enhRate:()=>.5});
+ const c=vm.createContext({audio:f.audio,growthFx:fxStub,enhAnchor:()=>null,findPart:()=>part,S:{parts:[part]},srvHangar:async()=>result,commitLocal(){},toast(){},fmt:String,enhRate:()=>.5});
  vm.runInContext(fn('enhancePart'),c);await c.enhancePart('p');
  assert.equal(f.sources.length,result?3:1);assert.equal(part.enh,result?.enh??3);
 }
 {
  const gate=defer(),f=fixture();await f.audio.unlock();await f.audio.preload(['levelup']);const rb={uid:'one',type:'azure',level:3};
- const c=vm.createContext({audio:f.audio,hangarRobot:()=>rb,srvHangar:()=>gate.promise,S:{credits:9},commitLocal(){},toast(){},ROBOT_TYPES:{azure:{name:'AZURE'}}});
+ const c=vm.createContext({audio:f.audio,growthFx:fxStub,cur:'hangar',document:{querySelector:()=>null},computeStats:()=>({}),hangarRobot:()=>rb,srvHangar:()=>gate.promise,S:{credits:9},commitLocal(){},toast(){},ROBOT_TYPES:{azure:{name:'AZURE'}}});
  vm.runInContext(fn('levelUp'),c);const run=c.levelUp();f.audio.stopAll();gate.resolve({credits:1,level:4});await run;
  assert.equal(rb.level,4);assert.equal(f.sources.length,0,'navigation retains committed level but suppresses stale sound');
 }
@@ -123,7 +124,7 @@ for(const player of ['playBattle','playJoint'])for(const mode of ['normal','skip
   {t:'hit',side:'P',i:0,dside:'E',di:0,crit:true,dmg:100,thp:820},{t:'end',winner:'P'}];
  const P={name:'AZURE',type:'azure',hp:1000,maxhp:1000},E={name:'RANGER',type:'ranger',hp:1000,maxhp:1000};
  let sleeps=0,navigationVoices=0;const shown=[];
- const c=vm.createContext({audio:f.audio,createCombatAudio,cur:'battle',battleSpeed:1,_skipReplay:mode==='skip',document:{getElementById:()=>arena},
+ const c=vm.createContext({audio:f.audio,createCombatAudio,createBattleFx:()=>null,cur:'battle',battleSpeed:1,_skipReplay:mode==='skip',document:{getElementById:()=>arena},
   createIgnisRain:()=>null,COMBAT_TYPES:{},AR:()=>null,sprite:()=>'',battleTimeline:ev=>ev.map((_,i)=>i*180),
   setHP:(...a)=>shown.push(['hp',...a]),setSP(){},blog(){},banner(){},flash(){},shakeF(){},floatDmg(){},lunge(){},shoot(){},esc:String,
   sleep:async ms=>{f.advance(ms);if(mode==='navigate'&&++sleeps===2){navigationVoices=f.sources.length;c.cur='hangar';}}});

@@ -53,3 +53,10 @@
 - 유성식 — `GACHA_MODE = 'meteor'` 로 바꾸면 된다(사용자가 다음에 비교)
 - 대기 모션 — 사용자 결정으로 뺐다. 프레임 그림(IGNIS 대기처럼)이 생기면 다시 본다
 - 전위/후위 합동전은 미리 준비(예비 동작 · 먼저 쏘기) 없이 맞는 순간 이후만 얹었다 — 후위 사격 · 전위 돌진은 원래 연출 그대로
+
+## 배포 — 2026-10-08
+
+- 코드 `c9e7b40` main 푸시. 작업 트리의 미추적 '복사본' PNG 가 섞이지 않게 **깨끗한 checkout `.tmp/fx-release-20261008`** 에서 `node server/build.mjs` → `motion-release-check` 통과 → `wrangler deploy`
+- Worker **45075172-3c01-424d-8353-67eee145a9cf** (이전 10089967-a809-443b-b2e1-a4deaec5f568). 정적 45파일 신규 업로드(효과음 WAV 31종 포함 — 효과음 연결 `ab818cb` 가 이번에 처음 운영에 올라갔다) · 400파일 재사용. D1 · 스마트 배치 · 크론 2개 그대로, DB 이관 없음
+- 운영 확인 — `/` · `js/game.js` · `js/motion.js` · `js/ui/` 연출 4종 · `js/audio.js` · `themes/fx-v2.css` · WAV · 캡슐 PNG 해시가 빌드본과 일치 · `/api/health` 200(schema 25 · balance `o282jp` · 계정 35) · `/api/state` 401 · 복사본 PNG 404 · 첫 화면 모듈 로드 · 콘솔 오류 0. '시작하기' 는 누르지 않았다(운영 게스트 계정이 생긴다)
+- 되돌리기 — `node node_modules/wrangler/bin/wrangler.js rollback 10089967-a809-443b-b2e1-a4deaec5f568 --message "Restore pre juice release" --yes`

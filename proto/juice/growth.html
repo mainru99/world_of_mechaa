@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ROWAR 성장 연출 시험대</title>
+<!-- 성장 순간(강화 · 레벨 업 · 보상 · 버튼) 연출 시험 페이지 — 2026-10-07.
+     전투 시험대(index.html)의 짝이다. 게임 화면 파일을 건드리지 않고 연출만 비교한다. 배포 대상이 아니다.
+     로컬: 리포 루트에서 python -m http.server 5181 → http://localhost:5181/proto/juice/growth.html -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<style>
+:root{--ground:#0a0f19;--panel:#111a2a;--panel2:#16223a;--line:#24344f;--ink:#e7eefb;--sub:#8fa2c2;--acc:#56d6ff;--gold:#ffcf5a;--good:#4fe39a;--bad:#ff6a6a;
+  --num:"Chakra Petch","IBM Plex Sans KR",ui-monospace,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.5 "IBM Plex Sans KR","Segoe UI","맑은 고딕",system-ui,sans-serif;padding:18px 16px 48px}
+header{max-width:1200px;margin:0 auto 14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px}
+header h1{margin:0;font-size:20px;text-wrap:balance}
+header p{margin:0;color:var(--sub);font-size:13px;flex:1 1 320px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;max-width:1200px;margin:0 auto 16px}
+.seg{display:inline-flex;gap:6px}
+button.b{font:inherit;font-weight:700;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+button.b:hover{border-color:#3a5480}
+button.b.on{border-color:var(--acc);color:var(--acc);background:#0f2a3d}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.bar label{display:flex;align-items:center;gap:8px;color:var(--sub);font-size:13px}
+.bar input[type=range]{accent-color:var(--acc);width:120px}
+.bar output{font-family:var(--num);color:var(--ink);min-width:44px}
+.grid{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card h2{margin:0;font-size:12px;letter-spacing:.14em;color:var(--sub);font-weight:600}
+.card .note{margin:0;color:var(--sub);font-size:12.5px}
+.stage{position:relative;height:300px;border-radius:10px;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#16243d,#0a101c);border:1px solid #1d2c46;user-select:none}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cam{position:absolute;inset:0;will-change:transform}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+.abs{position:absolute}
+.center{left:50%;top:50%;transform:translate(-50%,-50%)}
+/* 강화 */
+.part{width:112px;height:112px;object-fit:contain;filter:drop-shadow(0 6px 10px #000a)}
+/* 가운데 맞춤을 transform 이 아니라 여백으로 — 강화 연출이 transform 을 쓰면 가운데 맞춤이 풀려 오른쪽 아래로 밀렸다 */
+.part.center{transform:none;margin:-56px 0 0 -56px}
+.lvl{font-family:var(--num);font-weight:700;font-size:26px;color:var(--gold);text-shadow:0 2px 0 #000,0 0 12px #ffb03a88;white-space:nowrap}
+.tag{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);font-weight:700;letter-spacing:.2em;font-size:22px;opacity:0;white-space:nowrap;text-shadow:0 2px 0 #000}
+.rate{position:absolute;left:12px;top:10px;font-size:12px;color:var(--sub)}
+.rate b{color:var(--ink);font-family:var(--num);font-size:15px}
+.stat{position:absolute;right:12px;top:10px;font-size:12px;color:var(--sub);text-align:right;line-height:1.7}
+.stat b{font-family:var(--num);color:var(--ink);font-size:14px}
+.stat .up{color:var(--good)}
+.act{display:flex;gap:8px;align-items:center}
+.act .go{flex:1;font:inherit;font-weight:700;font-size:15px;padding:11px;border-radius:8px;border:1px solid #2c6f8d;background:linear-gradient(#17506b,#0f3a50);color:#eaf9ff;cursor:pointer;transition:transform .08s}
+.act .go:active{transform:scale(.97)}
+.act .go[disabled]{opacity:.6;cursor:progress}
+.wait{display:inline-block;width:14px;height:14px;border:2px solid #fff6;border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* 레벨 업 */
+.exp{position:absolute;left:14px;right:14px;bottom:14px;height:14px;border-radius:7px;background:#070b13;border:1px solid #2b3d5c;overflow:hidden}
+.exp i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3ab0ff,#7bf0ff)}
+.exp i.full{background:linear-gradient(90deg,#ffd45a,#fff3b0)}
+.robot{height:190px;filter:drop-shadow(0 8px 12px #000a)}
+.lu{font-family:var(--num);font-weight:700;font-size:34px;letter-spacing:.14em;color:#fff;text-shadow:0 0 22px var(--gold),0 3px 0 #000;opacity:0;white-space:nowrap}
+.rows{position:absolute;left:12px;top:10px;font-size:12.5px;line-height:1.8;color:var(--sub)}
+.rows div{display:flex;gap:8px}
+.rows b{font-family:var(--num);color:var(--ink);min-width:48px}
+.rows .up{color:var(--good);opacity:0}
+/* 보상 */
+.wallet{position:absolute;right:14px;top:12px;display:flex;flex-direction:column;gap:2px;text-align:right}
+.wallet div{font-size:12px;color:var(--sub)}
+.wallet b{font-family:var(--num);font-size:20px;color:var(--ink)}
+.lines{position:absolute;left:14px;top:14px;display:flex;flex-direction:column;gap:6px;width:56%}
+.lines div{display:flex;justify-content:space-between;gap:10px;background:#0c1424;border:1px solid #223455;border-radius:6px;padding:6px 10px;opacity:0;transform:translateX(-14px)}
+.lines div span{color:var(--sub)}
+.lines div b{font-family:var(--num);color:var(--gold)}
+/* 버튼 */
+.btns{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;height:100%;padding:12px}
+.fxbtn{position:relative;overflow:hidden;font:inherit;font-weight:700;font-size:15px;padding:12px 24px;border-radius:8px;border:1px solid #2c6f8d;background:linear-gradient(#17506b,#0f3a50);color:#eaf9ff;cursor:pointer}
+.fxbtn.alt{border-color:#7a5a1d;background:linear-gradient(#6b4a12,#46300a);color:#fff3d0}
+.fxbtn.ghost{border-color:var(--line);background:var(--panel2);color:var(--ink)}
+.fxbtn.press{transition:transform .07s,filter .07s}
+.fxbtn.press:active{transform:scale(.94) translateY(1px);filter:brightness(1.25)}
+.fxbtn .rp{position:absolute;border-radius:50%;background:#fff;opacity:.5;transform:scale(0);pointer-events:none;animation:rp .5s ease-out forwards}
+@keyframes rp{to{transform:scale(1);opacity:0}}
+.pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 #56d6ff55}50%{box-shadow:0 0 0 8px #56d6ff00}}
+.note kbd{font-family:var(--num);color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.pulse,.wait{animation:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>ROWAR 성장 연출 시험대</h1>
+  <p>강화 · 레벨 업 · 보상 · 버튼. 전투 시험대와 같은 방식 — 스위치로 "지금 게임"과 비교합니다. 결과는 게임의 실제 확률(<span id="rateNote"></span>)로 정합니다.</p>
+  <a href="index.html" style="color:var(--acc);font-size:13px">← 전투 시험대</a> <a href="gacha.html" style="color:var(--acc);font-size:13px">뽑기 →</a>
+</header>
+
+<div class="bar">
+  <div class="seg" role="group" aria-label="연출">
+    <button class="b" id="mNow">지금 게임</button>
+    <button class="b on" id="mJuice">연출 켬</button>
+  </div>
+  <label><span>서버 응답 지연</span><input type="range" id="lat" min="0" max="2500" step="100" value="1200"><output id="latOut">1.2초</output></label>
+  <label><span>소리 크기</span><input type="range" id="vol" min="0" max="100" value="70"><output id="volOut">70%</output></label>
+  <label><span>소리</span><select id="sfxsrc" aria-label="소리 종류" style="font:inherit;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:4px 6px"><option value="files">AI 생성 소리</option><option value="synth">합성음</option></select></label>
+</div>
+
+<div class="grid">
+  <!-- 파츠 강화 -->
+  <section class="card" aria-labelledby="h-enh">
+    <h2 id="h-enh">파츠 강화</h2>
+    <div class="stage" id="enhStage">
+      <div class="cam" id="enhCam">
+        <img class="part abs center" id="enhImg" src="../../assets/parts/railgun.png" alt="레일건">
+        <div class="lvl abs" id="enhLvl" style="left:50%;top:50%;transform:translate(-50%,calc(-50% + 82px))">+3</div>
+      </div>
+      <canvas id="enhFx"></canvas>
+      <div class="rate">성공 확률 <b id="enhRate">92%</b></div>
+      <div class="stat">공격 <b id="enhAtk">132</b> <span class="up" id="enhUp"></span></div>
+      <div class="tag" id="enhTag"></div>
+      <div class="flash" id="enhFlash"></div>
+    </div>
+    <div class="act"><button class="go" id="enhGo">강화 (+3 → +4)</button><button class="b" id="enhReset" title="+3 으로 되돌리기">처음부터</button></div>
+    <p class="note">서버 응답을 기다리는 동안이 곧 <b>충전 연출</b>입니다. 응답이 일찍 오면 충전이 끝날 때까지 기다렸다 결과를 보여 줍니다(최소 0.9초 — 결과가 너무 빨리 튀어나오면 밋밋합니다).</p>
+  </section>
+
+  <!-- 레벨 업 -->
+  <section class="card" aria-labelledby="h-lv">
+    <h2 id="h-lv">레벨 업</h2>
+    <div class="stage" id="lvStage">
+      <div class="cam" id="lvCam">
+        <img class="robot abs center" id="lvImg" src="../../assets/azure.png" alt="AZURE" style="transform:translate(-50%,-52%) scaleX(-1)">
+      </div>
+      <canvas id="lvFx"></canvas>
+      <div class="rows" id="lvRows"></div>
+      <div class="lu abs center" id="lvText">LEVEL UP</div>
+      <div class="exp"><i id="lvExp"></i></div>
+      <div class="flash" id="lvFlash"></div>
+    </div>
+    <div class="act"><button class="go" id="lvGo">전투 승리 — 경험치 얻기 (두 번이면 레벨 업)</button></div>
+    <p class="note">경험치 막대가 차오르는 순간부터 보여 줍니다. 넘치면 금색으로 변하고 레벨이 오르며, 늘어난 능력치가 위로 올라가며 표시됩니다.</p>
+  </section>
+
+  <!-- 보상 -->
+  <section class="card" aria-labelledby="h-rw">
+    <h2 id="h-rw">보상 수령</h2>
+    <div class="stage" id="rwStage">
+      <div class="lines" id="rwLines"></div>
+      <div class="wallet"><div>크레딧</div><b id="rwCr">12,480</b><div>스크랩</div><b id="rwSc">860</b></div>
+      <canvas id="rwFx"></canvas>
+    </div>
+    <div class="act"><button class="go" id="rwGo">보상 받기</button></div>
+    <p class="note">줄이 하나씩 들어오고, 숫자가 세어 올라가며, 재화 조각이 지갑으로 날아갑니다. 지갑 숫자는 도착할 때마다 올라갑니다.</p>
+  </section>
+
+  <!-- 버튼 -->
+  <section class="card" aria-labelledby="h-bt">
+    <h2 id="h-bt">버튼 반응</h2>
+    <div class="stage" id="btStage">
+      <div class="btns">
+        <button class="fxbtn press" data-snd="ui_confirm">출격</button>
+        <button class="fxbtn alt press" data-snd="ui_confirm">구매</button>
+        <button class="fxbtn ghost press" data-snd="ui_click">닫기</button>
+        <button class="fxbtn press pulse" data-snd="ui_confirm">수령 가능</button>
+      </div>
+    </div>
+    <p class="note">누르면 살짝 들어갔다 나오고, 눌린 자리에서 물결이 퍼지고, 소리가 납니다. 마지막 버튼은 지금 눌러야 할 것을 알려 주는 맥박입니다. "지금 게임"에서는 색만 바뀝니다.</p>
+  </section>
+</div>
+<script type="module" src="growth.js?v=1007i"></script>
+</body>
+</html>

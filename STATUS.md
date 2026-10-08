@@ -73,6 +73,15 @@ ChatGPT(Codex) 와의 담당 분담은 [`CONTRACT.md`](CONTRACT.md),
   `index` · `style` · `game.js` · `codex.js` · `rewards.js` · `balance.js` 내용 일치 · 파츠 그림 25/25 200 · `/api/state` · `/api/codex` · `/api/front` 401(인증 필요 = 살아 있음).
   **배포 확인은 해시가 아니라 내용 비교로 한다** — 로컬(LF)과 운영(배포한 PC 의 줄바꿈)이 달라 해시는 늘 어긋난다
 
+### 2026-10-08 — 타격감(Juice) 시험 페이지 · 효과음 · 뽑기 이펙트 그림 (사용자 지시)
+
+- 사용자 판단 '재미가 부족하다' → 연출 부족을 먼저 본다. 규칙 · 밸런스는 그대로, 보여 주는 방식만 `proto/juice/`(배포 제외)에서 비교
+  - 전투 `index.html`(스위치 18 · 원거리 사격 · 특화기술 · 파손 · 등장/승리 …) · 성장 `growth.html`(사용자 '너무 좋다') · 뽑기 `gacha.html`(캡슐 / 유성 · 마법진 · 소용돌이)
+- 효과음 31종 — `agent-audio`(Stable Audio 3 · 로컬) 설치(`Desktop/dev/agent-audio` · 모델 `~/.agent-audio` 7.1GB). 합성음 · Kenney 는 사용자가 반려
+- 뽑기 이펙트 그림 — `tools/gacha_fx_gen.py` → `assets/gacha/fx/` · 등급별 캡슐. 문양 · 배경 · 기체 컷은 ChatGPT 의뢰(`docs/art/gacha-art-request-2026-10-08.md`)
+- 코어 서킷 전문 별 연출을 운영 렌더러 `js/ui/circuit-svg.js` 에 반영(동결 예외 · 10-07 배포)
+- **결정 대기** — 뽑기 캡슐 / 유성 · 건너뛰기 · 전투 판 길이(전부 켜면 약 40% 길어짐). 인계: `docs/handoff/2026-10-08-juice-to-ui.md`
+
 ### 2026-10-07 — 난투 대기석 7칸 · 공격 모션 준비 (사용자 결정)
 
 **대기석 6 → 7** — `CONST.BRAWL.bench`. GPT 화면 CSS 의 열 수만 맞췄다(PC 한 줄 7 · 모바일 4 + 3). 규칙 · 서버 · 화면 검사 통과

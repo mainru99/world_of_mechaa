@@ -11,7 +11,7 @@
 import { ROBOT_TYPES } from '../../data/balance.js';
 import { makeUnit, simulate } from '../../js/sim.js';
 import { computeStats } from '../../js/stats.js';
-import { Sfx } from './sfx.js?v=0930c';
+import { Sfx } from './sfx.js?v=1007c';
 
 const $ = s => document.querySelector(s);
 const sfx = new Sfx();
@@ -32,6 +32,9 @@ const TOGGLES = [
   ['numbers',   '피해 숫자',     '크기가 피해에 비례하고 튀어 오른다. 끄면 지금처럼 같은 크기로 떠오른다'],
   ['telegraph', '스킬 예고',     '0.4초 기를 모은다 — 빛이 모이고 카메라가 다가간다'],
   ['ko',        '격파 · 교대',   '폭발 · 느린 재생 · 쓰러짐, 다음 기체가 떨어져 착지'],
+  ['special',   '특화기술 효과', '방벽은 보호막 · 표적은 조준선 · 재밍은 화면 지직 · 수리는 초록 빛 · 흡수는 붉은 빛줄기 · 처형 · 장갑 파쇄 · 관통', true],
+  ['skillfx',   '스킬 종류별 색', '스킬의 성질(관통 · 흡혈 · 파쇄 · 표적 · 재밍 · 처형 · 방벽 · 수리)마다 충전 빛과 충격파 색이 다르다. 연타 스킬은 연속 타수가 뜬다', true],
+  ['intro',     '등장 · 승리',   '시작할 때 두 기체가 입장해 VS · 끝나면 이긴 쪽으로 카메라가 다가가고 진 쪽은 어두워진다', true],
   ['damage',    '파손 상태',     '체력 50% 밑이면 연기, 25% 밑이면 불꽃이 튀고 깜빡인다. 내 기체가 30% 밑이면 화면 가장자리가 붉게 뛴다', true],
   ['scale',     '세기 비례',     '모든 연출의 세기를 피해량에 맞춘다. 끄면 모든 타격이 같은 세기'],
 ];
@@ -298,6 +301,13 @@ function drawParts() {
       g2.beginPath(); g2.moveTo(p.x - L, p.y); g2.lineTo(p.x + L, p.y); g2.moveTo(p.x, p.y - L * .6); g2.lineTo(p.x, p.y + L * .6); g2.stroke();
       const gr = g2.createRadialGradient(p.x, p.y, 0, p.x, p.y, L * .7);
       gr.addColorStop(0, 'rgba(255,255,230,.9)'); gr.addColorStop(1, 'rgba(255,255,230,0)'); g2.fillStyle = gr; g2.beginPath(); g2.arc(p.x, p.y, L * .7, 0, 7); g2.fill();
+    } else if (p.k === 'stream') {                // 흡혈 빛줄기 — 휘어서 날아간다
+      const q = ease.in(u), px = p.x0 + (p.x1 - p.x0) * q, py = p.y0 + (p.y1 - p.y0) * q - Math.sin(Math.PI * q) * 30 * S;
+      g2.globalAlpha = Math.sin(Math.PI * u); g2.fillStyle = '#ff5a8a'; g2.beginPath(); g2.arc(px, py, p.w, 0, 7); g2.fill();
+    } else if (p.k === 'sweep') {                 // 수리 — 아래에서 위로 올라가는 초록 띠
+      const y = p.y - p.h * ease.out(u), gr = g2.createLinearGradient(0, y - 30 * S, 0, y + 6 * S);
+      gr.addColorStop(0, 'rgba(110,255,170,0)'); gr.addColorStop(1, `rgba(110,255,170,${.55 * (1 - u)})`);
+      g2.globalAlpha = 1; g2.fillStyle = gr; g2.fillRect(p.x - p.w / 2, y - 30 * S, p.w, 36 * S);
     } else if (p.k === 'laser') {                 // 저격 조준선 — 점점 진해지다가 쏘기 직전 깜빡
       const a = u < .8 ? .25 + .55 * u : (Math.sin(p.age / 12) > 0 ? .95 : .3);
       g2.globalAlpha = a; g2.strokeStyle = '#ff3b3b'; g2.lineWidth = 1.2 * S;
@@ -314,6 +324,91 @@ function drawParts() {
     }
   }
   g2.globalAlpha = 1; g2.globalCompositeOperation = 'source-over';
+}
+
+/* ── 스킬 성질 — 엔진의 skill 사건에는 이름뿐이라, 기체 데이터(ROBOT_TYPES[type].skill.fx)에서 읽는다 ── */
+const SK = {                      // 성질 → [빛 색(r,g,b) · 충격파 색 · 이름표]  — 앞에 있는 것이 우선
+  execute: ['255,70,70',  '#ff5a5a', '처형'],
+  shred:   ['255,150,60', '#ffa040', '장갑 파쇄'],
+  jam:     ['120,240,255','#7bf0ff', '재밍'],
+  mark:    ['255,90,90',  '#ff7a7a', '표적'],
+  drain:   ['255,80,120', '#ff5a8a', '흡혈'],
+  repair:  ['110,255,170','#6dffb0', '수리'],
+  shield:  ['110,200,255','#7bc8ff', '방벽'],
+  ignoreDef:['170,200,255','#c8d8ff','관통'],
+  alwaysCrit:['255,215,100','#ffd45a','확정 치명'],
+};
+const skillStyle = (fx, side) => {
+  if (FX.skillfx && fx) for (const k of Object.keys(SK)) if (fx[k]) return { rgb: SK[k][0], col: SK[k][1], tag: SK[k][2], kind: k };
+  return { rgb: side === 'p' ? '123,240,255' : '255,160,90', col: side === 'p' ? '#7bf0ff' : '#ffa060', tag: '', kind: '' };
+};
+
+/* ── 특화기술 · 상태 표시(방벽 · 표적) ── */
+function shieldRipple(F, x, y) { F.ripple = { x, y, t0: gt }; }
+function shieldBreak(F) {
+  for (let i = 0; i < 18; i++) { const a = rnd(0, 7), v = rnd(.15, .5) * S;
+    parts.push({ k: 'spark', x: F.cx + Math.cos(a) * FW * .35, y: chestY() + Math.sin(a) * FH * .4, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(300, 600), age: 0, w: 2 * S, col: ['#9fe4ff', '#ffffff', '#5ab8ff'][i % 3], drag: .995, grav: .0006 * S }); }
+  parts.push({ k: 'ring', x: F.cx, y: chestY(), r0: FW * .3, r1: FW * .6, life: 280, age: 0, col: '#8fd8ff', w: 3 * S });
+  if (FX.sound) sfx.blip(260);
+}
+function drawStatus() {
+  g2.globalCompositeOperation = 'lighter';
+  for (const F of Object.values(fighters)) {
+    if (F.dead) continue;
+    const cx = F.cx, cy = chestY();
+    if (F.shield > 0 && FX.special) {                        // 방벽 돔 — 남은 양에 따라 옅어지고, 맞으면 맞은 자리에서 물결
+      const q = clamp(F.shield / Math.max(1, F.shieldMax), .2, 1), pul = .85 + .15 * Math.sin(gt / 260 + F.cx);
+      const rx = FW * .46, ry = FH * .56;
+      const gr = g2.createRadialGradient(cx, cy, ry * .5, cx, cy, ry);
+      gr.addColorStop(0, 'rgba(90,200,255,0)'); gr.addColorStop(.8, `rgba(90,200,255,${.12 * q * pul})`); gr.addColorStop(1, `rgba(170,235,255,${.4 * q * pul})`);
+      g2.fillStyle = gr; g2.beginPath(); g2.ellipse(cx, cy, rx, ry, 0, 0, 7); g2.fill();
+      g2.strokeStyle = `rgba(160,230,255,${.55 * q * pul})`; g2.lineWidth = 1.6 * S; g2.beginPath(); g2.ellipse(cx, cy, rx, ry, 0, 0, 7); g2.stroke();
+      g2.strokeStyle = `rgba(160,230,255,${.18 * q})`; g2.lineWidth = 1 * S;            // 육각 무늬(가로 · 세로 호)
+      for (let k = -2; k <= 2; k++) { g2.beginPath(); g2.ellipse(cx, cy, rx * Math.abs(Math.cos(k * .5)), ry, 0, -1.2, 1.2); g2.stroke(); }
+      if (F.ripple) { const u = (gt - F.ripple.t0) / 320;
+        if (u >= 1) F.ripple = null;
+        else { const R = (14 + 60 * u) * S; g2.strokeStyle = `rgba(230,250,255,${.9 * (1 - u)})`; g2.lineWidth = 3 * S * (1 - u);
+               g2.beginPath(); g2.arc(F.ripple.x, F.ripple.y, R, 0, 7); g2.stroke(); } }
+    }
+    if (F.marked && FX.special) {                              // 표적 — 머리 위에 붉은 조준 표시가 남는다. 처음엔 크게 조여든다
+      const u = clamp((gt - F.marked) / 300, 0, 1), R = (34 - 18 * ease.out(u)) * S, hy = headY() - 10 * S;
+      g2.strokeStyle = `rgba(255,80,80,${.5 + .5 * Math.sin(gt / 150)})`; g2.lineWidth = 1.8 * S;
+      g2.beginPath(); g2.arc(cx, hy, R, 0, 7); g2.stroke();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { g2.beginPath(); g2.moveTo(cx + dx * R * .55, hy + dy * R * .55); g2.lineTo(cx + dx * R * 1.4, hy + dy * R * 1.4); g2.stroke(); }
+    }
+  }
+  g2.globalCompositeOperation = 'source-over';
+}
+/* 재밍 — 맞은 기체가 잠깐 지직거린다(좌우로 찢어지듯 어긋나고 청록 줄이 번쩍) */
+function glitch(F) {
+  anim(F, 420, u => ({ x: (Math.random() - .5) * 18 * S * (1 - u / 420), sx: 1 + (Math.random() - .5) * .08 * (1 - u / 420) }), 'jam');
+  for (let i = 0; i < 9; i++) parts.push({ k: 'spark', x: F.cx - FW * .35, y: FLOOR - FH * rnd(.1, .9), vx: rnd(.5, 1.4) * S, vy: 0, life: rnd(90, 200), age: 0, w: rnd(1, 2.5) * S, col: ['#7bf0ff', '#ffffff', '#ff6af0'][i % 3], drag: 1, grav: 0 });
+  F.glitchUntil = performance.now() + 420 / speed;
+}
+/* 흡혈 — 맞은 쪽에서 때린 쪽으로 붉은 빛줄기가 빨려 든다 */
+function drainStream(from, to) {
+  for (let i = 0; i < 16; i++) parts.push({ k: 'stream', x0: from.cx + rnd(-.1, .1) * FW, y0: chestY() + rnd(-.1, .1) * FH, x1: to.cx, y1: chestY(), life: rnd(320, 520), age: rnd(-160, 0), w: rnd(1.4, 3) * S });
+}
+/* 수리 — 초록 빛이 위로 오르며 몸을 훑는다 */
+function repairBeam(F) {
+  parts.push({ k: 'sweep', x: F.cx, y: FLOOR, w: FW * .8, h: FH * .85, life: 520, age: 0 });
+  for (let i = 0; i < 10; i++) parts.push({ k: 'mote', x: F.cx + rnd(-.35, .35) * FW, y: FLOOR - rnd(0, FH * .6), vx: 0, vy: -rnd(.08, .2) * S, life: rnd(400, 700), age: rnd(-100, 0), col: '110,255,170' });
+}
+/* 관통 — 맞은 기체 뒤로 빛이 뚫고 나간다 */
+function pierceOut(D, dir) {
+  const y = chestY();
+  parts.push({ k: 'ring', x: D.cx, y, r0: 6 * S, r1: 40 * S, life: 200, age: 0, col: '#cfe0ff', w: 3 * S });
+  for (let i = 0; i < 12; i++) parts.push({ k: 'spark', x: D.cx + dir * FW * .2, y: y + rnd(-14, 14) * S, vx: dir * rnd(.6, 1.6) * S, vy: rnd(-.08, .08) * S, life: rnd(160, 320), age: 0, w: rnd(1.2, 2.4) * S, col: ['#cfe0ff', '#ffffff', '#8fb8ff'][i % 3], drag: .996, grav: 0 });
+}
+/* 장갑 파쇄 — 장갑 조각이 뜯겨 나간다 */
+function shredOut(D, dir) { for (let i = 0; i < 8; i++) debris(D.cx - dir * FW * .15, chestY() + rnd(-30, 20) * S, -dir, 1.3); }
+/* 처형 — 마무리 일격: 잠깐 어둡게, 붉은 균열, 큰 글자 */
+function executeHit(D) {
+  hold += 260; slowLeft = 520; slowScale = .25;
+  banner('처형!', D.k === 'p' ? 'e' : 'p');
+  parts.push({ k: 'ring', x: D.cx, y: chestY(), r0: 10 * S, r1: 170 * S, life: 380, age: 0, col: '#ff5a5a', w: 6 * S });
+  parts.push({ k: 'glow', x: D.cx, y: chestY(), r: 200 * S, life: 300, age: 0, col: '255,60,60' });
+  addTrauma(.5);
 }
 
 /* ── 탄 — 게임 시간으로 날아가서 히트스톱 동안 함께 멈춘다 ── */
@@ -559,7 +654,7 @@ function setFighter(k, x) {
   const F = fighters[k];
   F.type = x.type; F.name = x.name; F.max = x.max ?? x.maxhp;
   F.img.src = `../../assets/${x.type}.png?v=20260917-nhar`;
-  F.dead = false; F.anims = []; F.wound = false; F.skillHits = false; F.numAt = -1e9; F.numStack = 0; F.smk = 0; F.spk = 0; F.flickUntil = 0;
+  F.dead = false; F.anims = []; F.wound = false; F.skillHits = false; F.numAt = -1e9; F.numStack = 0; F.smk = 0; F.spk = 0; F.flickUntil = 0; F.shield = 0; F.shieldMax = 0; F.marked = 0; F.ripple = null; F.glitchUntil = 0; F.skillFx = null; F.combo = 0;
   bars[k].nm.textContent = F.name;
   bars[k].pct = bars[k].gpct = 100;
 }
@@ -570,7 +665,7 @@ function reset() {
   idx = 0; preIdx = 0; pre.clear(); pending = []; shots = []; gt = 0; hold = 0; stopLeft = 0; slowLeft = 0; timers = []; trauma = 0; zooms = []; focus = null;
   parts = []; nums.forEach(n => n.el.remove()); nums = []; ghosts.forEach(g => g.el.remove()); ghosts = [];
   for (const k of ['p', 'e']) { setFighter(k, b.init[k]); setHP(k, b.init[k].max, true); setSP(k, 0); }
-  $('#result').className = 'result'; bannerEl.className = 'banner';
+  $('#result').className = 'result'; bannerEl.className = 'banner'; cam.style.filter = ''; for (const F of Object.values(fighters)) { F.img.style.opacity = ''; F.el.style.opacity = ''; }
   $('#seed').textContent = seed;
   stats = { hit: 0, crit: 0, miss: 0, skill: 0, swap: 0, parry: 0 };
   for (const e of ev) { if (e.t === 'hit') { if (e.miss) stats.miss++; else { stats.hit++; if (e.crit) stats.crit++; } }
@@ -578,10 +673,26 @@ function reset() {
   $('#stat').textContent = `명중 ${stats.hit} · 치명 ${stats.crit} · 회피 ${stats.miss} · 스킬 ${stats.skill} · 흘려내기 ${stats.parry} · 교대 ${stats.swap}`;
   layout();
 }
+/* 등장 — 두 기체가 양쪽에서 걸어 들어와 서고, VS 와 이름이 뜬다. 전투는 그만큼 늦게 시작한다 */
+function intro() {
+  hold += 1500;
+  const fp = fighters.p, fe = fighters.e;
+  for (const [F, delay] of [[fp, 0], [fe, 220]]) {
+    F.el.style.opacity = 0;
+    after(delay, () => {
+      F.el.style.opacity = 1;
+      anim(F, 520, u => { const q = ease.out(u / 520); return { x: -F.dir * W * .42 * (1 - q), y: -Math.abs(Math.sin(u / 520 * Math.PI * 3)) * 8 * S * (1 - q) }; });
+      after(520, () => { dust(F.cx, FLOOR); addTrauma(.3); if (FX.sound) sfx.land(); anim(F, 260, u => { const q = Math.exp(-u / 70) * Math.cos(u / 45); return { sx: 1 + .08 * q, sy: 1 - .08 * q }; }); });
+    });
+  }
+  after(900, () => { bannerEl.textContent = `${fp.name}  VS  ${fe.name}`; bannerEl.className = 'banner juice'; bannerEl.style.setProperty('--from', '-40%'); if (FX.sound) sfx.blip(520); });
+  after(1250, () => { banner('FIGHT!', 'p'); if (FX.sound) sfx.blip(880); });
+}
 function start() {
   sfx.unlock();
   reset();
   playing = true; tStart = performance.now();
+  if (FX.intro) intro();
   $('#play').hidden = true;
   $('#dur').textContent = '재생 중…';
 }
@@ -620,15 +731,18 @@ function fire(e, i) {
       break;
     }
     case 'skill': {
-      const A = FS(e.side); A.skillHits = true;
-      banner(e.name, A.k);
+      const A = FS(e.side); A.skillHits = true; A.combo = 0;
+      const fx = (ROBOT_TYPES[typeAt[i][e.side]].skill || {}).fx || {};
+      A.skillFx = fx;
+      const st = skillStyle(fx, A.k);
+      banner(e.name + (st.tag ? ' · ' + st.tag : ''), A.k);
       if (FX.telegraph) {
         /* 시간표에서 스킬 이름 → 첫 타 사이가 이미 TL.step.skill(420ms)이다. 기 모으기를 그 안에 넣어 판을 늘리지 않는다 */
         A.glowUntil = gt + 480;
-        converge(A.cx, chestY(), A.k === 'p' ? '123,240,255' : '255,160,90');
+        converge(A.cx, chestY(), st.rgb);
         focus = { k: A.k, t0: gt, dur: 700 };
         if (FX.sound) sfx.charge(.4);
-        after(380, () => { if (FX.sound) sfx.fire(); parts.push({ k: 'ring', x: A.cx, y: chestY(), r0: 20 * S, r1: 130 * S, life: 300, age: 0, col: A.k === 'p' ? '#7bf0ff' : '#ffa060', w: 5 * S }); addTrauma(.25); });
+        after(380, () => { if (FX.sound) sfx.fire(); parts.push({ k: 'ring', x: A.cx, y: chestY(), r0: 20 * S, r1: 130 * S, life: 300, age: 0, col: st.col, w: 5 * S }); addTrauma(.25); });
       } else if (FX.sound) sfx.blip(520);
       break;
     }
@@ -653,6 +767,17 @@ function fire(e, i) {
       if (FX.knock) knock(D, A.dir, I); else shakeNow(D);
       if (FX.sparks) sparks(contactX(D, A.dir), chestY() + rnd(-20, 20) * S, A.dir, I, e.crit);
       if (FX.sparks && (gun === 'shell' || gun === 'missile')) miniBlast(contactX(D, A.dir), chestY());
+      if (A.skillHits && A.skillFx) {
+        const fx = A.skillFx;
+        A.combo++;
+        if (FX.skillfx && (fx.hits || 1) > 1) num(D, `×${A.combo}`, 'info', .5, A.dir);        // 연타 스킬 — 몇 번째 타인지
+        if (FX.special) {
+          if (fx.ignoreDef) pierceOut(D, A.dir);
+          if (fx.shred) { shredOut(D, A.dir); if (A.combo === 1) num(D, '장갑 파쇄', 'info', .5, A.dir); }
+          if (fx.execute && (e.thp + e.dmg + (e.absorb || 0)) < D.max * .35 && A.combo === 1) executeHit(D);
+        }
+      }
+      if (D.shield > 0 && e.absorb && FX.special) { D.shield = Math.max(0, D.shield - e.absorb); shieldRipple(D, contactX(D, A.dir), chestY()); if (D.shield <= 0) shieldBreak(D); }
       addTrauma(.08 + .34 * I + (e.crit ? .2 : 0));
       if (e.crit && FX.shake) punch(.045, 200);
       if (FX.numbers) num(D, e.dmg, e.crit ? 'crit' : 'norm', I, A.dir, e.crit ? 'CRITICAL' : '');
@@ -680,13 +805,17 @@ function fire(e, i) {
       const F = FS(e.side);
       setHP(F.k, e.hp);
       num(F, '+' + e.amt, 'heal', .4);
-      if (FX.sparks) healMotes(F);
+      if (FX.special && e.src === 'repair') repairBeam(F);
+      else if (FX.special && !e.src) drainStream(other(F), F);       // 흡혈 — src 가 없는 회복은 때리면서 빨아 온 것
+      else if (FX.sparks) healMotes(F);
       if (FX.sound) sfx.heal();
       break;
     }
-    case 'shield': { const F = FS(e.side); num(F, '방벽 ' + e.amt, 'heal', .4); if (FX.sound) sfx.blip(880); break; }
-    case 'mark': { const D = FS(e.dside); num(D, '표적', 'info', .4); if (FX.sound) sfx.blip(440); break; }
-    case 'jam': { const D = FS(e.dside); setSP(D.k, e.sp); num(D, 'JAM', 'miss', .4); if (FX.sound) sfx.blip(300); break; }
+    case 'shield': { const F = FS(e.side); num(F, '방벽 ' + e.amt, 'heal', .4);
+      F.shield = e.now ?? e.amt; F.shieldMax = Math.max(F.shieldMax, F.shield);
+      if (FX.special) parts.push({ k: 'ring', x: F.cx, y: chestY(), r0: FW * .2, r1: FW * .5, life: 300, age: 0, col: '#8fd8ff', w: 3 * S }); if (FX.sound && !sfx.file('shield', { gain: .9, max: 1 })) sfx.blip(880); break; }
+    case 'mark': { const D = FS(e.dside); num(D, '표적', 'info', .4); D.marked = gt; if (FX.sound) sfx.blip(440); break; }
+    case 'jam': { const D = FS(e.dside); setSP(D.k, e.sp); num(D, 'JAM', 'miss', .4); if (FX.special) glitch(D); if (FX.sound) sfx.blip(300); break; }
     case 'swap': swapIn(e); break;
     case 'end': finish(e.winner); break;
   }
@@ -739,6 +868,16 @@ function finish(winner) {
     r.style.color = win ? '#ffcf5a' : '#ff6a6a';
     r.className = 'result on';
     if (FX.sound) win ? sfx.win() : sfx.lose();
+    if (FX.intro) {
+      const W_ = fighters[win ? 'p' : 'e'], L_ = fighters[win ? 'e' : 'p'];
+      focus = { k: W_.k, t0: gt, dur: 1600 };
+      if (!W_.dead) {
+        anim(W_, 900, u => ({ y: -Math.abs(Math.sin(u / 900 * Math.PI * 2)) * 26 * S * (1 - u / 900), sx: 1 + .03 * Math.sin(u / 60), sy: 1 - .03 * Math.sin(u / 60) }));
+        for (let i = 0; i < 40; i++) parts.push({ k: 'spark', x: rnd(W * .2, W * .8), y: -10, vx: rnd(-.05, .05) * S, vy: rnd(.1, .3) * S, life: rnd(900, 1500), age: rnd(0, 400), w: rnd(1.5, 3) * S, col: ['#ffd45a', '#fff3b0', '#7bf0ff', '#ff9a3a'][i % 4], drag: 1, grav: .0001 * S });
+      }
+      if (!win) cam.style.filter = 'grayscale(.85) brightness(.75)';
+      else for (const F of [L_]) F.img.style.opacity = .85;
+    }
     const sec = (performance.now() - tStart) / 1000;
     $('#dur').innerHTML = `재생 시간 <b>${sec.toFixed(1)}초</b>${speed > 1 ? ` (x${speed})` : ''}`;
     after(900, () => { playing = false; const p = $('#play'); p.hidden = false; p.querySelector('b').textContent = '▶ 같은 판 다시'; });
@@ -778,6 +917,7 @@ function frame(now) {
     F.el.style.transform = `translate(${x}px,${y}px) rotate(${r}deg) scale(${sx},${sy})`;
     const fl = now < F.flashUntil, glow = gt < F.glowUntil;
     F.img.style.filter = fl ? 'brightness(0) invert(1)'
+      : now < (F.glitchUntil || 0) ? `hue-rotate(${(now % 200) * 3}deg) saturate(2.2) contrast(1.3)`
       : now < F.flickUntil ? 'brightness(1.6) saturate(1.3)'
       : F.dead ? `brightness(${FX.ko ? .35 : 1}) saturate(${FX.ko ? .3 : 1})`
       : glow ? `drop-shadow(0 0 ${10 + 8 * Math.sin(gt / 40)}px ${F.k === 'p' ? '#7bf0ff' : '#ffa060'}) brightness(1.15)`
@@ -813,7 +953,7 @@ function frame(now) {
   }
   dangerEl.style.opacity = dop;
 
-  stepParts(dt); stepShots(dt); drawParts(); drawShots(); stepNums(); stepBars(dtReal);
+  stepParts(dt); stepShots(dt); drawParts(); drawShots(); drawStatus(); stepNums(); stepBars(dtReal);
 }
 /* 보통은 화면 주사율로 돈다. 창이 가려져 requestAnimationFrame 이 멈추면(앱 안 미리보기 창 등) 타이머가 대신 돈다 */
 let lastRaf = 0;
@@ -844,6 +984,7 @@ $('#play').onclick = start;
 const bindRange = (id, out, fn) => { const el = $('#' + id); const f = () => { $('#' + out).textContent = fn(+el.value); }; el.addEventListener('input', f); f(); };
 $('#shakeAmt').value = Math.round(shakeAmt * 100);
 bindRange('shakeAmt', 'shakeOut', v => { shakeAmt = v / 100; return v + '%'; });
+$('#sfxsrc').onchange = e2 => { sfx.useFiles = e2.target.value === 'files'; };
 bindRange('vol', 'volOut', v => { sfx.setVol(v / 100); return v + '%'; });
 bindRange('speed', 'speedOut', v => { speed = [1, 2, 4][v - 1]; return 'x' + speed; });
 for (const s of ['p1', 'p2', 'e1', 'e2']) {
@@ -864,7 +1005,7 @@ addEventListener('resize', layout);
 
 /* 점검용 — 콘솔에서 __juice() */
 window.__juice = () => ({ gt: Math.round(gt), hold, idx, of: ev.length, parts: parts.length, nums: nums.length, trauma: +trauma.toFixed(2), stopLeft: Math.round(stopLeft),
-  slowLeft: Math.round(slowLeft), playing, shots: shots.map(x => x.kind), pending: pending.length, fx: { ...FX }, tf: { p: fighters.p.el.style.transform, e: fighters.e.el.style.transform }, cam: cam.style.transform });
+  slowLeft: Math.round(slowLeft), playing, shield: fighters.p.shield + fighters.e.shield, shots: shots.map(x => x.kind), pending: pending.length, fx: { ...FX }, tf: { p: fighters.p.el.style.transform, e: fighters.e.el.style.transform }, cam: cam.style.transform });
 
 /* ?only=ranged 처럼 열면 그 연출 하나만 켠 채로 시작한다 */
 { const only = new URLSearchParams(location.search).get('only');

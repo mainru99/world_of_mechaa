@@ -212,6 +212,14 @@ export const CONST         // { MAXLV, PULL_COST, ATK_SCALE, FAT_MAX, ... }
 
 ### → ChatGPT
 
+- **(2026-10-08 밤, Claude → ChatGPT) 타격감(Juice) 연출 인계 — [`docs/handoff/2026-10-08-juice-to-ui.md`](docs/handoff/2026-10-08-juice-to-ui.md). 10-09 부터 이것부터 읽는다.**
+  - 시험 페이지 셋(`proto/juice/` 전투 · 성장 · 뽑기)과 효과음 31종 · 이펙트 그림. **게임 화면에는 아직 안 들어갔다** — 넣는 순서: 효과음 체계 → 성장(사용자 만족) → 전투(판 길이 · 모션 엔진 합치기 결정 뒤) → 뽑기
+  - **결정 대기**: 뽑기 연출 방식 캡슐 / 유성 · 건너뛰기 단추 · 전투 판 길이 조정. 표시 전용 — `sim.js` · 서버 · 수치는 건드리지 않는다
+
+- **(2026-10-08, Claude → ChatGPT) 뽑기 연출 아트 의뢰 — [`docs/art/gacha-art-request-2026-10-08.md`](docs/art/gacha-art-request-2026-10-08.md).** 사용자 결정: 연출 방향은 좋으니 아트는 ChatGPT 가 그려 완성도를 올린다.
+  - 시험 페이지 `proto/juice/gacha.html`(등급 C~EP · 캡슐 / 유성 · 10연차)을 먼저 본다. 1순위 등급별 캡슐 · 문양 → 2순위 마법진 · 소용돌이 · 빛 → 3순위 유성 · 파편 → 4순위 배경 · UI → 5순위 기체별 공개 컷(EP 13기부터, 시범 1~2기 먼저)
+  - 발광 그림은 **투명 PNG · 흰색 틴트**(코드가 등급 색을 입히고 더하기로 얹는다). 스크립트로 만든 그림은 반려. `proto/juice/` · `js/` 는 고치지 않는다
+
 - **(2026-09-25 밤, Claude → `codex/ui-rebuild`) 작업 지시서 — [`docs/handoff/2026-09-25-main-to-ui.md`](docs/handoff/2026-09-25-main-to-ui.md). 내일부터 이어 받을 때 이것부터 읽을 것.**
   - **최우선** — 대전이 **교대 전투**가 됐고 운영에서 켜져 있다. 새 대전 화면이 1:1 로 재생하면 승패가 어긋난다(지시서 0절)
   - 새로 만들 화면 — 코어 서킷(2절) · 정제 코어(3절) · 조각 회수 작전(4절) · 조각 합성(5절) · 개발 목표 고르기(6절)
@@ -609,6 +617,13 @@ GPT 계획서(`docs/balance/mech-traits-plan-2026-09-22.md`)를 사용자가 보
   | `playBattle` | 지금 서 있는 기체 `cu`(이름 · 최대 체력 · 종류) — `P.maxhp`/`E.maxhp` 를 쓰던 체력 막대가 `mx(k)` 를 쓴다 · `swap` 사건에서 그림 · 이름 · 체력 막대를 바꾼다 · 건너뛰기는 교대 전 기체부터 다시 그린다 |
   **통합 때 할 일** — UI 브랜치 대전 화면이 같은 재생(`simulate(…, bench)` + `swap` 사건)을 해야 한다. 규칙 · 응답은 '교대 전투' 절.
   확인(격리한 로컬 서버) — 양쪽 두 기 · 교대 사건에 이름 · 체력 막대(새 기체 최대치) · 그림이 바뀐다 · 결과 창 두 줄(경험치 60/40 · 피로도) · 저장본 피로도는 숫자
+
+- **2026-10-07 · 코어 서킷 전문 별 연출 · 사용자 지시(동결 예외)** — `js/ui/circuit-svg.js` 만(운영 화면이 이 파일로 서킷을 그린다 — 승인 시안 `docs/balance/core-circuit-draft-2026-09-23.html` 의 같은 수정을 옮겼다).
+  찍은 전문 별(`★`)만 금빛 별 · 도는 햇살 · 숨쉬는 후광 · 반사광, 그 별로 가는 연결선은 금색 발광. 찍을 수 있는 전문 별은 금색 고리가 깜빡인다. 일반 별은 그대로(흰 무늬).
+  움직임은 SVG 안(SMIL)이라 `style.css` · `themes/` 는 건드리지 않았다. `prefers-reduced-motion` 이면 움직임 없이 정지 그림. 노드 ID · 좌표 · 선행 조건 · 클릭 처리는 그대로 — `node tools/circuit-ui-check.mjs` · `tools/circuit-tree-check.mjs` 통과.
+
+- **2026-10-08 · 점령 화면에서 전선으로 가는 길이 없다 · 사용자 제보(동결 예외)** — UI 개편 때 전선 → 점령 단추(`js/ui/front.js` '점령 지도')만 남고 반대 방향이 빠졌다(옛 화면은 전선 · 점령 전환 탭).
+  `js/ui/territory.js` `territoryView` 머리에 '전선' 단추(`ROWAR.enterFront()`) · `js/game.js` `renderTerr` 의 불러오는 중 · 오프라인 머리에도 '전선 →'. `territory` · `front` · `common` · `battle` · `hangar` UI 검사 통과
 
 #### 전투 분석 · 딜표 — 2026-09-21 밤 2 · Claude (master)
 

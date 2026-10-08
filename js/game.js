@@ -34,7 +34,7 @@ import * as net from './net.js';
 import { rollPull, rollPart as _rollPart, autoScrapValue, scrapGain, PULL_CUR,
          fuseCheck, fuseCost, fuseUpRate, nextRarity } from './gacha.js';
 import { pickTactic, bandStart, bandGoal, huntWeekView, huntResetAt } from './rewards.js';
-import { sprite, preloadSprites, assetPath } from './sprites.js?v=20260912-hangar10-recovery';
+import { sprite, preloadSprites, assetPath, facesRight } from './sprites.js?v=20260912-hangar10-recovery';
 import { createIgnisRain } from './ignis-rain.js?v=20260913-ignis-rain1';
 import {createAudio} from './audio.js';
 import {createCombatAudio} from './audio-events.js';
@@ -1444,7 +1444,7 @@ function pullTier(res){
   return res.kind==='core'?3:res.kind==='credit'?1:0;
 }
 function pullArt(res){
-  if(res.kind==='robot'||res.kind==='dupe')return {src:assetPath(res.type),flip:true};   // 격납고 그림과 같은 주소 — 이미 받은 그림을 다시 받지 않는다
+  if(res.kind==='robot'||res.kind==='dupe')return {src:assetPath(res.type),robot:true,flip:!facesRight(res.type)};   // 격납고 그림과 같은 주소 — 이미 받은 그림을 다시 받지 않는다
   if(res.kind==='part'||res.kind==='scrap')return {src:res.part?.base?`assets/parts/${res.part.base}.webp${PART_ICON_V}`:slotIconSrc(res.part?.slot)};
   if(res.kind==='core'||res.kind==='credit')return {src:`assets/ui/coin-${res.kind}.webp`};
   return {src:'assets/gacha/core-capsule.webp'};

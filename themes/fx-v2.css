@@ -56,7 +56,8 @@ button[onclick^="ROWAR.claim"]:not(:disabled),button[onclick^="ROWAR.codexClaim"
 .gx-row.on{display:flex}
 .gx-mini{width:calc((100% - 48px)/5);aspect-ratio:3/4;border-radius:8px;background:#0b1220dd;border:2px solid var(--c,#456);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:0;box-shadow:0 0 14px var(--c,#456);padding:4px}
 .gx-mini img{width:80%;max-height:58%;object-fit:contain}
-.gx-mini.robot img{transform:scaleX(-1);image-rendering:pixelated}
+.gx-mini.robot img{image-rendering:pixelated}
+.gx-mini.flip img{transform:scaleX(-1)}
 .gx-mini b{font-weight:700;font-size:12px;color:var(--c)}
 .gx-mini small{font-size:10px;color:#c9d6ea;text-align:center;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gx-skip,.gx-done{position:absolute;z-index:6;font:inherit;font-weight:700;cursor:pointer;border-radius:8px}

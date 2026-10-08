@@ -44,7 +44,7 @@ function tinted(name, rgb) {
   tintCache.set(key, c); return c;
 }
 
-/* play({ tier, hero:{src, flip}, name, sub, cells:[{src, tier}], sound, stop })
+/* play({ tier, hero:{src, robot, flip}, name, sub, cells:[{src, tier}], sound, stop })
  *   tier  0~4 (C~EP) — 그 판의 최고 등급
  *   rk    파츠의 실제 등급(SR · SSR …) — 있으면 등급 글자를 그것으로 쓴다
  *   cells 10연차일 때 열 칸(받은 순서). 단발이면 비운다
@@ -76,7 +76,7 @@ export function playGacha({ tier = 0, hero = {}, name = '', sub = '', rk = '', c
   const shockMap = root.querySelector('feDisplacementMap');
   const reduced = reducedMotion();
   for (const im of root.querySelectorAll('.gx-robot img')) { im.src = hero.src || ''; im.classList.toggle('flip', !!hero.flip); }
-  el.robot.classList.toggle('item', !hero.flip); el.robotC.classList.toggle('item', !hero.flip);
+  el.robot.classList.toggle('item', !hero.robot); el.robotC.classList.toggle('item', !hero.robot);
   el.rar.textContent = rk ? `${rk} 파츠` : `${T.ko} · ${T.k}`; el.rar.style.color = T.col; el.name.style.color = T.col; el.name.style.setProperty('--c', T.col); el.stars.style.setProperty('--c', T.col);
   el.sub.textContent = sub;
 
@@ -341,7 +341,7 @@ export function playGacha({ tier = 0, hero = {}, name = '', sub = '', rk = '', c
   /* 10연차 — 낮은 등급부터 줄 세운다. 가장 좋은 것이 마지막에 터진다 */
   function buildRow() {
     el.row.innerHTML = '';
-    return cells.map(c => { const C = GACHA_TIERS[Math.max(0, Math.min(4, c.tier | 0))], d = document.createElement('div'); d.className = 'gx-mini' + (c.flip ? ' robot' : ''); d.style.setProperty('--c', C.col);
+    return cells.map(c => { const C = GACHA_TIERS[Math.max(0, Math.min(4, c.tier | 0))], d = document.createElement('div'); d.className = 'gx-mini' + (c.robot ? ' robot' : '') + (c.flip ? ' flip' : ''); d.style.setProperty('--c', C.col);
       d.innerHTML = `<img src="${escHtml(c.src)}" alt=""><b>${escHtml(c.rk || C.k)}</b>${c.label ? `<small>${escHtml(c.label)}</small>` : ''}`; el.row.appendChild(d); return d; });
   }
   async function lineUp() {

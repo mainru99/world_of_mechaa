@@ -14,13 +14,16 @@
 import { ROBOT_IDS, MONSTER_IDS, isMonster } from './units.js';
 import { MONSTER_TYPES } from '../data/balance.js';
 
-const FACE_RIGHT = {};                  // 원본이 이미 오른쪽을 보는 id
+/* 원본이 이미 오른쪽을 보는 id — 2026-10-08 전체 99장을 대조해 HUSK 하나뿐이었다(사용자 제보: 난투 적 진영에서 HUSK 만 반대로 섰다) */
+const FACE_RIGHT = { husk: true };
 const CACHE_BUST = '?v=20261008-webp';
 const IDLE_SPRITES = { ignis: 'assets/motions/ignis-idle-10f.webp?v=20260912-hangar10-recovery' };
 
 /* 그림이 아직 없는 몬스터는 MONSTER_TYPES[id].sprite 의 그림을 빌려 쓴다(2장 적 셋이 그렇다).
    빌려 온 id 가 기체면 기체 폴더에서 찾는다. 그림 파일이 들어오면 balance.js 의 sprite 줄만 지운다. */
 const artId = id => (MONSTER_TYPES[id] && MONSTER_TYPES[id].sprite) || id;
+/* 원본 그림이 오른쪽을 보나 — 직접 좌우를 뒤집는 곳(뽑기 연출)이 쓴다 */
+export const facesRight = id => !!FACE_RIGHT[artId(id)];
 export const assetPath = id => { const a = artId(id); return 'assets/' + (isMonster(a) ? 'monsters/' : '') + a + '.webp' + CACHE_BUST; };
 
 export function sprite(id, faceRight, { idle: animateIdle = false } = {}) {

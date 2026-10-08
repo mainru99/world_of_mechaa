@@ -39,6 +39,8 @@ const samplePerformance=process.argv.includes('--sample-performance');
 const sampleBrawl=process.argv.includes('--sample-brawl');
 // Opt-in growth effects review: enhance/skill/level-up with real rates and ~1.1s latency. In-memory only.
 const sampleGrowth=process.argv.includes('--sample-growth');
+// Opt-in tester account: plenty of currency, campaign/story reset, one unit per rarity (C UC R UQ EP). In-memory only.
+const sampleTester=process.argv.includes('--sample-tester');
 let previewFailPull=false;
 let previewIdentity=sampleLogin?null:{id:'preview',guest:false,loginId:'지휘관_01'};
 const previewToken='ui-preview-only';
@@ -54,6 +56,13 @@ if(samplePerformance){
  for(const type of Object.keys(ROBOT_TYPES).filter(type=>!robots.some(r=>r.type===type)))robots.push({uid:`preview-robot-${type}`,type,level:32,exp:0,fat:0,fatAt:Date.now(),skillLv:2,slots:Object.fromEntries(SLOTS.map(s=>[s,null]))});
 }
 if(sampleFront)state.campaign=sampleFrontNew?'':sampleFrontChapter2?'11111100000':'11000000000';
+if(sampleTester){
+ const pick={C:'mule',UC:'ranger',R:'azure',UQ:'oracle',EP:'seraph'};
+ for(const [rar,id] of Object.entries(pick))if(ROBOT_TYPES[id]?.rarity!==rar)throw new Error(`tester unit ${id} is not ${rar}`);
+ robots.length=0;
+ Object.values(pick).forEach((type,i)=>robots.push({uid:`tester-${type}`,type,level:30,exp:0,fat:0,fatAt:Date.now(),skillLv:0,slots:Object.fromEntries(SLOTS.map(s=>[s,null]))}));
+ Object.assign(state,{credits:9999999,cores:9999,scrap:999999,sel:0,squad:robots.slice(0,2).map(x=>x.uid),stat:{wins:0,losses:0,pulls:0},campaign:'',items:{},presets:[]});
+}
 const brawlFixture=sampleBrawl?(await import('./brawl-ui-fixture.mjs')).createBrawlFixture(state):null;
 const sampleNewType=Object.keys(ROBOT_TYPES).find(type=>!robots.some(r=>r.type===type));
 if(sampleShop){state.credits=250000;state.items[shardKey('ranger')]=shardNeed('ranger');state.items[shardKey(sampleNewType)]=Math.max(1,Math.floor(shardNeed(sampleNewType)*.55));}
@@ -298,9 +307,9 @@ const server=http.createServer(async(req,res)=>{
   if(name==='/index.html'){
    if(samplePerformance)content=content.toString().replace('</head>','<script type="module" src="/__performance.js"></script></head>');
    const seed=JSON.stringify(state).replaceAll('<','\\u003c');
-   const seen=sampleFront&&!sampleFrontNew?Object.fromEntries(FRONT_CHAPTERS.map(ch=>[ch.id+':open',1])):{};
-   const bootstrap=`<script>${sampleFront?`localStorage.setItem('rowar.seen.v1',${JSON.stringify(JSON.stringify(seen))});`:''}${sampleLogin?"localStorage.removeItem('rowar.session');":"localStorage.setItem('rowar.session','ui-preview-only');"}localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
-   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleFront?'샘플 전선 검수 · 가상 진행/재화 / 운영 계정과 무관합니다':sampleChallenge?'샘플 주간 도전 검수 · 가상 기록/재화 / 운영 계정과 무관합니다':sampleLogin?'샘플 로그인 검수 · 가상 계정 / tester · password123 / 운영 계정과 무관합니다':sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':sampleShop?'샘플 보급 상점 검수 · 가상 진열/재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
+   const seen=sampleFront&&!sampleFrontNew&&!sampleTester?Object.fromEntries(FRONT_CHAPTERS.map(ch=>[ch.id+':open',1])):{};
+   const bootstrap=`<script>${sampleFront||sampleTester?`localStorage.setItem('rowar.seen.v1',${JSON.stringify(JSON.stringify(seen))});`:''}${sampleLogin?"localStorage.removeItem('rowar.session');":"localStorage.setItem('rowar.session','ui-preview-only');"}localStorage.setItem('rowar.mig_closed','1');localStorage.setItem('rowar.rev','1000');localStorage.setItem('rowar.save.v2',${JSON.stringify(seed)});</script>`;
+   content=content.toString().replace('<body class="ui-v2"',`${bootstrap}<body class="ui-v2"`).replace('<div id="app">',`<div id="app"><div class="ui-preview-ribbon">${sampleTester?'테스트 계정 · 재화 충전 · 시나리오 처음부터 · 등급별 기체 1기(C~EP) / 운영 계정과 무관합니다':sampleFront?'샘플 전선 검수 · 가상 진행/재화 / 운영 계정과 무관합니다':sampleChallenge?'샘플 주간 도전 검수 · 가상 기록/재화 / 운영 계정과 무관합니다':sampleLogin?'샘플 로그인 검수 · 가상 계정 / tester · password123 / 운영 계정과 무관합니다':sampleArchive?'샘플 랭킹·도감 검수 · 가상 기록 / 운영 계정과 무관합니다':sampleDispatch?'샘플 파견 검수 · 가상 재화 / 3초 원정 / 운영 계정과 무관합니다':samplePulls?'샘플 뽑기 검수 · 가상 재화 / 운영 계정과 무관합니다':sampleShop?'샘플 보급 상점 검수 · 가상 진열/재화 / 운영 계정과 무관합니다':'로컬 디자인 미리보기 · 예시 계정 / 운영 데이터와 연결되지 않습니다'}</div>`);
   }
   if(sampleBrawl&&name==='/index.html')content=content.toString().replace('<div class="ui-preview-ribbon">','<div class="ui-preview-ribbon">난투 SQLite 메모리 검수 · 운영과 무관 / ');
   res.writeHead(200,{'content-type':mime[extname(file)],'cache-control':'no-store','x-content-type-options':'nosniff'});res.end(content);

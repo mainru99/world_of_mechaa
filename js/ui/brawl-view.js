@@ -1,5 +1,5 @@
 import {ROBOT_TYPES,CONST} from '../../data/balance.js';
-import {act,tagsOf,livesLostAt} from '../brawl.js';
+import {act,tagsOf,livesLostAt,synergiesOf} from '../brawl.js';
 import {sprite} from '../sprites.js?v=20260912-hangar10-recovery';
 import {escapeHtml as esc} from './icons.js';
 
@@ -47,7 +47,20 @@ function workshop(s){
  <section class="br-section br-shop"><div class="br-heading"><h3>보급 상점</h3><div><button id="br-lock" class="btn" aria-pressed="${r.locked}" onclick="ROWAR.brawlAct('lock')" ${s.pending||!s.known?'disabled':''}>${r.locked?'다음 라운드 잠금 중':'상점 잠금'}</button><button id="br-reroll" class="btn" onclick="ROWAR.brawlAct('reroll')" ${s.pending||!s.known||act(r,{t:'reroll'}).error?'disabled':''}>새로고침 · ${B().shop.reroll}G</button></div></div><div class="br-shop-slots">${r.shop.map((t,i)=>!t?'<div class="br-shop-empty">구매 완료</div>':`<button id="br-buy-${i}" class="br-choice" onclick="ROWAR.brawlBuy(${i})" ${s.pending||!s.known||act(r,{t:'buy',i}).error?'disabled':''}><span class="br-rarity rr-${ROBOT_TYPES[t].rarity}">${ROBOT_TYPES[t].rarity} · ${price(t)}G</span>${unitArt(t)}<b>${esc(name(t))}</b><small>${esc(tags(t)||ROBOT_TYPES[t].role)}</small><span class="br-check">구매하기</span></button>`).join('')}</div><p class="br-muted">등급별 등장 몫 · ${Object.entries(w.odds).map(([k,v])=>`${k} ${v}%`).join(' / ')}<br>잠금은 다음 라운드에도 상점을 보존합니다. 새로고침하면 잠금이 풀립니다.</p></section>
  <div class="br-footer"><button id="br-quit" class="btn" onclick="ROWAR.brawlQuit()" ${s.pending||!s.known?'disabled':''}>${s.quitConfirm?'현재 승수로 마감 확정':'런 마감'}</button><p>모든 기체 Lv.${B().level} · 파츠·서킷·스킬 강화 미적용<br>같은 기체 3기 → ★2 · ★2 세 기 → ★3</p><button id="br-fight" class="btn gold" onclick="ROWAR.brawlFight()" ${s.pending||!s.known||!r.board.some(Boolean)||!s.online?'disabled':''}>${r.round}라운드 출격</button></div>`;
 }
+/* 무대 — 4 대 4 를 마주 세운다(2026-10-08). 전위(0 · 1)는 가운데 가까이, 후위(2 · 3)는 뒤에. 위 · 아래 두 줄로 깊이를 준다.
+   칸 id 는 fighter-p0 … · hp-p0 … — js/ui/brawl-stage.js 와 연출 층(battle-fx · motion)이 이 이름으로 찾는다. 움직임 줄이기면 아래 옛 카드 판 */
+const STAGE_X=[38,30,18,10],STAGE_Y=[44,10,44,10];
+function stageView(s){
+ const f=s.fight,p=s.replay;
+ const slot=(side,i,u)=>{if(!u)return'';const k=(side==='P'?'p':'e')+i,x=side==='P'?STAGE_X[i]:100-STAGE_X[i],y=STAGE_Y[i],back=i%2===0;const v=p.units[side][i];
+  return `<div class="bs-u ${back?'far':'near'} ${v?.hp===0?'down':''}" id="fighter-${k}" style="--x:${x}%;--y:${y}%"><div class="bs-plate"><b>${esc(name(u.type))}</b><span class="br-stars">${stars(u)}</span><div class="hpbar bs-hp" id="hp-${k}"><i style="width:${v?v.hp/v.maxhp*100:0}%"></i></div></div>${sprite(u.type,side==='P')}<small class="bs-role">${i<2?'전위':'후위'}</small></div>`;};
+ const syn=(b)=>synergiesOf(b).map(x=>`<span>${esc(x.ko)} ${x.tier>1?'Ⅱ':'Ⅰ'}</span>`).join('');
+ return `<div class="bs-head"><span class="br-eyebrow">ROUND ${f.round} / COMBAT REPLAY</span><b>우리 부대 <i>VS</i> ${esc(f.opponent.nickname)}${f.opponent.bot?' · AI':''}</b><small>창을 닫아도 결과는 저장됩니다</small></div>
+<div class="bs-stage" id="br-stage"><div class="bs-syn p">${syn(f.me.board)}</div><div class="bs-syn e">${syn(f.opponent.board)}</div>${f.me.team.map((u,i)=>slot('P',i,u)).join('')}${f.opponent.team.map((u,i)=>slot('E',i,u)).join('')}<div class="flash" id="flash"></div><div class="skillbanner" id="skillbanner"></div></div>
+<div class="br-log bs-log" id="br-log" aria-label="전투 기록">${p.log.slice(-3).map(l=>`<p>${esc(l)}</p>`).join('')}</div><div class="br-footer"><span id="br-progress">${Math.floor(s.cursor/f.events.length*100)}% 재생</span><div><button id="br-speed" class="btn" onclick="ROWAR.brawlSpeed()">속도 ×${s.speed}</button><button id="br-skip" class="btn gold" onclick="ROWAR.brawlSkip()">결과 보기</button></div></div>`;
+}
 export function replayView(s){
+ if(s.stage)return stageView(s);
  const f=s.fight,p=s.replay;
  const side=(key,label,board)=>`<section class="br-team ${key==='E'?'enemy':''}"><h3>${esc(label)}</h3><div class="br-combat-slots">${board.map((u,i)=>{const v=p.units[key][i];return `<article id="br-combat-${key}-${i}" class="br-fighter ${v?.hp===0?'down':''} ${p.active===key+i?'active':''}"><small>${i<2?'전위':'후위'} ${i%2+1}</small>${u?`${unitArt(u.type,key==='P')}<b>${esc(name(u.type))} <span class="br-stars">${stars(u)}</span></b><div class="br-hp" role="progressbar" aria-label="${esc(name(u.type))} 내구" aria-valuemin="0" aria-valuemax="${v.maxhp}" aria-valuenow="${v.hp}"><i style="width:${v.hp/v.maxhp*100}%"></i></div><small>${fmt(v.hp)} / ${fmt(v.maxhp)} · SP ${fmt(v.sp)}${v.shield>0?' · 방벽 '+fmt(v.shield):''}</small>`:'<span class="br-vacant">—</span><b>빈 자리</b>'}</article>`;}).join('')}</div></section>`;
  return `<div class="br-replay-head"><span class="br-eyebrow">ROUND ${f.round} / COMBAT REPLAY</span><h3>전술이 맞부딪히는 순간.</h3><p>서버에서 확정된 전투 기록을 재생합니다. 창을 닫아도 결과는 저장됩니다.</p></div><div class="br-arena">${side('P','우리 부대',f.me.board)}<span class="br-vs">VS</span>${side('E',f.opponent.nickname+(f.opponent.bot?' · AI':''),f.opponent.board)}</div><div class="br-log" aria-label="전투 기록">${p.log.slice(-5).map(l=>`<p>${esc(l)}</p>`).join('')}</div><div class="br-footer"><span>${Math.floor(s.cursor/f.events.length*100)}% 재생</span><div><button id="br-speed" class="btn" onclick="ROWAR.brawlSpeed()">속도 ×${s.speed}</button><button id="br-skip" class="btn gold" onclick="ROWAR.brawlSkip()">결과 보기</button></div></div>`;

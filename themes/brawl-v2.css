@@ -15,3 +15,25 @@
 @media(max-width:900px){.br-choices{grid-template-columns:repeat(3,minmax(0,1fr))}.br-workspace{grid-template-columns:minmax(0,1fr)}.br-syn{padding:8px 0}.br-synergies .br-income{margin-top:10px}.br-fighter .br-art{height:95px}}
 @media(max-width:600px){.br-section{padding:12px}.br-hero{padding:20px}.br-hero h3{font-size:28px}.br-choices{grid-template-columns:repeat(2,minmax(0,1fr))}.br-choice .br-art{height:90px}.br-stats>div{padding:10px 8px}.br-stats strong{font-size:21px}.br-stats small{font-size:10px}.br-bench{grid-template-columns:repeat(4,minmax(0,1fr))}.br-shop-slots{grid-template-columns:repeat(2,minmax(0,1fr))}.br-shop-empty{min-height:180px}.br-toolbar>div{width:100%}.br-toolbar .btn{flex:1}.br-footer{gap:12px}.br-footer p{flex-basis:100%;order:-1}.br-footer>.gold{flex:1;min-width:140px}.br-selection{flex-wrap:wrap}.br-selection .btn{width:100%}.br-arena{padding:10px;gap:7px;grid-template-columns:minmax(0,1fr)}.br-vs{text-align:center;padding:3px}.br-fighter .br-art{height:100px}.br-rank-list article{grid-template-columns:30px 1fr 45px}.br-rank-list small{grid-column:2 / 4}.br-result{padding:20px 0}.br-result h3{font-size:29px}.br-rewards{padding:15px}.br-rewards>div{grid-template-columns:1fr}.br-heading>div{width:100%}.br-heading>div .btn{flex:1}}
 @media(prefers-reduced-motion:reduce){.br-fighter,.br-hp i{transition:none}}
+/* 무대 재생(2026-10-08) — 4 대 4 를 마주 세운다. 배경 brawl-arena.webp 는 도트 경기장(opencode GPT · Z-Image, 기록 docs/art/brawl-arena-2026-10-08.md) — 아래 기준(92%)이라야 뒷줄도 바닥을 딛는다. 칸은 js/ui/brawl-view.js stageView · 연출은 js/ui/brawl-stage.js(battle-fx · motion) */
+.bs-stage{position:relative;height:clamp(280px,56vh,500px);width:100%;overflow:hidden;border:1px solid #3a505d;margin-bottom:12px;background:linear-gradient(180deg,#05101800 55%,#050c1455),url('../assets/backgrounds/brawl-arena.webp?v=1') center 92%/cover}
+.bs-u{position:absolute;left:calc(var(--x) - 7%);bottom:var(--y);width:14%;aspect-ratio:440/420;z-index:2}
+.bs-u.far{left:calc(var(--x) - 6%);width:12%;z-index:1}
+.bs-u img{display:block;width:100%;height:100%;object-fit:contain;filter:brightness(.86) saturate(.9)}
+/* 배경에 붙이기(2026-10-08 사용자 '기체와 배경이 따로 논다') — 발밑 그림자 · 밝기 한 단계 낮춤 · 진영 조명색 테두리빛(아군 청록 · 상대 주황, 배경 바닥 조명과 같은 축).
+   연출(battle-fx)은 칸(.bs-u)에 filter 를 걸고 img 는 건드리지 않는다 — 그래서 여기 filter 는 img 에만 */
+.bs-u::before{content:'';position:absolute;left:18%;right:18%;bottom:-3%;height:12%;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.75),rgba(0,0,0,0));z-index:-1;pointer-events:none}
+.bs-u[id^="fighter-p"] img{filter:brightness(.86) saturate(.9) drop-shadow(-3px 0 0 rgba(90,230,240,.28)) drop-shadow(0 0 10px rgba(80,220,230,.18))}
+.bs-u[id^="fighter-e"] img{filter:brightness(.86) saturate(.9) drop-shadow(3px 0 0 rgba(255,120,80,.28)) drop-shadow(0 0 10px rgba(255,110,70,.18))}
+.bs-plate{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:130%;text-align:center;line-height:1.2;pointer-events:none}
+.bs-plate b{font-size:11px;color:#e8f0f3;white-space:nowrap;text-shadow:0 1px 0 #000}.bs-plate .br-stars{font-size:9px;margin-left:3px}
+.bs-hp{position:relative;height:6px;margin:3px auto 0;width:80%;background:#05090f;border:1px solid #3a5060;border-radius:2px;overflow:hidden}
+.bs-hp>i{display:block;height:100%;background:linear-gradient(90deg,#27c96d,#8ef0a8);transition:width .25s}
+.bs-u[id^="fighter-e"] .bs-hp>i{background:linear-gradient(90deg,#e0585a,#ffa36b)}
+.bs-role{position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);font-size:9px;letter-spacing:1px;color:#9bb9c8;opacity:.75;white-space:nowrap}
+.bs-u.down{opacity:.32;filter:grayscale(1)}
+.bs-syn{position:absolute;top:8px;z-index:3;display:flex;flex-wrap:wrap;gap:4px;max-width:46%}.bs-syn.p{left:10px}.bs-syn.e{right:10px;justify-content:flex-end}
+.bs-syn span{font-size:10px;padding:2px 6px;color:#f3cb88;background:#0b1b26cc;border:1px solid #f3cb8866;border-radius:2px}
+.bs-log{min-height:3.4em}
+.bs-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}.bs-head b{font-size:15px;color:#e8f0f3}.bs-head b i{font-style:normal;color:#f3cb88;margin:0 4px}.bs-head small{margin-left:auto;font-size:11px;color:#7f97a4}
+@media(max-width:600px){.bs-stage{height:clamp(240px,46vh,340px)}.bs-u{width:18%;left:calc(var(--x) - 9%)}.bs-u.far{width:15%;left:calc(var(--x) - 7.5%)}.bs-plate b{font-size:9px}.bs-syn span{font-size:9px}}

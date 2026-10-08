@@ -2,18 +2,21 @@ import {act} from '../brawl.js';
 import {brawlView,brawlPhase} from './brawl-view.js';
 import {replayState,applyReplayEvent} from './brawl-replay.js';
 import {createCombatAudio} from '../audio-events.js';
+import {playBrawlStage} from './brawl-stage.js';
 
 const ERRORS={'offline':'서버에 연결되어 있지 않습니다.','brawl off':'운영 서버에서 아직 난투가 열리지 않았습니다.','gold':'난투 골드가 부족합니다.','full':'전투 배치와 대기석이 가득 찼습니다.','limit':'이 기체의 보유 한도에 도달했습니다.','empty board':'전투 배치에 최소 한 기체가 필요합니다.','empty slot':'빈 자리입니다.','no tickets':'남은 대여권이 부족합니다.','bad rental':'대여 목록이 바뀌었습니다. 다시 골라 주세요.','bad deck':'출전 목록을 다시 확인해 주세요.','deck too big':'대여와 보유 기체를 합친 출전 한도를 넘었습니다.','stale rev':'다른 창에서 기록이 바뀌었습니다. 최신 런을 불러왔습니다.','run active':'이미 진행 중인 런이 있습니다. 최신 런을 불러왔습니다.','no run':'이미 마감된 런입니다. 최신 기록을 확인했습니다.','state changed, retry':'서버 기록이 바뀌었습니다. 최신 기록을 확인했습니다.'};
 export function createBrawlManager(ctx){
  const doc=ctx.document||document;
  const timer=ctx.setTimeout||setTimeout,cancel=ctx.clearTimeout||clearTimeout;
- let session=null,pending=null,replayTimer=null,replayAudio=null;
+ let session=null,pending=null,replayTimer=null,replayAudio=null,stageRun=null;
  const same=t=>!!t&&ctx.state()===t.owner&&ctx.net.state.accountId===t.account;
  const busy=()=>same(pending);
  const visible=()=>same(session)&&!!doc.querySelector('#modal[open] .br-app');
  const blocked=()=>busy()||ctx.blocked?.()||!ctx.net.state.online;
  const walletSnapshot=()=>JSON.stringify([ctx.state().credits,ctx.state().scrap,ctx.state().cores,ctx.state().items]);
- function stopReplay(){if(replayTimer!=null)cancel(replayTimer);replayTimer=null;replayAudio?.stop();replayAudio=null;ctx.audio?.stop('brawl-result');}
+ function stopReplay(){if(replayTimer!=null)cancel(replayTimer);replayTimer=null;if(stageRun)stageRun.stop=true;stageRun=null;replayAudio?.stop();replayAudio=null;ctx.audio?.stop('brawl-result');}
+ /* 무대 재생(2026-10-08) — 진짜 화면 · 움직임 허용일 때만. 아니면(움직임 줄이기 · 검사) 옛 글자 판 재생 */
+ const canStage=()=>typeof document!=='undefined'&&doc===document&&typeof matchMedia==='function'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;
  function draw(notice){
   if(!visible())return;
   if(notice!==undefined)session.notice=notice;
@@ -110,8 +113,23 @@ export function createBrawlManager(ctx){
  function quit(){if(!editable()||!current())return;if(!session.quitConfirm){session.quitConfirm=true;return draw('런을 현재 승수로 마감합니다. 오늘의 첫 런이면 지금 승수에 맞는 보상이 지급됩니다.');}return write({action:'quit',rev:session.record.run.rev});}
  function replay(){
   if(!visible()||busy()||!session.fight?.events)return;
-  stopReplay();const s=session;s.phase='replay';s.replay=replayState(s.fight);s.cursor=0;draw('');
+  stopReplay();const s=session;s.phase='replay';s.replay=replayState(s.fight);s.cursor=0;s.stage=canStage();draw('');
   if(ctx.audio)replayAudio=createCombatAudio(ctx.audio,{scope:'brawl',active:()=>session===s&&same(s)&&visible()&&s.phase==='replay',unit:(side,i)=>{const u=(side==='P'?s.fight.me:s.fight.opponent).team[i|0];return u&&{type:u.type,maxhp:u.stats.hp};}});
+  const stageEl=s.stage&&doc.querySelector('#br-stage');
+  if(stageEl){
+   /* 무대 — 그리기는 brawl-stage 가, 상태 · 기록은 같은 reducer 가. 재생 중에는 draw() 로 무대를 다시 그리지 않는다(연출이 끊긴다) */
+   const run={stop:false};stageRun=run;
+   const live=()=>!run.stop&&session===s&&same(s)&&visible()&&s.phase==='replay';
+   const logEl=doc.querySelector('#br-log'),progEl=doc.querySelector('#br-progress'),total=s.fight.events.length;
+   playBrawlStage(stageEl,s.fight,{speed:()=>s.speed,active:live,names:{P:'우리 부대',E:s.fight.opponent.nickname},
+    onEvent:e=>{s.cursor++;applyReplayEvent(s.replay,e);replayAudio?.event(e);
+     if(logEl)logEl.innerHTML=s.replay.log.slice(-3).map(l=>`<p>${l.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</p>`).join('');
+     if(progEl)progEl.textContent=Math.floor(s.cursor/total*100)+'% 재생';}})
+   .then(w=>{if(!live()||stageRun!==run)return;stageRun=null;
+     if(w==null){for(;s.cursor<total;)applyReplayEvent(s.replay,s.fight.events[s.cursor++]);}   // 움직임 줄이기로 무대가 안 떴으면 결과만
+     s.phase='result';draw('');});
+   return;
+  }
   function step(){
    replayTimer=null;if(session!==s||!same(s)||!visible()||s.phase!=='replay'){stopReplay();return;}
    const events=s.fight.events,chunk=Math.max(1,Math.ceil(events.length/120));
@@ -131,5 +149,5 @@ export function createBrawlManager(ctx){
   if(s.phase!=='rank')s.beforeRank=s.phase;s.rank=r;s.phase='rank';draw('');
  }
  async function next(){if(!visible()||blocked())return;stopReplay();const done=session.fight?.done;session.fight=null;session.phase='workshop';if(done)return refresh();draw('');}
- return {busy,actions:{brawlHome:open,brawlRefresh:refresh,brawlChoose:choose,brawlStart:()=>write({action:'start',deck:session?.deck||[],rentals:session?.rentals||[]}),brawlSlot:moveSlot,brawlBuy:i=>doAct({t:'buy',i}),brawlAct:t=>['lock','reroll'].includes(t)&&doAct({t}),brawlSell:sell,brawlQuit:quit,brawlFight:()=>current()?.board.some(Boolean)&&write({action:'fight',rev:session.record.run.rev}),brawlRank:rank,brawlBack:()=>{if(!visible()||busy())return;session.phase=session.beforeRank||'workshop';draw('');},brawlContinue:next,brawlReplay:replay,brawlSkip:skip,brawlSpeed:()=>{if(!visible())return;session.speed=session.speed===1?2:session.speed===2?4:1;draw();}}};
+ return {busy,actions:{brawlHome:open,brawlRefresh:refresh,brawlChoose:choose,brawlStart:()=>write({action:'start',deck:session?.deck||[],rentals:session?.rentals||[]}),brawlSlot:moveSlot,brawlBuy:i=>doAct({t:'buy',i}),brawlAct:t=>['lock','reroll'].includes(t)&&doAct({t}),brawlSell:sell,brawlQuit:quit,brawlFight:()=>current()?.board.some(Boolean)&&write({action:'fight',rev:session.record.run.rev}),brawlRank:rank,brawlBack:()=>{if(!visible()||busy())return;session.phase=session.beforeRank||'workshop';draw('');},brawlContinue:next,brawlReplay:replay,brawlSkip:skip,brawlSpeed:()=>{if(!visible())return;session.speed=session.speed===1?2:session.speed===2?4:1;if(stageRun){const b=doc.querySelector('#br-speed');if(b)b.textContent='속도 ×'+session.speed;return;}draw();}}};
 }

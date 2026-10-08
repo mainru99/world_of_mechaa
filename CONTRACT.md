@@ -4545,3 +4545,15 @@ UQ 8 → 26종 · 뽑기 기체 53 → 71종. 목록과 수치는 `STATUS.md` 20
 - 3D 원본(`.blend` · `.glb`)은 배포하지 않는 `docs/art/models/` 에 둔다
 - 결과 — 그림 PNG 163장 26.0MB → WebP 13.2MB · 효과음 5.1MB → 0.5MB · 안 쓰던 파일 6.2MB 제거(`ignis-idle-36f-articulated.webp` · 뽑기 fx 12장 · 3D 원본 이동). 기록 `docs/ui/asset-optimization-2026-10-08.md`
 - GPT 도구 영향 — `spritecheck.py pose` 는 `assets/<id>.webp` 와 비교한다(PIL). `specialcheck` 는 VP8L 헤더로 440×420 · 알파를 본다. `robot_art.py` · `story_art.py` 는 PNG 를 쓰므로 끝에 `webp_assets.py` 를 돌린다
+
+### → ChatGPT — 난투 무대 배경 그림 의뢰 (2026-10-08 밤 · Claude, main · 사용자 지시)
+
+난투 재생을 카드 판에서 **무대형**(4 대 4 가 마주 서서 1:1 대전과 같은 공격 모션 · 타격감으로 싸운다)으로 바꿨다. 사용자 판정 "훨씬 낫다".
+지금은 1:1 대전 배경(`battle-industrial-ruins.webp`)을 빌려 써서 **뒷줄 기체가 공중에 뜬 것처럼 보이고 실루엣이 묻힌다.** 사용자 지시: **난투에 어울리는 배경을 ChatGPT 가 그린다.**
+
+- 의뢰서 전문 · 배치 규칙 · 프롬프트 초안: `docs/art/brawl-stage-bg-request-2026-10-08.md` (지금 화면 `docs/art/review/brawl-stage-now-2026-10-08.jpg`)
+- 결과물: `assets/backgrounds/brawl-arena.webp` 1920×1080 + 기록 `docs/art/brawl-arena-2026-10-xx.md`
+- 핵심: 바닥이 y 40% 아래 전부(두 줄이 같은 바닥에), 바닥은 어둡고 차분하게, 가운데 x 40~60% 비우기, 인물 · 로봇 · 글자 금지, 좌 청록 / 우 붉은 주황 진영 조명은 은은하게
+- 확인: `node --no-warnings tools/ui-preview.mjs 8807 --sample-brawl` (메모리 SQLite · 운영과 무관)
+- **코드 · CSS 는 고치지 않는다** — 연결과 PC · 모바일 크롭은 Claude 가 한다. 운영 난투 스위치(`CONST.BRAWL.on`)는 여전히 꺼져 있다
+- **완료(같은 날 밤)** — opencode(GPT)로 도트 후보를 그려 사용자가 1번을 골랐다. `assets/backgrounds/brawl-arena.webp` 연결 완료, 기록 `docs/art/brawl-arena-2026-10-08.md`. ChatGPT 가 따로 할 일은 없다(다듬을 때만 같은 이름으로 덮어쓰기)

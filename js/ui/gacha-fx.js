@@ -33,6 +33,8 @@ export function preloadGachaFx() {
   const base = new Image(); base.src = asset('gacha/core-capsule.webp'); CAPS.base = base;
 }
 const ok = im => im && im.complete && im.naturalWidth > 0;
+/* 그림이 다 받아지고 풀릴 때까지 — 안 받아진 효과는 그리기에서 조용히 빠지므로(첫 뽑기에 일부만 보였다 · 사용자 제보) 시작 전에 기다린다 */
+const ready = im => !im || ok(im) ? Promise.resolve() : im.decode ? im.decode().catch(() => {}) : new Promise(r => { im.addEventListener('load', r, { once: true }); im.addEventListener('error', r, { once: true }); });
 const tintCache = new Map();
 function tinted(name, rgb) {
   const key = name + '|' + rgb, hit = tintCache.get(key); if (hit) return hit;
@@ -391,6 +393,10 @@ export function playGacha({ tier = 0, hero = {}, name = '', sub = '', rk = '', c
     (async () => {
       try {
         if (reduced) throw SKIP;
+        { const ck = T.k.toLowerCase(), cellImgs = cells.map(c => { const im = new Image(); im.src = c.src; return im; });
+          const need = [...Object.values(IMG), CAPS[ck], CAPS[ck + '-crack1'], tier === 4 ? CAPS['ep-crack2'] : null, CAPS.base, ...root.querySelectorAll('.gx-robot img'), ...cellImgs];
+          await Promise.race([Promise.all(need.map(ready)), sleep0(2500)]);
+          if (skipped) throw SKIP; }
         /* 무대를 연다 — 바닥 고리 · (높은 등급은) 레터박스 */
         floorRing(tier >= 3 ? '150,170,200' : T.rgb, 190 + tier * 20); if (tier >= 2) ember(CX(), H * .6, T.rgb, 6 + tier * 4);
         if (tier >= 3) { letterbox(true, 600); vignette('#02040a', .7, 700); snd('miss', { gain: .7, max: .5 }); }

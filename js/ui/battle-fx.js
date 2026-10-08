@@ -492,7 +492,8 @@ export function createBattleFx(arena, { speed = () => 1 } = {}) {
     cancelAnimationFrame(raf); clearInterval(iv); ro?.disconnect();
     for (const w of waiters) w.res(); waiters = []; timers = [];
     canvas.remove(); nums.remove(); danger.remove();
-    for (const U of Object.values(F)) { const el = elOf(U.k); if (el) { el.style.translate = el.style.rotate = el.style.scale = el.style.filter = ''; el.style.opacity = ''; } }
+    /* 격파된 기체는 쓰러진 모습 그대로 둔다 — 지우면 결과 화면이 뜨기 전 몇 프레임 동안 멀쩡한 기체로 돌아온다(사용자 제보) */
+    for (const U of Object.values(F)) { const el = elOf(U.k); if (el && !U.dead) { el.style.translate = el.style.rotate = el.style.scale = el.style.filter = ''; el.style.opacity = ''; } }
     arena.style.translate = arena.style.rotate = '';
     for (const B of Object.values(bars)) B.el.remove();
   }

@@ -285,7 +285,14 @@ const server=http.createServer(async(req,res)=>{
   const name=decodeURIComponent(url.pathname==='/'?'/index.html':url.pathname);
   const allowed=name==='/index.html'||name==='/style.css'||/^\/(assets|js|data|themes)\//.test(name);
   const file=resolve(root,'.'+name);
-  if(!allowed||!file.startsWith(root+sep)||!mime[extname(file)]||!(await stat(file)).isFile()){res.writeHead(404);res.end('Not found');return;}
+  const info=allowed&&file.startsWith(root+sep)&&mime[extname(file)]?await stat(file):null;
+  if(!info?.isFile()){res.writeHead(404);res.end('Not found');return;}
+  /* 그림 · 소리는 운영처럼 다시 받지 않게 — 바뀐 파일만 새로 받는다(ETag · 304). 예전엔 no-store 라 화면을 다시 그릴 때마다 전부 다시 받았다 */
+  if(name.startsWith('/assets/')){
+   const etag=`"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`;
+   if(req.headers['if-none-match']===etag){res.writeHead(304,{etag,'cache-control':'no-cache'});res.end();return;}
+   res.writeHead(200,{'content-type':mime[extname(file)],'cache-control':'no-cache',etag,'x-content-type-options':'nosniff'});res.end(await readFile(file));return;
+  }
   let content=await readFile(file);
   if(sampleBrawl&&name==='/data/balance.js')content=content.toString().replace(/(BRAWL: \{\r?\n\s*on:) false/,'$1 true');
   if(name==='/index.html'){
